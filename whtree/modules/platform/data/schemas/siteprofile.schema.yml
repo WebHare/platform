@@ -759,7 +759,7 @@ $defs:
         type:
           description: The type of the metadata field
           type: string
-        requireRight:
+        requireRight: # TODO shouldn't this mirror AccessCheck, or perhaps even offer read & read/write checks combined with AccessCheck?
           type: string
           description: Require this right to edit this field
         tabsExtension:
@@ -1430,6 +1430,34 @@ $defs:
         type: string
       errorPath:
         type: string
+      ipCheckIsSufficient:
+        type: boolean
+        description: If true, passing the ipAccessList is sufficient to pass the authentication checks for this rule
+      ipAccessList:
+        type: array
+        items:
+          type: object
+          description: Lists IP (ranges) allowed or denied access to this path
+          oneOf:
+            - type: object
+              required: [allow]
+              additionalProperties: false
+              properties:
+                allow:
+                  $ref: "#/$defs/MaskIPRange"
+                  type: string
+                  description: An IP address or CIDR range to allow access
+            - type: object
+              required: [deny]
+              additionalProperties: false
+              properties:
+                deny:
+                  $ref: "#/$defs/MaskIPRange"
+                  type: string
+                  description: An IP address or CIDR range to deny access
+      accessCheck:
+        description: "Check for user rights"
+        $ref: "#/$defs/AccessCheck"
 
   Component:
     type: object
@@ -1584,3 +1612,27 @@ $defs:
 
       defaultBlockStyle:
         type: string
+
+  MaskIPRange:
+    type: string
+    description: An IP address or CIDR range
+    oneOf:
+      - description: IPv4 CIDR pattern
+        type: string
+        pattern: "^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(/(3[0-2]|[12]?[0-9]))?$"
+      - description: IPv6 CIDR pattern
+        type: string
+        pattern: "^[0-9a-fA-F:]+(/[0-9]+)?$"
+      - description: Consilio fetcher (maps to 100::cccc:ffff/128)
+        const: consilio-fetcher
+
+  AccessCheck:
+    type: object
+    oneOf:
+      - type: object
+        required: [requireRight]
+        additionalProperties: false
+        properties:
+          requireRight:
+            description: WebHare User right required from currently wrd authenticated user
+            type: string

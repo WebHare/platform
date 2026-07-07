@@ -47,15 +47,15 @@ export interface Check {
   value: string;
 }
 
-export interface Accesscheck {
+export interface CSPAccessCheck {
   checks: Check[];
   combine: string;
   type: string;
 }
 
-export interface Checkandvm {
-  accesscheck: Accesscheck;
-  // errors: any[]; TODO what's the type?
+export interface CSPCheckandvm {
+  accesscheck: CSPAccessCheck | null;
+  errors: string[];
 }
 
 export interface Csp {
@@ -130,7 +130,7 @@ export interface Rule {
   applyruleset: string;
   authrequired: boolean;
   cachecontrol: string;
-  checkandvm: Checkandvm | null;
+  checkandvm: CSPCheckandvm | null;
   csps: Csp[];
   data: RuleData | null;
   datastorage: Datastorage2[];

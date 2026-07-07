@@ -5,7 +5,7 @@ import { backendConfig, parseResourcePath, resolveResource, toFSPath, WebHareBlo
 import type { CSPApplyRule, CSPContentType, CSPDynamicExecution, CSPMember, CSPModifyType, CSPSiteSetting, CSPSource, CSPWebRule, CSPWidgetEditor } from "@webhare/whfs/src/siteprofiles";
 import { compareProperties, nameToCamelCase, omit, regExpFromWildcards, throwError, toCamelCase, typedEntries, typedFromEntries } from "@webhare/std";
 import { whconstant_builtinmodules, whconstant_defaultwidgetgroup } from "@mod-system/js/internal/webhareconstants";
-import type { AllowDenyTypeList, ApplyRule, ApplyTypes, BaseType, DataFileType, DynamicExecution, FolderType, InstanceType, PageType, RTDType, SiteProfile, SiteSetting, Sources, Type, TypeMembers, UploadType, WebRule, WidgetEditor, WidgetType } from "@mod-platform/generated/schema/siteprofile";
+import type { AccessCheck, AllowDenyTypeList, ApplyRule, ApplyTypes, BaseType, DataFileType, DynamicExecution, FolderType, InstanceType, PageType, RTDType, SiteProfile, SiteSetting, Sources, Type, TypeMembers, UploadType, WebRule, WidgetEditor, WidgetType } from "@mod-platform/generated/schema/siteprofile";
 import { membertypenames } from "@webhare/whfs/src/describe";
 import YAML from "yaml";
 import { runJSBasedValidator } from "@mod-platform/js/devsupport/validation";
@@ -21,6 +21,7 @@ import { elements } from "@mod-system/js/internal/generation/xmlhelpers";
 import { DOMParser, XMLSerializer } from "@xmldom/xmldom";
 import { rewriteResource } from "@mod-devkit/js/validation/rewrite";
 import type { WHFSTypeName } from "@webhare/whfs";
+import type { CSPAccessCheck } from "@mod-platform/js/webserver/webconfig";
 
 type ImportContext = {
   topLevelGid: string;
@@ -127,7 +128,24 @@ function importRTDType(ctxt: ImportContext, rt: CSPContentType): RTDType {
   };
 }
 
+function importAccessCheck(ctxt: ImportContext, check: CSPAccessCheck): AccessCheck {
+  if (check.combine === "and" && check.checks.length === 1) {
+    if (check.checks[0].type === "right")
+      return { requireRight: check.checks[0].value };
+  }
+
+  //we might not even see more complex access checks outside site profiles
+  throw new Error(`Check too complex to convert: ${JSON.stringify(check, null, 2)}`);
+}
+
 function importWebRule(ctxt: ImportContext, wr: CSPWebRule): WebRule {
+  const ipList: WebRule["ipAccessList"] = wr.rule.iplist.
+    toSorted((a, b) => (a.is_allow ? 1 : 0) - (b.is_allow ? 1 : 0)).
+    map(ip => {
+      const mask = ip.mask === "100::cccc:ffff/128" ? "consilio-fetcher" : ip.mask;
+      return ip.is_allow ? { allow: mask } : { deny: mask };
+    });
+
   return {
     path: wr.rule.path + (wr.rule.matchtype === 1 ? "*" : ""),
     ...wr.rule.priority ? { priority: wr.rule.priority === 1000 ? "after" : "before" } : {},
@@ -136,6 +154,10 @@ function importWebRule(ctxt: ImportContext, wr: CSPWebRule): WebRule {
     ...wr.rule.addheaders.length ? { headers: Object.fromEntries(wr.rule.addheaders.map(h => [h.name, h.value])) } : {},
     ...wr.rule.ruledata?.router ? { router: wr.rule.ruledata.router } : {},
     ...wr.rule.allowallmethods ? { methods: "*" } : {},
+    ...wr.rule.authrequired === false ? { ipCheckIsSufficient: true } : {},
+    ...wr.rule.checkandvm?.accesscheck ? { accessCheck: importAccessCheck(ctxt, wr.rule.checkandvm.accesscheck) } : {},
+    //Sort IPlist: order 'is_deny' before 'is_allow' to match WH5.9 behavior
+    ...ipList.length ? { ipAccessList: ipList } : {}
   };
 }
 
