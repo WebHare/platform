@@ -243,7 +243,6 @@ function importCtype(ctxt: ImportContext, ct: CSPContentType): Type {
       retval = {
         ...retval,
         metaType: "page",
-        workflow: !ct.filetype.initialpublish,
         //the following settings default to true so we only make 'false' explicit
         ...!ct.filetype.isacceptableindex ? { isAcceptableIndex: false } : {},
         ...!ct.filetype.needstemplate ? { useWebDesign: false } : {},
@@ -266,13 +265,14 @@ function importCtype(ctxt: ImportContext, ct: CSPContentType): Type {
   } else {
     retval = {
       ...retval,
-      workflow: false,
       ...(!ct.cloneoncopy ? { clone: "never" } : {}),
     } satisfies BaseType & InstanceType;
   }
 
   if (ct.members?.length)
     retval.members = getMembers(ct.members);
+  if (ct.workflow)
+    retval.clone = "onDraft";
 
   return retval;
 }
