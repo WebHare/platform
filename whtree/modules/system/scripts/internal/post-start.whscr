@@ -137,7 +137,7 @@ IF (IsDatabaseWritable()) {
   UpdateSystemBackendSite();
   trans->CommitWork();
 
-  // Rebuild various webhare pregenerated files so they are available before poststart completes (TODO we may need to generate non type-info stubs for missing files so scripts have something to import)
+  // Rebuild various webhare pregenerated files so they are available before poststart completes
   LogDebug("system:poststart", "Start ApplyWebHareConfiguration");
   ApplyWebHareConfiguration([ subsystems := [ "config" ], source := "post-start" ]);
 
