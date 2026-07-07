@@ -473,8 +473,13 @@ void Connection::DoAccessCheck(AccessRules const &rules, std::string const &test
                 if(itr->fixcase)
                     request->fixcase = true;
 
-                //Check the IP access list!
-                bool on_allow_list=false, on_deny_list=false;
+                /* Check the IP access list.
+
+                   WebHare originally didn't order the list, but would process all entries and allow access unless you were on the denylist and not the allow list
+
+                   We now process the list in sequence. The last matching entry wins. If unmatched, the default is to allow access. WebHare should send us
+                   database access rules stored (which have no allow/deny ordering) in deny, allow order to achieve the same effect */
+                bool failed_ip_check = false;
                 Blex::SocketAddress sockaddr = GetRequest().remoteaddress;
                 for (std::vector<IPRule>::const_iterator ip_itr=itr->ip_masks.begin();ip_itr!=itr->ip_masks.end();++ip_itr)
                 {
@@ -482,10 +487,9 @@ void Connection::DoAccessCheck(AccessRules const &rules, std::string const &test
                         if(sockaddr.IsSameIPPrefixAs(ip_itr->address, ip_itr->prefixlength))
                         {
                                 DEBUGPRINT("ACCESSCHECK: it's a match! " << (ip_itr->is_allow ? "ALLOW" : "DENY"));
-                                (ip_itr->is_allow ? on_allow_list : on_deny_list) = true;
+                                failed_ip_check = !ip_itr->is_allow;
                         }
                 }
-                bool failed_ip_check = on_deny_list && !on_allow_list;
                 DEBUGONLY(if(failed_ip_check) DEBUGPRINT("ACCESSCHECK: IP check failed. authrequired= " << (itr->authrequired?"yes":"no")));
 
                 //Add headers immediately so customhandlers have a chance to remove them (eg security headers blocking login pages)
