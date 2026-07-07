@@ -90,7 +90,7 @@ PUBLIC RECORD FUNCTION GetCachedDataFromURL(STRING url, RECORD options DEFAULTST
         }
 
         mimetype := GetImageMimetype(analyzed.extension);
-        IF(IsWasm() OR mimetype IN ["image/webp","image/avif"])
+        IF(IsWasm() OR mimetype IN ["image/webp","image/avif"] OR info.mimetype IN ["image/webp","image/avif"])
         {
           STRING jsresulttxt :=
                   CallJS("@mod-platform/js/cache/imgcache.ts#returnImageForCache",

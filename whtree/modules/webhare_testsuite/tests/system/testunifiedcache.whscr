@@ -260,6 +260,13 @@ MACRO ImgCacheTest()
   TestEq("image/webp", cacheddata.mimetype);
   TestEq(25, Max[]([ INTEGER(ScanBlob(cacheddata.data).height), ScanBlob(cacheddata.data).width ]), "GetCachedDataFromURL for FSImages did not resize");
 
+  // Test converting a WEBP using GetCachedDataFromURL back to JPEG
+  OBJECT snowbeagle_webp := OpenTestsuiteJSSite()->OpenByPath("photoalbum/snowbeagle.webp");
+  STRING snowbeagle_webp_link := GetCachedFSImageURL(baseurl, snowbeagle_webp->id, [ method := "scale", setwidth:=25, setheight:=25, grayscale := TRUE, format := "image/jpeg" ]);
+  cacheddata := GetCachedDataFromURL(snowbeagle_webp_link);
+  TestEq("image/jpeg", cacheddata.mimetype);
+  TestEq(25, Max[]([ INTEGER(ScanBlob(cacheddata.data).height), ScanBlob(cacheddata.data).width ]), "GetCachedDataFromURL for FSImages did not resize (using TS)");
+
   testfw->CommitWork();
 }
 
