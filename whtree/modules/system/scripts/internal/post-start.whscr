@@ -1,10 +1,8 @@
 ﻿<?wh
 
-LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::float.whlib";
 LOADLIB "wh::os.whlib";
-LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -113,24 +111,6 @@ IF (IsDatabaseWritable()) {
     //update WRD schemas for non-core modules
     UpdateAllModuleSchemas(CELL[modules]);
   }
-
-  //TODO when installing, initdb_phase2 will have taken care of siteprofile compilation through UpdateBackendSite. we might see if we can have initdb_phase2 stop doing that ?
-
-  //just in case this serverm missed its initdb due to odd upgrade ordering
-  trans->BeginWork();
-  IF(ReadRegistryKey("system.global.servername") = "")
-    WriteRegistryKey("system.global.servername", GetSystemHostName(TRUE));
-  IF(ReadRegistryKey("system.global.installationid") = "")
-    WriteRegistryKey("system.global.installationid", GenerateUFS128BitId());
-  IF(ReadRegistryKey("system.webserver.security.cachesecret")="")
-    WriteRegistryKey("system.webserver.security.cachesecret", GenerateUFS128BitId()||GenerateUFS128BitId());
-  IF(ReadRegistryKey("system.webserver.security.cookiesecret")="")
-    WriteRegistryKey("system.webserver.security.cookiesecret", GenerateUFS128BitId()||GenerateUFS128BitId());
-  IF(ReadRegistryKey("system.webserver.security.debugsecret")="")
-    WriteRegistryKey("system.webserver.security.debugsecret", GenerateUFS128BitId()||GenerateUFS128BitId());
-  IF(ReadRegistryKey("system.webserver.security.gcmsecret")="")
-    WriteRegistryKey("system.webserver.security.gcmsecret", EncodeUFS(DecodeUFS(GenerateUFS128BitId())||DecodeUFS((GenerateUFS128BitId()))));
-  trans->CommitWork();
 
   trans->BeginWork();
   LogDebug("system:poststart", "Start UpdateSystemBackendSite");
