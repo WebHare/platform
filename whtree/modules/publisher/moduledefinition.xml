@@ -176,8 +176,9 @@
       <d:integer name="file" noupdate="1" nullable="0" ondelete="cascade" references="system.fs_objects" />
       <d:integer name="folder" ondelete="cascade" references="system.fs_objects" />
       <d:datetime name="when" nullable="0" />
-      <d:integer name="modifiedby" ondelete="set default" references="system.authobjects">
-        <d:documentation>The id of the user that last modified this task</d:documentation>
+      <d:obsoletecolumn name="modifiedby" /> <!-- was this column ever set? hasn't been for a long time. reintroduce new column 'owner' as that's more useful to track -->
+      <d:integer name="owner" ondelete="set default" references="system.authobjects">
+        <d:documentation>The id of the user that created this task</d:documentation>
       </d:integer>
     </d:table>
 

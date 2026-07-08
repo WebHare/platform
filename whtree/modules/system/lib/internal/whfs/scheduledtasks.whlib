@@ -11,12 +11,40 @@ LOADLIB "mod::publisher/lib/internal/files.whlib";
 
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 BOOLEAN report := TRUE; //ADDME: Allow us to set this through the registry
+
+RECORD FUNCTION UnparseTask(INTEGER event, INTEGER folder) {
+  SWITCH(event) {
+    CASE whconstant_publisherschedule_publish {
+      RETURN CELL [ task := "publish" ];
+    }
+    CASE whconstant_publisherschedule_depublish {
+      RETURN CELL [ task := "depublish" ];
+    }
+    CASE whconstant_publisherschedule_move {
+      RETURN CELL [ task := "move", taskdata := [ destfolder := folder ] ];
+    }
+    CASE whconstant_publisherschedule_delete {
+      RETURN CELL [ task := "delete" ];
+    }
+    CASE whconstant_publisherschedule_setindexdoc {
+      RETURN CELL [ task := "setindexdoc" ];
+    }
+    CASE whconstant_publisherschedule_replace {
+      RETURN CELL [ task := "replacewith", taskdata := [ source := folder ]];
+    }
+    DEFAULT{
+      RETURN DEFAULT RECORD;
+    }
+  }
+}
+
 
 ///update a status mask to set the schedule bit to the new state for the fsobj. separate function so it can run inside UPDATE's record lock
 INTEGER FUNCTION SetScheduleBit(INTEGER fileid,INTEGER status)
@@ -236,7 +264,7 @@ PUBLIC MACRO ExecuteScheduledTask(RECORD task)
 
   IF (task.event = whconstant_publisherschedule_publish) //Start publish/republish
     DoStartPublish(task);
-  ELSE IF (task.event = whconstant_publisherschedule_unpublish)
+  ELSE IF (task.event = whconstant_publisherschedule_depublish)
     DoStopPublish(task);
   ELSE IF (task.event = whconstant_publisherschedule_move)
     DoMoveFile(task);
@@ -256,4 +284,67 @@ PUBLIC MACRO ExecuteScheduledTask(RECORD task)
 PUBLIC RECORD ARRAY FUNCTION GetScheduledTasksToExecute()
 {
   RETURN SELECT * FROM publisher.schedule WHERE when <= GetCurrentDateTime() ORDER BY when;
+}
+
+CONSTANT STRING ARRAY tasktypes := ["publish","depublish","move","delete","setindexdoc","replacewith"];
+
+/** List scheduled tasks */
+PUBLIC RECORD ARRAY FUNCTION ListScheduledWHFSTasks(INTEGER fsobjectid) {
+  RECORD ARRAY tasks :=
+        SELECT id, when, unparsed := UnparseTask(event,folder), owner
+          FROM publisher.schedule
+         WHERE file = fsobjectid;
+
+  RETURN SELECT id, when, owner, ...unparsed
+           FROM tasks
+          WHERE RecordExists(unparsed)
+       ORDER BY when;
+}
+
+/** Add a scheduled task for a file or folder
+    @param when When to execute the task. Times in the past are okay, but default/max are not.
+    @param tasktype Task to execute at the specified date. Eg "replacewith"
+    @return New task id */
+PUBLIC INTEGER FUNCTION AddScheduledWHFSTask(INTEGER target, STRING tasktype, DATETIME when, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  IF(tasktype NOT IN tasktypes)
+    THROW NEW Exception(`Unknown task type '${tasktype}', accepted are: ${Detokenize(tasktypes,',')}`);
+
+  STRING ARRAY required := ["owner"];
+  options := ValidateOptions(CELL[ owner := 0
+                                 , source := 0
+                                 , destfolder := 0
+                                ], options, CELL [required]);
+
+  RECORD taskdata :=
+      CELL[ id := MakeAutonumber(publisher.schedule, "ID")
+          , event := SearchElement(tasktypes, tasktype) + 1
+          , options.owner
+          , when
+          , file := target
+          , folder := options.destfolder ?? options.source
+          ];
+
+  IF(tasktype = "move" AND options.destfolder = 0)
+    THROW NEW Exception(`Task type 'move' requires a destination folder`);
+  IF(tasktype != "move" AND options.destfolder != 0)
+    THROW NEW Exception(`Task type '${tasktype}' should not have a destination folder`);
+  IF(tasktype = "replacewith") {
+    IF(options.source = 0)
+      THROW NEW Exception(`Task type 'replacewith' requires a source file`);
+
+    RECORD sourceinfo := SELECT id, type, isfolder FROM system.fs_objects WHERE id = options.source;
+    ValidateReplaceWith(OpenWHFSObject(target), sourceinfo);
+  }
+  IF(tasktype != "replacewith" AND options.source != 0)
+    THROW NEW Exception(`Task type '${tasktype}' should not have a source file`);
+
+  INSERT taskdata INTO publisher.schedule;
+
+  // mark the file as having a schedule attached
+  UPDATE system.fs_objects
+         SET published := SetFlagsInPublished(published, PublishedFlag_Scheduled, TRUE)
+         WHERE id = VAR target;
+
+  ScheduleTimedTask("publisher:scheduledtasks", CELL[when]);
+  RETURN taskdata.id;
 }
