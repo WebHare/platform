@@ -6,6 +6,7 @@
     @topic sitedev/dynamic
 */
 
+LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib" EXPORT FormatHttpDateTime;
 LOADLIB "wh::files.whlib";
@@ -926,4 +927,16 @@ PUBLIC RECORD FUNCTION GetUploadedFile(STRING token)
              , data := MakeComposedBlob(ToRecordArray(parts,'data'))
              , filename := details.filename
              ];
+}
+
+RECORD FUNCTION GetCacheableWebHareBackendURLs() {
+  RETURN CELL [ value := CallJS("@mod-platform/js/configure/webservers.ts#listWebHareBackendURLs"), ttl := 15*1000 ];
+}
+
+/** Prevent external iframes but trust the WebHare UI */
+PUBLIC MACRO SetWebhareEmbeddedPageCSP() {
+  STRING ARRAY backendurls := GetAdhocCached(CELL[ type := "backendurls" ], PTR GetCacheableWebHareBackendURLs);
+  AddHTTPHeader("Content-Security-Policy", `frame-ancestors ${Detokenize(backendurls, ' ')}`, FALSE);
+  AddHTTPHeader("X-Frame-Options", "", FALSE);
+
 }
