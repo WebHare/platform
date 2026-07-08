@@ -219,7 +219,7 @@ PUBLIC STATIC OBJECTTYPE BundleProps EXTEND TolliumScreenBase
 
   MACRO DoDownloadmetafile(OBJECT filereceiver)
   {
-    STRING metafile := CallJS("@mod-platform/js/assetpacks/support.ts#getAssetPackMetaDataFile", this->outputtag);
+    STRING metafile := CallJS("mod::platform/js/assetpacks/support.ts#getAssetPackMetadataFile", this->outputtag);
     IF(Length(metafile) > 0)
       filereceiver->SendFile(StringToBlob(metafile), "application/json", "metafile-" || Substitute(this->outputtag, ":", "-") || ".json");
     ELSE
