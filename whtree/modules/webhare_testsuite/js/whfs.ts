@@ -54,7 +54,7 @@ export async function getAsDoc(whfspath: string) {
     if (!builder)
       throw new Error(`No builder found for this page`);
 
-    return { response: await builder(sitereq), link: whfsobj.link };
+    return { response: await builder(sitereq), link: whfsobj.link, id: whfsobj.id };
   });
   return { response, ...parseResponse(await response.text()), url: link };
 }
@@ -70,7 +70,7 @@ export async function fetchAsDoc(whfspath: string, urlVars: Record<string, strin
   const fetchResult = await fetch(link);
   test.assert(fetchResult.ok, `Failed to fetch ${whfspath}: ${fetchResult.status} ${fetchResult.statusText}`);
 
-  return parseResponse(await fetchResult.text());
+  return { ...parseResponse(await fetchResult.text()), id: whfsobj.id };
 }
 
 /** Fetch the preview for a file */
@@ -84,7 +84,7 @@ export async function fetchPreviewAsDoc(toPreview: string | number, urlVars: Rec
   const fetchResult = await fetch(link);
   test.assert(fetchResult.ok, `Failed to fetch preview link: ${fetchResult.status} ${fetchResult.statusText}`);
 
-  return { ...parseResponse(await fetchResult.text()), headers: fetchResult.headers, url: link.toString() };
+  return { ...parseResponse(await fetchResult.text()), headers: fetchResult.headers, url: link.toString(), id: whfsobj.id };
 }
 
 export async function listObjHistory(id: number) {
