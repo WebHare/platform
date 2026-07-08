@@ -4,7 +4,7 @@ import { readRegistryKey, writeRegistryKey, getRegistryKeyEventMasks, WebHareBlo
 import { deleteRegistryKey, deleteRegistryNode, signalOnRegistryKeyChange, splitRegistryKey } from "@webhare/services/src/registry";
 import { Money } from "@webhare/std";
 import * as test from "@webhare/test-backend";
-import { beginWork, commitWork, db } from "@webhare/whdb";
+import { beginWork, commitWork, db, runInWork } from "@webhare/whdb";
 
 async function testLowLevel() {
   test.eq({
@@ -34,6 +34,8 @@ async function testLowLevel() {
   "webhare_testsuite:tests.secondhareinterface" satisfies RegistryKeyOfType<string>;
   //@ts-expect-error -- taskthrownow is of type boolean
   "webhare_testsuite:tests.taskthrownow" satisfies RegistryKeyOfType<string>;
+
+  "webhare_testsuite:tests.lastaftercompile" satisfies RegistryKeyOfType<Temporal.Instant>;
 
   //Ensure readRegistryKey trusts RegistryKeyOfType<boolean>
   const booleanKey: RegistryKeyOfType<boolean> = "webhare_testsuite:tests.taskthrownow";
@@ -87,7 +89,10 @@ async function doKeyTests(basename: string, { acceptInvalidKeyNames = false } = 
 
 async function testRegistry() {
   await readRegistryKey("system:backend.development.manualdebugmgr");
-  await readRegistryKey("system:backend.development.manualdebugmgr");
+
+  const now = Temporal.Now.instant();
+  await runInWork(() => writeRegistryKey("webhare_testsuite:tests.lastaftercompile", now));
+  test.eq(now, await readRegistryKey("webhare_testsuite:tests.lastaftercompile"));
 
   test.eq(['system:registry.webhare_testsuite.x3', 'system:registry.webhare_testsuite.y1'], getRegistryKeyEventMasks(["webhare_testsuite.y1.testkey", "webhare_testsuite.y1.testkey2", "webhare_testsuite.x3.testkey"]));
   test.eq(['system:registry.webhare_testsuite.x3', 'system:registry.webhare_testsuite.y1'], getRegistryKeyEventMasks(["webhare_testsuite:y1.testkey", "webhare_testsuite.y1.testkey2", "webhare_testsuite:x3.testkey"]));

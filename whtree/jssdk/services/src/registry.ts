@@ -1,5 +1,5 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { stdTypeOf, throwError } from "@webhare/std";
+import { isDate, isTemporalInstant, stdTypeOf, throwError } from "@webhare/std";
 import { broadcastOnCommit, db, uploadBlob } from "@webhare/whdb";
 import * as crypto from "node:crypto";
 import { readAnyFromDatabase } from "@webhare/whdb/src/formats";
@@ -102,6 +102,8 @@ export async function readRegistryKey(key: string, defaultValue?: unknown, opts?
       if (defaultType !== keyType && (defaultType !== "null" || typeof keyinfo.value !== "object")) //FIXME needs more smarts for Money/Date etc types
         throw new Error(`Invalid type in registry for registry key '${key}', got ${keyType} but expected ${defaultType}`);
     }
+    if (isDate(keyinfo.value))
+      return keyinfo.value.toTemporalInstant();
     return keyinfo.value;
   }
 
@@ -132,6 +134,9 @@ export async function writeRegistryKey(key: string, value: unknown, options?: { 
     if (curvaltype !== newvaltype)
       throw new Error(`Invalid type in registry for registry key '${key}', got ${getHSTypeName(curvaltype)} but expected ${getHSTypeName(newvaltype)}`);
   }
+
+  if (isTemporalInstant(value))
+    value = new Date(value.epochMilliseconds);
 
   const newvalue = encodeHSON(value as IPCMarshallableData);
   const newdata = Buffer.from(newvalue).length <= 4096 ? newvalue : "";
