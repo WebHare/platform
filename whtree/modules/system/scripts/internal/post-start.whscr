@@ -105,7 +105,7 @@ IF (IsDatabaseWritable()) {
   STRING ARRAY modules := ArrayDelete(GetInstalledModuleNames(), whconstant_builtinmodules);
   IF(Length(modules) > 0) {
     LogDebug("system:poststart", "Startup non core modules");
-    WebHareStartup(modules, FALSE);
+    WebHareStartup(modules, debug);
 
     LogDebug("system:poststart", "Apply non core module WRD schemas");
     //update WRD schemas for non-core modules
