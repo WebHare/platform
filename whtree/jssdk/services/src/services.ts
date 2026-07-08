@@ -27,7 +27,7 @@ export { lockMutex, hasMutex, type Mutex } from "./mutex";
 export { TaskRequest, scheduleTask, scheduleTimedTask, retrieveTaskResult, cancelTask, cancelManagedTasks, listTasks, describeTask, retryTask } from "./tasks";
 export type { TaskFunction, TaskResponse } from "./tasks";
 
-export { readRegistryKey, writeRegistryKey, getRegistryKeyEventMasks, readRegistryNode, deleteRegistryKey, deleteRegistryNode, signalOnRegistryKeyChange } from "./registry";
+export { readRegistryKey, writeRegistryKey, getRegistryKeyEventMasks, readRegistryNode, deleteRegistryKey, deleteRegistryNode, signalOnRegistryKeyChange, type RegistryKeys, type RegistryKeyOfType } from "./registry";
 export { WebHareBlob } from "./webhareblob";
 export { getSignatureForThisServer, validateSignatureForThisServer, encryptForThisServer, decryptForThisServer } from "./secrets";
 export { prepareMail } from "./mail";

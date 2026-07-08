@@ -11,6 +11,9 @@ import { determineType, encodeHSON, getHSTypeName, type IPCMarshallableData } fr
 import { WebHareBlob } from "./webhareblob";
 import { signalOnEvent } from "./backendevents";
 
+export type { RegistryKeys };
+export type RegistryKeyOfType<K> = { [P in keyof RegistryKeys]: RegistryKeys[P] extends K ? P : never }[keyof RegistryKeys];
+
 type KeyErrorForValueType<A> = [A] extends [never] ? { error: "Require type parameter!" } : string;
 
 export function splitRegistryKey(key: string, { acceptInvalidKeyNames = false } = {}) {

@@ -1,12 +1,12 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { loadlib } from "@webhare/harescript";
-import { readRegistryKey, writeRegistryKey, getRegistryKeyEventMasks, WebHareBlob, readRegistryNode } from "@webhare/services";
+import { readRegistryKey, writeRegistryKey, getRegistryKeyEventMasks, WebHareBlob, readRegistryNode, type RegistryKeyOfType } from "@webhare/services";
 import { deleteRegistryKey, deleteRegistryNode, signalOnRegistryKeyChange, splitRegistryKey } from "@webhare/services/src/registry";
 import { Money } from "@webhare/std";
 import * as test from "@webhare/test-backend";
 import { beginWork, commitWork, db } from "@webhare/whdb";
 
-function testLowLevel() {
+async function testLowLevel() {
   test.eq({
     userprefix: "<overrideuser>.", module: "system", sep: ":", subnode: "node.subnode.", subkey: "subkey",
     storenode: "<overrideuser>.system.node.subnode.",
@@ -29,6 +29,16 @@ function testLowLevel() {
     storenode: "system.servicemanager.runonce.",
     storename: "system.servicemanager.runonce.consilio:migrate_indices_v3"
   }, splitRegistryKey("system.servicemanager.runonce.consilio:migrate_indices_v3", { acceptInvalidKeyNames: true }));
+
+  "webhare_testsuite:tests.taskthrownow" satisfies RegistryKeyOfType<boolean>;
+  "webhare_testsuite:tests.secondhareinterface" satisfies RegistryKeyOfType<string>;
+  //@ts-expect-error -- taskthrownow is of type boolean
+  "webhare_testsuite:tests.taskthrownow" satisfies RegistryKeyOfType<string>;
+
+  //Ensure readRegistryKey trusts RegistryKeyOfType<boolean>
+  const booleanKey: RegistryKeyOfType<boolean> = "webhare_testsuite:tests.taskthrownow";
+  const x: boolean = await readRegistryKey(booleanKey);
+  void (x);
 }
 
 async function doKeyTests(basename: string, { acceptInvalidKeyNames = false } = {}) {
