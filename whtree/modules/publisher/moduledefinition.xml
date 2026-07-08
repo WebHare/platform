@@ -510,6 +510,7 @@
                      objectname="lib/internal/captcha/webdesignplugin.whlib#captchaintegrationplugin"
                      toyaml="mod::platform/lib/internal/sp-parsers.whlib#GetCaptchaIntegrationAsYaml"
                      yamlproperty="captcha" />
+    <!-- we consider forumplugin to be a deprecated feature and may not port it to TS at all -->
     <webdesignplugin name="forumplugin"
                      hooksfeatures="objectprops"
                      namespace="http://www.webhare.net/xmlns/publisher/siteprofile"

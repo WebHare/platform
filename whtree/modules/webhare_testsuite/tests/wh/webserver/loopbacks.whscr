@@ -597,7 +597,7 @@ MACRO TestIPChecks() //combine IP filtering and x-forwarded-for checking
 
   TestEq(FALSE, browser->GotoWebPage(betabaseurl || "ipfiltering/denyall/"));
   TestEq(403, browser->GetHTTPStatus().code);
-  TestEq(FALSE, browser->GotoWebPage(betabaseurl || "ipfiltering/denybutlocal/"));
+  TestEq(FALSE, browser->GotoWebPage(betabaseurl || "ipfiltering/denyallbutlocal/"));
   TestEq(404, browser->GetHTTPStatus().code); //note,404=good
   TestEq(FALSE, browser->GotoWebPage(betabaseurl || "ipfiltering/denyallbutsome/"));
   TestEq(403, browser->GetHTTPStatus().code);

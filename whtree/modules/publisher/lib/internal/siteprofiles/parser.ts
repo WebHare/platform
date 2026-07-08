@@ -13,6 +13,7 @@ import type { ModulePlugins } from "@mod-system/js/internal/generation/gen_plugi
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import type { TargettedRight } from "@webhare/auth/src/userrights";
 import type { WHFSTypeName } from "@webhare/whfs";
+import type { CSPCheckandvm } from "@mod-platform/js/webserver/webconfig";
 
 //this is what CompileSiteprofiles expects in the rules array for an apply:
 export type ParsedSiteProfile = {
@@ -1010,6 +1011,27 @@ function parseSiteFilter(context: SiteProfileParserContext, filter: Pick<Sp.Site
   };
 }
 
+function parseAccessCheck(context: SiteProfileParserContext, check: Sp.AccessCheck): CSPCheckandvm {
+  if (!check.requireRight) {
+    context.addMessage({ type: "error", message: `AccessCheck is missing 'requireRight'` }, check);
+    return {
+      accesscheck: null,
+      errors: [`AccessCheck is missing 'requireRight'`],
+    };
+  }
+
+  return {
+    accesscheck: {
+      type: "combine",
+      combine: "and",
+      checks: [
+        { type: "right", value: check.requireRight || '' },
+      ]
+    },
+    errors: []
+  };
+}
+
 function parseWebRule(context: SiteProfileParserContext, rule: Sp.WebRule): CSPWebRule {
   let path = rule.path || '';
   let matchtype = 2; //wildcards
@@ -1022,6 +1044,10 @@ function parseWebRule(context: SiteProfileParserContext, rule: Sp.WebRule): CSPW
     }
   }
 
+  const iplist = rule.ipAccessList?.map(ip => "deny" in ip
+    ? { is_allow: false, mask: ip.deny === "consilio-fetcher" ? "100::cccc:ffff/128" : ip.deny }
+    : { is_allow: true, mask: ip.allow === "consilio-fetcher" ? "100::cccc:ffff/128" : ip.allow }) ?? [];
+
   const pos = context.tracked.getPosition(rule);
   const result: CSPWebRule = {
     col: 0,
@@ -1032,8 +1058,8 @@ function parseWebRule(context: SiteProfileParserContext, rule: Sp.WebRule): CSPW
       path,
       matchtype,
       realm: '',
-      authrequired: true,
-      errorpath: rule?.errorPath ?? '',
+      authrequired: rule.ipCheckIsSufficient !== true,
+      errorpath: rule.errorPath ?? '',
       finalerrorpath: false,
       extauthscript: '',
       allowallmethods: rule.methods === "*",
@@ -1041,7 +1067,7 @@ function parseWebRule(context: SiteProfileParserContext, rule: Sp.WebRule): CSPW
       redirecttarget_is_folder: false,
       datastorage: [],
       redirect: false,
-      iplist: [],
+      iplist,
       limitservers: [],
       addheaders: Object.entries(rule.headers || {}).map(([name, value]) => ({ name, value })),
       csps: rule?.contentSecurityPolicy ? [{ policy: rule.contentSecurityPolicy }] : [],
@@ -1053,8 +1079,8 @@ function parseWebRule(context: SiteProfileParserContext, rule: Sp.WebRule): CSPW
       applyruleset: '',
       wrdschema: '',
       matchmethods: [],
-      checkandvm: null,
-      source: `${context.resourceName}:${pos?.line || 0}`,
+      checkandvm: rule.accessCheck ? parseAccessCheck(context, rule.accessCheck) : null,
+      source: `${context.resourceName}: ${pos?.line || 0}`,
       data: null,
       vars: {
         modulename: parseResourcePath(context.resourceName)?.module || '',
@@ -1078,6 +1104,14 @@ function parseWebRule(context: SiteProfileParserContext, rule: Sp.WebRule): CSPW
         resource: 'mod::system/scripts/internal/jsrouter.shtml'
       }
     ];
+  }
+
+  if (rule.accessCheck) {
+    if (result.rule.extauthscript) {
+      context.addMessage({ type: "error", message: `WebRule cannot have both 'accessCheck' and 'extAuthScript'` }, rule);
+    } else {
+      result.rule.extauthscript = "mod::system/scripts/internal/auth/requireright.whscr";
+    }
   }
 
   return result;

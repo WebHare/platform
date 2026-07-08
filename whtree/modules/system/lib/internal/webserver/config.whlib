@@ -863,7 +863,8 @@ STATIC OBJECTTYPE WebConfigBuilder <
     RECORD ARRAY access;
     IF(NOT this->minimalconfig)
     {
-      RECORD ARRAY access_ips := SELECT * FROM system.access_ips;
+      //We must order DENY rules before ALLOW rules to remain compatibel with WH5.9 where the webserver didn't require sorting
+      RECORD ARRAY access_ips := SELECT * FROM system.access_ips ORDER BY is_allow;
 
       access := SELECT TEMPORARY datastorageresource :=      hostingsrc IN [ 2, 3 ] ? hostingpath : ""
                                 , id

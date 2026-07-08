@@ -91,13 +91,29 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI EXTEND TolliumEventSource <
   }
 
   PUBLIC RECORD FUNCTION GetMetadata() {
-    RETURN this->editscreen->workflowmgr->GetMetadata();
+    RETURN CELL[
+      ...this->editscreen->workflowmgr->GetMetadata(),
+      name := this->editscreen->^name->value,
+      title := this->editscreen->^title->value,
+      keywords := this->editscreen->^keywords->value,
+      description := this->editscreen->^description->value,
+      isunlisted := this->editscreen->^isunlisted->value
+    ];
   }
 
   PUBLIC MACRO UpdateMetadata(RECORD fields)
   {
-    fields := ValidateOptions(CELL[ data := DEFAULT BLOB], fields, [ optional := ["data"]]);
-    this->editscreen->workflowmgr->UpdateMetadata(fields);
+    fields := ValidateOptions(CELL[ name := "", title := "", keywords := "", description := "", isunlisted := FALSE, data := DEFAULT BLOB ], fields, [ optional := ["*"]]);
+    IF(CellExists(fields,'name'))
+      this->editscreen->^name->value := fields.name;
+    IF(CellExists(fields,'title'))
+      this->editscreen->^title->value := fields.title;
+    IF(CellExists(fields,'keywords'))
+      this->editscreen->^keywords->value := fields.keywords;
+    IF(CellExists(fields,'description'))
+      this->editscreen->^description->value := fields.description;
+    IF(CellExists(fields,'data'))
+      this->editscreen->workflowmgr->UpdateMetadata(fields);
   }
 
   PUBLIC MACRO SetEditContentTypes(STRING ARRAY types) {
@@ -137,6 +153,10 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI EXTEND TolliumEventSource <
   /** Hide the metadata tab */
   PUBLIC MACRO HideMetadataTab() {
     this->editscreen->^metapart->visible := FALSE;
+  }
+  /** Hide the name field*/
+  PUBLIC MACRO HideNameField() {
+    this->editscreen->^name->visible := FALSE;
   }
 
   /* Extend the editor meta tabs.
