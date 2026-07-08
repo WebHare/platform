@@ -30,7 +30,7 @@ set -e #Demand that all these commands succeed!
 
 docker exec "$TESTENV_CONTAINER1" wh waitfor poststartdone || die "WebHare isn't starting"
 docker exec "$TESTENV_CONTAINER1" wh users adduser "backup-reference-user@example.net" || die "Cannot create user backup-reference-user@example.net"
-docker exec "$TESTENV_CONTAINER1" wh preparebackup
+docker exec "$TESTENV_CONTAINER1" wh preparebackup --verbose
 docker exec "$TESTENV_CONTAINER1" sv -w 60 stop webhare
 
 # Remove all whdata folders except for the prepared backup

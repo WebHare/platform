@@ -1,2 +1,2 @@
 #!/bin/bash
-exec /opt/wh/whtree/bin/wh preparebackup
+exec /opt/wh/whtree/bin/wh preparebackup "$@"
