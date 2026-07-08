@@ -152,8 +152,8 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
           FROM GetAllFormHandlers() AS handlers;
 
     this->contexts->editdocumentapi->onsetenabled := PTR this->SetEnabled;
-    this->contexts->editdocumentapi->onloaddata := PTR this->LoadData;
-    this->contexts->editdocumentapi->onstoredata := PTR this->StoreData;
+    this->contexts->editdocumentapi->AddEventListener("loaddocument", PTR this->LoadData);
+    this->contexts->editdocumentapi->AddEventListener("storedocument", PTR this->StoreData);
     this->contexts->editdocumentapi->onprechecksave := PTR this->OnPrecheckSave;
     this->contexts->editdocumentapi->onvalidate := PTR this->ValidateFormFile;
     this->contexts->editdocumentapi->onsave := PTR this->OnSave;

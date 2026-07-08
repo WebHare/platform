@@ -7,8 +7,8 @@ PUBLIC STATIC OBJECTTYPE MDEditor EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     this->contexts->editdocumentapi->onsetenabled := PTR this->SetEnabled;
-    this->contexts->editdocumentapi->onloaddata := PTR this->LoadData;
-    this->contexts->editdocumentapi->onstoredata := PTR this->StoreData;
+    this->contexts->editdocumentapi->AddEventListener("loaddocument", PTR this->LoadData);
+    this->contexts->editdocumentapi->AddEventListener("storedocument", PTR this->StoreData);
   }
 
   MACRO OnDirty()

@@ -12,6 +12,7 @@ LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::system/whlibs/internal/interface.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib" EXPORT GetTid;
 LOADLIB "mod::tollium/lib/yamlbase.whlib";
@@ -46,7 +47,65 @@ PUBLIC STATIC OBJECTTYPE TolliumAutoSuggestBase
   }
 >;
 
-PUBLIC OBJECTTYPE TolliumComponentBase <
+PUBLIC STATIC OBJECTTYPE TolliumEventSource <
+  //Event handlers
+  RECORD ARRAY __eventhandlers;
+
+  PUBLIC INTEGER FUNCTION AddEventListener(STRING eventtype, VARIANT callback) {
+    INTEGER id := nexteventnr;
+    nexteventnr := nexteventnr + 1;
+
+    //TODO potential unmasking, eg onchange if 'onset' is hooked
+    IF(TYPEID(callback) = TYPEID(STRING))
+    {
+      IF(NOT IsAbsoluteResourcePath(callback))
+        THROW NEW Exception(`Expecting an absolute resource path`);
+
+      callback := MakeFunctionPtr(callback);
+    }
+    ELSE IF(TYPEID(callback) != TYPEID(MACRO PTR))
+    {
+      THROW NEW Exception(`Expecting either a STRING or PTR as callback for event handler`);
+    }
+
+    INTEGER numparameters := Length(SELECT FROM __INTERNAL_DEBUGFUNCTIONPTRTORECORD(callback).parameters WHERE source>0);
+    INSERT CELL [ id,  eventtype, callback, numparameters ] INTO this->__eventhandlers AT END;
+    RETURN id;
+  }
+
+  PUBLIC MACRO DispatchEvent(STRING eventtype) {
+    FOREVERY(RECORd handler FROM this->__eventhandlers)
+      IF(handler.eventtype = eventtype) {
+        IF(handler.numparameters = 0) {
+          handler.callback();
+        } ELSE IF(handler.numparameters = 1) {
+          OBJECT eventobj := NEW YamlEvent(this); //TODO perhaps only create the object once?
+          handler.callback(eventobj);
+        } ELSE IF(handler.numparameters > 1) {
+          THROW NEW TolliumException(this, `Event handler for event '${eventtype}' has too many parameters (${handler.numparameters})`);
+      }
+    }
+  }
+
+  /** List events to unmask
+      @param directevents - handlers linked to OnXXX members (XML tollium)
+      @param yamlmap - a dict of YAML event handlers listing the events to unmask if this handler is attached */
+  STRING ARRAY FUNCTION GetUnmaskedEvents(STRING ARRAY directevents, RECORD yamlmap)
+  {
+    STRING ARRAY unmask := GetUnmask(this, directevents);
+    IF(RecordExists(yamlmap) AND Length(this->__eventhandlers) > 0)
+      FOREVERY(RECORD map FROM UnpackRecord(yamlmap))
+        IF(RecordExists(SELECT FROM this->__eventhandlers WHERE ToLowercase(eventtype) = ToLowercase(map.name)))
+          FOREVERY(STRING tounmask FROM map.value)
+            IF(tounmask NOT IN unmask)
+              INSERT tounmask INTO unmask AT END;
+
+    RETURN unmask;
+  }
+
+>;
+
+PUBLIC OBJECTTYPE TolliumComponentBase EXTEND TolliumEventSource <
   // ---------------------------------------------------------------------------
   //
   // Variables
@@ -63,9 +122,6 @@ PUBLIC OBJECTTYPE TolliumComponentBase <
 
   //Overrides name based lookups
   PUBLIC OBJECT yamlscope;
-
-  //YAML based event handlers
-  PUBLIC RECORD ARRAY yamleventhandlers;
 
   /** Keeps whether the preinit for this component has already been called
   */
@@ -305,38 +361,6 @@ PUBLIC OBJECTTYPE TolliumComponentBase <
     RETURN condition;
   }
 
-  PUBLIC INTEGER FUNCTION AddYamlEventHandler(STRING eventtype, VARIANT callback)
-  {
-    INTEGER id := nexteventnr;
-    nexteventnr := nexteventnr + 1;
-
-    //TODO potential unmasking, eg onchange if 'onset' is hooked
-    IF(TYPEID(callback) = TYPEID(STRING))
-    {
-      IF(NOT IsAbsoluteResourcePath(callback))
-        THROW NEW Exception(`Expecting an absolute resource path`);
-
-      callback := MakeFunctionPtr(callback);
-    }
-    ELSE IF(TYPEID(callback) != TYPEID(MACRO PTR))
-    {
-      THROW NEW Exception(`Expecting either a STRING or PTR as callback for event handler`);
-    }
-
-    INSERT CELL [ id,  eventtype, callback ] INTO this->yamleventhandlers AT END;
-    RETURN id;
-  }
-
-  PUBLIC MACRO DispatchYamlEvents(STRING eventtype)
-  {
-    FOREVERY(RECORd handler FROM this->yamleventhandlers)
-      IF(handler.eventtype = eventtype)
-      {
-        OBJECt eventobj := NEW YamlEvent(this); //TODO perhaps only create the object once?
-        handler.callback(eventobj);
-      }
-  }
-
   PUBLIC MACRO SetYamlProps(RECORD props) //Set YAML-based properties. Invoked instead of StaticInit and before setting a value
   {
     IF(CellExists(props,'value_constraints'))
@@ -351,9 +375,9 @@ PUBLIC OBJECTTYPE TolliumComponentBase <
       this->enabled_on := this->LoadYamlCondition(props.enabled_on);
 
     IF(CellExists(props,'on_set'))
-      this->AddYamlEventHandler('onSet', props.on_set);
+      this->AddEventListener('set', props.on_set);
     IF(CellExists(props,'on_init'))
-      this->AddYamlEventHandler('onInit', props.on_init);
+      this->AddEventListener('init', props.on_init);
 
     this->ExtUpdatedComponent();
     this->EnsurePreinit();
@@ -535,7 +559,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase <
       this->PreInitComponent();
       /* onInit is the 'followup' to SetYamlProperties (except value). It should be preparing the component to receive
          its first value, but otherwise expects the component to be usable. */
-      this->DispatchYamlEvents("onInit");
+      this->DispatchEvent("init");
     }
 
     FOREVERY(OBJECT comp FROM this->GetChildComponents())
@@ -551,7 +575,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase <
       this->parent->EnsurePreShow();
 
     this->pvt_havepreshown := TRUE;
-    this->DispatchYamlEvents("onSet");
+    this->DispatchEvent("set");
     this->PreShowComponent();
     RETURN TRUE;
   }
@@ -1604,7 +1628,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase <
       }
       CASE "change"
       {
-        this->DispatchYamlEvents("onSet");
+        this->DispatchEvent("set");
         IF(this->onchange != DEFAULT FUNCTION PTR)
           this->onchange();
       }
@@ -1630,7 +1654,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase <
       CASE "click", "change", "select", "windowmove", "windowsavestate", "interval"
       {
         IF(action="change")
-          this->DispatchYamlEvents("onSet");
+          this->DispatchEvent("set");
         this->owner->tolliumscreenmanager->QueueEvent(this, action, DEFAULT RECORD);
       }
       CASE "clicklink"
@@ -1779,22 +1803,6 @@ PUBLIC OBJECTTYPE TolliumComponentBase <
   UPDATE RECORD FUNCTION GetExtraDirtyFlags()
   {
     RETURN DEFAULT RECORD;
-  }
-
-  /** List events to unmask
-      @param directevents - handlers linked to OnXXX members (XML tollium)
-      @param yamlmap - a dict of YAML event handlers listing the events to unmask if this handler is attached */
-  STRING ARRAY FUNCTION GetUnmaskedEvents(STRING ARRAY directevents, RECORD yamlmap)
-  {
-    STRING ARRAY unmask := GetUnmask(this, directevents);
-    IF(RecordExists(yamlmap) AND Length(this->yamleventhandlers) > 0)
-      FOREVERY(RECORD map FROM UnpackRecord(yamlmap))
-        IF(RecordExists(SELECT FROM this->yamleventhandlers WHERE ToLowercase(eventtype) = ToLowercase(map.name)))
-          FOREVERY(STRING tounmask FROM map.value)
-            IF(tounmask NOT IN unmask)
-              INSERT tounmask INTO unmask AT END;
-
-    RETURN unmask;
   }
 
   PUBLIC MACRO TolliumWebRender()

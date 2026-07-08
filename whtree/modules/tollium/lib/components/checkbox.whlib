@@ -140,7 +140,7 @@ PUBLIC OBJECTTYPE TolliumCheckbox EXTEND TolliumComposableComponentWithLabelBase
     this->SetDirtyFlags([ value := TRUE ]);
 
     IF(this->pvt_havepreshown)
-      this->DispatchYamlEvents("onSet");
+      this->DispatchEvent("set");
 
     IF(this->onchange = DEFAULT MACRO PTR)
       RETURN;
@@ -198,7 +198,7 @@ PUBLIC OBJECTTYPE TolliumCheckbox EXTEND TolliumComposableComponentWithLabelBase
                          , value := this->value
                          , indeterminate := this->__indeterminate
                          , hint := this->hint
-                         , unmasked_events := this->GetUnmaskedEvents(["change"], [ onset := ["change"]])
+                         , unmasked_events := this->GetUnmaskedEvents(["change"], [ "set" := ["change"]])
                          , readonly := this->readonly
                          , flags := this->pvt_flags
                          ];
