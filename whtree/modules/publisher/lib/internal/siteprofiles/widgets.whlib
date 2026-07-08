@@ -8,21 +8,6 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 PUBLIC RECORD __pvt_widget_passthrough;
 
-PUBLIC RECORD FUNCTION GetContentTypePrimaryGroup(RECORD csp, STRING contenttypens)
-{
-  RECORD pos := RecordLowerBound(csp.contenttypes, [ namespace := contenttypens ], [ "NAMESPACE" ]);
-  IF (pos.found)
-  {
-    RECORD ct := csp.contenttypes[pos.position];
-    STRING grouptypens := ct.ingroup ?? whconstant_defaultwidgetgroup;
-    pos := RecordLowerBound(csp.grouptypes, [ namespace := grouptypens ], [ "NAMESPACE" ]);
-    IF (NOT pos.found)
-      RETURN DEFAULT RECORD;
-    RETURN csp.grouptypes[pos.position];
-  }
-  RETURN DEFAULT RECORD;
-}
-
 /* Under the assumption that most hits will hit relatively few documents,
    and seeing that we want to avoid Getcachedsiteprofiles in hot paths
    cache for (more-or-less) combinations of widgettype + fileid. Saved me
@@ -34,7 +19,9 @@ RECORD FUNCTION DescribeWidgetType(STRING widgettype, OBJECT applytester, STRING
 {
   // Lookup embeddedobjecttype directly
   RECORD typeinfo := LookupContentType(widgettype);
-  IF (NOT RecordExists(typeinfo) OR NOT typeinfo.isembeddedobjecttype)
+  IF (NOT RecordExists(typeinfo) )
+    THROW NEW Exception(`Type '${widgettype}' is not registered`);
+  IF (NOT typeinfo.isembeddedobjecttype)
     THROW NEW Exception(`Type '${widgettype}' is not registered as an embedded object type`);
 
   //Add missing base fields
@@ -165,13 +152,19 @@ PUBLIC RECORD FUNCTION GetEmbeddedObjectRenderer(OBJECT fsobject, OBJECT applyte
 */
 PUBLIC RECORD FUNCTION LookupContentType(STRING namespace)
 {
-  RECORD csp := GetCachedSiteProfiles();
-  RECORD pos := RecordLowerBound(csp.contenttypes, [ namespace := namespace ], [ "NAMESPACE" ]);
-  IF (NOT pos.found)
+  RECORD ct := LookupContentTypeByName(namespace);
+  IF(NOT RecordExists(ct))
     RETURN DEFAULT RECORD;
 
-  RECORD ct := csp.contenttypes[pos.position];
+  RECORD csp := GetCachedSiteProfiles();
+  RECORD primarygroup;
+
+  STRING grouptypens := ct.ingroup ?? whconstant_defaultwidgetgroup;
+  RECORD pos := RecordLowerBound(csp.grouptypes, [ namespace := grouptypens ], [ "NAMESPACE" ]);
+  IF (pos.found)
+    primarygroup := csp.grouptypes[pos.position];
+
   RETURN CELL[ ...ct
-             , primarygroup := GetContentTypePrimaryGroup(csp, namespace)
+             , primarygroup
              ];
 }
