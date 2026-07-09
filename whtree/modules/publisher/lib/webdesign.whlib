@@ -283,7 +283,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext <
         ...this->GetInstanceData("platform:web.metadata")
       ];
       this->navigationtitle := this->metadata.title ?? this->pvt_targetfolder->title;
-      this->pageheading := this->_seosettings.page_heading ?? this->navigationtitle;
+      //page_heading is new in WH6.0 and may not exist at startup yet when upgrading, breaking all dynamic pages. work around this:
+      this->pageheading := (CellExists(this->_seosettings,'page_heading' ) ? this->_seosettings.page_heading : "") ??  this->navigationtitle;
       IF(NOT this->pvt_targetobject->isfolder)
       {
         this->pagetitle := this->_seosettings.seo_title ?? this->navigationtitle;
