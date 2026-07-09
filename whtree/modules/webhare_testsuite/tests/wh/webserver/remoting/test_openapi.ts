@@ -7,7 +7,6 @@ import type * as restrequest from "@webhare/router/src/restrequest";
 import { OpenAPITestserviceClient } from "wh:openapi/webhare_testsuite/testservice";
 import { OpenAPIAuthtestsClient } from "wh:openapi/webhare_testsuite/authtests";
 import { createOpenAPIClient } from "@webhare/openapi-client";
-
 let userapiroot = '', authtestsroot = '';
 
 const pietje = { email: "openapi@beta.webhare.net", firstName: "pietje" };
@@ -280,6 +279,8 @@ async function testCORS() {
         "Authorization": "secreta",
       }
     });
+
+    //@ts-expect-error Needs investigation. OPTIONS /dummy isn't declared to return 200 so why are we expecting it? (openapi probably needs a default/override for all OPTIONS similar to errors?)
     test.eq(HTTPSuccessCode.Ok, res.status);
     test.eq("https://webhare.dev:1234", res.headers.get("Access-Control-Allow-Origin"));
     test.eq(/GET/, res.headers.get("Access-Control-Allow-Methods")); // preflight header
@@ -295,6 +296,7 @@ async function testCORS() {
         "Authorization": "secretb",
       }
     });
+    //@ts-expect-error See above
     test.eq(HTTPSuccessCode.Ok, res.status);
     test.eq("http://example.org", res.headers.get("Access-Control-Allow-Origin"));
     test.eq(/POST/, res.headers.get("Access-Control-Allow-Methods")); // preflight header
@@ -310,6 +312,7 @@ async function testCORS() {
         "Authorization": "secretc",
       }
     });
+    //@ts-expect-error See above
     test.eq(HTTPSuccessCode.Ok, res.status);
     test.eq("https://example.com", res.headers.get("Access-Control-Allow-Origin"));
     test.eq(/authorization/, res.headers.get("Access-Control-Allow-Headers")); // preflight header
@@ -338,6 +341,7 @@ async function testCORS() {
         "Authorization": "secrete",
       }
     });
+    //@ts-expect-error See above
     test.eq(HTTPSuccessCode.Ok, res.status);
     test.eq("http://localhost", res.headers.get("Access-Control-Allow-Origin"));
     test.assert(!("body" in res)); // dummy service not actually executed, only preflight
@@ -354,7 +358,7 @@ async function testCORS() {
     test.eq("http://localhost", res.headers.get("Access-Control-Allow-Origin"));
     test.eq(null, res.headers.get("Access-Control-Allow-Methods")); // direct call doesn't contain preflight headers
     test.eq(null, res.headers.get("Access-Control-Allow-Headers")); // direct call doesn't contain preflight headers
-    //@ ts-expect-error FIXME openapi invoke doesn't understand that it might return non-JSON bod
+    //@ts-expect-error FIXME openapi invoke doesn't understand that it might return non-JSON bod
     test.eq("bearer secretf", res.body);
   }
 
@@ -367,7 +371,7 @@ async function testCORS() {
     });
     test.eq(HTTPSuccessCode.Ok, res.status);
     test.eq(null, res.headers.get("Access-Control-Allow-Origin"));
-    //@ ts-expect-error FIXME openapi invoke doesn't understand that it might return non-JSON bod
+    //@ts-expect-error FIXME openapi invoke doesn't understand that it might return non-JSON bod
     test.eq("bearer secretg", res.body);
   }
 }
@@ -512,29 +516,29 @@ async function verifyPublicParts() {
 function testInternalTypes() {
 
   type TestResponses =
-    { status: HTTPSuccessCode.Ok; isjson: true; response: { code: number } } |
-    { status: HTTPSuccessCode.Created; isjson: false } |
-    { status: HTTPSuccessCode.PartialContent; isjson: boolean; response: string } | // true|false, so both raw and json requests are accepted
-    { status: HTTPErrorCode.NotFound; isjson: true; response: { status: HTTPErrorCode.NotFound; error: string; extra: string } };
+    { status: typeof HTTPSuccessCode.Ok; isjson: true; response: { code: number } } |
+    { status: typeof HTTPSuccessCode.Created; isjson: false } |
+    { status: typeof HTTPSuccessCode.PartialContent; isjson: boolean; response: string } | // true|false, so both raw and json requests are accepted
+    { status: typeof HTTPErrorCode.NotFound; isjson: true; response: { status: typeof HTTPErrorCode.NotFound; error: string; extra: string } };
 
   test.typeAssert<test.Extends<TestResponses, restrequest.RestResponsesBase>>();
 
   test.typeAssert<test.Equals<
-    { status: HTTPSuccessCode.Ok; isjson: true; response: { code: number } } |
-    { status: HTTPSuccessCode.PartialContent; isjson: boolean; response: string } |
-    { status: HTTPErrorCode.NotFound; isjson: true; response: { status: HTTPErrorCode.NotFound; error: string; extra: string } },
+    { status: typeof HTTPSuccessCode.Ok; isjson: true; response: { code: number } } |
+    { status: typeof HTTPSuccessCode.PartialContent; isjson: boolean; response: string } |
+    { status: typeof HTTPErrorCode.NotFound; isjson: true; response: { status: typeof HTTPErrorCode.NotFound; error: string; extra: string } },
     restrequest.JSONResponses<TestResponses>>>();
 
-  test.typeAssert<test.Equals<HTTPErrorCode | HTTPSuccessCode.Ok | HTTPSuccessCode.PartialContent, restrequest.JSONResponseCodes<TestResponses>>>();
-  test.typeAssert<test.Equals<HTTPSuccessCode.Created | HTTPSuccessCode.PartialContent, restrequest.RawResponseCodes<TestResponses>>>();
+  test.typeAssert<test.Equals<HTTPErrorCode | typeof HTTPSuccessCode.Ok | typeof HTTPSuccessCode.PartialContent, restrequest.JSONResponseCodes<TestResponses>>>();
+  test.typeAssert<test.Equals<typeof HTTPSuccessCode.Created | typeof HTTPSuccessCode.PartialContent, restrequest.RawResponseCodes<TestResponses>>>();
 
-  test.typeAssert<test.Equals<{ code: number }, restrequest.ResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, HTTPSuccessCode.Ok>["response"]>>();
-  test.typeAssert<test.Equals<{ status: HTTPErrorCode.NotFound; error: string; extra: string }, restrequest.ResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, HTTPErrorCode.NotFound>["response"]>>();
-  test.typeAssert<test.Assignable<{ status: HTTPErrorCode; error: string }, restrequest.ResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, HTTPErrorCode.BadRequest>["response"]>>();
+  test.typeAssert<test.Equals<{ code: number }, restrequest.ResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, typeof HTTPSuccessCode.Ok>["response"]>>();
+  test.typeAssert<test.Equals<{ status: typeof HTTPErrorCode.NotFound; error: string; extra: string }, restrequest.ResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, typeof HTTPErrorCode.NotFound>["response"]>>();
+  test.typeAssert<test.Assignable<{ status: HTTPErrorCode; error: string }, restrequest.ResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, typeof HTTPErrorCode.BadRequest>["response"]>>();
   // When both json and non-json are accepted, returns the JSON format
-  test.typeAssert<test.Equals<string, restrequest.ResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, HTTPSuccessCode.PartialContent>["response"]>>();
+  test.typeAssert<test.Equals<string, restrequest.ResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, typeof HTTPSuccessCode.PartialContent>["response"]>>();
   // Test with override of default error
-  test.typeAssert<test.Equals<{ status: HTTPErrorCode; error: string; extra: string }, restrequest.ResponseForCode<TestResponses, { status: HTTPErrorCode; error: string; extra: string }, HTTPErrorCode.BadRequest>["response"]>>();
+  test.typeAssert<test.Equals<{ status: typeof HTTPErrorCode; error: string; extra: string }, restrequest.ResponseForCode<TestResponses, { status: typeof HTTPErrorCode; error: string; extra: string }, typeof HTTPErrorCode.BadRequest>["response"]>>();
 
   // just type-check the following code, don't run it
   const f = false;

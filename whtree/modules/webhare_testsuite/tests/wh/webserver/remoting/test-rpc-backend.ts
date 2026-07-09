@@ -1,5 +1,4 @@
 import * as test from '@webhare/test-backend';
-import { HTTPMethod } from '@webhare/router';
 import { WebHareBlob, backendConfig } from '@webhare/services';
 import { parseTrace } from '@webhare/js-api-tools';
 import type { WebRequestInfo } from '@mod-system/js/internal/types';
@@ -31,7 +30,7 @@ async function testRPCCaller() {
     url: `${servicebaseurl}validateEmail`,
     headers: { "content-type": "application/json" },
     body: WebHareBlob.from(JSON.stringify(["nl", "pietje@webhare.net"])),
-    method: HTTPMethod.POST,
+    method: "POST",
     binding: 0,
     webserver: 0
   };

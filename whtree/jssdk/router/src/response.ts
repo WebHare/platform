@@ -6,61 +6,63 @@ import type { TransferListItem } from "worker_threads";
 import { encodeString, generateRandomId, stringify } from "@webhare/std";
 import type { RPCResponse } from "@webhare/rpc/src/rpc";
 
-export enum HTTPErrorCode {
-  BadRequest = 400,
-  Unauthorized = 401,
-  Forbidden = 403,
-  NotFound = 404,
-  MethodNotAllowed = 405,
-  NotAcceptable = 406,
-  ProxyAuthenticationRequired = 407,
-  RequestTimeout = 408,
-  Conflict = 409,
-  Gone = 410,
-  LengthRequired = 411,
-  PreconditionFailed = 412,
-  PayloadTooLarge = 413,
-  URITooLong = 414,
-  UnsupportedMediaType = 415,
-  RangeNotSatisfiable = 416,
-  ExpectationFailed = 417,
-  MisdirectedRequest = 421,
-  UnprocessableEntity = 422,
-  Locked = 423,
-  FailedDependency = 424,
-  TooEarly = 425,
-  UpgradeRequired = 426,
-  PreconditionRequired = 428,
-  TooManyRequests = 429,
-  RequestHeaderFieldsTooLarge = 431,
-  InternalServerError = 500,
-  NotImplemented = 501,
-  BadGateway = 502,
-  ServiceUnavailable = 503,
-  GatewayTimeout = 504
-}
+export const HTTPErrorCode = {
+  BadRequest: 400,
+  Unauthorized: 401,
+  Forbidden: 403,
+  NotFound: 404,
+  MethodNotAllowed: 405,
+  NotAcceptable: 406,
+  ProxyAuthenticationRequired: 407,
+  RequestTimeout: 408,
+  Conflict: 409,
+  Gone: 410,
+  LengthRequired: 411,
+  PreconditionFailed: 412,
+  PayloadTooLarge: 413,
+  URITooLong: 414,
+  UnsupportedMediaType: 415,
+  RangeNotSatisfiable: 416,
+  ExpectationFailed: 417,
+  MisdirectedRequest: 421,
+  UnprocessableEntity: 422,
+  Locked: 423,
+  FailedDependency: 424,
+  TooEarly: 425,
+  UpgradeRequired: 426,
+  PreconditionRequired: 428,
+  TooManyRequests: 429,
+  RequestHeaderFieldsTooLarge: 431,
+  InternalServerError: 500,
+  NotImplemented: 501,
+  BadGateway: 502,
+  ServiceUnavailable: 503,
+  GatewayTimeout: 504
+} as const;
+export type HTTPErrorCode = typeof HTTPErrorCode[keyof typeof HTTPErrorCode];
 
-export enum HTTPSuccessCode {
-  Ok = 200,
-  Created = 201,
-  Accepted = 202,
-  NoContent = 204,
-  PartialContent = 206,
-  ResetContent = 205,
-  MovedPermanently = 301,
-  Found = 302,
-  SeeOther = 303,
-  NotModified = 304,
-  TemporaryRedirect = 307,
-  PermanentRedirect = 308
-}
+export const HTTPSuccessCode = {
+  Ok: 200,
+  Created: 201,
+  Accepted: 202,
+  NoContent: 204,
+  PartialContent: 206,
+  ResetContent: 205,
+  MovedPermanently: 301,
+  Found: 302,
+  SeeOther: 303,
+  NotModified: 304,
+  TemporaryRedirect: 307,
+  PermanentRedirect: 308
+} as const;
+export type HTTPSuccessCode = typeof HTTPSuccessCode[keyof typeof HTTPSuccessCode];
 
-export type HTTPRedirectCode = HTTPSuccessCode.MovedPermanently | HTTPSuccessCode.Found | HTTPSuccessCode.SeeOther | HTTPSuccessCode.TemporaryRedirect | HTTPSuccessCode.PermanentRedirect;
+export type HTTPRedirectCode = typeof HTTPSuccessCode.MovedPermanently | typeof HTTPSuccessCode.Found | typeof HTTPSuccessCode.SeeOther | typeof HTTPSuccessCode.TemporaryRedirect | typeof HTTPSuccessCode.PermanentRedirect;
 
 export type HTTPStatusCode = HTTPErrorCode | HTTPSuccessCode;
 
 export type WebResponseForTransfer = {
-  status: HTTPStatusCode;
+  status: number; //used to be type HTTPStatusCode but as WHATWG Fetch Response defines status as 'number', no point in being incompatible
   bodybuffer: ArrayBuffer | null;
   headers: Array<[string, string]>;
   trace: string | undefined;
@@ -69,7 +71,7 @@ export type WebResponseForTransfer = {
 //TODO ideally we'll support the full Response interface so that some calls can rely on a public interface https://developer.mozilla.org/en-US/docs/Web/API/Response instead of WebResponse
 export type SupportedResponseSubset = Pick<Response, "ok" | "status" | "headers" | "json" | "text" | "arrayBuffer">;
 
-export type RPCErrorCodes = HTTPErrorCode.BadRequest | HTTPErrorCode.NotFound | HTTPErrorCode.InternalServerError | HTTPErrorCode.Unauthorized | HTTPErrorCode.Forbidden;
+export type RPCErrorCodes = typeof HTTPErrorCode.BadRequest | typeof HTTPErrorCode.NotFound | typeof HTTPErrorCode.InternalServerError | typeof HTTPErrorCode.Unauthorized | typeof HTTPErrorCode.Forbidden;
 export class RPCError extends Error {
   public readonly status: RPCErrorCodes;
 
@@ -79,12 +81,20 @@ export class RPCError extends Error {
   }
 }
 
+/** Get the name for a supported status code */
+export function getHTTPStatusCodeName(status: HTTPStatusCode): string {
+  return Object.entries(HTTPErrorCode).find(([name, code]) => code === status)?.[0]
+    || Object.entries(HTTPSuccessCode).find(([name, code]) => code === status)?.[0]
+    || `UnknownHTTPStatus${status}`;
+}
+
+
 /** Create a webresponse returning a typed RPC body. Not a public API, only needed for the RPC router (which cannot use WebResponse directly)
  * @param body - The body to return
  * @param status - Statuscode
    @param headers - Headers
  */
-export function createRPCResponse(status: RPCErrorCodes | HTTPSuccessCode.Ok, body: RPCResponse, options?: { headers?: Record<string, string> | Headers }): WebResponse {
+export function createRPCResponse(status: RPCErrorCodes | typeof HTTPSuccessCode.Ok, body: RPCResponse, options?: { headers?: Record<string, string> | Headers }): WebResponse {
   const headers = new Headers(options?.headers);
   const sendbody = stringify(body, { typed: true });
   if (!headers.get("content-type"))
@@ -159,10 +169,12 @@ export function createWebResponseFromTransferData(data: WebResponseForTransfer):
  * @param body - The body to return.
  * @param options - Optional statuscode and headers
  */
-export function createWebResponse(body: string | ArrayBuffer | Blob | ReadableStream<Uint8Array> | undefined, options?: { status?: HTTPStatusCode; headers?: Record<string, string> | Array<[string, string]> | Headers }): WebResponse {
+export function createWebResponse(body: string | ArrayBuffer | Blob | ReadableStream<Uint8Array> | undefined, options?: { status?: number; headers?: Record<string, string> | Array<[string, string]> | Headers }): WebResponse {
   const headers = new Headers(options?.headers);
   if (!headers.get("content-type") && body !== undefined)
     headers.set("content-type", body instanceof ArrayBuffer ? "application/octet-stream" : "text/html;charset=utf-8");
+  if (options?.status && (options.status < 200 || options.status > 599))
+    throw new Error(`Invalid HTTP status code ${options.status}`);
 
   const copy = body; // need to do the instanceof test on a separate variable, otherwise TS will narrow 'body' to never
   if (typeof body === "object" && "stream" in body && !(copy instanceof Blob)) {

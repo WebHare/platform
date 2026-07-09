@@ -103,13 +103,13 @@ export class TypedOpenAPIClient<Paths extends object, Components extends object>
     alwaysReturnResponse: true;
   }): Promise<OpenAPINonJsonResponse>;
 
-  async invoke<Path extends PathsForMethod<Paths, Method>, Method extends string>(method: string, route: string, requestbody: string | null, options?: {
+  async invoke<Path extends PathsForMethod<Paths, Lowercase<Method>>, Method extends string>(method: Method, route: Path, requestbody: string | null, options?: {
     headers?: Record<string, string>;
     contentType?: string | null;
     params?: ParamsBaseType;
     encoding?: ParameterEncoding;
     alwaysReturnResponse?: boolean;
-  }): Promise<OpResponseTypes<Paths, Components, Path, Method>>;
+  }): Promise<OpResponseTypes<Paths, Components, Path, Lowercase<Method>>>;
 
   async invoke<Path extends PathsForMethod<Paths, Method>, Method extends string>(method: string, route: string, requestbody: string | null, options?: {
     headers?: Record<string, string>;
@@ -118,6 +118,7 @@ export class TypedOpenAPIClient<Paths extends object, Components extends object>
     encoding?: ParameterEncoding;
     alwaysReturnResponse?: boolean;
   }): Promise<OpResponseTypes<Paths, Components, Path, Method> | OpenAPINonJsonResponse> {
+    type ReturnValue = Awaited<ReturnType<this["invoke"]>>;
     const fetchoptions = {
       method,
       headers: { ...this.defaultheaders, ...options?.headers },
@@ -187,7 +188,7 @@ export class TypedOpenAPIClient<Paths extends object, Components extends object>
           transactionId: requestId,
         });
       }
-    return { status: call.status, headers: call.headers, contenttype, response: call };
+    return { status: call.status as ReturnValue["status"], headers: call.headers, contenttype, response: call };
   }
 
   async get<Path extends PathsForMethod<Paths, "get">>(route: Path, ...options: MethodOptions<Paths, Path, Exclude<keyof Paths[Path], "parameters"> & "get">): Promise<OpResponseTypes<Paths, Components, Path, "get">> {

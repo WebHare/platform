@@ -15,7 +15,7 @@ export interface WebdesignPluginAPIs {
 export interface PageBuilderDataTypes {
 }
 
-export { HTTPMethod, getOriginURL, expandCookies, type WebRequest, type RPCContext, type RPCAPI, type RPCFilter } from './request';
+export { type HTTPMethod, getOriginURL, expandCookies, type WebRequest, type RPCContext, type RPCAPI, type RPCFilter } from './request';
 export {
   createWebResponse, createJSONResponse, createRedirectResponse, HTTPErrorCode, HTTPSuccessCode, RPCError,
   type WebResponse, type HTTPStatusCode, type HTTPRedirectCode, type RPCErrorCodes

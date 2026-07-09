@@ -1,5 +1,5 @@
 import SwaggerParser from "@apidevtools/swagger-parser";
-import { createJSONResponse, HTTPErrorCode, type WebRequest, type DefaultRestParams, RestRequest, type WebResponse, HTTPMethod, type RestAuthorizationFunction, type RestImplementationFunction, HTTPSuccessCode, type OpenAPIServiceInitializationContext, type WebHareOpenAPIDocument, type RestDefaultErrorMapperFunction } from "@webhare/router";
+import { createJSONResponse, HTTPErrorCode, type WebRequest, type DefaultRestParams, RestRequest, type WebResponse, type HTTPMethod, type RestAuthorizationFunction, type RestImplementationFunction, HTTPSuccessCode, type OpenAPIServiceInitializationContext, type WebHareOpenAPIDocument, type RestDefaultErrorMapperFunction } from "@webhare/router";
 import Ajv2020, { type ValidateFunction, type ErrorObject, type SchemaObject } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import type { OpenAPIV3 } from "openapi-types";
@@ -20,7 +20,7 @@ export type OpenAPIInitHookFunction = (context: OpenAPIServiceInitializationCont
 
 export type OpenAPIInitHandlerHookFunction = (context: OpenAPIHandlerInitializationContext) => Promise<void> | void;
 
-const SupportedMethods: HTTPMethod[] = [HTTPMethod.GET, HTTPMethod.PUT, HTTPMethod.POST, HTTPMethod.DELETE, HTTPMethod.OPTIONS, HTTPMethod.HEAD, HTTPMethod.PATCH];
+const SupportedMethods: HTTPMethod[] = ["GET", "PUT", "POST", "DELETE", "OPTIONS", "HEAD", "PATCH"];
 
 function resolveJSResource(base: string, relativepath: string) {
   //Needed to understand @mod- paths. See https://gitlab.webhare.com/webharebv/codekloppers/-/issues/1069#note_225871
@@ -360,7 +360,7 @@ export class WorkerRestAPIHandler {
       // ADDME: add flag to disable for performance testing
 
       // Check if response is listed
-      if (response.status.toString() in endpoint.responses || (response.status in HTTPErrorCode && this.defaultErrorSchema)) {
+      if (response.status.toString() in endpoint.responses || (response.status >= 400 && this.defaultErrorSchema)) {
         let responseschema;
         if (response.status.toString() in endpoint.responses) {
           const responsedef = endpoint.responses[response.status] as OpenAPIV3.ResponseObject;
@@ -368,7 +368,7 @@ export class WorkerRestAPIHandler {
           responseschema = responsedef?.content?.[contentType]?.schema;
         }
         // Fallback to 'defaulterror' for errors, if specified in components.schemas
-        if (!responseschema && response.status in HTTPErrorCode && this.defaultErrorSchema) {
+        if (!responseschema && response.status >= 400 && this.defaultErrorSchema) {
           responseschema = this.defaultErrorSchema;
         }
         if (responseschema) {
@@ -384,7 +384,7 @@ export class WorkerRestAPIHandler {
             }
           }
         }
-      } else if (!(response.status in HTTPErrorCode)) {
+      } else if (!(response.status >= 400)) {
         // ADDME:
         throw new Error(`Handler returned status code ${response.status} which is not mentioned for path ${JSON.stringify(`${req.method} ${relurl}`)}`);
       }

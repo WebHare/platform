@@ -35,9 +35,7 @@ export class RawOpenAPIClient {
     const call = await fetch(this.baseurl + route, fetchoptions);
     const contenttype = call.headers.get("Content-Type") || "";
     const responsebody = contenttype === "application/json" ? await call.json() : await call.text();
-    const retval = { status: call.status, headers: call.headers, contenttype, body: responsebody };
-
-    return retval;
+    return { status: call.status, headers: call.headers, contenttype, body: responsebody } as OpenAPIResponse<BodyType>;
   }
 
   async get<BodyType = AnyResponse>(route: string): Promise<OpenAPIResponse<BodyType>> {

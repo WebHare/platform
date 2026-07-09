@@ -5,18 +5,9 @@ import type { TransferListItem } from "worker_threads";
 import type { AnyWRDSchema } from "@webhare/wrd";
 import Busboy from "@fastify/busboy";
 
-export enum HTTPMethod {
-  GET = "GET",
-  PUT = "PUT",
-  POST = "POST",
-  DELETE = "DELETE",
-  OPTIONS = "OPTIONS",
-  HEAD = "HEAD",
-  PATCH = "PATCH",
-  TRACE = "TRACE"
-}
+const validmethods = ["GET", "PUT", "POST", "DELETE", "OPTIONS", "HEAD", "PATCH", "TRACE"] as const;
 
-const validmethods = ["GET", "PUT", "POST", "DELETE", "OPTIONS", "HEAD", "PATCH", "TRACE"];
+export type HTTPMethod = typeof validmethods[number];
 
 export type WebRequestTransferData = {
   method: HTTPMethod;
@@ -143,26 +134,24 @@ export class IncomingWebRequest implements WebRequest {
 
   constructor(url: string, options?: { method?: HTTPMethod; headers?: Headers | Record<string, string>; body?: ArrayBuffer | null; clientWebServer?: number; clientIp?: string; clientBinding?: number }) {
     this.url = url;
-    if (options && "method" in options) {
-      if (!validmethods.includes(options.method as string)) {
+    if (options?.method !== undefined) {
+      if (!validmethods.includes(options.method)) {
         //Migration code
-        if (validmethods.includes(options.method!.toUpperCase())) {
-          console.error(`Invalid method '${options.method}' - convert to uppercase!`);
-          console.trace();
-        } else {
-          throw new Error(`Invalid method '${options.method}', must be one of: ${validmethods.join(", ")}`);
-        }
+        if (validmethods.includes(options.method!.toUpperCase() as HTTPMethod))
+          throw new Error(`Invalid method '${options.method}' - convert to uppercase!`);
+
+        throw new Error(`Invalid method '${options.method}', must be one of: ${validmethods.join(", ")}`);
       }
 
-      this.method = (options.method!).toLowerCase() as HTTPMethod;
+      this.method = options.method;
     } else {
-      this.method = HTTPMethod.GET;
+      this.method = "GET";
     }
 
     //TODO record binding or deprecate that?
     this.clientWebServer = options?.clientWebServer || 0;
     this.clientIp = options?.clientIp || "";
-    this.method = options?.method || HTTPMethod.GET;
+    this.method = options?.method || "GET";
     this.headers = options?.headers ? (options.headers instanceof Headers ? options.headers : new Headers(options.headers)) : new Headers;
     this.__body = options?.body || null;
   }

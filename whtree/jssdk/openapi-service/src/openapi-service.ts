@@ -86,7 +86,7 @@ export type AuthorizedWRDAPIUser = {
 };
 
 /** Craft a 403/401 error response. Should be used by verifyWRDAPIUser wrappers  */
-export function failWRDAPIUserAuth(error: string, errorCode: HTTPErrorCode.Unauthorized | HTTPErrorCode.Forbidden = HTTPErrorCode.Forbidden): RestAuthorizationResult<AuthorizedWRDAPIUser> {
+export function failWRDAPIUserAuth(error: string, errorCode: typeof HTTPErrorCode.Unauthorized | typeof HTTPErrorCode.Forbidden = HTTPErrorCode.Forbidden): RestAuthorizationResult<AuthorizedWRDAPIUser> {
   return {
     authorized: false,
     response: createJSONResponse(errorCode, {

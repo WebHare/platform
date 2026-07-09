@@ -29,7 +29,7 @@ export async function resolvePath(req: { params: { path?: string }; authorizatio
 }
 
 async function getInstances(obj: WHFSObject, exportOptions: ExportOptions) {
-  const instanceList: OpenAPIResponseType<TypedRestRequest<AuthorizedWRDAPIUser, "get /whfs/object">, HTTPSuccessCode.Ok>["instances"] = [
+  const instanceList: OpenAPIResponseType<TypedRestRequest<AuthorizedWRDAPIUser, "get /whfs/object">, typeof HTTPSuccessCode.Ok>["instances"] = [
     {
       whfsType: 'platform:virtual.objectdata',
       clone: 'onCopy',
@@ -53,8 +53,8 @@ async function getInstances(obj: WHFSObject, exportOptions: ExportOptions) {
   return instanceList;
 }
 
-export async function exportWHSFObject(targetObj: WHFSObject, instances: string, exportOptions: ExportOptions & { export: true }): Promise<OpenAPIResponseType<TypedRestRequest<AuthorizedWRDAPIUser, "get /whfs/object">, HTTPSuccessCode.Ok>> {
-  const result: OpenAPIResponseType<TypedRestRequest<AuthorizedWRDAPIUser, "get /whfs/object">, HTTPSuccessCode.Ok> = {
+export async function exportWHSFObject(targetObj: WHFSObject, instances: string, exportOptions: ExportOptions & { export: true }): Promise<OpenAPIResponseType<TypedRestRequest<AuthorizedWRDAPIUser, "get /whfs/object">, typeof HTTPSuccessCode.Ok>> {
+  const result: OpenAPIResponseType<TypedRestRequest<AuthorizedWRDAPIUser, "get /whfs/object">, typeof HTTPSuccessCode.Ok> = {
     name: targetObj.name,
     whfsPath: targetObj.whfsPath,
     modified: targetObj.modified.toString(),
