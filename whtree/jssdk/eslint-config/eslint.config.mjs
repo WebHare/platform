@@ -6,6 +6,8 @@ import stylistic from "@stylistic/eslint-plugin";
 import importPlugin from 'eslint-plugin-import';
 import erasableSyntaxOnly from "eslint-plugin-erasable-syntax-only";
 
+const typescriptFiles = ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts'];
+
 /* We add some rules that don't exist in this WebHare, but are referenced by eslint-disable comments in
    code that needs to validate on previous or future WebHare versions. These rules shouldn't be activated,
    so just return an error on activation.
@@ -33,8 +35,7 @@ Object.assign(tseslint.plugin.rules, TSConfigExtraRules);
    plugin to be able to load the typescript-eslint rules.
 */
 tseslint.configs.recommended.forEach(c => {
-  if (c.languageOptions)
-    c.files ??= ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts'];
+  c.files ??= typescriptFiles;
 });
 tseslint.configs.recommended.unshift({
   plugins: {
@@ -50,6 +51,7 @@ export function buildBaseConfig(options) {
     importPlugin.flatConfigs.recommended,
     importPlugin.flatConfigs.typescript,
     erasableSyntaxOnly.configs.recommended,
+    //TODO switch to tseslint.configs.recommendedTypeChecked *HOWEVER* that will bring in 2920 platform errors right now may also need to update the tseslint.configs.recommended hacks above
     ...tseslint.configs.recommended, {
     name: "@webhare/eslint-config main configuration",
     languageOptions: {
@@ -64,6 +66,7 @@ export function buildBaseConfig(options) {
           jsx: true
         },
         sourceType: "module",
+        projectService: true
       },
     },
     plugins: {
@@ -228,6 +231,8 @@ export function buildBaseConfig(options) {
       "import/export": "warn",
       // Warn on circular dependencies
       "import/no-cycle": "warn",
+      //TODO warn that we'll need extensions (needed to drop transpilation)
+      //"import/extensions": [ "warn", "always" ],
     },
     settings: {
       "react": {
@@ -237,12 +242,7 @@ export function buildBaseConfig(options) {
     },
   }, {
     name: "@webhare/eslint-config typescript configuration",
-    files: [
-      "*.ts",
-      "**/*.ts",
-      "*.tsx",
-      "**/*.tsx",
-    ],
+    files: typescriptFiles,
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {
@@ -257,6 +257,14 @@ export function buildBaseConfig(options) {
       "@typescript-eslint/no-implied-eval": "error",
       "prefer-promise-reject-errors": "off",
       "@typescript-eslint/prefer-promise-reject-errors": "error",
+      // Warn about non-erasable syntax that breaks module interop
+      "@typescript-eslint/consistent-type-imports": [
+        "warn", {
+          disallowTypeAnnotations: false,
+          fixStyle: "inline-type-imports",
+        }
+      ],
+      "@typescript-eslint/consistent-type-exports": "warn",
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/only-throw-error": "error",
       // bit of an experiment: testing no-misused-promises
@@ -304,12 +312,7 @@ export function buildBaseConfig(options) {
     }
   }, {
     name: "@webhare/eslint-config typescript style configuration",
-    files: [
-      "*.ts",
-      "**/*.ts",
-      "*.tsx",
-      "**/*.tsx"
-    ],
+    files: typescriptFiles,
     rules: {
       // Styling:
       "@stylistic/array-bracket-newline": [
@@ -353,17 +356,12 @@ export function buildStrictConfig(options) {
       name: "@webhare/eslint-config WebHare specific configuration",
       rules: {
         "eqeqeq": "error",
-        "@typescript-eslint/no-import-type-side-effects": "error",
       }
     }, {
       name: "@webhare/eslint-config WebHare specific TypeScript configuration",
-      files: [
-        "*.ts",
-        "**/*.ts",
-        "*.tsx",
-        "**/*.tsx"
-      ],
+      files: typescriptFiles,
       rules: {
+        "@typescript-eslint/no-import-type-side-effects": "error",
         "@typescript-eslint/consistent-type-imports": [
           "error", {
             disallowTypeAnnotations: false,
@@ -389,15 +387,12 @@ export function buildRelaxedConfig(options) {
   return [
     ...buildBaseConfig(options), {
       name: "@webhare/eslint-config module specific configuration",
+      files: typescriptFiles,
       rules: {
         // just warning for common promise issues, don't want everything to fall over immediately
         "@typescript-eslint/no-floating-promises": "warn",
         "@typescript-eslint/no-misused-promises": "warn"
       },
-      files: [
-        "**/*.ts",
-        "**/*.tsx"
-      ],
     }
   ];
 }

@@ -1023,9 +1023,11 @@ MACRO TestESLint()
       ], res, "*");
 
   //we used to consider this as a warning, but eslint.config.mjs has marked it an error so why wouldn't we...
-  res := ValidateSingleFile("mod::webhare_testsuite/nosuch.js", [ overridedata := StringToBlob("console.log('test')")]);
+  res := ValidateSingleFile("mod::webhare_testsuite/js/ci/testdata.ts", [ overridedata := StringToBlob("console.log('test')")]);
   TestEqMembers(
-      [ messages := [[ type := "error", resourcename := "mod::webhare_testsuite/nosuch.js", line := 1, col := 20, message := "Missing semicolon. (eslint rule: @stylistic/semi)", source := "eslint", metadata := DEFAULT RECORD ]]
+      [ messages := [[ type := "error", resourcename := "mod::webhare_testsuite/js/ci/testdata.ts", line := 1, col := 20, message := "Missing semicolon. (eslint rule: @stylistic/semi)", source := "eslint", metadata := DEFAULT RECORD ]
+                    ,[ type := "error", resourcename := "mod::webhare_testsuite/js/ci/testdata.ts", line := 1, col := 20, message := "Newline required at end of file but not found. (eslint rule: @stylistic/eol-last)", source := "eslint", metadata := DEFAULT RECORD ]
+                    ]
       ], res, "*");
 
   // eqeqeq rule - a warning for installed modules (and testsuite should be considered installed, not builtin)
