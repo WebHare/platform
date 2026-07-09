@@ -91,7 +91,7 @@ PUBLIC RECORD FUNCTION GetCachedDataFromURL(STRING url, RECORD options DEFAULTST
         }
 
         mimetype := GetImageMimetype(analyzed.extension);
-        IF(IsWasm() OR mimetype IN ["image/webp","image/avif"])
+        IF(IsWasm() OR mimetype IN ["image/webp","image/avif"] OR info.mimetype IN ["image/webp","image/avif"])
         {
           IF(GetBlobDiskPath(info.data) = "")
             THROW NEW Exception("Blob data is not yet stored on disk, cannot process image");
