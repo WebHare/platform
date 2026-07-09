@@ -21,9 +21,9 @@ The actual code goes into the main property/function. should return '0' on succe
 The most minimal example of how to set up a command line application in WebHare is
 
 ```typescript
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 
-run({
+runCli({
   async main() {
 
   }

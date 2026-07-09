@@ -6,6 +6,12 @@ set -eo pipefail
 
 BACKUPDEST="$1"
 [ -z "$BACKUPDEST" ] && die "No backup destination"
+shift
+
+if [ "$1" == "--verbose" ]; then
+  VERBOSE="1"
+  shift
+fi
 
 if [ -f "$BACKUPDEST/dbase/translog.whdb" ] || [ -f "$BACKUPDEST/postgresql/db/postgresql.conf" ]; then
   die "$TARGETDIR already seems to contain a database"
@@ -20,13 +26,15 @@ if ! is_webhare_running; then
   die "WebHare must be running for a backup"
 fi
 
-echo "STORAGEPATH: $WEBHARE_DATABASEPATH"
-echo "BACKUP DESTINATION: $BACKUPDEST"
+logWithTime "Backup from $WEBHARE_DATABASEPATH to $BACKUPDEST"
 
 mkdir -p -- "$BACKUPDEST" # creates the target, usually "$WEBHARE_DATAROOT"/preparedbackup
 BACKUPDEST=$(cd "$BACKUPDEST" && pwd) #make it an absolute path
 
+[ -n "$VERBOSE" ] && logWithTime "Removing any previous backup"
 rm -rf -- "$BACKUPDEST/dbase" "$BACKUPDEST/postgresql" "$BACKUPDEST/backup" "$BACKUPDEST/blob"
+
+[ -n "$VERBOSE" ] && logWithTime "Setting up new backup folders"
 mkdir -p -- "$BACKUPDEST/backup" "$BACKUPDEST/blob"
 BLOBDEST="$BACKUPDEST"
 
@@ -44,7 +52,14 @@ function sync_blobs()
 
   if [ "$(uname)" == "Darwin" ]; then
     # we have xargs -J (not on Linux/GNU!)
-    for DIR in $(cd "$WEBHARE_DATABASEPATH/blob" ; echo ??); do
+    DIRS=( $(cd "$WEBHARE_DATABASEPATH/blob" ; echo ??) )
+    TOTALDIRS="${#DIRS[@]}"
+    DONE=0
+
+    for DIR in "${DIRS[@]}"; do
+      DONE=$((DONE + 1))
+      [ "$VERBOSE" == "1" ] && logWithTime "Syncing blob directory $DIR ($DONE/$TOTALDIRS)"
+
       mkdir -p "$BLOBDEST/blob/$DIR"
 
       # shellcheck disable=SC2012
@@ -66,10 +81,10 @@ function sync_blobs()
 }
 
 # TODO: make sure no blobs are deleted during the backup - this now happens based on timing (blobs aren't deleted for the first few hours) but still contains a race
-[ "$VERBOSE" == "1" ] && echo "Linking blobs"
+[ "$VERBOSE" == "1" ] && logWithTime "Linking blobs"
 sync_blobs
 
-[ "$VERBOSE" == "1" ] && echo "Make database backup"
+[ "$VERBOSE" == "1" ] && logWithTime "Make database backup"
 PSROOT="${WEBHARE_DATAROOT}postgresql"
 mkdir -p "$BACKUPDEST/backup/"
 
@@ -81,8 +96,8 @@ if [ "$BACKUPRETVAL" != "0" ]; then
   exit 1
 fi
 
-[ "$VERBOSE" == "1" ] && echo "Add new blobs created during database backup"
+[ "$VERBOSE" == "1" ] && logWithTime "Add new blobs created during database backup"
 sync_blobs
 
 touch "$BACKUPDEST/backupcomplete"
-echo "Your backup is in $BACKUPDEST/"
+logWithTime "Backup prepared, your backup is in $BACKUPDEST/"

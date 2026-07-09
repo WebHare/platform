@@ -1,7 +1,7 @@
 
 import { addConsoleCallback } from "@mod-system/js/internal/whmanager/bridge";
 import { intOption, enumOption, floatOption, runCli, CLIRuntimeError, inferRunCliTypes } from "@webhare/cli";
-import { parse, runAutoComplete, type ParseData } from "@webhare/cli/src/run";
+import { parse, printHelp, runAutoComplete, type ParseData } from "@webhare/cli/src/run";
 import { parseCommandLine } from "@webhare/cli/src/run-autocomplete";
 import { backendConfig } from "@webhare/services";
 import * as test from "@webhare/test-backend";
@@ -219,6 +219,24 @@ async function testCLISubCommandParse() {
       },
     }
   }, ["cmd"]));
+
+  test.eq({
+    cmd: "hidden-cmd",
+    args: {},
+    opts: {},
+    specifiedOpts: [],
+    globalOpts: {},
+    specifiedGlobalOpts: [],
+  }, parse({
+    options: {},
+    subCommands: {
+      "hidden-cmd": {
+        hidden: true,
+        options: {},
+        arguments: [],
+      },
+    }
+  }, ["hidden-cmd"]));
 
   test.eq({
     cmd: "cmd",
@@ -753,6 +771,21 @@ async function testCLIAutoCompletion() {
   test.eq(["convert\n"], await runAutoComplete(mockData, ["con"], { cwd }));
   test.eq(["convert\n"], await runAutoComplete(mockData, ["convert"], { cwd }));
 
+  const hiddenCommandData: ParseData = {
+    subCommands: {
+      hidden: {
+        hidden: true,
+        description: "Hidden command",
+      },
+      visible: {
+        description: "Visible command",
+      },
+    },
+  };
+
+  test.eq(["visible\n"], await runAutoComplete(hiddenCommandData, [""], { cwd }));
+  test.eq([], await runAutoComplete(hiddenCommandData, ["h"], { cwd }));
+
   // Autocomplete subcommand options
   test.eq(["--1by1\n", "--format\n", "--output\n", "--verbose\n", "-f\n", "-o\n", "-v\n"], await runAutoComplete(mockData, ["convert", "-"], { cwd }));
   test.eq(["--1by1\n", "--format\n", "--output\n", "--verbose\n"], await runAutoComplete(mockData, ["convert", "--"], { cwd }));
@@ -787,6 +820,28 @@ async function testCLIAutoCompletion() {
   test.eq(["dest1.txt\n", "dest2.txt\n"], await runAutoComplete(mockData, ["convert", "source1.txt", ""], { cwd }));
   test.eq(["--output=file1.txt\n", "--output=file2.txt\n"], await runAutoComplete(mockData, ["--output=file"], { cwd }));
   test.eq(["json\n"], await runAutoComplete(mockData, ["convert", "--format", "j"], { cwd }));
+}
+
+function testCLIHelpHiddenSubcommands() {
+  let output = "";
+  using ref = addConsoleCallback((data) => output += data);
+  void ref;
+
+  printHelp({
+    subCommands: {
+      hidden: {
+        hidden: true,
+        description: "Hidden command",
+      },
+      visible: {
+        description: "Visible command",
+      },
+    },
+  });
+
+  test.eq(`Subcommands:
+  visible               Visible command
+`, output);
 }
 
 function testAutoCompleteCommandLineParsing() {
@@ -873,6 +928,7 @@ test.runTests([
   testCLIRun,
   testCLIOptionTypes,
   testCLIAutoCompletion,
+  testCLIHelpHiddenSubcommands,
   testAutoCompleteCommandLineParsing,
   testWHAutoComplete,
 ]);

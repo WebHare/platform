@@ -96,6 +96,7 @@ type BaseOptionArgflags = {
 type SubCommandTemplate = BaseOptionArgflags & {
   shortDescription?: string;
   description?: string;
+  hidden?: boolean;
   main?: unknown;
 };
 
@@ -323,6 +324,12 @@ function fixAutcompleteSuffix(ac: string) {
     return ac + '\n';
 }
 
+function getVisibleSubCommandNames(subCommands: Record<string, SubCommandTemplate>): string[] {
+  return Object.entries(subCommands)
+    .filter(([, subCommand]) => !subCommand.hidden)
+    .map(([name]) => name);
+}
+
 export function inferRunCliTypes<
   const E extends object,
   const S extends object,
@@ -478,7 +485,7 @@ export function parse<
         if (data.subCommands) {
           const cmdObj = data.subCommands[arg];
           if (!cmdObj) {
-            const bestMatch = getBestMatch(arg, Object.keys(data.subCommands));
+            const bestMatch = getBestMatch(arg, getVisibleSubCommandNames(data.subCommands));
             throw new CLISyntaxError(`Unknown subcommand: ${JSON.stringify(arg)}${bestMatch ? `, did you mean ${JSON.stringify(bestMatch)}?` : ``}`);
           }
           command = [arg, cmdObj];
@@ -606,7 +613,9 @@ export function printHelp(data: ParseData, options: { error?: CLIError; command?
       }
     } else {
       print(`Subcommands:`);
-      for (const [name, cmd] of Object.entries(data.subCommands).sort(([a], [b]) => a.localeCompare(b))) {
+      for (const [name, cmd] of Object.entries(data.subCommands)
+        .filter(([, subCommand]) => !subCommand.hidden)
+        .sort(([a], [b]) => a.localeCompare(b))) {
         print(`  ${name.padEnd(secondColumnPadAt - 3, " ")} ${cmd.shortDescription || (cmd.description ? (cmd.description.length > maxDescriptionLen ? cmd.description.slice(0, maxDescriptionLen - 1) + /*ellipsis*/"\u2026" : cmd.description) : "")}`);
       }
     }
@@ -906,7 +915,7 @@ export async function runAutoComplete(data: ParseData, argv: string[], { cwd }: 
     // This is the command (if subCommands are specified) or an argument
     if (data.subCommands && !command) {
       if (isLast) {
-        return Object.keys(data.subCommands).filter(k => k.startsWith(arg)).sort().map(k => `${k}\n`);
+        return getVisibleSubCommandNames(data.subCommands).filter(k => k.startsWith(arg)).sort().map(k => `${k}\n`);
       }
 
       const cmdObj = data.subCommands[arg];

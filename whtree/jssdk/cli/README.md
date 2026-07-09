@@ -81,6 +81,8 @@ const runData = run({
 });
 ```
 
+Set `hidden: true` on a subcommand to keep it executable while excluding it from top-level help output and subcommand autocompletion.
+
 ### Header
 Each command using `@webhare/cli` that will not trigger side effects outside its
 call to `run()` (ie nothing happens until run() is invoked) should mark itself
