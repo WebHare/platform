@@ -1,0 +1,160 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::publisher/lib/history.whlib";
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/rtd.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+LOADLIB "mod::system/lib/internal/whfs/scheduledtasks.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+ASYNC MACRO TestScheduleFile() {
+  testfw->BeginWork();
+
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "system:fs_fullaccess", GetTestsuiteJSTempFolder()->id, testfw->GetUserObject("marge"));
+
+  OBJECT testfile := GetTestsuiteJSTempFolder()->CreateFile(
+      [ name :=   "test-schedule"
+      , typens := "platform:filetypes.richdocument"
+      , title := "My scheduled document"
+      , publish := FALSE
+      ], [ createdby := testfw->GetUserObject("marge")
+         ]);
+
+  OBJECT workflowmgr := NEW WorkflowManager(testfile->id,
+    [ user := testfw->GetUserObject("marge"),
+      workflowtypes := ["platform:filetypes.richdocument"]
+    ]);
+
+  TestEqMembers([ read_only := FALSE, editable := TRUE, has_draft := FALSE, autosave_mine := FALSE, publish_at := DEFAULT DATETIME ], workflowmgr->GetCurrentStatus(), '*');
+
+  RECORD ARRAY history := ListObjectHistory(testfile->id);
+  TestEqMembers([[ name := "test-schedule", type := "created", user := testfw->GetUserAuthobjectId("marge")]
+                ], history,'*');
+
+  TestThrowsLike("*requires finalizing*", PTR workflowmgr->Save([ publish_at := MakeDatetime(2070,1,1,12,0,0) ]));
+  TestThrowsLike("*requires finalizing*", PTR workflowmgr->Save([ publish := TRUE ]));
+  TestThrowsLike("*requires finalizing*", PTR workflowmgr->Save([ publish := FALSE ]));
+  TestThrowsLike("*publish*FALSE*", PTR workflowmgr->Save([ publish_at := DEFAULT DATETIME ]));
+  TestThrowsLike("*cannot set both*", PTR workflowmgr->Save([ finalize := TRUE, publish := TRUE, publish_at := MakeDatetime(2070,1,1,12,0,0) ]));
+  TestThrowsLike("*cannot set both*", PTR workflowmgr->Save([ finalize := TRUE, publish := FALSE, publish_at := MakeDatetime(2070,1,1,12,0,0) ]));
+
+  //FIXME If we *don't* make any change but schedule it, shouldn't it still show as final ?
+  workflowmgr->SetInstanceData("platform:filetypes.richdocument", [ data := BuildRTDFromYaml(`- p: "This is a test document"`)]);
+  TestEqMembers([ read_only := FALSE, editable := TRUE, has_draft := FALSE, autosave_mine := TRUE, publish_at := DEFAULT DATETIME ], workflowmgr->GetCurrentStatus(), '*');
+  TestEq(FALSE, TestFlagFromPublished(OpenWHFSObject(testfile->id)->published, PublishedFlag_Scheduled));
+
+  workflowmgr->Save([ finalize := TRUE, publish_at := MakeDatetime(2070,1,1,12,0,0), end_at := MakeDatetime(2080,1,1,12,0,0) ]);
+  //Once scheduled, it should not be editable.
+  TestEqMembers([ read_only := FALSE, editable := FALSE, has_draft := FALSE, autosave_mine := FALSE, publish_at := MakeDatetime(2070,1,1,12,0,0) ], workflowmgr->GetCurrentStatus(), '*');
+
+  history := ListObjectHistory(testfile->id);
+  TestEqMembers([[ name := "test-schedule", type := "created", user := testfw->GetUserAuthobjectId("marge")]
+                ,[ name := "test-schedule", type := "final", user := testfw->GetUserAuthobjectId("marge")]
+                ], history,'*');
+
+  // Verify whether the changes are properly reflected in the documents' schedule
+  TestEq(FALSE, OpenWHFSObject(testfile->id)->publish);
+  TestEqMembers([[ task := "publish", when := MakeDatetime(2070,1,1,12,0,0), owner := testfw->GetUserAuthobjectId("marge") ],
+                 [ task := "depublish", when := MakeDatetime(2080,1,1,12,0,0), owner := testfw->GetUserAuthobjectId("marge") ]
+                ], ListScheduledWHFSTasks(testfile->id), '*');
+  TestEq(TRUE, TestFlagFromPublished(OpenWHFSObject(testfile->id)->published, PublishedFlag_Scheduled));
+
+  // No-op change
+  workflowmgr->Save([ finalize := TRUE ]);
+  TestEq(history, ListObjectHistory(testfile->id), 'nothing changed, should not affect history at all');
+  TestEqMembers([[ task := "publish", when := MakeDatetime(2070,1,1,12,0,0), owner := testfw->GetUserAuthobjectId("marge") ],
+                 [ task := "depublish", when := MakeDatetime(2080,1,1,12,0,0), owner := testfw->GetUserAuthobjectId("marge") ]
+                ], ListScheduledWHFSTasks(testfile->id), '*');
+
+  // Modify the publish_at
+  workflowmgr->Save([ finalize := TRUE, publish_at := MakeDatetime(2071,1,1,12,0,0), end_at := DEFAULT DATETIME ]);
+  TestEq(history, ListObjectHistory(testfile->id));
+  TestEqMembers([ read_only := FALSE, editable := FALSE, has_draft := FALSE, autosave_mine := FALSE, publish_at := MakeDatetime(2071,1,1,12,0,0) ], workflowmgr->GetCurrentStatus(), '*');
+  TestEqMembers([[ task := "publish", when := MakeDatetime(2071,1,1,12,0,0), owner := testfw->GetUserAuthobjectId("marge") ],
+                ], ListScheduledWHFSTasks(testfile->id), '*');
+  TestEq(TRUE, TestFlagFromPublished(OpenWHFSObject(testfile->id)->published, PublishedFlag_Scheduled));
+
+  TestEq(FALSE, OpenWHFSObject(testfile->id)->publish);
+
+  // Unset publish_at (dontpublish)
+  workflowmgr->Save([ finalize := TRUE, publish := FALSE ]);
+  TestEq(history, ListObjectHistory(testfile->id));
+  TestEqMembers([ read_only := FALSE, editable := TRUE, has_draft := FALSE, autosave_mine := FALSE, publish_at := DEFAULT DATETIME ], workflowmgr->GetCurrentStatus(), '*');
+  TestEqMembers(RECORD[], ListScheduledWHFSTasks(testfile->id), '*');
+  TestEq(FALSE, TestFlagFromPublished(OpenWHFSObject(testfile->id)->published, PublishedFlag_Scheduled));
+
+  // Set the publish_at back
+  workflowmgr->Save([ finalize := TRUE, publish_at := MakeDatetime(2071,1,1,12,0,0), end_at := DEFAULT DATETIME ]);
+  TestEq(history, ListObjectHistory(testfile->id), 'nothing changed, should not affect history at all');
+  TestEqMembers([ read_only := FALSE, editable := FALSE, has_draft := FALSE, autosave_mine := FALSE, publish_at := MakeDatetime(2071,1,1,12,0,0) ], workflowmgr->GetCurrentStatus(), '*');
+  TestEqMembers([[ task := "publish", when := MakeDatetime(2071,1,1,12,0,0), owner := testfw->GetUserAuthobjectId("marge") ],
+                ], ListScheduledWHFSTasks(testfile->id), '*');
+  TestEq(TRUE, TestFlagFromPublished(OpenWHFSObject(testfile->id)->published, PublishedFlag_Scheduled));
+
+  // Publish it by unsetting publish_at
+  workflowmgr->Save([ finalize := TRUE, publish := TRUE, end_at := MakeDatetime(2081,1,1,12,0,0) ]);
+  //TODO this should affect the history ? but history only logs content updates now and doesn't care about publish now/later. but you *would* want that to be able to get a proper timeline§
+  TestEq(history, ListObjectHistory(testfile->id));
+
+  // Verify it's now published
+  TestEq(TRUE, OpenWHFSObject(testfile->id)->publish);
+  TestEqMembers([[ task := "depublish", when := MakeDatetime(2081,1,1,12,0,0), owner := testfw->GetUserAuthobjectId("marge") ]
+                ], ListScheduledWHFSTasks(testfile->id), '*');
+  TestEq(TRUE, TestFlagFromPublished(OpenWHFSObject(testfile->id)->published, PublishedFlag_Scheduled));
+
+
+  // Depublish it by setting publish_at in the future
+  workflowmgr->Save([ finalize := TRUE, publish_at := MakeDatetime(2072,1,1,12,0,0) ]);
+  TestEq(FALSE, OpenWHFSObject(testfile->id)->publish);
+  TestEqMembers([[ task := "publish", when := MakeDatetime(2072,1,1,12,0,0), owner := testfw->GetUserAuthobjectId("marge") ]
+                ,[ task := "depublish", when := MakeDatetime(2081,1,1,12,0,0), owner := testfw->GetUserAuthobjectId("marge") ]
+                ], ListScheduledWHFSTasks(testfile->id), '*');
+
+  //TODO this should affect the history ? but history only logs content updates now and doesn't care about publish now/later. but you *would* want that to be able to get a proper timeline§
+  TestEq(history, ListObjectHistory(testfile->id));
+
+  testfw->CommitWork();
+
+  //TODO after scheduling, switch user. verify that he sees the tasks in the publisher dialog but they stay owned by the original user unless this user changes the times/settings
+
+
+}
+
+ASYNC MACRO TestScheduleFileEmptyFile() {
+  testfw->BeginWork();
+
+  OBJECT testfile := GetTestsuiteJSTempFolder()->CreateFile(
+      [ name :=   "test-schedule-empty"
+      , typens := "platform:filetypes.richdocument"
+      , title := "My empty document"
+      , publish := FALSE
+      ], [ createdby := testfw->GetUserObject("sysop")
+         ]);
+
+  //empty files are special because we skip autoasves here
+  OBJECT workflowmgr := NEW WorkflowManager(testfile->id,
+    [ user := testfw->GetUserObject("sysop"),
+      workflowtypes := ["platform:filetypes.richdocument"]
+    ]);
+
+  TestEqMembers([ read_only := FALSE, editable := TRUE, has_draft := FALSE, autosave_mine := FALSE, publish_at := DEFAULT DATETIME ], workflowmgr->GetCurrentStatus(), '*');
+  workflowmgr->Save([ finalize := TRUE, publish_at := MakeDatetime(2070,1,1,12,0,0) ]);
+  TestEqMembers([ read_only := FALSE, editable := FALSE, has_draft := FALSE, autosave_mine := FALSE, publish_at := MakeDatetime(2070,1,1,12,0,0) ], workflowmgr->GetCurrentStatus(), '*');
+
+  testfw->CommitWork();
+}
+
+RunTestFramework(
+    [ PTR TestScheduleFile
+    , PTR TestScheduleFileEmptyFile
+    ],
+    [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                   ,[ login := "marge" ]
+                   ]
+    ]);

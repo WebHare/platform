@@ -474,13 +474,13 @@ MACRO TestEvents() {
   ], ExpectWHFSEvents(2));
 
   testfw->BeginWork();
-  metamgr->Save([ publish := TRUE]);
+  metamgr->Save();
   testfw->CommitWork();
 
   WaitForOutputAnalyzer(INTEGER[ subfile->parent ], AddTimeToDate(60000, GetCurrentDatetime()));
   WaitForPublishCompletion(subfile->parent);
 
-dumpvalue(cell[draft3 := draft3->id, subfile := subfile->id, snapshotfolder, testfolder := testfolder->id]);
+  dumpvalue(cell[draft3 := draft3->id, subfile := subfile->id, snapshotfolder, testfolder := testfolder->id]);
   {
     RECORD ARRAY events := ExpectWHFSEvents(4, [ minmsgcount := 3 ]);
     dumpvalue(events, "tree");

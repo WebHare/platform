@@ -113,11 +113,40 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
 
     ^publicationlistener->masks := [ "system:whfs.folder." || this->sourceitem->parent, "publisher:publish.folder." || this->sourceitem->parent ];
 
-    RECORD competingdraft := this->workflowmgr->GetCurrentDraft();
-    IF(RecordExists(competingdraft) AND NOT competingdraft.mine) {
-      STRING user := this->contexts->userapi->GetUserDisplayName(competingdraft.user_auth_object);
-      STRING when := this->tolliumuser->FormatDatetime(competingdraft.draft_saved, "minutes", TRUE, FALSE);
+    RECORD status := this->workflowmgr->GetCurrentStatus();
+    this->ReloadRTEContents(); //load the most recent version into the RTE
+    //make sure the rest of the UI is initialized. ensure eg. toolbar buttons are visible when asking about restoring draft/autosave or the formeditor would look half-done
+    FOREVERY(RECORD extendprop FROM this->extendprops)
+      extendprop.tabs->RunExtensionsPostInit();
 
+    // Look at your autosave first - if you had an autosave open, you already knew you were editing someone else's draft
+    IF(status.autosave_mine) {
+      STRING when := this->tolliumuser->FormatDatetime(status.autosave_saved, "minutes", TRUE, FALSE);
+      STRING question := GetTid("publisher:tolliumapps.editdocument.messageboxes.resumeautosave", when);
+      STRING response := this->RunSimpleScreen("question", question, [ buttons := [ "yes", "no", "cancel" ]]);
+      IF(response != "yes" AND response != "no") {
+        this->tolliumresult := "cancel";
+        RETURN;
+      }
+
+      IF(response = "yes") {
+        ^dirtylistener->SetDirty();
+      } ELSE {
+        OBJECT work := this->BeginUnvalidatedWork();
+        this->workflowmgr->DiscardAutosavedChanges();
+        work->Finish();
+
+        status := this->workflowmgr->GetCurrentStatus();
+        this->ReloadRTEContents();
+      }
+    }
+
+    // Are we potentially *editing* someone else's draft? (so not showing this question in read_only mode)
+    IF(NOT status.autosave_mine AND status.has_draft AND NOT status.draft_mine AND NOT status.read_only) {
+      STRING user := this->contexts->userapi->GetUserDisplayName(status.draft_owner_authobject);
+      STRING when := this->tolliumuser->FormatDatetime(status.draft_saved, "minutes", TRUE, FALSE);
+
+      // The only choices here are to abort of to continue with the draft, this dialog doesn't offer an immediate revert (and shouldn't?)
       IF (this->RunSimpleScreen("confirm"
                                , GetTid("publisher:tolliumapps.editdocument.messageboxes.otherhasdraft", user, when)
                                , [ buttons := [ "ok","cancel"]
@@ -128,35 +157,6 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
         RETURN;
       }
     }
-
-    RECORD continue_autosave := this->workflowmgr->GetResumableAutosave();
-    BOOLEAN mustloadrte := TRUE;
-    IF(RecordExists(continue_autosave)) {
-      this->ReloadRTEContents(); //make sure you can see the autosave in question
-
-      STRING when := this->tolliumuser->FormatDatetime(continue_autosave.saved, "minutes", TRUE, FALSE);
-      STRING question := GetTid("publisher:tolliumapps.editdocument.messageboxes.resumeautosave", when);
-      STRING response := this->RunSimpleScreen("question", question, [ buttons := [ "yes", "no", "cancel" ]]);
-      IF(response != "yes" AND response != "no") {
-        this->tolliumresult := "cancel";
-        RETURN;
-      }
-
-      IF(response = "yes") {
-        mustloadrte := FALSE;
-        ^dirtylistener->SetDirty();
-      } ELSE {
-        OBJECT work := this->BeginUnvalidatedWork();
-        this->workflowmgr->DiscardAutosavedChanges();
-        work->Finish();
-      }
-    }
-
-    IF(mustloadrte)
-      this->ReloadRTEContents();
-
-    FOREVERY(RECORD extendprop FROM this->extendprops)
-      extendprop.tabs->RunExtensionsPostInit();
 
     // Can start autosaving when RTE is initialized (not before, would save empty document)
     this->canautosave := NOT this->readonly;
@@ -481,7 +481,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       IF(^keywords->visible AND ^metapart->visible)
         INSERT "keywords" INTO updatemetadatafields AT END;
 
-      this->workflowmgr->Save(CELL[ finalize := withpublish, publish := withpublish, updatemetadatafields ]);
+      this->workflowmgr->Save(CELL[ finalize := withpublish, publish_now := withpublish, updatemetadatafields ]);
 
       //Warn if publishing to an unpublished site (but not if publishing outside a site)
       IF (withpublish AND finalitem->parentsite != 0 AND OpenSite(finalitem->parentsite)->outputweb = 0)
@@ -495,7 +495,6 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       RETURN FALSE;
 
     ^dirtylistener->ClearDirty();
-    //DumpValue(GetStackTrace(), [ name := "BE CLEAN!"]);
     this->LoadBaseData(this->workflowmgr); //this also updates name/title requirements
     this->RefreshState();
 

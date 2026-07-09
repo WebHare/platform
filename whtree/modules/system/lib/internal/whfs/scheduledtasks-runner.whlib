@@ -20,14 +20,6 @@ LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 BOOLEAN report := TRUE; //ADDME: Allow us to set this through the registry
 
-///update a status mask to set the schedule bit to the new state for the fsobj. separate function so it can run inside UPDATE's record lock
-INTEGER FUNCTION SetScheduleBit(INTEGER fileid,INTEGER status)
-{
-  BOOLEAN anytasks := RecordExists(SELECT FROM publisher.schedule WHERE file=fileid LIMIT 1);
-  RETURN SetFlagsInPublished(status, PublishedFlag_Scheduled, anytasks);
-}
-
-
 MACRO DoStartPublish(RECORD task)
 {
   RECORD fsobj := SELECT * FROM system.fs_objects WHERE fs_objects.id=task.file AND NOT IsRecycleOrHistoryWHFSPath(fs_objects.whfspath);
@@ -238,8 +230,7 @@ PUBLIC MACRO ExecuteScheduledTask(RECORD task)
  ELSE
     THROW NEW Exception(`Unrecognized task type #${task.event}`);
 
-  //Reapply the 'is scheduled' bit (the clock icon)
-  UPDATE system.fs_objects SET published := SetScheduleBit(fs_objects.id, fs_objects.published) WHERE id = task.file;
+  UpdateScheduleBit(task.file);
 }
 
 PUBLIC RECORD ARRAY FUNCTION GetScheduledTasksToExecute()
