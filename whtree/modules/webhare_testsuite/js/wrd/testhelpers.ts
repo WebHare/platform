@@ -9,170 +9,170 @@ export const testSchemaTag = "wrd:testschema";
 
 export type CustomExtensions = {
   wrdPerson: {
-    testSingleDomain: WRDAttributeTypeId.Domain;//", { title: "Single attribute", domaintag: "testDomain1" });
-    testSingleDomain2: WRDAttributeTypeId.Domain;//", { title: "Single attribute", domaintag: "testDomain1" }); // for <wrd:selectentity> test
-    testSingleDomain3: WRDAttributeTypeId.Domain;//", { title: "Single attribute", domaintag: "testDomain1" }); // for <wrd:selectentity> test
-    testFree: WRDAttributeTypeId.String;//", { title: "Free attribute" });
-    testAddress: WRDAttributeTypeId.Address;//", { title: "Address attribute" });
-    testEmail: WRDAttributeTypeId.Email;//", { title: "E-mail attribute" });
-    testPhone: WRDAttributeTypeId.Telephone;//", { title: "Phone attribute" });
-    testDate: WRDAttributeTypeId.Date;//", { title: "Date attribute" });
-    testPassword: WRDAttributeTypeId.Password;//", { title: "Password attribute" });
-    testMultipleDomain: WRDAttributeTypeId.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
-    testMultipleDomain2: WRDAttributeTypeId.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
-    testMultipleDomain3: WRDAttributeTypeId.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
-    testImage: WRDAttributeTypeId.Image;//", { title: "Image attribute" });
-    testFile: WRDAttributeTypeId.File;//", { title: "File attribute" });
-    testTime: WRDAttributeTypeId.Time;//", { title: "Time attribute" });
-    testDatetime: WRDAttributeTypeId.DateTime;//", { title: "Datetime attribute" });
-    testArray: WRDAttr<WRDAttributeTypeId.Array, {
+    testSingleDomain: typeof WRDAttributeTypeId.Domain;//", { title: "Single attribute", domaintag: "testDomain1" });
+    testSingleDomain2: typeof WRDAttributeTypeId.Domain;//", { title: "Single attribute", domaintag: "testDomain1" }); // for <wrd:selectentity> test
+    testSingleDomain3: typeof WRDAttributeTypeId.Domain;//", { title: "Single attribute", domaintag: "testDomain1" }); // for <wrd:selectentity> test
+    testFree: typeof WRDAttributeTypeId.String;//", { title: "Free attribute" });
+    testAddress: typeof WRDAttributeTypeId.Address;//", { title: "Address attribute" });
+    testEmail: typeof WRDAttributeTypeId.Email;//", { title: "E-mail attribute" });
+    testPhone: typeof WRDAttributeTypeId.Telephone;//", { title: "Phone attribute" });
+    testDate: typeof WRDAttributeTypeId.Date;//", { title: "Date attribute" });
+    testPassword: typeof WRDAttributeTypeId.Password;//", { title: "Password attribute" });
+    testMultipleDomain: typeof WRDAttributeTypeId.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
+    testMultipleDomain2: typeof WRDAttributeTypeId.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
+    testMultipleDomain3: typeof WRDAttributeTypeId.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
+    testImage: typeof WRDAttributeTypeId.Image;//", { title: "Image attribute" });
+    testFile: typeof WRDAttributeTypeId.File;//", { title: "File attribute" });
+    testTime: typeof WRDAttributeTypeId.Time;//", { title: "Time attribute" });
+    testDatetime: typeof WRDAttributeTypeId.DateTime;//", { title: "Datetime attribute" });
+    testArray: WRDAttr<typeof WRDAttributeTypeId.Array, {
       members: {
-        testInt: WRDAttributeTypeId.Integer;
-        testFree: WRDAttributeTypeId.String;
-        testArray2: WRDAttr<WRDAttributeTypeId.Array, {
+        testInt: typeof WRDAttributeTypeId.Integer;
+        testFree: typeof WRDAttributeTypeId.String;
+        testArray2: WRDAttr<typeof WRDAttributeTypeId.Array, {
           members: {
-            testInt2: WRDAttributeTypeId.Integer;
+            testInt2: typeof WRDAttributeTypeId.Integer;
           };
         }>;
-        testSingle: WRDAttributeTypeId.Domain;
-        testImage: WRDAttributeTypeId.Image;
-        testSingleOther: WRDAttributeTypeId.Domain;
-        testMultiple: WRDAttributeTypeId.DomainArray;
-        testEmail: WRDAttributeTypeId.Email;
-        testRTD: WRDAttributeTypeId.RichTextDocument;
+        testSingle: typeof WRDAttributeTypeId.Domain;
+        testImage: typeof WRDAttributeTypeId.Image;
+        testSingleOther: typeof WRDAttributeTypeId.Domain;
+        testMultiple: typeof WRDAttributeTypeId.DomainArray;
+        testEmail: typeof WRDAttributeTypeId.Email;
+        testRTD: typeof WRDAttributeTypeId.RichTextDocument;
       };
     }>;
-    testMoney: WRDAttributeTypeId.Money;//", { title: "Money attribute" });
-    testInteger: WRDAttributeTypeId.Integer;//", { title: "Integer attribute" });
-    testBoolean: WRDAttributeTypeId.Boolean;//", { title: "Boolean attribute" });
-    testEnum: WRDAttr<WRDAttributeTypeId.Enum, { allowedValues: "enum1" | "enum2" }>;//", { title: "Enum attribute", allowedValues: ["enum1", "enum2"] });
-    testEnumarray: WRDAttr<WRDAttributeTypeId.EnumArray, { allowedValues: "enumarray1" | "enumarray2" }>;//", { title: "Enum attribute", allowedValues: ["enumarray1", "enumarray2"] });
-    testEmptyenum: WRDAttr<WRDAttributeTypeId.Enum, { allowedValues: never }>;//", { title: "Enum attribute", allowedValues: getTypedArray(HareScriptType.StringArray, []) });
-    testEmptyenumarray: WRDAttr<WRDAttributeTypeId.EnumArray, { allowedValues: never }>;//", { title: "Enum attribute", allowedValues: getTypedArray(HareScriptType.StringArray, []) });
-    testInteger64: WRDAttributeTypeId.Integer64;//", { title: "Integer64 attribute" });
-    testRecord: WRDAttributeTypeId.HSON;//", { title: "Record attribute", allowedValues: getTypedArray(HareScriptType.StringArray, []) });
-    testJson: WRDAttr<WRDAttributeTypeId.JSON, { type: { mixedCase: Array<number | string>; date?: Date; big?: bigint } }>;//", { title: "Json attribute" });
-    testStatusrecord: WRDAttr<WRDAttributeTypeId.DeprecatedStatusRecord, { allowedValues: "warning" | "error" | "ok"; type: { status: "warning"; warning: string } | { status: "error"; error: string } | { status: "ok"; message: string } }>;//", { title: "Status record", allowedValues: ["warning", "error", "ok"] });
-    testFree_nocopy: WRDAttributeTypeId.String;//", { title: "Uncopyable free attribute", isunsafetocopy: true });
-    richie: WRDAttributeTypeId.RichTextDocument;//", { title: "Rich document" });
-    linkie: WRDAttributeTypeId.IntExtLink;//", { title: "Internal/external link" });
-    testinstance: WRDAttributeTypeId.Instance;//", { title: "Testinstance" });
-    testlink: WRDAttributeTypeId.WHFSRef;//", { title: "testlink" });
+    testMoney: typeof WRDAttributeTypeId.Money;//", { title: "Money attribute" });
+    testInteger: typeof WRDAttributeTypeId.Integer;//", { title: "Integer attribute" });
+    testBoolean: typeof WRDAttributeTypeId.Boolean;//", { title: "Boolean attribute" });
+    testEnum: WRDAttr<typeof WRDAttributeTypeId.Enum, { allowedValues: "enum1" | "enum2" }>;//", { title: "Enum attribute", allowedValues: ["enum1", "enum2"] });
+    testEnumarray: WRDAttr<typeof WRDAttributeTypeId.EnumArray, { allowedValues: "enumarray1" | "enumarray2" }>;//", { title: "Enum attribute", allowedValues: ["enumarray1", "enumarray2"] });
+    testEmptyenum: WRDAttr<typeof WRDAttributeTypeId.Enum, { allowedValues: never }>;//", { title: "Enum attribute", allowedValues: getTypedArray(HareScriptType.StringArray, []) });
+    testEmptyenumarray: WRDAttr<typeof WRDAttributeTypeId.EnumArray, { allowedValues: never }>;//", { title: "Enum attribute", allowedValues: getTypedArray(HareScriptType.StringArray, []) });
+    testInteger64: typeof WRDAttributeTypeId.Integer64;//", { title: "Integer64 attribute" });
+    testRecord: typeof WRDAttributeTypeId.HSON;//", { title: "Record attribute", allowedValues: getTypedArray(HareScriptType.StringArray, []) });
+    testJson: WRDAttr<typeof WRDAttributeTypeId.JSON, { type: { mixedCase: Array<number | string>; date?: Date; big?: bigint } }>;//", { title: "Json attribute" });
+    testStatusrecord: WRDAttr<typeof WRDAttributeTypeId.DeprecatedStatusRecord, { allowedValues: "warning" | "error" | "ok"; type: { status: "warning"; warning: string } | { status: "error"; error: string } | { status: "ok"; message: string } }>;//", { title: "Status record", allowedValues: ["warning", "error", "ok"] });
+    testFree_nocopy: typeof WRDAttributeTypeId.String;//", { title: "Uncopyable free attribute", isunsafetocopy: true });
+    richie: typeof WRDAttributeTypeId.RichTextDocument;//", { title: "Rich document" });
+    linkie: typeof WRDAttributeTypeId.IntExtLink;//", { title: "Internal/external link" });
+    testinstance: typeof WRDAttributeTypeId.Instance;//", { title: "Testinstance" });
+    testlink: typeof WRDAttributeTypeId.WHFSRef;//", { title: "testlink" });
   } & WRDTypeBaseSettings;
   testDomain_1: {
-    wrdLeftEntity: WRDBaseAttributeTypeId.Base_Domain;
-    wrdOrdering: WRDBaseAttributeTypeId.Base_Integer;
-    wrdTitle: WRDAttributeTypeId.String;
+    wrdLeftEntity: typeof WRDBaseAttributeTypeId.Base_Domain;
+    wrdOrdering: typeof WRDBaseAttributeTypeId.Base_Integer;
+    wrdTitle: typeof WRDAttributeTypeId.String;
   } & WRDTypeBaseSettings;
   testDomain_2: {
-    wrdLeftEntity: WRDBaseAttributeTypeId.Base_Domain;
-    wrdOrdering: WRDBaseAttributeTypeId.Base_Integer;
+    wrdLeftEntity: typeof WRDBaseAttributeTypeId.Base_Domain;
+    wrdOrdering: typeof WRDBaseAttributeTypeId.Base_Integer;
   } & WRDTypeBaseSettings;
   personattachment: {
-    wrdLeftEntity: IsRequired<WRDBaseAttributeTypeId.Base_Domain>;
-    attachfree: WRDAttributeTypeId.String;
+    wrdLeftEntity: IsRequired<typeof WRDBaseAttributeTypeId.Base_Domain>;
+    attachfree: typeof WRDAttributeTypeId.String;
   } & WRDTypeBaseSettings;
   personorglink: {
-    wrdLeftEntity: IsRequired<WRDBaseAttributeTypeId.Base_Domain>;
-    wrdRightEntity: IsRequired<WRDBaseAttributeTypeId.Base_Domain>;
-    text: WRDAttributeTypeId.String;
+    wrdLeftEntity: IsRequired<typeof WRDBaseAttributeTypeId.Base_Domain>;
+    wrdRightEntity: IsRequired<typeof WRDBaseAttributeTypeId.Base_Domain>;
+    text: typeof WRDAttributeTypeId.String;
   } & WRDTypeBaseSettings;
   payprov: {
-    method: IsRequired<WRDAttributeTypeId.PaymentProvider>;
+    method: IsRequired<typeof WRDAttributeTypeId.PaymentProvider>;
   } & WRDTypeBaseSettings;
   paydata: {
-    data: WRDAttributeTypeId.Payment;
-    log: WRDAttributeTypeId.HSON;
+    data: typeof WRDAttributeTypeId.Payment;
+    log: typeof WRDAttributeTypeId.HSON;
   } & WRDTypeBaseSettings;
   paydata2: {
-    wrdId: IsNonUpdatable<WRDBaseAttributeTypeId.Base_Integer>;
-    data: WRDAttributeTypeId.Payment;
-    log: WRDAttributeTypeId.HSON;
+    wrdId: IsNonUpdatable<typeof WRDBaseAttributeTypeId.Base_Integer>;
+    data: typeof WRDAttributeTypeId.Payment;
+    log: typeof WRDAttributeTypeId.HSON;
   } & WRDTypeBaseSettings;
 };
 
 export type CustomExtensionsModern = {
   wrdPerson: {
-    testSingleDomain: WRDAttributeTypeId.Domain;//", { title: "Single attribute", domaintag: "testDomain1" });
-    testSingleDomain2: WRDAttributeTypeId.Domain;//", { title: "Single attribute", domaintag: "testDomain1" }); // for <wrd:selectentity> test
-    testSingleDomain3: WRDAttributeTypeId.Domain;//", { title: "Single attribute", domaintag: "testDomain1" }); // for <wrd:selectentity> test
-    testFree: WRDAttributeTypeId.String;//", { title: "Free attribute" });
-    testAddress: WRDAttributeTypeId.Address;//", { title: "Address attribute" });
-    testEmail: WRDAttributeTypeId.Email;//", { title: "E-mail attribute" });
-    testPhone: WRDAttributeTypeId.Telephone;//", { title: "Phone attribute" });
-    testDate: WRDBaseAttributeTypeId.Modern_Date;
-    testPassword: WRDAttributeTypeId.Password;//", { title: "Password attribute" });
-    testMultipleDomain: WRDAttributeTypeId.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
-    testMultipleDomain2: WRDAttributeTypeId.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
-    testMultipleDomain3: WRDAttributeTypeId.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
-    testImage: WRDAttributeTypeId.Image;//", { title: "Image attribute" });
-    testFile: WRDAttributeTypeId.File;//", { title: "File attribute" });
-    testTime: WRDBaseAttributeTypeId.Modern_Time;//", { title: "Time attribute" });
-    testDatetime: WRDBaseAttributeTypeId.Modern_DateTime;
-    testUrl: WRDAttr<WRDAttributeTypeId.URL>;
-    testArray: WRDAttr<WRDAttributeTypeId.Array, {
+    testSingleDomain: typeof WRDAttributeTypeId.Domain;//", { title: "Single attribute", domaintag: "testDomain1" });
+    testSingleDomain2: typeof WRDAttributeTypeId.Domain;//", { title: "Single attribute", domaintag: "testDomain1" }); // for <wrd:selectentity> test
+    testSingleDomain3: typeof WRDAttributeTypeId.Domain;//", { title: "Single attribute", domaintag: "testDomain1" }); // for <wrd:selectentity> test
+    testFree: typeof WRDAttributeTypeId.String;//", { title: "Free attribute" });
+    testAddress: typeof WRDAttributeTypeId.Address;//", { title: "Address attribute" });
+    testEmail: typeof WRDAttributeTypeId.Email;//", { title: "E-mail attribute" });
+    testPhone: typeof WRDAttributeTypeId.Telephone;//", { title: "Phone attribute" });
+    testDate: typeof WRDBaseAttributeTypeId.Modern_Date;
+    testPassword: typeof WRDAttributeTypeId.Password;//", { title: "Password attribute" });
+    testMultipleDomain: typeof WRDAttributeTypeId.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
+    testMultipleDomain2: typeof WRDAttributeTypeId.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
+    testMultipleDomain3: typeof WRDAttributeTypeId.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
+    testImage: typeof WRDAttributeTypeId.Image;//", { title: "Image attribute" });
+    testFile: typeof WRDAttributeTypeId.File;//", { title: "File attribute" });
+    testTime: typeof WRDBaseAttributeTypeId.Modern_Time;//", { title: "Time attribute" });
+    testDatetime: typeof WRDBaseAttributeTypeId.Modern_DateTime;
+    testUrl: WRDAttr<typeof WRDAttributeTypeId.URL>;
+    testArray: WRDAttr<typeof WRDAttributeTypeId.Array, {
       members: {
-        testInt: WRDAttributeTypeId.Integer;
-        testFree: WRDAttributeTypeId.String;
-        testArray2: WRDAttr<WRDAttributeTypeId.Array, {
+        testInt: typeof WRDAttributeTypeId.Integer;
+        testFree: typeof WRDAttributeTypeId.String;
+        testArray2: WRDAttr<typeof WRDAttributeTypeId.Array, {
           members: {
-            testInt2: WRDAttributeTypeId.Integer;
+            testInt2: typeof WRDAttributeTypeId.Integer;
           };
         }>;
-        testSingle: WRDAttributeTypeId.Domain;
-        testImage: WRDAttributeTypeId.Image;
-        testSingleOther: WRDAttributeTypeId.Domain;
-        testMultiple: WRDAttributeTypeId.DomainArray;
-        testEmail: WRDAttributeTypeId.Email;
-        testRTD: WRDAttributeTypeId.RichTextDocument;
+        testSingle: typeof WRDAttributeTypeId.Domain;
+        testImage: typeof WRDAttributeTypeId.Image;
+        testSingleOther: typeof WRDAttributeTypeId.Domain;
+        testMultiple: typeof WRDAttributeTypeId.DomainArray;
+        testEmail: typeof WRDAttributeTypeId.Email;
+        testRTD: typeof WRDAttributeTypeId.RichTextDocument;
       };
     }>;
-    testMoney: WRDAttributeTypeId.Money;//", { title: "Money attribute" });
-    testInteger: WRDAttributeTypeId.Integer;//", { title: "Integer attribute" });
-    testBoolean: WRDAttributeTypeId.Boolean;//", { title: "Boolean attribute" });
-    testEnum: WRDAttr<WRDAttributeTypeId.Enum, { allowedValues: "enum1" | "enum2" }>;//", { title: "Enum attribute", allowedValues: ["enum1", "enum2"] });
-    testEnumarray: WRDAttr<WRDAttributeTypeId.EnumArray, { allowedValues: "enumarray1" | "enumarray2" }>;//", { title: "Enum attribute", allowedValues: ["enumarray1", "enumarray2"] });
-    testEmptyenum: WRDAttr<WRDAttributeTypeId.Enum, { allowedValues: never }>;//", { title: "Enum attribute", allowedValues: getTypedArray(HareScriptType.StringArray, []) });
-    testEmptyenumarray: WRDAttr<WRDAttributeTypeId.EnumArray, { allowedValues: never }>;//", { title: "Enum attribute", allowedValues: getTypedArray(HareScriptType.StringArray, []) });
-    testInteger64: WRDAttributeTypeId.Integer64;//", { title: "Integer64 attribute" });
-    testRecord: WRDAttributeTypeId.HSON;//", { title: "Record attribute", allowedValues: getTypedArray(HareScriptType.StringArray, []) });
-    testJson: WRDAttr<WRDAttributeTypeId.JSON, { type: { mixedCase: Array<number | string>; date?: Date; big?: bigint } }>;//", { title: "Json attribute" });
-    testStatusrecord: WRDAttr<WRDAttributeTypeId.DeprecatedStatusRecord, { allowedValues: "warning" | "error" | "ok"; type: { status: "warning"; warning: string } | { status: "error"; error: string } | { status: "ok"; message: string } }>;//", { title: "Status record", allowedValues: ["warning", "error", "ok"] });
-    testFree_nocopy: WRDAttributeTypeId.String;//", { title: "Uncopyable free attribute", isunsafetocopy: true });
-    richie: WRDAttributeTypeId.RichTextDocument;//", { title: "Rich document" });
-    linkie: WRDAttributeTypeId.IntExtLink;//", { title: "Internal/external link" });
-    testinstance: WRDAttributeTypeId.Instance;//", { title: "Testinstance" });
-    testlink: WRDAttributeTypeId.WHFSRef;//", { title: "testlink" });
+    testMoney: typeof WRDAttributeTypeId.Money;//", { title: "Money attribute" });
+    testInteger: typeof WRDAttributeTypeId.Integer;//", { title: "Integer attribute" });
+    testBoolean: typeof WRDAttributeTypeId.Boolean;//", { title: "Boolean attribute" });
+    testEnum: WRDAttr<typeof WRDAttributeTypeId.Enum, { allowedValues: "enum1" | "enum2" }>;//", { title: "Enum attribute", allowedValues: ["enum1", "enum2"] });
+    testEnumarray: WRDAttr<typeof WRDAttributeTypeId.EnumArray, { allowedValues: "enumarray1" | "enumarray2" }>;//", { title: "Enum attribute", allowedValues: ["enumarray1", "enumarray2"] });
+    testEmptyenum: WRDAttr<typeof WRDAttributeTypeId.Enum, { allowedValues: never }>;//", { title: "Enum attribute", allowedValues: getTypedArray(HareScriptType.StringArray, []) });
+    testEmptyenumarray: WRDAttr<typeof WRDAttributeTypeId.EnumArray, { allowedValues: never }>;//", { title: "Enum attribute", allowedValues: getTypedArray(HareScriptType.StringArray, []) });
+    testInteger64: typeof WRDAttributeTypeId.Integer64;//", { title: "Integer64 attribute" });
+    testRecord: typeof WRDAttributeTypeId.HSON;//", { title: "Record attribute", allowedValues: getTypedArray(HareScriptType.StringArray, []) });
+    testJson: WRDAttr<typeof WRDAttributeTypeId.JSON, { type: { mixedCase: Array<number | string>; date?: Date; big?: bigint } }>;//", { title: "Json attribute" });
+    testStatusrecord: WRDAttr<typeof WRDAttributeTypeId.DeprecatedStatusRecord, { allowedValues: "warning" | "error" | "ok"; type: { status: "warning"; warning: string } | { status: "error"; error: string } | { status: "ok"; message: string } }>;//", { title: "Status record", allowedValues: ["warning", "error", "ok"] });
+    testFree_nocopy: typeof WRDAttributeTypeId.String;//", { title: "Uncopyable free attribute", isunsafetocopy: true });
+    richie: typeof WRDAttributeTypeId.RichTextDocument;//", { title: "Rich document" });
+    linkie: typeof WRDAttributeTypeId.IntExtLink;//", { title: "Internal/external link" });
+    testinstance: typeof WRDAttributeTypeId.Instance;//", { title: "Testinstance" });
+    testlink: typeof WRDAttributeTypeId.WHFSRef;//", { title: "testlink" });
   } & WRDTypeBaseSettingsModern;
   testDomain_1: {
-    wrdLeftEntity: WRDBaseAttributeTypeId.Base_Domain;
-    wrdOrder: WRDBaseAttributeTypeId.Base_Integer;
-    wrdTitle: WRDAttributeTypeId.String;
+    wrdLeftEntity: typeof WRDBaseAttributeTypeId.Base_Domain;
+    wrdOrder: typeof WRDBaseAttributeTypeId.Base_Integer;
+    wrdTitle: typeof WRDAttributeTypeId.String;
   } & WRDTypeBaseSettingsModern;
   testDomain_2: {
-    wrdLeftEntity: WRDBaseAttributeTypeId.Base_Domain;
-    wrdOrder: WRDBaseAttributeTypeId.Base_Integer;
+    wrdLeftEntity: typeof WRDBaseAttributeTypeId.Base_Domain;
+    wrdOrder: typeof WRDBaseAttributeTypeId.Base_Integer;
   } & WRDTypeBaseSettingsModern;
   personattachment: {
-    wrdLeftEntity: IsRequired<WRDBaseAttributeTypeId.Base_Domain>;
-    attachfree: WRDAttributeTypeId.String;
+    wrdLeftEntity: IsRequired<typeof WRDBaseAttributeTypeId.Base_Domain>;
+    attachfree: typeof WRDAttributeTypeId.String;
   } & WRDTypeBaseSettingsModern;
   personorglink: {
-    wrdLeftEntity: IsRequired<WRDBaseAttributeTypeId.Base_Domain>;
-    wrdRightEntity: IsRequired<WRDBaseAttributeTypeId.Base_Domain>;
-    text: WRDAttributeTypeId.String;
+    wrdLeftEntity: IsRequired<typeof WRDBaseAttributeTypeId.Base_Domain>;
+    wrdRightEntity: IsRequired<typeof WRDBaseAttributeTypeId.Base_Domain>;
+    text: typeof WRDAttributeTypeId.String;
   } & WRDTypeBaseSettingsModern;
   payprov: {
-    method: IsRequired<WRDAttributeTypeId.PaymentProvider>;
+    method: IsRequired<typeof WRDAttributeTypeId.PaymentProvider>;
   } & WRDTypeBaseSettingsModern;
   paydata: {
-    data: WRDAttributeTypeId.Payment;
-    log: WRDAttributeTypeId.HSON;
+    data: typeof WRDAttributeTypeId.Payment;
+    log: typeof WRDAttributeTypeId.HSON;
   } & WRDTypeBaseSettingsModern;
   paydata2: {
-    wrdId: IsNonUpdatable<WRDBaseAttributeTypeId.Base_Integer>;
-    data: WRDAttributeTypeId.Payment;
-    log: WRDAttributeTypeId.HSON;
+    wrdId: IsNonUpdatable<typeof WRDBaseAttributeTypeId.Base_Integer>;
+    data: typeof WRDAttributeTypeId.Payment;
+    log: typeof WRDAttributeTypeId.HSON;
   } & WRDTypeBaseSettingsModern;
 };
 

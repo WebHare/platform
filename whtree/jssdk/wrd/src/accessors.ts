@@ -1,4 +1,4 @@
-import { WRDBaseAttributeTypeId, WRDAttributeTypeId, type WRDAttrBase, type WRDGender, type WRDInsertable, type GetResultType, type SimpleWRDAttributeType } from "./types";
+import { WRDBaseAttributeTypeId, WRDAttributeTypeId, type WRDAttrBase, type WRDGender, type WRDInsertable, type GetResultType, type SimpleWRDAttributeType, getWRDAttributeTypeName } from "./types";
 import type { AttrRec, EntityPartialRec, EntitySettingsRec, EntitySettingsWHFSLinkRec, TypeRec } from "./db";
 import { sql, type SelectQueryBuilder, type ExpressionBuilder, type RawBuilder, type Expression, type SqlBool, type Updateable } from "kysely";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
@@ -1650,19 +1650,19 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
 
 export abstract class WRDAttributeUncomparableValueBase<In, Default, Out extends Default, Export> extends WRDAttributeValueBase<In, Default, Out, Export, never> {
   checkFilter(cv: never): void {
-    throw new Error(`Cannot compare values of type ${WRDAttributeTypeId[this.attr.attributetype]}`);
+    throw new Error(`Cannot compare values of type ${getWRDAttributeTypeName(this.attr.attributetype)}`);
   }
 
   matchesValue(value: unknown, cv: never): boolean {
-    throw new Error(`Cannot compare values of type  ${WRDAttributeTypeId[this.attr.attributetype]}`);
+    throw new Error(`Cannot compare values of type  ${getWRDAttributeTypeName(this.attr.attributetype)}`);
   }
 
   addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv_org: never): AddToQueryResponse<O> {
-    throw new Error(`Cannot compare values of type  ${WRDAttributeTypeId[this.attr.attributetype]}`);
+    throw new Error(`Cannot compare values of type  ${getWRDAttributeTypeName(this.attr.attributetype)}`);
   }
 
   containsOnlyDefaultValues(cv: never): boolean {
-    throw new Error(`Cannot compare values of type  ${WRDAttributeTypeId[this.attr.attributetype]}`);
+    throw new Error(`Cannot compare values of type  ${getWRDAttributeTypeName(this.attr.attributetype)}`);
   }
 }
 
@@ -2473,15 +2473,15 @@ type SimpleTypeMap<Required extends boolean> = {
  */
 export type AccessorType<T extends WRDAttrBase> = T["__attrtype"] extends keyof SimpleTypeMap<T["__required"]>
   ? SimpleTypeMap<T["__required"]>[T["__attrtype"]]
-  : (T extends { __attrtype: WRDAttributeTypeId.Enum }
+  : (T extends { __attrtype: typeof WRDAttributeTypeId.Enum }
     ? WRDDBEnumValue<T["__options"], T["__required"]>
-    : (T extends { __attrtype: WRDAttributeTypeId.EnumArray }
+    : (T extends { __attrtype: typeof WRDAttributeTypeId.EnumArray }
       ? WRDDBEnumArrayValue<T["__options"]>
-      : (T extends { __attrtype: WRDAttributeTypeId.DeprecatedStatusRecord }
+      : (T extends { __attrtype: typeof WRDAttributeTypeId.DeprecatedStatusRecord }
         ? WRDDBStatusRecordValue<T["__options"], T["__required"]>
-        : (T extends { __attrtype: WRDAttributeTypeId.Array }
+        : (T extends { __attrtype: typeof WRDAttributeTypeId.Array }
           ? WRDDBArrayValue<T["__options"]["members"]>
-          : (T extends { __attrtype: WRDAttributeTypeId.JSON }
+          : (T extends { __attrtype: typeof WRDAttributeTypeId.JSON }
             ? WRDDBJSONValue<T["__required"], T["__options"]["type"]>
             : never)))));
 
@@ -2543,5 +2543,5 @@ export function getAccessor<T extends WRDAttrBase>(
     case WRDAttributeTypeId.JSON: return new WRDDBJSONValue<T["__required"], (T["__options"] & { type: object })["type"]>(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.DeprecatedStatusRecord: return new WRDDBStatusRecordValue<T["__options"] & { allowedValues: string; type: object }, T["__required"]>(type, attrinfo) as AccessorType<T>;
   }
-  throw new Error(`Unhandled attribute type ${(attrinfo.attributetype < 0 ? WRDBaseAttributeTypeId[attrinfo.attributetype] : WRDAttributeTypeId[attrinfo.attributetype]) ?? attrinfo.attributetype}`);
+  throw new Error(`Unhandled attribute type ${getWRDAttributeTypeName(attrinfo.attributetype)}`);
 }

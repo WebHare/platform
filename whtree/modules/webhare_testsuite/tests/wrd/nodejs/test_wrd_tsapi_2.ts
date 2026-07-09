@@ -110,10 +110,10 @@ async function testSettingReuse() {
 async function testPaymentTypes() {
   type MySchema = {
     testPaymentProvider: {
-      data: IsRequired<WRDAttr<WRDAttributeTypeId.PaymentProvider>>;
+      data: IsRequired<WRDAttr<typeof WRDAttributeTypeId.PaymentProvider>>;
     } & WRDTypeBaseSettingsModern;
     testPayment: {
-      payment: IsRequired<WRDAttr<WRDAttributeTypeId.Payment>>;
+      payment: IsRequired<WRDAttr<typeof WRDAttributeTypeId.Payment>>;
     } & WRDTypeBaseSettingsModern;
   };
 

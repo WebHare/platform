@@ -1,8 +1,16 @@
 import { pick, stringify } from "@webhare/std";
 
-/** This enum must be ordered in the normal order (so we can say a service must be running when service.startIn &lt;= current stage &lt;= service.stopIn ?? DefaultStopStage).
+/** This object must be ordered in the normal order (so we can say a service must be running when service.startIn &lt;= current stage &lt;= service.stopIn ?? DefaultStopStage).
  */
-export enum Stage { Bootup, StartupScript, Online, PostStartDone, Terminating, ShuttingDown }
+export const Stage = {
+  Bootup: 0,
+  StartupScript: 1,
+  Online: 2,
+  PostStartDone: 3,
+  Terminating: 4,
+  ShuttingDown: 5
+} as const;
+export type Stage = (typeof Stage)[keyof typeof Stage];
 
 export const defaultShutDownStage = Stage.Terminating;
 

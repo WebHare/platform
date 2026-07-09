@@ -98,19 +98,23 @@ export interface IPCEndPoint<SendType extends object | null = IPCMarshallableRec
   };
 }
 
-export enum IPCEndPointImplControlMessageType {
-  Message,
-  ConnectResult
+export const IPCEndPointImplControlMessageType = {
+  Message: 0,
+  ConnectResult: 1
+} as const;
+
+export function getIPCEndPointImplControlMessageTypeName(type: typeof IPCEndPointImplControlMessageType[keyof typeof IPCEndPointImplControlMessageType]): string {
+  return Object.keys(IPCEndPointImplControlMessageType).find(key => IPCEndPointImplControlMessageType[key as keyof typeof IPCEndPointImplControlMessageType] === type) || `UnknownIPCEndPointImplControlMessageType${type}`;
 }
 
 /** Format of MessagePort messages received by an IPCEndPointImpl */
 export type IPCEndPointImplControlMessage = {
-  type: IPCEndPointImplControlMessageType.Message;
+  type: typeof IPCEndPointImplControlMessageType.Message;
   msgid: bigint;
   replyto: bigint;
   buffer: ArrayBuffer;
 } | {
-  type: IPCEndPointImplControlMessageType.ConnectResult;
+  type: typeof IPCEndPointImplControlMessageType.ConnectResult;
   success: boolean;
 };
 
@@ -195,8 +199,8 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
   handleControlMessage(ctrlmsg: IPCEndPointImplControlMessage, isqueueitem?: boolean): boolean {
     if (envbackend.debugFlags.ipc) {
       const tolog = ctrlmsg.type === IPCEndPointImplControlMessageType.Message
-        ? { ...ctrlmsg, type: IPCEndPointImplControlMessageType[ctrlmsg.type], buffer: readMarshalPacket(Buffer.from(ctrlmsg.buffer)) }
-        : { ...ctrlmsg, type: IPCEndPointImplControlMessageType[ctrlmsg.type] };
+        ? { ...ctrlmsg, type: getIPCEndPointImplControlMessageTypeName(ctrlmsg.type), buffer: readMarshalPacket(Buffer.from(ctrlmsg.buffer)) }
+        : { ...ctrlmsg, type: getIPCEndPointImplControlMessageTypeName(ctrlmsg.type) };
       console.log(`ipclink ${this.id} received ctrl msg`, tolog, { isqueueitem });
     }
     if (this.closed)
@@ -298,8 +302,8 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
   sendPortMessage(msg: IPCEndPointImplControlMessage, transferlist?: ArrayBuffer[]) {
     if (envbackend.debugFlags.ipc) {
       const tolog = msg.type === IPCEndPointImplControlMessageType.Message
-        ? { ...msg, type: IPCEndPointImplControlMessageType[msg.type], buffer: readMarshalPacket(msg.buffer) }
-        : { ...msg, type: IPCEndPointImplControlMessageType[msg.type] };
+        ? { ...msg, type: getIPCEndPointImplControlMessageTypeName(msg.type), buffer: readMarshalPacket(msg.buffer) }
+        : { ...msg, type: getIPCEndPointImplControlMessageTypeName(msg.type) };
       console.log(`ipclink ${this.id} sends ctrl msg`, tolog);
     }
     this.port.postMessage(msg, transferlist);
@@ -398,16 +402,20 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
   }
 }
 
-export enum IPCPortControlMessageType {
-  RegisterResult,
-  IncomingLink
+export const IPCPortControlMessageType = {
+  RegisterResult: 0,
+  IncomingLink: 1
+} as const;
+
+function getIPCPortControlMessageTypeName(type: typeof IPCPortControlMessageType[keyof typeof IPCPortControlMessageType]): string {
+  return Object.keys(IPCPortControlMessageType).find(key => IPCPortControlMessageType[key as keyof typeof IPCPortControlMessageType] === type) || `UnknownIPCPortControlMessageType${type}`;
 }
 
 export type IPCPortControlMessage = {
-  type: IPCPortControlMessageType.RegisterResult;
+  type: typeof IPCPortControlMessageType.RegisterResult;
   success: boolean;
 } | {
-  type: IPCPortControlMessageType.IncomingLink;
+  type: typeof IPCPortControlMessageType.IncomingLink;
   id: string;
   port: TypedMessagePort<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>;
 };
@@ -463,7 +471,7 @@ export class IPCPortImpl<SendType extends object | null, ReceiveType extends obj
 
   handleControlMessage(ctrlmsg: IPCPortControlMessage) {
     if (envbackend.debugFlags.ipc)
-      console.log(`port ${this.name} ctrl msg`, { ...ctrlmsg, type: IPCPortControlMessageType[ctrlmsg.type] });
+      console.log(`port ${this.name} ctrl msg`, { ...ctrlmsg, type: getIPCPortControlMessageTypeName(ctrlmsg.type) });
     switch (ctrlmsg.type) {
       case IPCPortControlMessageType.RegisterResult: {
         if (ctrlmsg.success)

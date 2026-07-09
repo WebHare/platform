@@ -250,7 +250,7 @@ interface TestRecordDataInterface {
 
 type Extensions = {
   wrdPerson: {
-    testJsonRequired: IsRequired<WRDAttr<WRDAttributeTypeId.JSON, { type: { mixedCase: Array<number | string> } }>>;
+    testJsonRequired: IsRequired<WRDAttr<typeof WRDAttributeTypeId.JSON, { type: { mixedCase: Array<number | string> } }>>;
   } & WRDTypeBaseSettingsModern;
 };
 
@@ -1641,38 +1641,38 @@ async function testImportMode() {
   await whdb.beginWork();
   type MySchema = {
     testImportModeLink: {
-      wrdLeftEntity: IsRequired<WRDBaseAttributeTypeId.Base_Domain>;
-      wrdRightEntity: IsRequired<WRDBaseAttributeTypeId.Base_Domain>;
-      enum: IsRequired<WRDAttr<WRDAttributeTypeId.Enum, { allowedValues: "a" | "b" }>>;
-      enumArray: IsRequired<WRDAttr<WRDAttributeTypeId.EnumArray, { allowedValues: "a" | "b" }>>;
-      statusRecord: IsRequired<WRDAttr<WRDAttributeTypeId.DeprecatedStatusRecord, { allowedValues: "a" | "b"; type: object }>>;
-      string: IsRequired<WRDAttributeTypeId.String>;
-      email: IsRequired<WRDAttributeTypeId.Email>;
-      url: IsRequired<WRDAttributeTypeId.URL>;
+      wrdLeftEntity: IsRequired<typeof WRDBaseAttributeTypeId.Base_Domain>;
+      wrdRightEntity: IsRequired<typeof WRDBaseAttributeTypeId.Base_Domain>;
+      enum: IsRequired<WRDAttr<typeof WRDAttributeTypeId.Enum, { allowedValues: "a" | "b" }>>;
+      enumArray: IsRequired<WRDAttr<typeof WRDAttributeTypeId.EnumArray, { allowedValues: "a" | "b" }>>;
+      statusRecord: IsRequired<WRDAttr<typeof WRDAttributeTypeId.DeprecatedStatusRecord, { allowedValues: "a" | "b"; type: object }>>;
+      string: IsRequired<typeof WRDAttributeTypeId.String>;
+      email: IsRequired<typeof WRDAttributeTypeId.Email>;
+      url: IsRequired<typeof WRDAttributeTypeId.URL>;
       // ADDME: can we get wrdInfix and gender to be required?
-      boolean: IsRequired<WRDAttributeTypeId.Boolean>;
-      integer: IsRequired<WRDAttributeTypeId.Integer>;
-      domain: IsRequired<WRDAttributeTypeId.Domain>;
-      domainArray: IsRequired<WRDAttributeTypeId.DomainArray>;
-      date: IsRequired<WRDAttributeTypeId.Date>;
-      datetime: IsRequired<WRDAttributeTypeId.DateTime>;
-      time: IsRequired<WRDAttributeTypeId.Time>;
-      array: WRDAttr<WRDAttributeTypeId.Array, {
+      boolean: IsRequired<typeof WRDAttributeTypeId.Boolean>;
+      integer: IsRequired<typeof WRDAttributeTypeId.Integer>;
+      domain: IsRequired<typeof WRDAttributeTypeId.Domain>;
+      domainArray: IsRequired<typeof WRDAttributeTypeId.DomainArray>;
+      date: IsRequired<typeof WRDAttributeTypeId.Date>;
+      datetime: IsRequired<typeof WRDAttributeTypeId.DateTime>;
+      time: IsRequired<typeof WRDAttributeTypeId.Time>;
+      array: WRDAttr<typeof WRDAttributeTypeId.Array, {
         members: {
-          integer: IsRequired<WRDAttributeTypeId.Integer>;
+          integer: IsRequired<typeof WRDAttributeTypeId.Integer>;
         };
       }>;
-      json: IsRequired<WRDAttr<WRDAttributeTypeId.JSON, { type: object }>>;
-      hson: IsRequired<WRDAttributeTypeId.HSON>;
-      file: IsRequired<WRDAttributeTypeId.File>;
-      image: IsRequired<WRDAttributeTypeId.Image>;
-      richTextDocument: IsRequired<WRDAttributeTypeId.RichTextDocument>;
-      integer64: IsRequired<WRDAttributeTypeId.Integer64>;
-      money: IsRequired<WRDAttributeTypeId.Money>;
-      address: IsRequired<WRDAttributeTypeId.Address>;
+      json: IsRequired<WRDAttr<typeof WRDAttributeTypeId.JSON, { type: object }>>;
+      hson: IsRequired<typeof WRDAttributeTypeId.HSON>;
+      file: IsRequired<typeof WRDAttributeTypeId.File>;
+      image: IsRequired<typeof WRDAttributeTypeId.Image>;
+      richTextDocument: IsRequired<typeof WRDAttributeTypeId.RichTextDocument>;
+      integer64: IsRequired<typeof WRDAttributeTypeId.Integer64>;
+      money: IsRequired<typeof WRDAttributeTypeId.Money>;
+      address: IsRequired<typeof WRDAttributeTypeId.Address>;
     } & WRDTypeBaseSettingsModern;
     testImportModeDom: {
-      wrdTitle: WRDAttributeTypeId.String;
+      wrdTitle: typeof WRDAttributeTypeId.String;
     } & WRDTypeBaseSettingsModern;
   };
 
@@ -1719,7 +1719,7 @@ async function testImportMode() {
     {
       wrdCreated: null,
       wrdClosed: null,
-      // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
+      // @ts-expect-error -- null not allowed for required fields, but allowed in importMode
       enum: null,
       enumArray: [],
       // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
@@ -1729,27 +1729,27 @@ async function testImportMode() {
       url: "",
       boolean: false,
       integer: 0,
-      // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
+      // @ts-expect-error -- null not allowed for required fields, but allowed in importMode
       domain: null,
       domainArray: [],
-      // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
+      // @ts-expect-error -- null not allowed for required fields, but allowed in importMode
       date: null,
-      // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
+      // @ts-expect-error -- null not allowed for required fields, but allowed in importMode
       datetime: null,
-      // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
+      // @ts-expect-error -- null not allowed for required fields, but allowed in importMode
       time: null,
       array: [],
-      // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
+      // @ts-expect-error -- null not allowed for required fields, but allowed in importMode
       json: null,
       hson: null,
-      // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
+      // @ts-expect-error -- null not allowed for required fields, but allowed in importMode
       file: null,
-      // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
+      // @ts-expect-error -- null not allowed for required fields, but allowed in importMode
       image: null,
       richDocument: null,
       integer64: 0,
       money: new Money("0"),
-      // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
+      // @ts-expect-error -- null not allowed for required fields, but allowed in importMode
       address: null,
     }, { importMode: true });
 

@@ -708,52 +708,54 @@ export class WASMModule extends WASMModuleBase {
   }
 }
 
-export enum SocketError {
+export const SocketError = {
   ///nothing went wrong
-  NoError = 0,
+  NoError: 0,
   ///a not (yet) supported error
-  UnknownError = -1,
+  UnknownError: -1,
   ///the socket/connection has been gracefully closed
-  Closed = -2,
+  Closed: -2,
   ///there was no connection
-  Unconnected = -3,
+  Unconnected: -3,
   ///address already in use
-  InUse = -4,
+  InUse: -4,
   ///there is still data left to be sent
-  DataLeft = -5,
+  DataLeft: -5,
   ///message too big for underlying protocol
-  TooBig = -6,
+  TooBig: -6,
   ///destination unreachable
-  Unreachable = -7,
+  Unreachable: -7,
   ///connection refused
-  Refused = -8,
+  Refused: -8,
   ///a time limited call timed out
-  Timeout = -9,
+  Timeout: -9,
   ///the socket was already connected
-  AlreadyConnected = -10,
+  AlreadyConnected: -10,
   ///invalid argument, or invalid action for this socket state/type
-  InvalidArgument = -11,
+  InvalidArgument: -11,
   ///the socket/connection has already been disconnected
-  AlreadyDisconnected = -12,
+  AlreadyDisconnected: -12,
   ///The call would block
-  WouldBlock = -13,
+  WouldBlock: -13,
   ///Connecting is already in progress
-  AlreadyInProgress = -14,
+  AlreadyInProgress: -14,
   ///Tis operation requires a nonblocking socket
-  SocketIsBlocking = -15,
+  SocketIsBlocking: -15,
   ///Unable to resolve hostname
-  UnableToResolveHostname = -16,
+  UnableToResolveHostname: -16,
   ///The connection has been reset
-  ConnectionReset = -17,
+  ConnectionReset: -17,
   ///Address family not supported (eg trying to connect an ipv4 bound socket to a ipv6 port)
-  AddressFamilyNotSupported = -18,
+  AddressFamilyNotSupported: -18,
   ///Address not available
-  AddressNotAvailable = -19,
+  AddressNotAvailable: -19,
   ///Access denied (ie <1024 port)
-  AccessDenied = -20,
+  AccessDenied: -20,
   ///marked to limit the error list: MUST ALWAYS BE LAST - DO NOT ADD ANY ERRORS BELOW SOCKETERRORLIMIT
-  SocketErrorLimit = -21
-}
+  SocketErrorLimit: -21
+} as const;
+
+export type SocketError = typeof SocketError[keyof typeof SocketError];
 
 /** Represents an OutputObject in HareScript */
 export class OutputObjectBase {

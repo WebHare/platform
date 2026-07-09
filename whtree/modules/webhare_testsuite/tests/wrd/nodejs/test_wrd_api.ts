@@ -320,14 +320,14 @@ whtree/modules/webhare_testsuite/tests/wrd/nodejs/testinfo.xml    //TestEq([[ful
 async function testRequired() {
   type MySchema = {
     testRequiredDom: {
-      wrdLeftEntity: WRDBaseAttributeTypeId.Base_Domain;
-      wrdOrder: WRDBaseAttributeTypeId.Base_Integer;
-      wrdTitle: WRDAttributeTypeId.String;
-      testFree: IsRequired<WRDAttributeTypeId.String>;
+      wrdLeftEntity: typeof WRDBaseAttributeTypeId.Base_Domain;
+      wrdOrder: typeof WRDBaseAttributeTypeId.Base_Integer;
+      wrdTitle: typeof WRDAttributeTypeId.String;
+      testFree: IsRequired<typeof WRDAttributeTypeId.String>;
     } & WRDTypeBaseSettings;
     testRequiredLink: {
-      wrdLeftEntity: IsRequired<WRDBaseAttributeTypeId.Base_Domain>;
-      wrdRightEntity: IsRequired<WRDBaseAttributeTypeId.Base_Domain>;
+      wrdLeftEntity: IsRequired<typeof WRDBaseAttributeTypeId.Base_Domain>;
+      wrdRightEntity: IsRequired<typeof WRDBaseAttributeTypeId.Base_Domain>;
     } & WRDTypeBaseSettings;
   };
 
@@ -468,18 +468,18 @@ async function testReferences2() {
 
   type MySchema = {
     testReferencesDom1: {
-      wrdLeftEntity: WRDBaseAttributeTypeId.Base_Domain;
-      wrdOrder: WRDBaseAttributeTypeId.Base_Integer;
-      wrdTitle: WRDAttributeTypeId.String;
+      wrdLeftEntity: typeof WRDBaseAttributeTypeId.Base_Domain;
+      wrdOrder: typeof WRDBaseAttributeTypeId.Base_Integer;
+      wrdTitle: typeof WRDAttributeTypeId.String;
     } & WRDTypeBaseSettings;
     testReferencesDom2: {
-      wrdLeftEntity: WRDBaseAttributeTypeId.Base_Domain;
-      wrdOrder: WRDBaseAttributeTypeId.Base_Integer;
-      wrdTitle: WRDAttributeTypeId.String;
+      wrdLeftEntity: typeof WRDBaseAttributeTypeId.Base_Domain;
+      wrdOrder: typeof WRDBaseAttributeTypeId.Base_Integer;
+      wrdTitle: typeof WRDAttributeTypeId.String;
     } & WRDTypeBaseSettings;
     testReferencesLink: {
-      wrdLeftEntity: WRDBaseAttributeTypeId.Base_Domain;
-      wrdRightEntity: WRDBaseAttributeTypeId.Base_Domain;
+      wrdLeftEntity: typeof WRDBaseAttributeTypeId.Base_Domain;
+      wrdRightEntity: typeof WRDBaseAttributeTypeId.Base_Domain;
     } & WRDTypeBaseSettings;
   };
 

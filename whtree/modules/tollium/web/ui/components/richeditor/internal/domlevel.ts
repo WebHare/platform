@@ -11,29 +11,31 @@ type DOMRange = {
   endOffset: number;
 };
 
-type GetNodeType<NodeType extends 1 | 2 | 3 | 4 | 7 | 8 | 9 | 10 | 11> =
-  NodeType extends 1 ? HTMLElement :
-  NodeType extends 2 ? Attr :
-  NodeType extends 3 ? Text :
-  NodeType extends 4 ? CDATASection :
-  NodeType extends 7 ? ProcessingInstruction :
-  NodeType extends 8 ? Comment :
-  NodeType extends 9 ? Document :
-  NodeType extends 10 ? DocumentType :
-  NodeType extends 11 ? DocumentFragment :
-  never;
+export const NodeType = {
+  element: 1,
+  attribute: 2,
+  text: 3,
+  cDATASection: 4,
+  processingInstruction: 7,
+  comment: 8,
+  document: 9,
+  documentType: 10,
+  documentFragment: 11,
+} as const;
 
-export enum NodeType {
-  element = 1,
-  attribute = 2,
-  text = 3,
-  cDATASection = 4,
-  processingInstruction = 7,
-  comment = 8,
-  document = 9,
-  documentType = 10,
-  documentFragment = 11,
-}
+export type NodeType = typeof NodeType[keyof typeof NodeType];
+
+type GetNodeType<NT extends NodeType> =
+  NT extends 1 ? HTMLElement :
+  NT extends 2 ? Attr :
+  NT extends 3 ? Text :
+  NT extends 4 ? CDATASection :
+  NT extends 7 ? ProcessingInstruction :
+  NT extends 8 ? Comment :
+  NT extends 9 ? Document :
+  NT extends 10 ? DocumentType :
+  NT extends 11 ? DocumentFragment :
+  never;
 
 interface BaseWrapRangeOptions {
   ///Override which elements are allowed to appear inside the new node we're applying (never invoked for textnodes)
@@ -47,7 +49,7 @@ export interface WrapRangeOptions extends BaseWrapRangeOptions {
 }
 
 export function testType<T extends NodeType>(node: Node, nodetype: T | readonly T[]): node is GetNodeType<T> {
-  return Array.isArray(nodetype) ? nodetype.includes(node.nodeType) : node.nodeType === nodetype;
+  return Array.isArray(nodetype) ? nodetype.includes(node.nodeType) : node.nodeType === nodetype as NodeType;
 }
 
 export function getAttributes(node: HTMLElement, attrlist: string[]) {
