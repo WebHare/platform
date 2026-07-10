@@ -4,7 +4,6 @@ import "@webhare/frontend/styling/reset.css";
 import "@webhare/tollium-iframe-api/styling/tollium.css";
 import './css/webinterface.scss';
 import './pages/forms';
-import './pages/harescripterror';
 import './pages/manual';
 import "./js/remotecontrol";
 
