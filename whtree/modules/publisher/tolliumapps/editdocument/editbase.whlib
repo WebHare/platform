@@ -70,6 +70,9 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
   /// Id of edited object, 0 for new or duplicate objects
   INTEGER itemid;
 
+  // Active experiments
+  RECORD experiments;
+
   // Metatabs renderer
   OBJECT renderer;
   /// Record definition of current (or new) type for the object
@@ -86,6 +89,8 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
   RECORD recyclebininfo;
   /// If the user only has read-only access to this file (fs_browse)
   BOOLEAN readonly;
+  /// If the user can currently edit the file
+  BOOLEAN editable;
   /// Whether the edited (or new) object is a folder
   BOOLEAN isfolder;
   /// Whether the object is a new object. It may already live in the user's autosave folder! (TODO EditProps may need to be careful when *actually* requesting props in the /webhare-private/ folder? or just not activate meta apply rules there)
@@ -117,11 +122,13 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
 
   MACRO NEW(BOOLEAN isobjectprops) {
     this->isobjectprops := isobjectprops;
+    this->editable := TRUE; //needed as objectproperties.whlib doesn't invoke RefreshReadonly. but once it does we'll have to deal with objectprops ignoring workflow editable
   }
 
   MACRO RefreshReadonly() {
-    BOOLEAN setreadonly := this->workflowmgr->IsReadOnly();
-    this->readonly := setreadonly;
+    RECORD status := this->workflowmgr->GetCurrentStatus();
+    this->editable := status.editable;
+    this->readonly := status.read_only;
     this->RefreshMetaTabsReadonly();
   }
 
@@ -155,7 +162,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
     BOOLEAN pinned := (^pinobject->value OR RecordExists(this->recyclebininfo)) AND NOT this->isnew;
     BOOLEAN parentfullaccess := this->tolliumuser->HasRightOn("system:fs_fullaccess", this->parentfolder->id);
 
-    ^name->enabled := NOT pinned AND parentfullaccess AND NOT this->readonly;
+    ^name->enabled := NOT pinned AND parentfullaccess AND this->editable;
     ^refreshname->enabled := ^name->enabled;
     ^refreshnamebutton->icon := ^refreshname->enabled ? "tollium:actions/refresh" : "tollium:status/pinned";
 
@@ -185,6 +192,8 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
     this->metatabsconfig := this->renderer->metatabsconfig;
     this->workfloweditor := RecordExists(this->metatabsconfig) ? this->metatabsconfig.workfloweditor : DEFAULT RECORD;
     this->contexts->applytester := this->renderer->applytester;
+    FOREVERY(RECORD exp FROM this->contexts->applytester->GetYamlPluginSettings("experiments"))
+      this->experiments := CELL[ ...this->experiments, ...exp ];
 
     //We currently need this->parentfolder to be set so we can run UpdatePinned which will be triggered below by ^pinobject->value :=
     this->parentfolder := this->contexts->applytester->objparent = 0 ? OpenWHFSRootObject() : OpenWHFSObject(this->contexts->applytester->objparent);
@@ -199,8 +208,6 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
     this->namefollowstitle := type != whconstant_whfstype_foreignfolder;
 
     STRING ARRAY workflowtypes := STRING[ "platform:web.metadata", ...options.workflowtypes ];
-
-    this->contexts->applytester := this->renderer->applytester;
 
     IF(objectid != 0 AND options.useworkflow) {
       IF(RecordExists(this->renderer->metatabsconfig)) {
@@ -249,7 +256,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
   }
 
   MACRO RefreshMetaTabsReadonly() {
-    this->renderer->SetControllersEnabled(NOT this->readonly);
+    this->renderer->SetControllersEnabled(this->editable);
 
     // objectprops is not allowed to edit workflow fields when editing existing files which have a true workflow (and document editor)
     BOOLEAN edit_workflow_metadata := this->isnew OR NOT RecordExists(this->workfloweditor) OR NOT this->isobjectprops;
@@ -257,10 +264,10 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
     //As these are published, only files that go through a webdesign can show something useful
     ^seotitle->visible := needstemplate AND this->basesettings.seotitle AND edit_workflow_metadata;
     ^page_heading->visible := needstemplate AND this->basesettings.pageheading AND edit_workflow_metadata;
-    ^title->enabled := NOT this->readonly AND ^title->visible AND edit_workflow_metadata;
-    ^isunlisted->enabled := NOT this->readonly AND ^isunlisted->visible AND edit_workflow_metadata;
-    ^description->enabled := NOT this->readonly AND ^description->visible AND edit_workflow_metadata;
-    ^keywords->enabled := NOT this->readonly AND ^keywords->visible AND edit_workflow_metadata;
+    ^title->enabled := this->editable AND ^title->visible AND edit_workflow_metadata;
+    ^isunlisted->enabled := this->editable AND ^isunlisted->visible AND edit_workflow_metadata;
+    ^description->enabled := this->editable AND ^description->visible AND edit_workflow_metadata;
+    ^keywords->enabled := this->editable AND ^keywords->visible AND edit_workflow_metadata;
     this->UpdatePinned();
   }
 

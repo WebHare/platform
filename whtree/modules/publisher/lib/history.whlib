@@ -287,7 +287,8 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
       draft_mine := ObjectExists(this->options.user) AND this->options.user->authobjectid = draft_owner_authobject,
       this->publish_at,
       this->read_only,
-      this->editable
+      this->editable,
+      publish := this->baseobject->publish
     ];
     RETURN status;
   }

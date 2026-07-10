@@ -1,0 +1,154 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::publisher/lib/rtd.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+LOADLIB "mod::system/lib/internal/whfs/scheduledtasks.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+OBJECT FUNCTION RTE() {
+  RETURN TT("doceditor")->contents->rte;
+}
+
+ASYNC MACRO TestScheduleFile()
+{
+  testfw->BeginWork();
+
+  OBJECT testfile := GetTestsuiteJSTempFolder()->CreateFile(
+      [ name :=   "test-rtdedit-scheduling"
+      , typens := "platform:filetypes.richdocument"
+      , title := "My scheduled document"
+      , publish := FALSE
+      ], [ createdby := testfw->GetUserObject("sysop")
+         ]);
+
+  testfw->CommitWork();
+
+  // STORY: Open RTD. Schedule first publish
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testfile->id) ]  ]));
+  TestEq(FALSE, topscreen->contexts->editdocumentapi->readonly);
+
+  RTE()->value := BuildRTDFromYaml(`- p: "This is a test document"`);
+  RTE()->SetDirty();
+  TestEq(TRUE, topscreen->frame->flags.isdirty);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Publish"));
+  TestEq(["direct","publish_at"], (SELECT AS STRING ARRAY rowkey FROM TT("publish")->options), "shouldn't offer 'depublish' option when not published yet");
+  TestEq("direct", TT("publish")->value);
+  TT("publish")->value := "publish_at";
+  TT("publish_at")->value := MakeDatetime(2070,1,1,12,0,0);
+  TestEq("never", TT("endpublish")->value);
+  TT("endpublish")->value := "end_at";
+  TT("end_at")->value := MakeDatetime(2080,1,1,12,0,0);
+  AWAIT ExpectScreenChange(-1, PTR TTClick("act_submit"));
+
+  // Verify whether the changes are properly reflected in the documents' schedule
+  TestEq(FALSE, OpenWHFSObject(testfile->id)->publish);
+  TestEqMembers([[ task := "publish", when := MakeDatetime(2070,1,1,12,0,0), owner := testfw->GetUserAuthobjectId("sysop") ],
+                 [ task := "depublish", when := MakeDatetime(2080,1,1,12,0,0), owner := testfw->GetUserAuthobjectId("sysop") ]
+                ], ListScheduledWHFSTasks(testfile->id), '*');
+
+  RECORD ARRAY history := ListObjectHistory(testfile->id);
+  TestEqMembers([[ name := "test-rtdedit-scheduling", type := "created" ]
+                ,[ name := "test-rtdedit-scheduling", type := "final", user := testfw->GetUserAuthobjectId("sysop")]
+                ], history,'*');
+
+  TestEq(TRUE, topscreen->contexts->editdocumentapi->readonly);
+  TestEq(FALSE, topscreen->frame->flags.isdirty);
+
+  // Does a yellow bar appear?
+  TestEq(TRUE, TT("draftbar")->visible);
+  TestEqLike("Scheduled for publication at*", TT("draftmode")->value);
+
+  // STORY: Reclicking publish should show the planned schedule
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Publish"));
+  TestEq(["dontpublish","direct","publish_at"], (SELECT AS STRING ARRAY rowkey FROM TT("publish")->options));
+  TestEq("publish_at", TT("publish")->value);
+  TestEq(MakeDatetime(2070,1,1,12,0,0), TT("publish_at")->value);
+  TestEq("end_at", TT("endpublish")->value);
+  TestEq(MakeDatetime(2080,1,1,12,0,0), TT("end_at")->value);
+  // No modification (TODO how to verify tasks weren't actually touched? build a test that )
+  AWAIT ExpectScreenChange(-1, PTR TTClick("act_submit"));
+
+  TestEq(history, ListObjectHistory(testfile->id),'nothing changed, should not affect history at all');
+  TestEq(FALSE, OpenWHFSObject(testfile->id)->publish);
+
+  // STORY: dontpublish it
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Publish"));
+  TT("publish")->value := "dontpublish";
+  AWAIT ExpectScreenChange(-1, PTR TTClick("act_submit"));
+
+  TestEqMembers([[ task := "depublish", when := MakeDatetime(2080,1,1,12,0,0), owner := testfw->GetUserAuthobjectId("sysop") ]
+                ], ListScheduledWHFSTasks(testfile->id), '*');
+  TestEq(history, ListObjectHistory(testfile->id),'nothing changed, should not affect history at all');
+  TestEq(FALSE, OpenWHFSObject(testfile->id)->publish);
+
+  // STORY: reschedule
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Publish"));
+  TestEq(["direct","publish_at"], (SELECT AS STRING ARRAY rowkey FROM TT("publish")->options));
+  TestEq("direct", TT("publish")->value, 'initial value');
+  TT("publish")->value := "publish_at";
+  TT("publish_at")->value := MakeDatetime(2070,1,1,12,0,0);
+  AWAIT ExpectScreenChange(-1, PTR TTClick("act_submit"));
+
+  // Reclicking publish should still show the planned schedule. Let's change publication to 'now'
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Publish"));
+  TT("publish")->value := "direct";
+  AWAIT ExpectScreenChange(-1, PTR TTClick("act_submit"));
+
+  // Verify it's now published
+  TestEq(TRUE, OpenWHFSObject(testfile->id)->publish);
+  TestEq(FALSE, topscreen->contexts->editdocumentapi->readonly);
+
+  // Use the 'Schedule publication...' dialog to depublish and set an end date. It should offer "dontpublish"
+  AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Schedule publication"));
+  TestEq(["dontpublish","direct","publish_at"], (SELECT AS STRING ARRAY rowkey FROM TT("publish")->options));
+  TestEq("direct", TT("publish")->value);
+  TT("publish")->value := "dontpublish";
+  AWAIT ExpectScreenChange(-1, PTR TTClick("act_submit"));
+
+  // Verify it's now depublished
+  TestEq(FALSE, OpenWHFSObject(testfile->id)->publish);
+  TestEq(FALSE, topscreen->contexts->editdocumentapi->readonly);
+
+  // Publish it again
+  AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Schedule publication"));
+  TestEq(["direct","publish_at"], (SELECT AS STRING ARRAY rowkey FROM TT("publish")->options));
+  TestEq("direct", TT("publish")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTClick("act_submit"));
+
+  TestEq(TRUE, OpenWHFSObject(testfile->id)->publish);
+  TestEq(FALSE, topscreen->contexts->editdocumentapi->readonly);
+
+  // Publish it into the future
+  AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Schedule publication"));
+  TestEq(["dontpublish","direct","publish_at"], (SELECT AS STRING ARRAY rowkey FROM TT("publish")->options));
+  TestEq("direct", TT("publish")->value);
+  TT("publish")->value := "publish_at";
+  TT("publish_at")->value := MakeDatetime(2070,1,1,12,0,0);
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("act_submit"), [ messagemask := "*already published*" ]);
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR);
+
+  TestEq(FALSE, OpenWHFSObject(testfile->id)->publish);
+  TestEq(TRUE, topscreen->contexts->editdocumentapi->readonly);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  //TODO test data file that we properly distinguish between 'publish-draft' and 'updating published'
+  //TODO after scheduling, switch user. verify that he sees the tasks in the publisher dialog but they stay owned by the original user unless this user changes the times/settings
+  //TODO also test readonly access
+}
+
+RunTestFramework(
+    [ PTR TestScheduleFile
+    ],
+    [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                   ]
+    ]);

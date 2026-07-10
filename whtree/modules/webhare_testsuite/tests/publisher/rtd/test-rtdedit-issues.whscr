@@ -1,0 +1,65 @@
+<?wh
+/* test more complex issues/interactions, such as how we respond to background changes */
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::publisher/lib/history.whlib";
+LOADLIB "mod::publisher/lib/rtd.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+LOADLIB "mod::system/lib/internal/whfs/scheduledtasks.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+OBJECT FUNCTION RTE() {
+  RETURN TT("doceditor")->contents->rte;
+}
+
+ASYNC MACRO TestScheduleFile()
+{
+  testfw->BeginWork();
+
+  OBJECT testfile := GetTestsuiteJSTempFolder()->CreateFile(
+      [ name :=   "test-rtdedit-scheduling"
+      , typens := "platform:filetypes.richdocument"
+      , title := "My scheduled document"
+      , publish := FALSE
+      ], [ createdby := testfw->GetUserObject("sysop")
+         ]);
+
+  OBJECT workflowmgr := NEW WorkflowManager(testfile->id,
+    [ user := testfw->GetUserObject("sysop"),
+      workflowtypes := ["platform:filetypes.richdocument"]
+    ]);
+
+  workflowmgr->Save([ finalize := TRUE, publish_at := MakeDatetime(2070,1,1,12,0,0) ]);
+
+  testfw->CommitWork();
+
+  // STORY: Open RTD. Schedule first publish two second from now
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testfile->id) ]  ]));
+  TestEq(TRUE, topscreen->contexts->editdocumentapi->readonly, "readonly because scheduled publication");
+
+  testfw->BeginWork();
+  workflowmgr->Save([ finalize := TRUE, publish_at := AddTimeToDate(200,GetCurrentDatetime()) ]); //schedule an almost immediate publication
+  testfw->CommitWork();
+
+  Print(`Wait for document to get out of read-only\n`);
+  WHILE(topscreen->contexts->editdocumentapi->readonly) {
+    WaitUntil([ callbacks := TRUE ], AddTimeToDate(100,GetCurrentDatetime()));
+  }
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+RunTestFramework(
+    [ PTR TestScheduleFile
+    ],
+    [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                   ]
+    ]);

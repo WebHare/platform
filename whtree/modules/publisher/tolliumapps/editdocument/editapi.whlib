@@ -70,17 +70,21 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI EXTEND TolliumEventSource <
   //FIXME dangerous endpoints to give such full access
   PUBLIC PROPERTY editobject(GetEditObject, -);
 
-  PUBLIC PROPERTY readonly(this->editscreen->readonly, -);
+  PUBLIC PROPERTY readonly(GetReadOnly, -);
 
   MACRO NEW(OBJECT editscreen)
   {
     this->editscreen := editscreen;
     this->canpublish := TRUE;
-    this->onconfirmsaveandpublish := PTR this->editscreen->DefaultConfirmAndSavePublishHandler;
 
     //Install no-ops - there are editdocument hooks that chain into onloaddata/onstoredata but don't expect DEFAULT PTRs
     this->onloaddata := PTR Dummy;
     this->onstoredata := PTR Dummy;
+  }
+
+  BOOLEAN FUNCTION GetReadOnly() {
+    //readonly is a bit more nuanced at the editor level which will consider workflow status
+    RETURN NOT this->editscreen->editable;
   }
 
   /// Should be invoked by editors to mark the document as dirty, is implicitly called when using SetInstanceData

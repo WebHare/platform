@@ -55,10 +55,9 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
   /// When autosave may start working (set to TRUE when is RTE initialized, set to FALSE after 'Save on close: NO')
   BOOLEAN canautosave;
 
-  /// Whether or not to show the draft bar during this session
-  BOOLEAN showdraftbar;
-
   RECORD filetypeinfo;
+
+  BOOLEAN scheduling_experiment;
 
   // ---------------------------------------------------------------------------
   //
@@ -86,6 +85,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     this->SetupEditBaseForExistingObject(data.id, CELL[ data.readonly, data.assumewriteaccess, useworkflow := TRUE, workflowtypes := data.objeditor.types ]);
 
     this->sourceitem := OpenWHFSObject(this->itemid);
+    this->scheduling_experiment := CellExists(this->experiments, "editdoc_scheduling") AND this->experiments.editdoc_scheduling = TRUE;
 
     IF(this->workflowmgr->IsReadOnly() AND NOT this->tolliumuser->HasRightOn("system:fs_browse", this->itemid)) //not even browse access?
     {
@@ -94,8 +94,6 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     }
     IF (NOT this->GetExclusiveAccess([ id := this->itemid ], [ onbeforesteal := PTR this->GotScreenStolen ]))
       RETURN;
-
-    this->showdraftbar := TRUE;
 
     //ADDME deal with cases where users already make other modifications while we're stil opening ?
 
@@ -120,7 +118,8 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       extendprop.tabs->RunExtensionsPostInit();
 
     // Look at your autosave first - if you had an autosave open, you already knew you were editing someone else's draft
-    IF(status.autosave_mine) {
+    // But don't care about autosaves if you can't *edit* the document anyway
+    IF(status.autosave_mine AND status.editable) {
       STRING when := this->tolliumuser->FormatDatetime(status.autosave_saved, "minutes", TRUE, FALSE);
       STRING question := GetTid("publisher:tolliumapps.editdocument.messageboxes.resumeautosave", when);
       STRING response := this->RunSimpleScreen("question", question, [ buttons := [ "yes", "no", "cancel" ]]);
@@ -159,7 +158,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     }
 
     // Can start autosaving when RTE is initialized (not before, would save empty document)
-    this->canautosave := NOT this->readonly;
+    this->canautosave := this->editable;
 
 
     /*
@@ -351,33 +350,42 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       this->frame->flags.canpreview := FALSE;
       this->frame->flags.canview := FALSE;
     }
-    this->frame->flags.canrevertdraft := this->workflowmgr->HaveDraftOrAutosavedChanged() AND this->frame->flags.canedit AND NOT this->readonly;
+    this->frame->flags.canrevertdraft := this->workflowmgr->HaveDraftOrAutosavedChanged() AND NOT this->readonly;
 
     // TODO: perhaps we still want to do something like ^title->onchange := PTR this->SyncNameWithTitle if the doc was never saved?
 
     //ADDME: Show draft if no published version available
-    RECORD currentdraft := this->workflowmgr->GetCurrentDraft();
-    IF(RecordExists(currentdraft) AND this->showdraftbar AND NOT this->readonly) {
-      STRING when := this->tolliumuser->FormatDatetime(currentdraft.draft_saved, "minutes", TRUE, FALSE);
-      INTEGER modifiedby := currentdraft.user_auth_object;
+    RECORD status := this->workflowmgr->GetCurrentStatus();
+    IF(status.publish_at != DEFAULT DATETIME) {
+      STRING when := this->tolliumuser->FormatDatetime(status.publish_at, "minutes", TRUE, FALSE);
+      ^draftmode->htmlvalue := this->GetTid(".scheduled-at", when);
+      ^draftbar_canceldraft->visible := FALSE;
+      ^draftbar_publish->visible := NOT status.read_only;
+      ^draftbar->visible := TRUE;
+    } ELSE IF(status.has_draft) {
+      STRING when := this->tolliumuser->FormatDatetime(status.draft_saved, "minutes", TRUE, FALSE);
+
       STRING basetext;
-      IF(modifiedby = this->tolliumuser->authobjectid) {
+      IF(status.draft_owner_authobject = this->tolliumuser->authobjectid) {
         basetext := this->GetTid(".draftmode-by-you", when);
       } ELSE {
-        STRING user := this->contexts->userapi->GetUserDisplayName(modifiedby);
+        STRING user := this->contexts->userapi->GetUserDisplayName(status.draft_owner_authobject);
         basetext := this->GetTid(".draftmode-by-other", user, when);
       }
 
       ^draftmode->htmlvalue := EncodeHTML(basetext);
       ^draftbar_canceldraft->visible := this->frame->flags.canrevertdraft;
+      ^draftbar_publish->visible := FALSE;
       ^draftbar->visible := TRUE;
-    } ELSE
+    } ELSE {
       ^draftbar->visible := FALSE;
+    }
 
     BOOLEAN allowpublish;
 
-    this->contexts->editdocumentapi->onsetenabled(NOT this->readonly);
-    this->frame->flags.canedit := NOT this->readonly;
+    this->contexts->editdocumentapi->onsetenabled(this->editable);
+    this->frame->flags.canedit := this->editable;
+    this->frame->flags.readonly := NOT this->readonly;
 
     RECORD state;
 
@@ -388,7 +396,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
           , text :=   this->GetTid(".documenthasunsavedchanges")
           ];
     }
-    ELSE IF (RecordExists(currentdraft))
+    ELSE IF (status.has_draft)
     {
       state :=
           [ icon :=   "tollium:actions/edit"
@@ -416,19 +424,16 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       }
     }
 
-    BOOLEAN havesomethingtopublish := RecordExists(currentdraft) OR (ObjectExists(fsobj) AND NOT fsobj->publish);
+    BOOLEAN havesomethingtopublish := status.has_draft OR (ObjectExists(fsobj) AND NOT fsobj->publish);
     //We do not care about ispublishabletoweb for the publish button as we let the Publish button act as 'publish when site goes online' button
-    this->frame->flags.canpublish := this->frame->flags.canedit AND (this->frame->flags.isdirty OR havesomethingtopublish) AND this->contexts->editdocumentapi->canpublish;
+    this->frame->flags.canpublish :=
+      (this->frame->flags.canedit AND (this->frame->flags.isdirty OR havesomethingtopublish) AND this->contexts->editdocumentapi->canpublish)
+      OR
+      status.publish_at != DEFAULT DATETIME;
     this->frame->title := SELECT AS STRING name FROM system.fs_objects WHERE id = this->itemid;
 
     ^filestatusicon->SetImageSrc(state.icon);
     ^filestatustext->value := state.text;
-
-    ^publishmenu->visible := NOT this->readonly;
-    ^savemenu->visible := NOT this->readonly;
-    ^canceldraftmenu->visible := NOT this->readonly;
-    ^publishbutton->visible := NOT this->readonly;
-    ^saveasdraftbutton->visible := NOT this->readonly;
   }
 
   MACRO OnDraftmodeclick(STRING link)
@@ -439,10 +444,13 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       this->DoCanceldraft();
   }
 
-  BOOLEAN FUNCTION ExecuteSave(BOOLEAN withpublish) {
+  BOOLEAN FUNCTION ExecuteSave(RECORD options DEFAULTSTO DEFAULT RECORD) {
+    options := ValidateOptions(CELL[ finalize := FALSE, schedule_dialog := FALSE ], options);
+    BOOLEAN publish := options.finalize;
+
     IF(NOT this->UpdateAutosave()) { //NOTE Flushes to an autosave if needed but may also clear unneeded autosave objects and set this->currentautosave to DEFAULT OBJECT
       //There is no autosave anymore - we are in sync with the latest draft/final version
-      IF(NOT withpublish) { //we're not asked to update a final object
+      IF(NOT options.finalize) { //we're not asked to update a final object
         Print("save ignored - no autosave to update draft/final with\n");
         RETURN TRUE; //nothing to do. UpdateAutosave will have updated dirty flag & state
       }
@@ -453,23 +461,47 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       RETURN FALSE; //FIXME report
     }
 
-    IF (this->contexts->editdocumentapi->onvalidate != DEFAULT MACRO PTR) {
-      OBJECT feedback := this->BeginFeedback();
+    // When saving as draft we shouldn't validate fields. otherwise its time for a custom hook! (TODO this definitely needs to be an event)
+    IF(options.finalize AND this->contexts->editdocumentapi->onvalidate != DEFAULT MACRO PTR) {
+      OBJECT feedback := this->BeginWork([ validate := OBJECT[], database := FALSE]);
       this->contexts->editdocumentapi->onvalidate(feedback);
       IF(NOT feedback->Finish())
         RETURN FALSE;
     }
 
-    IF(this->contexts->editdocumentapi->onprechecksave != DEFAULT FUNCTION PTR AND NOT this->contexts->editdocumentapi->onprechecksave(withpublish))
+    IF(this->contexts->editdocumentapi->onprechecksave != DEFAULT FUNCTION PTR AND NOT this->contexts->editdocumentapi->onprechecksave(options.finalize))
       RETURN FALSE; //aborted because some warning was scary enough
 
+    IF(options.finalize) {
+      //TODO merge earlier feedback loop but onprechecksave is in the way?
+      OBJECT feedback := this->BeginFeedback();
+      this->CheckNameConflict(feedback);
+
+      //TODO Refresh actual state, and recheck after publish dialog. perhaps this should move into CheckNameConflict?
+      IF(this->sourceitem->publish = FALSE AND this->sourceitem->ispinned)
+        feedback->AddError(this->GetTid(".cannotpublishpinnedfile")); //FIXME shouldn't block pinned datafiles, they never go to publish: TRUE so this check is unneeded too
+
+      IF(NOT feedback->Finish())
+        RETURN FALSE;
+    }
+
+    RECORD publish_dialog_result;
+    IF(options.finalize) {
+      RECORD status := this->workflowmgr->GetCurrentStatus();
+      IF(options.schedule_dialog) {
+        //If currently unpublished we ask the user to publish now or later (unless the app had its own dialog - then we suppress ours. basically because utwente_brochures is the only one that doesn't need this diaolog right now)
+        publish_dialog_result := this->RunScreen(Resolve("dialogs.xml#publishdialog"), CELL [ fsobject := this->sourceitem->id ]);
+        IF(NOT RecordExists(publish_dialog_result))
+          RETURN FALSE;
+      } ELSE {
+        publish_dialog_result := [ publish := TRUE ];
+      }
+    }
+
     // When saving as draft we shouldn't validate fields - "required" and other constraints shouldn't be blocking Save.
-    OBJECT work := this->BeginWork([ validate := withpublish ? [this->frame] : OBJECT[] ]);
+    OBJECT work := this->BeginWork([ validate := options.finalize ? [this->frame] : OBJECT[] ]);
     OBJECT finalitem := OpenWHFSObject(this->itemid);
     this->CheckNameConflict(work);
-
-    iF(withpublish AND finalitem->publish = FALSE AND finalitem->ispinned)
-      work->AddError(this->GetTid(".cannotpublishpinnedfile"));
 
 
     IF (NOT work->HasFailed()) {
@@ -481,15 +513,15 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       IF(^keywords->visible AND ^metapart->visible)
         INSERT "keywords" INTO updatemetadatafields AT END;
 
-      this->workflowmgr->Save(CELL[ finalize := withpublish, publish_now := withpublish, updatemetadatafields ]);
+      this->workflowmgr->Save(CELL[ finalize := options.finalize, updatemetadatafields, ...publish_dialog_result ]);
 
       //Warn if publishing to an unpublished site (but not if publishing outside a site)
-      IF (withpublish AND finalitem->parentsite != 0 AND OpenSite(finalitem->parentsite)->outputweb = 0)
+      IF (options.finalize AND finalitem->parentsite != 0 AND OpenSite(finalitem->parentsite)->outputweb = 0)
         work->AddWarning(this->GetTid(".sitenotpublished"));
     }
 
     IF (NOT work->HasFailed() AND this->contexts->editdocumentapi->onsave != DEFAULT FUNCTION PTR)
-      this->contexts->editdocumentapi->onsave(work, withpublish);
+      this->contexts->editdocumentapi->onsave(work, options.finalize);
 
     IF (NOT work->Finish())
       RETURN FALSE;
@@ -586,32 +618,51 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
   //
 
   MACRO DoSave() {
-    this->ExecuteSave(FALSE);
+    this->ExecuteSave();
   }
 
-  MACRO DoPublish() { //Save and publish the file
-    OBJECT targetfile := OpenWHFSObject(this->itemid);
+  /* The various schedule routes:
+     - Publish button/Publish menu item: show schedule_dialog if unpublished and experiment enables it, unless onconfirmsaveandpublish is overriden, scheduling is incompatible with that
+     - Schedule publish menu item/link: should always show the dialog, even when already published
+  */
 
+  MACRO DoPublish() { //The publish button.
+    //We'll show the scheduling dialog if opted in *OR* if the file is scheduleable, unless we're already published or you're hooking onconfirmsaveandpublish (deprecated),
+    RECORD status := this->workflowmgr->GetCurrentStatus();
+    this->DoPublish2(CELL[ schedule_dialog := (this->scheduling_experiment OR status.publish_at != DEFAULT DATETIME) AND NOT status.publish AND this->contexts->editdocumentapi->onconfirmsaveandpublish = DEFAULT MACRO PTR]);
+  }
+
+  MACRO DoPublish_Schedule() {
+    this->DoPublish2(CELL[ schedule_dialog := TRUE ]);
+  }
+
+  MACRO DoPublish2(RECORD options) {
+    options := ValidateOptions(CELL[ schedule_dialog := FALSE ], options);
+
+    OBJECT targetfile := OpenWHFSObject(this->itemid);
     IF(targetfile->publish = FALSE AND targetfile->ispinned) { // The file's publish status is locked by the pin
       this->RunSimpleScreen("error", this->GetTid(".cannotpublishpinnedfile"));
       RETURN;
     }
 
     this->UpdateAutosave();
-    IF(NOT this->contexts->editdocumentapi->onconfirmsaveandpublish())
-      RETURN;
 
-    this->ExecuteSave(TRUE);
+    IF(this->contexts->editdocumentapi->onconfirmsaveandpublish != DEFAULT MACRO PTR) {
+      //Used by utwente_brochures. DEPRECATED considering removing this hook
+      IF(NOT this->contexts->editdocumentapi->onconfirmsaveandpublish())
+        RETURN;
+    } ELSE IF(NOT options.schedule_dialog) {
+      IF(this->RunSimpleScreen("confirm"
+                            , GetTid("publisher:tolliumapps.editdocument.messageboxes.confirmsaveandpublish")
+                            , [ dontshowkey := "publisher.editdocument.confirmsaveandpublish"
+                              , dontshowbuttons := ["yes"]
+                              ]) != "yes")
+        RETURN;
+    }
+
+    this->ExecuteSave(CELL[ finalize := TRUE, options.schedule_dialog ]);
   }
 
-  BOOLEAN FUNCTION DefaultConfirmAndSavePublishHandler()
-  {
-    RETURN this->RunSimpleScreen("confirm"
-                              , GetTid("publisher:tolliumapps.editdocument.messageboxes.confirmsaveandpublish")
-                              , [ dontshowkey := "publisher.editdocument.confirmsaveandpublish"
-                                , dontshowbuttons := ["yes"]
-                                ]) = "yes";
-  }
 
   MACRO DoSendPreviewLink() {
     IF (this->frame->flags.isdirty) { //you must save before sending a link, as autosaves are too transient
@@ -620,7 +671,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
         [ buttons := ["yes","no"], dontshowkey := "publisher.editdocument.savebeforepreview", dontshowbuttons := ["yes"]]) != "yes")
          RETURN; //cancelled
 
-      this->ExecuteSave(FALSE);
+      this->ExecuteSave();
     }
 
     this->RunScreen("#sendpreviewlink");
@@ -685,7 +736,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       {
         CASE "yes"
         {
-          IF (this->ExecuteSave(FALSE))
+          IF (this->ExecuteSave())
             this->tolliumresult := "ok";
         }
         CASE "no"
@@ -715,12 +766,6 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
 
       this->RunSimpleScreen("info", GetTid("publisher:tolliumapps.editdocument.messageboxes.draftcancelled"));
     }
-  }
-
-  MACRO DoHidedraftbar()
-  {
-    this->showdraftbar := FALSE;
-    ^draftbar->visible := FALSE;
   }
 
   MACRO DoOpenInPublisher()

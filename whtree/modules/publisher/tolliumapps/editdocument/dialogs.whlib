@@ -1,0 +1,59 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::publisher/lib/history.whlib";
+
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC STATIC OBJECTTYPE PublishDialog EXTEND TolliumScreenBase <
+  INTEGER fsobject;
+  RECORD initialscheduleinfo;
+
+  MACRO Init(RECORD data) {
+    this->fsobject := data.fsobject;
+    this->initialscheduleinfo := GetScheduleInfo(OpenWHFSObject(this->fsobject));
+
+    IF(this->initialscheduleinfo.publish = FALSE AND this->initialscheduleinfo.publish_at = DEFAULT DATETIME)
+      DELETE FROM ^publish->options WHERE rowkey = "dontpublish";  //remove this option if not planned anyawy
+
+    ^publish->value := this->initialscheduleinfo.publish_at != DEFAULT DATETIME ? "publish_at" : "direct";
+    ^publish_at->value := this->initialscheduleinfo.publish_at;
+    ^endpublish->value := this->initialscheduleinfo.end_at != DEFAULT DATETIME ? "end_at" : "never";
+    ^end_at->value := this->initialscheduleinfo.end_at;
+  }
+  RECORD FUNCTION Submit() {
+    RECORD retval := CELL[];
+
+    OBJECT work := this->BeginFeedback();
+    IF(^publish->value = "publish_at" AND ^publish_at->value <= GetCurrentDatetime())
+      work->AddErrorFor(^publish_at, this->GetTid(".error-publish-at-in-past"));
+    IF(^endpublish->value = "end_at" AND ^end_at->value <= GetCurrentDatetime())
+      work->AddErrorFor(^end_at, this->GetTid(".error-end-at-in-past"));
+    IF(^publish->value = "publish_at" AND ^endpublish->value = "end_at" AND ^end_at->value <= ^publish_at->value)
+      work->AddErrorFor(^end_at, this->GetTid(".error-end-at-before-publish-at"));
+
+    IF(NOT work->Finish())
+      RETURN DEFAULT RECORD;
+
+    RECORD currentscheduleinfo := GetScheduleInfo(OpenWHFSObject(this->fsobject));
+    IF(currentscheduleinfo.publish AND ^publish->value = "publish_at") {
+      IF(this->RunSimpleScreen("confirm", this->GetTid(".confirm-depublish-publishat")) != "yes")
+        RETURN DEFAULT RECORD;
+    }
+
+    IF(^publish->value = "direct")
+      INSERT CELL publish := TRUE INTO retval;
+    ELSE IF(^publish->value = "dontpublish")
+      INSERT CELL publish := FALSE INTO retval;
+    ELSE  IF(^publish_at->value != this->initialscheduleinfo.publish_at)
+      INSERT CELL publish_at := ^publish_at->value INTO retval;
+
+    DATETIME end_at := ^endpublish->value = "end_at" ? ^end_at->value : DEFAULT DATETIME;
+    IF(end_at != this->initialscheduleinfo.end_at)
+      INSERT CELL end_at := end_at INTO retval;
+
+    RETURN retval;
+  }
+>;

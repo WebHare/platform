@@ -104,6 +104,8 @@ OBJECT ASYNC FUNCTION TestReadOnly()
   TestEq(TRUE, topscreen->contexts->editdocumentapi->readonly);
   TestEQLike("*This is the document*", BlobToString(RTE()->value.htmltext));
 
+  //FIXME test/handle the situation where you still have an autosave but have lost edit rights
+
   // Save and publish should not be available
   clicked := AWAIT ExpectNoScreenChange(PTR TTClick("save", [ allowfailure := TRUE ]));
   TestEq(FALSE, clicked);
