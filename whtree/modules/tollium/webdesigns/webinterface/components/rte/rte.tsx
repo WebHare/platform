@@ -67,9 +67,7 @@ export default class ObjRTE extends ComponentBase {
 
   /// Selection for enabled actions ()
   _selectionflags: Array<Record<string, boolean>> = [{}];
-  /// The untouched content as sent by the server
-  untouchedcontent: string | null = null;
-  /// Original restructured HTML content
+  /// The RTE value after any restructuring (eg after setValue), used to detect actual changes
   restructuredcontent = '';
 
   _showcounter = false;
@@ -190,19 +188,14 @@ export default class ObjRTE extends ComponentBase {
   */
 
   setValue(newvalue: ValueMessage) {
-    this.untouchedcontent = newvalue.value;
-    this.rte.setValue(this.untouchedcontent);
+    this.rte.setValue(newvalue.value);
     this.restructuredcontent = this.rte.getValue();
   }
 
   getSubmitValue() {
-    /* We can't become async again unless we figure out how to fix unload-autosave then. */
-    const suggestedreturnvalue = this.rte.getValue();
-    if (suggestedreturnvalue === this.restructuredcontent && this.untouchedcontent !== null) { //no material change
-      return this.untouchedcontent;
-    } else {
-      return suggestedreturnvalue;
-    }
+    //If the server retrieves our value, we should also save the current restruturedvalue so we will properly start triggering Dirty again
+    this.restructuredcontent = this.rte.getValue();
+    return this.restructuredcontent;
   }
 
 
@@ -329,7 +322,12 @@ export default class ObjRTE extends ComponentBase {
   }
 
   _gotChange() {
-    this.setDirty();
+    if (this.pendingValueSubmit)
+      return; //we are already dirty
+
+    //Figure out if we *actually* changed
+    if (this.restructuredcontent !== this.rte.getValue())
+      this.setDirty();
   }
 
   private resolveCallback(messagetag: string, result: object | null) {
