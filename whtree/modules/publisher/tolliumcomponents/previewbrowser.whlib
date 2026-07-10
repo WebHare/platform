@@ -247,7 +247,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase <
             INSERT [ message := GetHTMLTid("publisher:tolliumcomponents.previewbrowser.scheduledpublish", this->owner->tolliumuser->FormatDateTime(task.when, "minutes", TRUE, TRUE))
                    ] INTO messages AT END;
           }
-          CASE whconstant_publisherschedule_unpublish {
+          CASE whconstant_publisherschedule_depublish {
             INSERT [ message := GetHTMLTid("publisher:tolliumcomponents.previewbrowser.scheduledunpublish", this->owner->tolliumuser->FormatDateTime(task.when, "minutes", TRUE, TRUE))
                    ] INTO messages AT END;
           }

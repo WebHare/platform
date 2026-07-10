@@ -155,7 +155,7 @@ PUBLIC CONSTANT INTEGER whconstant_historytype_final := 8;
 PUBLIC CONSTANT INTEGER whconstant_publisherschedule_publish := 1;
 
 /// publisher.schedule stop publish event
-PUBLIC CONSTANT INTEGER whconstant_publisherschedule_unpublish := 2;
+PUBLIC CONSTANT INTEGER whconstant_publisherschedule_depublish := 2;
 
 /// publisher.schedule move event
 PUBLIC CONSTANT INTEGER whconstant_publisherschedule_move := 3;

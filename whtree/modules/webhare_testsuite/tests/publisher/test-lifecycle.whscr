@@ -7,6 +7,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/whfs/scheduledtasks.whlib";
+LOADLIB "mod::system/lib/internal/whfs/scheduledtasks-runner.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
@@ -19,85 +20,6 @@ LOADLIB "mod::webhare_testsuite/lib/publisher/testsupport.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 //TODO We only need to a true 'scheduledtask, wait' cycle only once. After that we should be able to trust 'ExecuteAllTasksNow()'
-
-RECORD FUNCTION UnparseTask(INTEGER event, INTEGER folder)
-{
-  SWITCH(event)
-  {
-    CASE 6
-    {
-      RETURN CELL [ task := "replacewith", taskdata := [ source := folder ]];
-    }
-    DEFAULT
-    {
-      RETURN DEFAULT RECORD;
-    }
-  }
-}
-
-RECORD FUNCTION ParseTask(OBJECT taskedobj, STRING task, RECORD taskdata)
-{
-  RECORD data;
-  SWITCH(task)
-  {
-    CASE "replacewith"
-    {
-      taskdata := ValidateOptions([ source := 0 ], taskdata, [ title := "taskdata", required := [ "source" ]]);
-
-      RECORD sourceinfo := SELECT id, type, isfolder FROM system.fs_objects WHERE id = taskdata.source;
-      ValidateReplaceWith(taskedobj, sourceinfo);
-
-      data := CELL[ event := 6 //replacewith
-                  , folder := taskdata.source
-                  ];
-      RETURN data;
-    }
-    DEFAULT
-    {
-      THROW NEW Exception(`Unknown task type '${task}'`);
-    }
-  }
-}
-
-/** Add a task
-    @param when When to execute the task. Times in the past are okay, but default/max are not.
-    @param tasktype Task to execute at the specified date. Eg "replacewith"
-    @param taskdata Settings for the task
-    @cell(integer) taskdata.source Source for 'replacewith' tasks
-    @return New task id */
-PUBLIC INTEGER FUNCTION AddScheduledTask(OBJECT fsobject, DATETIME when, STRING tasktype, RECORD taskdata DEFAULTSTO DEFAULT RECORD)
-{
-  // insert the event
-  RECORD task := CELL[ ...ParseTask(fsobject, tasktype, taskdata)
-                     , when
-                     , file := fsobject->id
-                     , modifiedby := GetEffectiveUserID()
-                     , id := MakeAutonumber(publisher.schedule, "ID")
-                     ];
-
-  INSERT task INTO publisher.schedule;
-
-  // mark the file as having a schedule attached
-  UPDATE system.fs_objects
-         SET published := SetFlagsInPublished(published, PublishedFlag_Scheduled, TRUE)
-         WHERE id = fsobject->id;
-
-  ScheduleTimedTask("publisher:scheduledtasks", CELL[when]);
-  RETURN task.id;
-}
-
-/** List scheduled tasks */
-PUBLIC RECORD ARRAY FUNCTION ListScheduledTasks(OBJECT fsobject)
-{
-  RECORD ARRAY tasks := SELECT id, when, unparsed := UnparseTask(event,folder), modifiedby FROM publisher.schedule WHERE file = fsobject->id;
-  RETURN SELECT id, when, task := unparsed.task, taskdata := unparsed.taskdata, owner := modifiedby
-           FROM tasks
-          WHERE RecordExists(unparsed)
-       ORDER BY when;
-}
-
-
-
 
 
 /** Wait for all publisher scheduled tasks triggered before a certain time
@@ -190,7 +112,8 @@ MACRO PublicationMoveFile()
   OBJECT deletedfolder := GetTestsuiteTempFolder()->CreateFolder([name := "deletedfolder"]);
 
   DATETIME now := GetCurrentDateTime();
-  AddFileTask(tomovefile->id, now, 3, destfolder->id); // move
+  AddScheduledWHFSTask(tomovefile->id, "move", now, CELL[ destfolder := destfolder->id, owner := 0]); // move
+  TestEqMembers([[ task := "move", when := now, taskdata := [ destfolder := destfolder->id ], owner := 0 ]], ListScheduledWHFSTasks(tomovefile->id), '*');
 
   testfw->CommitWork();
   EnsureTasksExecuted(now);
@@ -200,7 +123,7 @@ MACRO PublicationMoveFile()
 
   testfw->BeginWork();
   now := GetCurrentDateTime();
-  AddFileTask(tomovefile->id, now, 3, deletedfolder->id); //move file into a delted folder
+  AddScheduledWHFSTask(tomovefile->id, "move", now, CELL[ destfolder := deletedfolder->id, owner := 0]); //move file into a deleted folder
   deletedfolder->RecycleSelf();
   testfw->CommitWork();
   EnsureTasksExecuted(now);
@@ -266,17 +189,17 @@ MACRO TestReplaceContents() {
   testfw->BeginWork();
   TestEQ(TRUE, GetEffectiveUserID() != 0);
 
-  TestThrowsLike("Folders do not support*", PTR AddScheduledTask(GetTestsuiteTempFolder(),GetCurrentDatetime(), "replacewith",  [ source := GetTestsuiteTempFolder()->parent ]));
-  TestThrowsLike("*cannot*self*", PTR AddScheduledTask(toreplacefile,GetCurrentDatetime(), "replacewith",  [ source := toreplacefile->id ]));
-  TestThrowsLike("*must be of*same type*", PTR AddScheduledTask(toreplacefile,GetCurrentDatetime(), "replacewith", [ source := dummyhtml->id ]));
-  TestThrowsLike("*does not exist*", PTR AddScheduledTask(toreplacefile,GetCurrentDatetime(), "replacewith", [ source := 1999999999 ]));
+  TestThrowsLike("Folders do not support*", PTR AddScheduledWHFSTask(GetTestsuiteTempFolder()->id,"replacewith", GetCurrentDatetime(),  [ source := GetTestsuiteTempFolder()->parent, owner := 0 ]));
+  TestThrowsLike("*cannot*self*", PTR AddScheduledWHFSTask(toreplacefile->id, "replacewith", GetCurrentDatetime(),  [ source := toreplacefile->id, owner := 0 ]));
+  TestThrowsLike("*must be of*same type*", PTR AddScheduledWHFSTask(toreplacefile->id, "replacewith",GetCurrentDatetime(), [ source := dummyhtml->id, owner := 0 ]));
+  TestThrowsLike("*does not exist*", PTR AddScheduledWHFSTask(toreplacefile->id, "replacewith", GetCurrentDatetime(), [ source := 1999999999, owner := 0]));
 
-  TestEq(0, Length(ListScheduledTasks(toreplacefile)));
+  TestEq(0, Length(ListScheduledWHFSTasks(toreplacefile->id)));
   DATETIME now := GetCurrentDatetime();
-  INTEGER replacetask1 := AddScheduledTask(toreplacefile, now, "replacewith", [ source := replacement1->id ]);
-  TestEq([[ id := replacetask1, task := "replacewith", when := now, taskdata := [ source := replacement1->id ], owner := GetEffectiveUserID() ]], ListScheduledTasks(toreplacefile));
+  INTEGER replacetask1 := AddScheduledWHFSTask(toreplacefile->id, "replacewith", now, [ source := replacement1->id, owner := GetEffectiveUserID() ]);
+  TestEq([[ id := replacetask1, task := "replacewith", when := now, taskdata := [ source := replacement1->id ], owner := GetEffectiveUserID() ]], ListScheduledWHFSTasks(toreplacefile->id));
 
-  AddScheduledTask(emptyreplacefile, now, "replacewith", [ source := replacement2->id ]);
+  AddScheduledWHFSTask(emptyreplacefile->id, "replacewith", now, [ source := replacement2->id, owner := GetEffectiveUserID() ]);
 
   ExecuteAllTasksNow();
 
@@ -288,7 +211,7 @@ MACRO TestReplaceContents() {
 
   testfw->CommitWork();
 
-  TestEq(0, Length(ListScheduledTasks(toreplacefile)));
+  TestEq(0, Length(ListScheduledWHFSTasks(toreplacefile->id)));
 
   toreplacefile := OpenWHFSObject(toreplacefile->id);  //not sure if it's needed, but safer
   TestEq(TRUE, toreplacefile->publish);
@@ -314,7 +237,7 @@ MACRO TestReplaceContents() {
                 , [ type := "saved", version := "2.1", user := testfw->GetUserAuthobjectId("sysop"), userdata := [ login := "sysop@beta.webhare.net" ] ]
                 ], history, "*");
 
-  AddScheduledTask(toreplacefile, now, "replacewith", [ source := replacement2->id ]);
+  AddScheduledWHFSTask(toreplacefile->id, "replacewith", now, [ source := replacement2->id, owner := GetEffectiveUserID() ]);
   ExecuteAllTasksNow();
 
   history := ListObjectHistory(toreplacefile->id);
@@ -340,7 +263,8 @@ MACRO PublicationDeleteFile()
       ]);
 
   DATETIME now := GetCurrentDateTime();
-  AddFileTask(tokillfile->id, now, 4, 0); // delete
+  AddScheduledWHFSTask(tokillfile->id, "delete", now, CELL[ owner := 0 ]); // delete
+  TestEqMembers([[ task := "delete", when := now, owner := 0 ]], ListScheduledWHFSTasks(tokillfile->id), '*');
   testfw->CommitWork();
   EnsureTasksExecuted(now);
 
@@ -363,7 +287,7 @@ MACRO PublicationDeleteFolder()
       ]);
 
   DATETIME now := GetCurrentDateTime();
-  AddFileTask(tokillfolder->id, now, 4, 0); // delete
+  AddScheduledWHFSTask(tokillfolder->id, "delete", now, CELL[ owner := 0 ]); // delete
   testfw->CommitWork();
   EnsureTasksExecuted(now);
 
@@ -393,7 +317,8 @@ MACRO PublicationStartStopTest()
 
   testfw->BeginWork();
   DATETIME now := GetCurrentDateTime();
-  AddFileTask(testfile->id, now, 1, 0); // Start publish NOW -> sets published to true, must republish all
+  AddScheduledWHFSTask(testfile->id, "publish", now, CELL[ owner := 0]); // Start publish NOW -> sets published to true, must republish all
+  TestEqMembers([[ task := "publish", when := now, owner := 0 ]], ListScheduledWHFSTasks(testfile->id), '*');
   testfw->CommitWork();
 
   EnsureTasksExecuted(now);
@@ -404,7 +329,7 @@ MACRO PublicationStartStopTest()
 
   testfw->BeginWork();
   now := GetCurrentDateTime();
-  AddFileTask(testfile->id, now, 1, 0); // Republish only testfile, now
+  AddScheduledWHFSTask(testfile->id, "publish", now, CELL[ owner := 0]); // Republish only testfile, now
   testfw->CommitWork();
 
   EnsureTasksExecuted(now);
@@ -415,7 +340,8 @@ MACRO PublicationStartStopTest()
 
   testfw->BeginWork();
   now := GetCurrentDateTime();
-  AddFileTask(testfile->id, now, 2, 0); // Unpublish file
+  AddScheduledWHFSTask(testfile->id, "depublish", now, CELL[ owner := 0]); // Unpublish file
+  TestEqMembers([[ task := "depublish", when := now, owner := 0 ]], ListScheduledWHFSTasks(testfile->id), '*');
   testfw->CommitWork();
 
   EnsureTasksExecuted(now);
@@ -426,7 +352,7 @@ MACRO PublicationStartStopTest()
 
   testfw->BeginWork();
   now := GetCurrentDateTime();
-  AddFileTask(testfile->parent, now, 1, 0); // Publish folder
+  AddScheduledWHFSTask(testfile->parent, "publish", now, CELL[ owner := 0]); // Publish folder
   testfw->CommitWork();
 
   EnsureTasksExecuted(now);
@@ -436,7 +362,7 @@ MACRO PublicationStartStopTest()
 
   testfw->BeginWork();
   now := GetCurrentDateTime();
-  AddFileTask(testfile->parent, now, 1, 0); // Republish folder
+  AddScheduledWHFSTask(testfile->parent, "publish", now, CELL[ owner := 0]); // Republish folder
   testfw->CommitWork();
 
   EnsureTasksExecuted(now);
@@ -446,7 +372,7 @@ MACRO PublicationStartStopTest()
 
   testfw->BeginWork();
   now := GetCurrentDateTime();
-  AddFileTask(testfile->parent, now, 2, 0); // Unpublish folder
+  AddScheduledWHFSTask(testfile->parent, "depublish", now, CELL[ owner := 0]); // Unpublish folder
   testfw->CommitWork();
 
   EnsureTasksExecuted(now);
@@ -459,7 +385,7 @@ MACRO PublicationStartStopTest()
   // Publish everything
   testfw->BeginWork();
   now := GetCurrentDateTime();
-  AddFileTask(testfile->parent, now, 1, 0); // Publish folder
+  AddScheduledWHFSTask(testfile->parent, "publish", now, CELL[ owner := 0]); // Publish folder
   testfw->CommitWork();
 
   EnsureTasksExecuted(now);
@@ -484,7 +410,7 @@ MACRO PublicationOfDrafts() {
 
   // Schedule publish task, verify it's the draft that goes live
   DATETIME now := GetCurrentDateTime();
-  AddFileTask(testrtd->id, now, whconstant_publisherschedule_publish, 0);
+  AddScheduledWHFSTask(testrtd->id, "publish", now, CELL[ owner := 0]);
 
   testrtd->UpdateMetadata(CELL[ title := "New Title"]);
   testfw->CommitWork();
@@ -516,7 +442,7 @@ MACRO SetIndexDocTest()
 
   testfw->BeginWork();
   DATETIME now := GetCurrentDateTime();
-  AddFileTask(testfile->id, now, 5, 0);
+  AddScheduledWHFSTask(testfile->id, "setindexdoc", now, CELL[ owner := 0]);
   testfw->CommitWork();
 
   EnsureTasksExecuted(now);

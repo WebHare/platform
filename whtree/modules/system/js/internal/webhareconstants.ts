@@ -131,7 +131,7 @@ export const whconstant_historytype_final = 8;
 export const whconstant_publisherschedule_publish = 1;
 
 /// publisher.schedule stop publish event
-export const whconstant_publisherschedule_unpublish = 2;
+export const whconstant_publisherschedule_depublish = 2;
 
 /// publisher.schedule move event
 export const whconstant_publisherschedule_move = 3;

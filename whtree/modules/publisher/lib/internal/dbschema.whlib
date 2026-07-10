@@ -14,7 +14,7 @@ PUBLIC SCHEMA
     , DATETIME "when"
     , INTEGER "event"
     , INTEGER "folder" NULL := 0
-    , INTEGER "modifiedby" NULL := 0
+    , INTEGER "owner" NULL := 0
     ; KEY id
     > schedule
 

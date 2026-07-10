@@ -258,9 +258,12 @@ export function buildBaseConfig(options) {
       "prefer-promise-reject-errors": "off",
       "@typescript-eslint/prefer-promise-reject-errors": "error",
       // Warn about non-erasable syntax that breaks module interop
+      "@typescript-eslint/no-import-type-side-effects": "warn",
       "@typescript-eslint/consistent-type-imports": [
         "warn", {
           disallowTypeAnnotations: false,
+          /* don't use separate-type-imports - it causes eslint to split import() rules into two which is usually not our preference.
+             only drawback is that you have to have eslint fix twice (for no-import-type-side-effects) if `import type {} ` is the form you need eventually need to end up with */
           fixStyle: "inline-type-imports",
         }
       ],

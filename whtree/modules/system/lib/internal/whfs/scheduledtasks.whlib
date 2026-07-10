@@ -1,29 +1,40 @@
 <?wh
-LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::util/algorithms.whlib";
-
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
 
-LOADLIB "mod::publisher/lib/history.whlib";
-LOADLIB "mod::publisher/lib/internal/actions.whlib";
-LOADLIB "mod::publisher/lib/internal/files.whlib";
-
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
-LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
-BOOLEAN report := TRUE; //ADDME: Allow us to set this through the registry
-
-///update a status mask to set the schedule bit to the new state for the fsobj. separate function so it can run inside UPDATE's record lock
-INTEGER FUNCTION SetScheduleBit(INTEGER fileid,INTEGER status)
-{
-  BOOLEAN anytasks := RecordExists(SELECT FROM publisher.schedule WHERE file=fileid LIMIT 1);
-  RETURN SetFlagsInPublished(status, PublishedFlag_Scheduled, anytasks);
+RECORD FUNCTION UnparseTask(INTEGER event, INTEGER folder) {
+  SWITCH(event) {
+    CASE whconstant_publisherschedule_publish {
+      RETURN CELL [ task := "publish" ];
+    }
+    CASE whconstant_publisherschedule_depublish {
+      RETURN CELL [ task := "depublish" ];
+    }
+    CASE whconstant_publisherschedule_move {
+      RETURN CELL [ task := "move", taskdata := [ destfolder := folder ] ];
+    }
+    CASE whconstant_publisherschedule_delete {
+      RETURN CELL [ task := "delete" ];
+    }
+    CASE whconstant_publisherschedule_setindexdoc {
+      RETURN CELL [ task := "setindexdoc" ];
+    }
+    CASE whconstant_publisherschedule_replace {
+      RETURN CELL [ task := "replacewith", taskdata := [ source := folder ]];
+    }
+    DEFAULT{
+      RETURN DEFAULT RECORD;
+    }
+  }
 }
+
 
 PUBLIC MACRO ValidateReplaceWith(OBJECT taskedobj, RECORD sourceinfo)
 {
@@ -39,221 +50,65 @@ PUBLIC MACRO ValidateReplaceWith(OBJECT taskedobj, RECORD sourceinfo)
 }
 
 
-MACRO DoStartPublish(RECORD task)
-{
-  RECORD fsobj := SELECT * FROM system.fs_objects WHERE fs_objects.id=task.file AND NOT IsRecycleOrHistoryWHFSPath(fs_objects.whfspath);
-  IF (NOT RecordExists(fsobj))
-  {
-    PRINT("Cannot execute task 'start publish #" || task.file || "': it no longer exists\n");
-    RETURN;
-  }
+CONSTANT STRING ARRAY tasktypes := ["publish","depublish","move","delete","setindexdoc","replacewith"];
 
-  INTEGER ARRAY affected_files := fsobj.isfolder ? GetWHFSDescendantIds(fsobj.id, FALSE, TRUE) : INTEGER[fsobj.id];
-  INTEGER ARRAY check_for_drafts := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE id IN affected_files AND TestFlagFromPublished(published, PublishedFlag_HasPublicDraft);
+/** List scheduled tasks */
+PUBLIC RECORD ARRAY FUNCTION ListScheduledWHFSTasks(INTEGER fsobjectid) {
+  RECORD ARRAY tasks :=
+        SELECT id, when, unparsed := UnparseTask(event,folder), owner
+          FROM publisher.schedule
+         WHERE file = fsobjectid;
 
-  FOREVERY(INTEGER tocheck FROM check_for_drafts) {
-    OBJECT mgr := NEW WorkflowManager(task.file, [ assumewriteaccess := TRUE ]);
-    IF(RecordExists(mgr->GetCurrentDraft()))
-      mgr->Save([ finalize := TRUE, updatemetadatafields := STRING[]]); //don't copy title etc until those props are visible to all
-  }
-
-  IF(fsobj.isfolder)
-  {
-    RecurseUpdatePublish(fsobj.id, TRUE);
-  }
-  ELSE
-  {
-    IF (fsobj.publish = TRUE)
-    {
-      // Just republish the file
-      ScheduleFileRepublish(fsobj.id);
-    }
-    ELSE //FIle is not yet published
-    {
-      OpenWHFSObject(fsobj.id)->UpdateMetadata([publish:=TRUE]);
-      //UpdateMetadata triggers an asynchronous "replacefile" completion. no need to invoke RunEditFileHooks(fsobj.id);
-    }
-  }
-
-  IF (report)
-    PRINT("Executed task 'start publish " || fsobj.whfspath || "'\n");
+  RETURN SELECT id, when, owner, ...unparsed
+           FROM tasks
+          WHERE RecordExists(unparsed)
+       ORDER BY when;
 }
 
-MACRO DoStopPublish(RECORD task)
-{
-  RECORD fsobj := SELECT * FROM system.fs_objects WHERE fs_objects.id=task.file AND NOT IsRecycleOrHistoryWHFSPath(fs_objects.whfspath);
-  IF (NOT RecordExists(fsobj))
-  {
-    PRINT("Cannot execute task 'stop publish #" || task.file || "': it no longer exists\n");
-    RETURN;
+/** Add a scheduled task for a file or folder
+    @param when When to execute the task. Times in the past are okay, but default/max are not.
+    @param tasktype Task to execute at the specified date. Eg "replacewith"
+    @return New task id */
+PUBLIC INTEGER FUNCTION AddScheduledWHFSTask(INTEGER target, STRING tasktype, DATETIME when, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  IF(tasktype NOT IN tasktypes)
+    THROW NEW Exception(`Unknown task type '${tasktype}', accepted are: ${Detokenize(tasktypes,',')}`);
+
+  STRING ARRAY required := ["owner"];
+  options := ValidateOptions(CELL[ owner := 0
+                                 , source := 0
+                                 , destfolder := 0
+                                ], options, CELL [required]);
+
+  RECORD taskdata :=
+      CELL[ id := MakeAutonumber(publisher.schedule, "ID")
+          , event := SearchElement(tasktypes, tasktype) + 1
+          , options.owner
+          , when
+          , file := target
+          , folder := options.destfolder ?? options.source
+          ];
+
+  IF(tasktype = "move" AND options.destfolder = 0)
+    THROW NEW Exception(`Task type 'move' requires a destination folder`);
+  IF(tasktype != "move" AND options.destfolder != 0)
+    THROW NEW Exception(`Task type '${tasktype}' should not have a destination folder`);
+  IF(tasktype = "replacewith") {
+    IF(options.source = 0)
+      THROW NEW Exception(`Task type 'replacewith' requires a source file`);
+
+    RECORD sourceinfo := SELECT id, type, isfolder FROM system.fs_objects WHERE id = options.source;
+    ValidateReplaceWith(OpenWHFSObject(target), sourceinfo);
   }
+  IF(tasktype != "replacewith" AND options.source != 0)
+    THROW NEW Exception(`Task type '${tasktype}' should not have a source file`);
 
-  IF(fsobj.isfolder)
-  {
-    RecurseUpdatePublish(fsobj.id, FALSE);
-  }
-  ELSE
-  {
-    IF (fsobj.publish = FALSE)
-    {
-      IF (report)
-        PRINT("Cannot execute task 'stop publish " || fsobj.whfspath || "': fsobj is not marked for publishing\n");
-      RETURN;
-    }
+  INSERT taskdata INTO publisher.schedule;
 
-    OpenWHFSObject(fsobj.id)->UpdateMetadata([publish:=FALSE]);
-    //UpdateMetadata triggers an asynchronous "replacefile" completion. no need to invoke RunEditFileHooks(fsobj.id);
-  }
+  // mark the file as having a schedule attached
+  UPDATE system.fs_objects
+         SET published := SetFlagsInPublished(published, PublishedFlag_Scheduled, TRUE)
+         WHERE id = VAR target;
 
-  IF (report)
-    PRINT("Executed task 'stop publish " || fsobj.whfspath || "'\n");
-}
-
-MACRO DoMoveFile(RECORD task)
-{
-  STRING sourcepath, destpath;
-  IF(report)
-  {
-    sourcepath := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = task.file;
-    destpath := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = task.folder;
-    IF(sourcepath="")
-      sourcepath := "#" || task.file;
-    IF(destpath="")
-      destpath := "#" || task.folder;
-  }
-
-
-  TRY
-  {
-    //FIXME audit these events instead of reporting
-    OBJECT mover := NEW ObjectCopyMover("move", task.folder);
-    mover->AddSourceById(task.file);
-    mover->Go(DEFAULT OBJECT); //FIXME don't require the use of sysop for tasks
-    IF (report)
-      PRINT("Executed task 'move " || sourcepath || " to " || destpath || "'\n");
-
-  }
-  CATCH(OBJECT<Exception> ex)
-  {
-    IF (report)
-      Print("Exception during move " || sourcepath || " to " || destpath || ": " || ex->what || "\n");
-  }
-}
-
-MACRO DoDeleteFile(RECORD task)
-{
-  RECORD fsobj := SELECT id, whfspath FROM system.fs_objects WHERE fs_objects.id = task.file;
-  IF (NOT RecordExists(fsobj))
-  {
-    PRINT("Cannot execute task 'delete #" || task.file || "': it no longer exists\n");
-    RETURN;
-  }
-
-  RunAnyDelete(INTEGER[fsobj.id], "publisher:scheduledtask");
-
-  IF (report)
-    PRINT("Executed task 'delete " || fsobj.whfspath || "'\n");
-}
-
-MACRO DoSetIndexdoc(RECORD task)
-{
-  RECORD file := SELECT parent, whfspath FROM system.fs_objects WHERE id = task.file AND NOT fs_objects.isfolder AND NOT IsRecycleOrHistoryWHFSPath(whfspath);
-
-  IF (NOT RecordExists(file))
-  {
-    PRINT("Cannot executetask 'setindexdoc #" || task.file || "': file no longer exists\n");
-    RETURN;
-  }
-
-  RECORD folder := SELECT id, indexdoc FROM system.fs_objects WHERE id = file.parent;
-
-  INTEGER oldindexdoc := folder.indexdoc;
-  OpenWHFSObject(folder.id)->UpdateMetadata([indexdoc := task.file]);
-
-
-  RunEditFileHooks(task.file);
-  RunEditFolderHooks(folder, folder.id);
-  IF (oldindexdoc != 0)
-  {
-    RECORD fs_oldindex := SELECT * FROM system.fs_objects WHERE fs_objects.id=oldindexdoc AND NOT fs_objects.isfolder;
-    IF (RecordExists(fs_oldindex))
-      RunEditFileHooks(oldindexdoc);
-  }
-
-  IF (report)
-    PRINT("Executed task 'setindexdoc " || file.whfspath || "'\n");
-}
-
-//TODO have tasks throw (for easier test-lifecycle) but do the THROW->Print conversion in the task runner so we can still dequeue broken tasks
-MACRO DoReplaceWith(RECORD task)
-{
-  OBJECT toreplace := OpenWHFSObject(task.file);
-  IF(NOT ObjectExists(toreplace))
-  {
-    PRINT(`Cannot executetask 'replacewith #${task.file}': source file no longer exists\n`);
-    RETURN;
-  }
-
-  RECORD replacewith := SELECT * FROM system.fs_objects WHERE id = task.folder;
-  TRY
-  {
-    ValidateReplaceWith(toreplace, replacewith); //tests things like matching types;
-  }
-  CATCH(OBJECT e)
-  {
-    PRINT(`Cannot executetask 'replacewith #${task.file}': ${e->what}\n`);
-    RETURN;
-  }
-
-  //Create a copy of the original in the history
-  OBJECT ARRAY clonetypes;
-  FOREVERY(INTEGER cancopy FROM ArrayUnion(GetCopyableInstanceTypes(replacewith.id), GetCopyableInstanceTypes(toreplace->id)))
-    INSERT OpenWHFSTypeById(cancopy) INTO clonetypes AT END;
-
-  OBJECT workflowmgr := NEW WorkflowManager(task.file,
-      [ workflowtypes := (SELECT AS STRING ARRAY type->namespace FROM ToRecordArray(clonetypes, "type"))
-      , assumewriteaccess := TRUE
-      ]);
-
-  FOREVERY(OBJECT typeobj FROM clonetypes)
-    workflowmgr->SetInstanceData(typeobj->namespace, typeobj->GetInstanceData(replacewith.id));
-
-  //FIXME workflow should support and track the linkfields (externallink and filelink)
-  workflowmgr->UpdateMetadata(CELL[ replacewith.data
-                                  , replacewith.title
-                                  , replacewith.description
-                                  , replacewith.keywords
-                                  ]);
-  workflowmgr->Save([ finalize := TRUE ]);
-  toreplace->UpdateMetadata(CELL[ replacewith.filelink
-                                , replacewith.externallink
-                                ]);
-}
-
-PUBLIC MACRO ExecuteScheduledTask(RECORD task)
-{
-  DELETE FROM publisher.schedule WHERE id=task.id;
-
-  IF (task.event = whconstant_publisherschedule_publish) //Start publish/republish
-    DoStartPublish(task);
-  ELSE IF (task.event = whconstant_publisherschedule_unpublish)
-    DoStopPublish(task);
-  ELSE IF (task.event = whconstant_publisherschedule_move)
-    DoMoveFile(task);
-  ELSE IF (task.event = whconstant_publisherschedule_delete)
-    DoDeleteFile(task);
-  ELSE IF (task.event = whconstant_publisherschedule_setindexdoc)
-    DoSetIndexDoc(task);
-  ELSE IF (task.event = whconstant_publisherschedule_replace)
-    DoReplaceWith(task);
- ELSE
-    THROW NEW Exception(`Unrecognized task type #${task.event}`);
-
-  //Reapply the 'is scheduled' bit (the clock icon)
-  UPDATE system.fs_objects SET published := SetScheduleBit(fs_objects.id, fs_objects.published) WHERE id = task.file;
-}
-
-PUBLIC RECORD ARRAY FUNCTION GetScheduledTasksToExecute()
-{
-  RETURN SELECT * FROM publisher.schedule WHERE when <= GetCurrentDateTime() ORDER BY when;
+  ScheduleTimedTask("publisher:scheduledtasks", CELL[when]);
+  RETURN taskdata.id;
 }
