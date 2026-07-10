@@ -36,7 +36,6 @@ export default class ObjSection extends ToddCompBase {
 
   constructor(parentcomp: ToddCompBase, data: SectionAttributes) {
     super(parentcomp, data);
-    console.log(data);
 
     this.panel = this.owner.addComponent(this, data.panel, { allowMissing: false });
     this.open = data.open;
