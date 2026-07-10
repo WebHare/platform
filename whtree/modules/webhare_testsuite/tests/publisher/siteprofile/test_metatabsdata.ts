@@ -245,7 +245,7 @@ async function testOverrides() {
 
 async function getMockTestApplyTester(name: string) {
   const testpages = await openFolder("site::webhare_testsuite.testsitejs/testpages");
-  return await getApplyTesterForMockedObject(testpages, false, "http://www.webhare.net/xmlns/publisher/richdocumentfile", name);
+  return await getApplyTesterForMockedObject(testpages, false, "platform:filetypes.richdocument", name);
 }
 
 async function testAllTypes() {

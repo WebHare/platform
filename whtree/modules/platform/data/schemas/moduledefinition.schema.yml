@@ -33,6 +33,9 @@ properties:
   siteProfiles:
     description: Global Site profiles
     $ref: "#/$defs/SiteProfiles"
+  siteProfilePlugins:
+    description: Plugins for site profiles
+    $ref: "#/$defs/SiteProfilePlugins"
   addToWebDesigns:
     description: Add siteprofiles to existing web designs
     $ref: "#/$defs/AddToWebDesigns"
@@ -442,6 +445,14 @@ $defs:
         ifWebHare:
           description: "Restrict site profile to specific installations or versions"
           $ref: "#/$defs/IfWebHare"
+
+  SiteProfilePlugins:
+    type: object
+    additionalProperties: false
+    patternProperties:
+      "^[a-z_][-a-z0-9_]*$": # Plugin name
+        type: object
+        additionalProperties: false
 
   AddToWebDesigns:
     type: array

@@ -104,6 +104,9 @@ siteProfiles:
   - path: mod::publisher/widgets/widgets.siteprl.xml
   - path: mod::tollium/data/tollium.siteprl.xml
 
+siteProfilePlugins:
+  experiments: {}
+
 webFeatures:
   identityprovider:
     siteProfile: webfeatures/identityprovider/identityprovider.siteprl.xml

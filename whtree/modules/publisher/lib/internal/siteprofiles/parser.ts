@@ -898,7 +898,7 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
 
       const el = toSnakeCase(node as object | object[]);
       if (Array.isArray(el) !== pluginDef.isArray) {
-        context.addMessage({ type: "error", message: `Custom siteprofile property ${pluginDef.yamlProperty} ${pluginDef.isArray ? 'must' : 'may not '}be an array` }, node);
+        context.addMessage({ type: "error", message: `Custom siteprofile property ${pluginDef.yamlProperty} ${pluginDef.isArray ? 'must' : 'may not '} be an array` }, node);
         continue;
       }
 

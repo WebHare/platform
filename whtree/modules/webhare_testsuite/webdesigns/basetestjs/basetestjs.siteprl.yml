@@ -245,5 +245,11 @@ apply:
           - path: site::webhare_testsuite.testsitejs/tmp/templates/
           - path: site::webhare_testsuite.testsitejs/tmp/templates2/
 
+  - comment: experiment - publish schedule
+    to:
+      whfsPath: "*scheduling*"
+    experiments:
+      editdocScheduling: true
+
 applySiteProfiles:
   - ./metadata.siteprl.yml

@@ -14,7 +14,7 @@ import type { GlobalRight, TargettedRight } from "@webhare/auth";
 import { describeWHFSType, getType } from "./describe";
 import { resolveResource } from "@webhare/services";
 import type { ApplyAuth, ApplySetMetadata } from "@mod-platform/generated/schema/siteprofile";
-import { openType, whfsType } from "@webhare/whfs/src/contenttypes";
+import { openType, whfsType, type WHFSTypeName } from "@webhare/whfs/src/contenttypes";
 import { lookupURL, type LookupURLOptions } from "./lookupurl";
 import { isHistoricWHFSSpace } from "./support";
 
@@ -509,7 +509,7 @@ export class WHFSApplyTester {
   */
   async getPluginSettings(name: string): Promise<RawPluginSettings[]> {
     name = nameToSnakeCase(name);
-    if (!["auth"].includes(name))
+    if (!["auth", "experiments"].includes(name))
       parseModuleQualifiedName(name);
 
     const cellname: keyof CSPApplyRule = "yml_" + name as keyof CSPApplyRule;
@@ -709,7 +709,7 @@ export async function getApplyTesterForObject(obj: WHFSObject) {
   return new WHFSApplyTester(await getBaseInfoForApplyCheck(obj));
 }
 
-export async function getApplyTesterForMockedObject(parent: WHFSFolder, isFolder: boolean, type: string, name = "new object") {
+export async function getApplyTesterForMockedObject(parent: WHFSFolder, isFolder: boolean, type: WHFSTypeName, name = "new object") { //FIXME why defaults on an internal API?
   return new WHFSApplyTester(await getBaseInfoForMockedApplyCheck(parent, isFolder, type, name)); //TODO root object support
 }
 
