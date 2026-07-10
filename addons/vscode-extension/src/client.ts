@@ -18,11 +18,9 @@ export let client: (
 
 async function focusOurWorkspace() {
 	// Bring us to the front. Have VSCode focus the proper workspace
-	const workspaces = vscode.workspace.workspaceFolders;
-	if (workspaces.length) //reopening it should bring it to the top
-		await vscode.commands.executeCommand('vscode.openFolder', workspaces[0].uri, {
-			forceNewWindow: false
-		});
+	const toOpen = vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.[0].uri;
+	if (toOpen) //reopening it should bring it to the top
+		await vscode.commands.executeCommand('vscode.openFolder', toOpen);
 
 	// And bring VSCode itself to the front (FIXME only works on mac)
 	// appRoot contains eg '"/Applications/Visual Studio Code.app/Contents/Resources/app". we strip after .app
