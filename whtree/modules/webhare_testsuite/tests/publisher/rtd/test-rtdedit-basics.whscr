@@ -26,7 +26,6 @@ MACRO OnView(OBJECT openhandler, OBJECT fsobject, BOOLEAN autosave DEFAULTSTO FA
 
 MACRO Create()
 {
-  SetTidLanguage("debug");
   testfw->BeginWork();
 
   testfw->SetupTestWebdesignWebsite();
@@ -101,11 +100,11 @@ OBJECT ASYNC FUNCTION TestReadOnly()
   testfw->SetTestUser("reader");
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
 
-  // It should be read-only
+  // It should be read-only, draft should be visible
   TestEq(TRUE, topscreen->contexts->editdocumentapi->readonly);
-  //TestEQLike("*This is the document*", BlobToString(RTE()->value.htmltext));
-  // A readonly user cannot see drafts
-  TestEQ(FALSE, RecordExists(RTE()->value));
+  TestEQLike("*This is the document*", BlobToString(RTE()->value.htmltext));
+
+  //FIXME test/handle the situation where you still have an autosave but have lost edit rights
 
   // Save and publish should not be available
   clicked := AWAIT ExpectNoScreenChange(PTR TTClick("save", [ allowfailure := TRUE ]));
@@ -125,7 +124,7 @@ OBJECT ASYNC FUNCTION TestReadOnly()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
 
   // Publish the document
-  AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("publish")->TolliumClick(), [ messagemask := "*confirmsaveandpublish*" ]);
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("publish")->TolliumClick(), [ messagemask := "*save and publish*" ]);
 
   testfile := OpenWHFSObject(testfile->id);
   TestEq(TRUE, testfile->publish);
@@ -179,14 +178,32 @@ OBJECT ASYNC FUNCTION TestReadOnly()
   TestEq(testfile->contentmodificationdate, testfile_state2->contentmodificationdate);
 
   //////////////////////////////////////////////////////////////////////////////
+  /// other writer
+
+  // Open rich document editor
+  testfw->SetTestUser("otherwriter");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
+
+  // We should now see the new draft
+  TestEQLike("*This is the draft*", BlobToString(RTE()->value.htmltext));
+
+  // But another window should have popped up
+  AWAIT ExpectScreenChange(+1, DEFAULT MACRO PTR);
+  TestEqLike("*Writer McTestsuite*draft*", TT("message")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  // Close rich document editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  //////////////////////////////////////////////////////////////////////////////
   /// reader
 
   // Open rich document editor
   testfw->SetTestUser("reader");
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
 
-  // We should still see the published document
-  TestEQLike("*This is the document*", BlobToString(RTE()->value.htmltext));
+  // We should now see the new draft
+  TestEQLike("*This is the draft*", BlobToString(RTE()->value.htmltext));
 
   // Close rich document editor
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
@@ -200,7 +217,7 @@ OBJECT ASYNC FUNCTION TestReadOnly()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
 
   // Publish the document
-  AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("publish")->TolliumClick(), [ messagemask := "*confirmsaveandpublish*" ]);
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("publish")->TolliumClick(), [ messagemask := "*save and publish*" ]);
 
   // Close rich document editor
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
@@ -218,6 +235,7 @@ RunTestFramework(
     , PTR TestReadOnly
     ],
     [ testusers := [ [ login := "writer", grantrights := ["system:sysop"] ]
+                   , [ login := "otherwriter", grantrights := ["system:sysop"] ]
                    , [ login := "reader", grantrights := DEFAULT STRING ARRAY ]
                    ]
     , debug := TRUE

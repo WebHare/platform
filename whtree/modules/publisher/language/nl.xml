@@ -1636,9 +1636,9 @@
         <text tid="developersmenu">Ontwikkelaars</text>
         <text tid="documenthasunpublishedchanges">Concept: dit document heeft wijzigingen die nog niet zijn gepubliceerd.</text>
         <text tid="documenthasunsavedchanges">Dit document heeft niet-opgeslagen wijzigingen.</text>
+        <text tid="draftbar_publish">Wijzig publicatie-instellingen</text>
         <text tid="draftmode-by-other">Er zijn wijzigingen opgeslagen door <ifparam p="1" value="">een andere gebruiker<else/><param p="1"/></ifparam> op <param p="2"/>.</text>
         <text tid="draftmode-by-you">Concept: de wijzigingen zijn opgeslagen op <param p="1"/>, maar zijn nog niet gepubliceerd.</text>
-        <text tid="hidedraftbar">Conceptwaarschuwing verbergen</text>
         <text tid="inspectautosave">Inspecteer autosave</text>
         <text tid="inspectdraft">Inspecteer concept</text>
         <text tid="inspectfinal">Inspecteer definitieve versie</text>
@@ -1654,6 +1654,8 @@
         <text tid="save">Opslaan</text>
         <text tid="save-hint">Concept opslaan</text>
         <text tid="saveasdraft">Opslaan</text>
+        <text tid="scheduled-at">Ingepland voor publicatie op <param p="1"/></text>
+        <text tid="schedulepublication">Publicatie inplannen</text>
         <text tid="sendpreviewlink">Voorbeeldlink</text>
         <text tid="sitenotpublished">De definitieve versie van dit bestand staat klaar voor publicatie en zal gepubliceerd worden zodra de website online gaat.</text>
         <text tid="viewpublished">Gepubliceerde versie</text>
@@ -1666,6 +1668,21 @@
         <text tid="resumeautosave">U heeft automatisch opgeslagen wijzigingen voor dit bestand sinds <param p="1"/>. Wilt u met deze wijzigingen verder gaan?</text>
         <text tid="savebeforeclose">Wilt u de wijzigingen die u gemaakt heeft aan '<param p="1"/>' opslaan voordat u afsluit?</text>
         <text tid="savebeforepreview">Openstaande wijzigingen moeten worden opgeslagen om een voorbeeld te versturen.<br/><br/>Wilt u deze opslaan en doorgaan?</text>
+      </textgroup>
+      <textgroup gid="publishdialog">   <!-- tolliumapps.editdocument.publishdialog -->
+        <text tid="confirm-depublish-publishat">Het document dat u inplant voor toekomstige publicatie is al gepubliceerd. Het zal gedepubliceerd worden als u het inplant. Doorgaan?</text>
+        <text tid="endpublish">Einde publicatie</text>
+        <text tid="endpublish-end_at">Publicatie eindigen op</text>
+        <text tid="endpublish-never">Publicatie niet automatisch beëindigen</text>
+        <text tid="error-end-at-before-publish-at">De einddatum voor publicatie moet na de begindatum liggen</text>
+        <text tid="error-end-at-in-past">De opgegeven einddatum ligt in het verleden</text>
+        <text tid="error-publish-at-in-past">De opgegeven begindatum ligt in het verleden</text>
+        <text tid="publication">Publicatie</text>
+        <text tid="publish">Publiceren</text>
+        <text tid="publish-direct">Direct publiceren</text>
+        <text tid="publish-dontpublish">Niet publiceren</text>
+        <text tid="publish-publish_at">Publiceer op</text>
+        <text tid="publishdialog">Publiceren</text>
       </textgroup>
       <textgroup gid="sendpreviewlink">   <!-- tolliumapps.editdocument.sendpreviewlink -->
         <text tid="link">Voorbeeldlink</text>

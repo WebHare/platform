@@ -96,6 +96,21 @@ export async function generatePlugins(context: GenerateContext): Promise<string>
           ...handler.onResolve ? { onResolve: handler.onResolve || '' } : {},
         });
       }
+
+      for (const [name, /*plugin*/] of Object.entries(mod.modYml.siteProfilePlugins || {})) {
+        retval.spPlugins.push({
+          name: mod.name + ":" + name,
+          namespace: "",
+          yamlProperty: mod.name === "platform" ? name : nameToCamelCase(mod.name) + ":" + name,
+          // TODO:
+          toYaml: "", // resolveResource(mod.resourceBase, node.getAttribute("toyaml") || ""),
+          isArray: false, // getAttr(node, "isarray", false),
+          composerHook: "",//resolveResource(mod.resourceBase, node.getAttribute("composerhook") || ""),
+          objectName: "",//resolveResource(mod.resourceBase, node.getAttribute("objectname") || ""),
+          parser: "",//resolveResource(mod.resourceBase, node.getAttribute("parser") || ""),
+          hooksFeatures: []//getAttr(node, "hooksfeatures", [])
+        });
+      }
     }
   }
 

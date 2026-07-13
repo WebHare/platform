@@ -567,6 +567,8 @@ $defs:
         $ref: "#/$defs/ApplyAuth"
       setLibrary:
         $ref: "#/$defs/ApplySetLibrary"
+      experiments: # Temporary keys for experimentation in the platform module
+        type: object
 
     patternProperties:
       "[a-z][a-zA-Z0-9_]+:[a-zA-Z0-9_]+$": # Custom properties prefixed with a site name are simply parsed and passed through

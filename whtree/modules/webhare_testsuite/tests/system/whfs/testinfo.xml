@@ -6,7 +6,8 @@
   <test script="test-whfs-conversions.whscr" />
   <test script="test-whfs-dbaseprocs.whscr" />
   <test script="test-whfs-archiving.whscr" />
-  <test script="test-whfs-history-v4.whscr" />
+  <test script="test-workflow-manager.whscr" />
+  <test script="test-workflow-scheduling.whscr" />
   <test script="test-whfs-types.whscr" />
   <test script="test-whfs-autocreate.whscr" />
   <test script="test-whfs-types_bulkapi.whscr" />
@@ -21,7 +22,8 @@
     <test script="test-whfs-conversions.whscr" />
     <test script="test-whfs-dbaseprocs.whscr" />
     <test script="test-whfs-archiving.whscr" />
-    <test script="test-whfs-history-v4.whscr" />
+    <test script="test-workflow-manager.whscr" />
+    <test script="test-workflow-scheduling.whscr" />
     <test script="test-whfs-types.whscr" />
     <test script="test-whfs-autocreate.whscr" />
     <test script="test-whfs-types_bulkapi.whscr" />

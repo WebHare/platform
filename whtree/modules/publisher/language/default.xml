@@ -1638,9 +1638,9 @@
         <text tid="developersmenu">Developers</text>
         <text tid="documenthasunpublishedchanges">Draft: this document has changes that haven't been published yet.</text>
         <text tid="documenthasunsavedchanges">This document has unsaved changes.</text>
+        <text tid="draftbar_publish">Edit publication settings</text>
         <text tid="draftmode-by-other"><ifparam p="1" value="">Another user<else/> <param p="1"/></ifparam> has saved unpublished changes on <param p="2"/>.</text>
         <text tid="draftmode-by-you">Draft: changes have been saved on <param p="1"/>, but have not yet been published.</text>
-        <text tid="hidedraftbar">Hide draft warning</text>
         <text tid="inspectautosave">Inspect autosave</text>
         <text tid="inspectdraft">Inspect draft</text>
         <text tid="inspectfinal">Inspect final</text>
@@ -1656,6 +1656,8 @@
         <text tid="save">Save</text>
         <text tid="save-hint">Save as draft</text>
         <text tid="saveasdraft">Save</text>
+        <text tid="scheduled-at">Scheduled for publication at <param p="1"/></text>
+        <text tid="schedulepublication">Schedule publication</text>
         <text tid="sendpreviewlink">Previewlink</text>
         <text tid="sitenotpublished">The final version of this file has been prepared for publishing. It will be published when the website goes online.</text>
         <text tid="viewpublished">Published version</text>
@@ -1668,6 +1670,21 @@
         <text tid="resumeautosave">You have unsaved changes for this file since <param p="1"/>. Do you wish to load these changes?</text>
         <text tid="savebeforeclose">Do you want to save the changes you made to '<param p="1"/>' before closing?</text>
         <text tid="savebeforepreview">You need to save your changes before you can send a preview.<br/><br/>Do you want to save and continue?</text>
+      </textgroup>
+      <textgroup gid="publishdialog">   <!-- tolliumapps.editdocument.publishdialog -->
+        <text tid="confirm-depublish-publishat">The document you are scheduling for future publication is already published. It will be depublished immediately if you schedule it. Continue?</text>
+        <text tid="endpublish">End publication</text>
+        <text tid="endpublish-end_at">Publication ends at</text>
+        <text tid="endpublish-never">Do not automatically depublish</text>
+        <text tid="error-end-at-before-publish-at">The publication end date must be before the start date</text>
+        <text tid="error-end-at-in-past">The specified end date is in the past</text>
+        <text tid="error-publish-at-in-past">The specified start date is in the past</text>
+        <text tid="publication">Publication</text>
+        <text tid="publish">Publish</text>
+        <text tid="publish-direct">Publish immediately</text>
+        <text tid="publish-dontpublish">Do not publish</text>
+        <text tid="publish-publish_at">Publish at</text>
+        <text tid="publishdialog">Publish</text>
       </textgroup>
       <textgroup gid="sendpreviewlink">   <!-- tolliumapps.editdocument.sendpreviewlink -->
         <text tid="link">Preview link</text>

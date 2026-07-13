@@ -1,4 +1,4 @@
-<?wh
+<?wh //formerly test-whfs-history-v4.whscr
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";

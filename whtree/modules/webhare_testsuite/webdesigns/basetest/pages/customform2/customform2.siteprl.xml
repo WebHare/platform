@@ -25,6 +25,10 @@
     <formintegration allowsubmittype="true" mailrtdtype="http://www.webhare.net/xmlns/webhare_testsuite/custommailrtdtype2" webtoolformhooks="customform2.whlib#CustomFormHooks" autocompleteusername="m/s-nummer" /><!--  -->
     <allowformquestion type="http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#multimergefield2" />
     <allowformhandler type="http://www.webhare.net/xmlns/publisher/forms#mailconfirmationhandler" />
+  </apply>
+
+  <apply comment="Configure customform2" priority="1">
+    <to type="file" filetype="http://www.webhare.net/xmlns/webhare_testsuite/customform2" />
     <blub xmlns="http://www.webhare.net/xmlns/webhare_testsuite/blub" blubber="5" />
   </apply>
 

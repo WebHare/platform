@@ -1,0 +1,39 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.editdocument" library="dialogs.whlib">
+
+  <screen name="publishdialog" defaultbutton="publishbutton" gid=".publishdialog">
+    <actions>
+      <action name="act_submit" onexecute="submit" shortcut="ctrl+enter" tid=".publish" />
+    </actions>
+
+    <body>
+      <heading tid=".publication" />
+      <select name="publish" type="radio" title="">
+        <option rowkey="dontpublish" tid=".publish-dontpublish" />
+        <option rowkey="direct" tid=".publish-direct" />
+        <option rowkey="publish_at" tid=".publish-publish_at">
+          <datetime name="publish_at"
+                    type="datetime"
+                    errorlabeltid=".publish-publish_at"
+                    required="true"
+                    storeutc="true"
+                    title="" />
+        </option>
+      </select>
+      <heading tid=".endpublish" />
+      <select name="endpublish" type="radio" title="">
+        <option rowkey="never" tid=".endpublish-never" />
+        <option rowkey="end_at" tid=".endpublish-end_at">
+          <datetime name="end_at" type="datetime" errorlabeltid=".endpublish-end_at" required="true" storeutc="true" title="" />
+        </option>
+      </select>
+    </body>
+
+    <footer>
+      <line layout="right">
+        <button name="publishbutton" action="act_submit" tid=".publish" />
+        <button tid="~cancel" tolliumresult="cancel" />
+      </line>
+    </footer>
+  </screen>
+
+</screens>

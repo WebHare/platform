@@ -7,7 +7,7 @@
           width="800px"
           height="600px"
           allowresize="true"
-          flags="canedit canpublish canrevertdraft canpreview canview isdeveloper isdirty"
+          flags="canedit canpublish canrevertdraft canpreview canview isdeveloper isdirty readonly"
           gid=".editdocumentapp"
           icon="tollium:applications/editor"
           interval="60000"
@@ -18,9 +18,10 @@
     <actions>
       <action name="save" frameflags="canedit isdirty" onexecute="dosave" shortcut="ctrl+s" />
       <action name="canceldraft" frameflags="canrevertdraft" onexecute="docanceldraft" />
-      <action name="hidedraftbar" onexecute="dohidedraftbar" />
       <action name="sendpreviewlink" ellipsis="true" onexecute="dosendpreviewlink" />
       <action name="publish" frameflags="canpublish" onexecute="dopublish" />
+      <!-- this action will *always* lead to editing publicadtion schedule settings. for now used by the draftbar and needed in non-experimental mode -->
+      <action name="schedulepublication" frameflags="!readonly" onexecute="dopublish_schedule" ellipsis="true" />
       <action name="close" onexecute="doclose" tid="~close" />
       <windowopenaction name="viewpublished"
                         frameflags="canview"
@@ -48,6 +49,7 @@
     <menus>
       <menu name="menubar">
         <item name="publishmenu" action="publish" tid=".publish" />
+        <item name="schedulepublicationmenu" action="schedulepublication" tid=".schedulepublication" />
         <item name="savemenu" action="save" tid=".save" />
         <item tid=".previewmenu">
           <item action="viewpublished" />
@@ -110,6 +112,7 @@
           <text name="draftmode" width="1pr" onclicklink="ondraftmodeclick" title="" wordwrap="true" />
           <spacer width="3x" />
           <text name="draftbar_canceldraft" action="canceldraft" title="" valuetid=".canceldraftmenu" visible="false" />
+          <text name="draftbar_publish" action="schedulepublication" title="" valuetid=".draftbar_publish" visible="false" />
         </line>
       </statuspanel>
       <split name="editarea" type="horizontal" height="1pr">

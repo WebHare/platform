@@ -178,6 +178,11 @@ async function testSiteProfiles() {
     await whdb.rollbackWork();
   }
 
+  {
+    //Experiments
+    const tester = await getApplyTesterForMockedObject(await test.getTestSiteJSTemp(), false, "platform:filetypes.richdocument", "test-rtd-scheduling");
+    test.eqPartial([{ editdocScheduling: true }], await tester.getPluginSettings("experiments"));
+  }
 }
 
 async function testSiteUpdates() {

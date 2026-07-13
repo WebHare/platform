@@ -328,7 +328,7 @@ export async function describeMetaTabsForHS(obj: { objectid: number; parent: num
     if (obj.objectid) {
       applytester = await getApplyTesterForObject(await openFileOrFolder(obj.objectid, { allowHistoric: true }));
     } else {
-      const typens = getType(obj.type, obj.isfolder ? "folderType" : "fileType")?.namespace ?? '';
+      const typens = getType(obj.type, obj.isfolder ? "folderType" : "fileType")?.namespace ?? (obj.isfolder ? "platform:foldertypes.default" as const : "platform:filetypes.unknown" as const);
       applytester = await getApplyTesterForMockedObject(await openFolder(obj.parent, { allowRoot: true }), obj.isfolder, typens);
     }
 
