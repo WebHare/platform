@@ -113,6 +113,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
 
     RECORD status := this->workflowmgr->GetCurrentStatus();
     this->ReloadRTEContents(); //load the most recent version into the RTE
+
     //make sure the rest of the UI is initialized. ensure eg. toolbar buttons are visible when asking about restoring draft/autosave or the formeditor would look half-done
     FOREVERY(RECORD extendprop FROM this->extendprops)
       extendprop.tabs->RunExtensionsPostInit();
@@ -328,6 +329,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
 
     this->LoadBaseData(this->workflowmgr);
     this->LoadMetadata(this->workflowmgr, FALSE);
+    ^dirtylistener->ClearDirty();
     this->RefreshState();
   }
 
@@ -526,8 +528,8 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     IF (NOT work->Finish())
       RETURN FALSE;
 
-    ^dirtylistener->ClearDirty();
     this->LoadBaseData(this->workflowmgr); //this also updates name/title requirements
+    ^dirtylistener->ClearDirty();
     this->RefreshState();
 
     RETURN TRUE;
