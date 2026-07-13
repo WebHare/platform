@@ -1898,6 +1898,7 @@
           <text tid="filterfrom">Last changed between</text>
           <text tid="filterto">and</text>
           <text tid="fullname">Name</text>
+          <text tid="include_autosaves">Include autosaves</text>
           <text tid="metadata">Metadata</text>
           <text tid="previewtab">Preview</text>
           <text tid="unknownuser">Unknown user</text>

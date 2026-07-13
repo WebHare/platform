@@ -1896,6 +1896,7 @@
           <text tid="filterfrom">Laatst gewijzigd tussen</text>
           <text tid="filterto">en</text>
           <text tid="fullname">Naam</text>
+          <text tid="include_autosaves">Toon autosaves</text>
           <text tid="metadata">Metadata</text>
           <text tid="previewtab">Voorbeeldweergave</text>
           <text tid="unknownuser">Onbekende gebruiker</text>

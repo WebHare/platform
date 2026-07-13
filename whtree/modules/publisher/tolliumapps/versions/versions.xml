@@ -46,10 +46,6 @@
     <body spacers="none">
       <split type="horizontal">
         <part width="1pr" spacers="all">
-          <line layout="left">
-            <date name="filterfrom" onselect="GotDateRangeChange" />
-            <date name="filterto" onselect="GotDateRangeChange" />
-          </line>
           <list name="versions"
                 borders="all"
                 flags="isactive"
@@ -111,6 +107,9 @@
               <button action="createcopy" />
             </line>
           </panel>
+          <line layout="left">
+            <checkbox name="include_autosaves" title="" labeltid=".include_autosaves" onchange="onfilterchange" />
+          </line>
         </part>
         <part width="2pr" spacers="none">
           <tabs name="proptabs" height="1pr">
