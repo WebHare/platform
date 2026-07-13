@@ -120,7 +120,7 @@ PUBLIC STATIC OBJECTTYPE TolliumDirtyListener EXTEND TolliumSpecialComponent <
     SWITCH(type)
     {
       CASE "setdirty" {
-        this->SetDirty();
+        this->ProcessDirtyChange([ source := "client"]);
       }
       DEFAULT
       {
@@ -156,11 +156,18 @@ PUBLIC STATIC OBJECTTYPE TolliumDirtyListener EXTEND TolliumSpecialComponent <
   }
 
   PUBLIC MACRO SetDirty() {
+    this->ProcessDirtyChange([ source := "server" ]);
+  }
+
+  MACRO ProcessDirtyChange(RECORD data) {
     IF(this->isdirty) //already dirty
       RETURN;
 
-    IF(IsDebugTagEnabled("tollium-dirty"))
-      Print(this->GetComponentIdentification() || " manually set to dirty\n");
+    IF(IsDebugTagEnabled("tollium-dirty")) {
+      Print(`${this->GetComponentIdentification()} set to dirty, source=${data.source}\n`);
+      IF(data.source = "server")
+        DumpValue(GetStackTrace(), "boxed");
+    }
 
     this->isdirty := TRUE;
 

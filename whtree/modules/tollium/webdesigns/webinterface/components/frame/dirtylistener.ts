@@ -1,6 +1,7 @@
 import type { ToddCompBase } from '@mod-tollium/js/internal/debuginterface';
 import type { ComponentBaseUpdate, ComponentStandardAttributes } from '@mod-tollium/web/ui/js/componentbase';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
+import { debugFlags } from '@webhare/env';
 
 /****************************************************************************************************************************
  *                                                                                                                          *
@@ -95,6 +96,10 @@ export default class DirtyListener extends ComponentBase {
   setDirty(): void {
     if (this.isDirty)
       return;
+    if (debugFlags["tollium-dirty"]) {
+      console.log(`${this.getDebugName()} is dirtied`);
+      console.trace();
+    }
 
     this.queueMessage("setdirty", null);
 

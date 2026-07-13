@@ -400,6 +400,7 @@ test.runTests(
         // change and reset to original value
         body.querySelector("a").textContent = "Dirtytest2";
         rte._gotStateChange();
+        await test.sleep(1); //need to give mutationobserver a chance to run
         body.querySelector("a").textContent = "Dirtytest1";
         rte._gotStateChange();
         await test.wait("ui");
