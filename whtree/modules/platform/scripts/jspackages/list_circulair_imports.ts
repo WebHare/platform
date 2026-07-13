@@ -12,14 +12,15 @@ runCli({
 
     const issues = await checkUsingTSC("platform");
     logValidationMessagesToConsole(issues, { sort: false });
-    if (issues.length < expectNumCycles) {
-      console.error(`Expected ${expectNumCycles} cycles, but found ${issues.length}. Update mod::platform/scripts/jspackages/list_circulair_imports.ts to ensure noone else re-adds loops`);
+    const loopIssues = issues.filter(_ => _.message.includes("Circular import detected"));
+    if (loopIssues.length < expectNumCycles) {
+      console.error(`Expected ${expectNumCycles} cycles, but found ${loopIssues.length}. Update mod::platform/scripts/jspackages/list_circulair_imports.ts to ensure noone else re-adds loops`);
       return 1;
-    } else if (issues.length > expectNumCycles) {
-      console.error(`Expected ${expectNumCycles} cycles, but found ${issues.length}. Fix your commit, we don't want to ADD more loops!`);
+    } else if (loopIssues.length > expectNumCycles) {
+      console.error(`Expected ${expectNumCycles} cycles, but found ${loopIssues.length}. Fix your commit, we don't want to ADD more loops!`);
       return 1;
     } else {
-      console.log(`Found ${issues.length} cycles as expected`);
+      console.log(`Found ${loopIssues.length} cycles as expected`);
       return 0;
     }
   }
