@@ -1636,7 +1636,7 @@
         <text tid="developersmenu">Ontwikkelaars</text>
         <text tid="documenthasunpublishedchanges">Concept: dit document heeft wijzigingen die nog niet zijn gepubliceerd.</text>
         <text tid="documenthasunsavedchanges">Dit document heeft niet-opgeslagen wijzigingen.</text>
-        <text tid="draftbar_publish">Wijzig publicatieinstellingen</text>
+        <text tid="draftbar_publish">Wijzig publicatie-instellingen</text>
         <text tid="draftmode-by-other">Er zijn wijzigingen opgeslagen door <ifparam p="1" value="">een andere gebruiker<else/><param p="1"/></ifparam> op <param p="2"/>.</text>
         <text tid="draftmode-by-you">Concept: de wijzigingen zijn opgeslagen op <param p="1"/>, maar zijn nog niet gepubliceerd.</text>
         <text tid="inspectautosave">Inspecteer autosave</text>
@@ -1675,7 +1675,7 @@
         <text tid="endpublish-end_at">Publicatie eindigen op</text>
         <text tid="endpublish-never">Publicatie niet automatisch beëindigen</text>
         <text tid="error-end-at-before-publish-at">De einddatum voor publicatie moet na de begindatum liggen</text>
-        <text tid="error-end-at-in-past">De opgegeven einddatum is in het verleden</text>
+        <text tid="error-end-at-in-past">De opgegeven einddatum ligt in het verleden</text>
         <text tid="error-publish-at-in-past">De opgegeven begindatum ligt in het verleden</text>
         <text tid="publication">Publicatie</text>
         <text tid="publish">Publiceren</text>
