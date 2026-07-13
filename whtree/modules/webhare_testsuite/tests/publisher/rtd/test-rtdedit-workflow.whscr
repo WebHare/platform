@@ -1,0 +1,180 @@
+<?wh
+/* Test the save & preview workflows in the EditDocument app */
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/dialogs.whlib";
+LOADLIB "mod::publisher/lib/history.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/rtd.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+INTEGER testrtdfileid;
+STRING previewlink;
+
+OBJECT FUNCTION RTE() {
+  RETURN TT("doceditor")->contents->rte;
+}
+
+MACRO PrepIt()
+{
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  testfw->BeginWork();
+  testfw->GetUserObject("lisa")->UpdateGrant("grant", "system:fs_fullaccess", GetTestsuiteJSTempFolder()->id, testfw->GetUserObject("lisa"), [ allowselfassignment := TRUE ]);
+
+  //publish FALSE as new RTD files are normally not immediately published
+  OBJECT testrtd := GetTestsuiteJSTempFolder()->CreateFile(
+    [ name := "draft-test.rtd", type := richdoctype->id, publish := FALSE
+    ], [ createdby := testfw->GetUserObject("lisa")
+       ]);
+
+  testrtdfileid := testrtd->id;
+  testfw->CommitWork();
+}
+
+ASYNC MACRO TestAutoSave() {
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtdfileid) ], target := DEFAULT RECORD ]));
+  TestEq(FALSE, topscreen->frame->flags.isdirty, "Didn't change anything yet");
+
+  RTE()->value := BuildRTDFromYaml(`- p: "I typed this into an autosave #1, we will save this"`);
+  topscreen->GetExtendedComponent("webhare_testsuite:base_test.base_test_props", "a_link")->value := MakeIntExtExternalLink("https://beta.webhare.net/");
+  RTE()->SetDirty();
+
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTEscape, [ messagemask := "*save*changes*" ]);
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR); //should close
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtdfileid) ], target := DEFAULT RECORD ]));
+  TestEqLike("*autosave #1*", BlobToString(RTE()->value.htmltext));
+
+  RTE()->value := BuildRTDFromYaml(`- p: "I typed this into an autosave #2, we will not save or restore this"`);
+  RTE()->SetDirty();
+
+  //Kill the RTD but give it a chance to autosave. we can't officially kill in testframework but this is close enough
+  topscreen->tolliumresult := "close";
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR);
+
+  //STORY: Reopen, it should ask to restore changes - first we say yes...
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtdfileid) ], target := DEFAULT RECORD ]));
+  TestEq(FALSE, topscreen->frame->flags.isdirty, "Technically you're not losing anything until you cancel the autosave, so we're not dirty yet");
+  TestEqLike("*autosave #2*", BlobToString(RTE()->value.htmltext));
+  AWAIT ExpectAndAnswerMessageBox("yes", DEFAULT MACRO PTR, [ messagemask := "*unsaved*changes*" ]);
+  TestEq(TRUE, topscreen->frame->flags.isdirty);
+
+  topscreen->tolliumresult := "close";
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR);
+
+  //STORY: Reopen, it should ask to restore changes - now we say no..
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtdfileid) ], target := DEFAULT RECORD ]));
+  TestEq(FALSE, topscreen->frame->flags.isdirty, "Technically you're not losing anything until you cancel the autosave, so we're not dirty yet");
+  TestEqLike("*autosave #2*", BlobToString(RTE()->value.htmltext));
+  AWAIT ExpectAndAnswerMessageBox("no", DEFAULT MACRO PTR, [ messagemask := "*unsaved*changes*" ]);
+  TestEq(FALSE, topscreen->frame->flags.isdirty);
+
+  TestEqLike("*autosave #1*", BlobToString(RTE()->value.htmltext));
+
+  RECORD ARRAY history := ListObjectHistory(testrtdfileid, [ include_autosaves := TRUE]);
+  TestEqMembers([[ type := "created", userdata := [ login := "lisa@beta.webhare.net" ]],
+                 [ type := "saved", userdata := [ login := "lisa@beta.webhare.net" ]],
+                 [ type := "autosave", userdata := [ login := "lisa@beta.webhare.net" ]],
+                 [ type := "abandoned-autosave", userdata := [ login := "lisa@beta.webhare.net" ], snapshot := 0 ]
+                ],history,"*");
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //should allow us to exit without asking confirmation
+
+  //Reopen, it shouldn't ask anything
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtdfileid) ], target := DEFAULT RECORD ]));
+  TestEqLike("*autosave #1*", BlobToString(RTE()->value.htmltext));
+
+  //Kill the RTD but give it a chance to autosave
+  topscreen->tolliumresult := "close";
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR);
+}
+
+ASYNC MACRO TestPasswordPreview() {
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtdfileid) ], target := DEFAULT RECORD ]));
+
+  OBJECT rte := TT("doceditor")->contents->rte;
+  rte->TolliumWeb_FormUpdate('<p class="normal">This is a previewable text</p>');
+  Print("[rte-workflow] explicitly marking doc as dirty\n");
+  rte->__debug_simulatedirty();
+
+  Print("[rte-workflow] trigger the autosave step of sendpreviewlink\n");
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("sendpreviewlink"), [ messagemask := "*save*preview*"]);
+
+  RECORD ARRAY history := ListObjectHistory(testrtdfileid);
+  TestEqMembers([ [ type := "created", version := "0.1" ]
+                , [ type := "saved", version := "0.2", userdata := [ login := "lisa@beta.webhare.net" ] ]
+                , [ type := "saved", version := "0.3", userdata := [ login := "lisa@beta.webhare.net" ] ]
+                ], history, "*");
+  TestEq(DEFAULT RECORD, richdoctype->GetInstanceData(testrtdfileid).data);
+  TestEqLike("*autosave #1*", BlobToString(richdoctype->GetInstanceData(history[1].snapshot).data.htmltext));
+
+  Print("[rte-workflow] actually request the preview link\n");
+  AWAIT ExpectScreenChange(+1, DEFAULT MACRO PTR);
+  TT("passwordprotect")->value := TRUE;
+  TT("password")->value := "secret";
+  TT("wizard")->nextbutton->TolliumClick();
+  previewlink := TT("link")->value;
+
+  Print(`[rte-workflow] got: ${previewlink}\n`);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(previewlink));
+
+  TestEq(FALSE, BlobToString(testfw->browser->content) LIKE "*This is a previewable text*");
+  TestEQ("", testfw->browser->GetResponseHeader("X-WHPUB-PREVIEW"));
+
+  OBJECT form := testfw->browser->document->GetElement("form");
+  form->GetElement("*[name='password']")->SetAttribute("value", "bladiebla");
+  testfw->browser->SubmitForm(form);
+
+  TestEq(FALSE, BlobToString(testfw->browser->content) LIKE "*This is a previewable text*");
+  form := testfw->browser->document->GetElement("form");
+  form->GetElement("*[name='password']")->SetAttribute("value", "secret");
+  testfw->browser->SubmitForm(form);
+
+  TestEq(TRUE, BlobToString(testfw->browser->content) LIKE "*This is a previewable text*");
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+}
+
+ASYNC MACRO AssumeWriteAccess()
+{
+  // Revoke write access
+  testfw->BeginWork();
+  testfw->GetUserObject("lisa")->UpdateGrant("revoke", "system:fs_fullaccess", GetTestsuiteTempFolder()->id, testfw->GetUserObject("lisa"), [ allowselfassignment := TRUE ]);
+  testfw->CommitWork();
+
+  Print("[rte-workflow] opening editor with assumed access\n");
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectEditApplication(GetTestController(), testrtdfileid, [ assumereadaccess := TRUE, assumewriteaccess := TRUE, forceintegrated := TRUE ]));
+
+  OBJECT rte := TT("doceditor")->contents->rte;
+  Print("[rte-workflow] explicitly marking doc as dirty\n");
+  rte->__debug_simulatedirty();
+
+  // Save the changes
+  Print("[rte-workflow] save changes\n");
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("publish"));
+
+  // The application should close without the 'save changes' confirmation
+  Print("[rte-workflow] close app\n");
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+}
+
+RunTestframework([ PTR PrepIt
+                 , PTR TestAutoSave
+                 , PTR TestPasswordPreview
+                 , PTR AssumeWriteAccess
+                 ], [ testusers := [[ login := "lisa" ]
+                                   ]
+                    , profile := TRUE
+                    ]);

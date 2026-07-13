@@ -116,7 +116,10 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
     }
   },
   "intExtLink": {
-    dbtype: CSPMemberType.IntExtLink
+    dbtype: CSPMemberType.IntExtLink,
+    constraints: {
+      valueType: "intExtLink"
+    }
   },
   "instance": {
     dbtype: CSPMemberType.Instance

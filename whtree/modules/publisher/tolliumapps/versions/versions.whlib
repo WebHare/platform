@@ -1,11 +1,13 @@
 <?wh
 
-LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
@@ -51,32 +53,35 @@ PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
   //
 
   MACRO Init(RECORD data) {
-    IF (CellExists(data, "filterfrom"))
-      ^filterfrom->value := data.filterfrom;
-    ELSE
-      ^filterfrom->value := AddDaysToDate(-default_history_range, GetCurrentDatetime());
-    IF (CellExists(data, "filterto"))
-      ^filterto->value := data.filterto;
-
     RECORD targetinfo := SELECT id, snapshotfor FROM system.fs_objects WHERE id = VAR data.id;
     IF(NOT RecordExists(targetinfo)) {
       this->tolliumresult := "close";
       RETURN;
     }
 
-    this->liveobject := OpenWHFSObject(targetinfo.snapshotfor ?? data.id);
-
-    ^listener->masks := this->liveobject->GetEventMasks([ "object", "history" ]);
-
     this->frame->flags.issysop := this->tolliumuser->HasRight("system:sysop");
     this->frame->flags.issupervisor := this->frame->flags.issysop OR this->tolliumuser->HasRight("system:supervisor");
 
+    this->liveobject := OpenWHFSObject(targetinfo.snapshotfor ?? data.id);
     this->frame->title := this->GetTid(".dialogtitle", this->liveobject->name);
+
+    ^include_autosaves->visible := this->frame->flags.issupervisor;
+
+    //enable it if the target item is only visible in autosave rows
+    INTEGER ARRAY in_history_types := targetinfo.snapshotfor != 0 ? SELECT AS INTEGER ARRAY DISTINCT type FROM system_internal.fs_history WHERE fs_history.snapshot = data.id AND fs_object = targetinfo.snapshotfor : INTEGER[];
+    ^include_autosaves->value := ^include_autosaves->visible AND Length(in_history_types) > 0 AND Length(ArrayDelete(in_history_types, [whconstant_historytype_abandoned_autosave, whconstant_historytype_autosave])) =0;
+
+    ^listener->masks := this->liveobject->GetEventMasks([ "object", "history" ]);
+
 
     this->Refresh();
     ^versions->SetValueIfValid(data.id);
     IF(targetinfo.snapshotfor != 0) //if we deeplinked to a version, select it
       ^versions->selection := SELECT * FROM ^versions->rows WHERE snapshot = targetinfo.id;
+  }
+
+  MACRO OnFilterChange() {
+    this->Refresh();
   }
 
   // ---------------------------------------------------------------------------
@@ -98,16 +103,7 @@ PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
   //
 
   MACRO Refresh() {
-    DATETIME from_date := ^filterfrom->value;
-    DATETIME to_date := ^filterto->value;
-    IF (from_date != DEFAULT DATETIME)
-      from_date := GetRoundedDateTime(from_date, 24*60*60*1000);
-    IF (to_date != DEFAULT DATETIME)
-      to_date := GetRoundedDateTime(AddDaysToDate(1, to_date), 24*60*60*1000);
-    ELSE
-      to_date := MAX_DATETIME;
-
-    RECORD ARRAY historyitems := ListObjectHistory(this->liveobject->id);
+    RECORD ARRAY historyitems := ListObjectHistory(this->liveobject->id, [ include_autosaves := ^include_autosaves->value ]);
 
     RECORD ARRAY rows :=
         SELECT rowkey :=          id
@@ -124,8 +120,6 @@ PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
              , isactive
              , snapshot
           FROM historyitems;
-
-    rows := SELECT * FROM rows WHERE when >= from_date AND when < to_date;
 
     ^versions->rows := rows;
   }

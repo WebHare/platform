@@ -377,6 +377,7 @@ $defs:
           - whfsRef
           - array
           - richTextDocument
+          - intExtLink
       itemType:
         description: Type of value used in an array
         type: string

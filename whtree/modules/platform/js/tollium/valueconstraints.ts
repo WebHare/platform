@@ -93,6 +93,9 @@ function suggestByType(valueConstraints: Readonly<ValueConstraints>): AnyTollium
 
       return { fileedit: { valueConstraints } };
 
+    case "intExtLink":
+      return { "http://www.webhare.net/xmlns/publisher/components#intextlink": { valueConstraints } };
+
     case "whfsRef":
       return { "http://www.webhare.net/xmlns/publisher/components#browseforobject": { valueConstraints } };
 

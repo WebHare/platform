@@ -257,6 +257,8 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
 
   MACRO RefreshMetaTabsReadonly() {
     this->renderer->SetControllersEnabled(this->editable);
+    FOREVERY(RECORD extendprop FROM this->extendprops) //TODO integrate into renderer ... or move renderer into a lower class
+      extendprop.whfsinstance->enabled := this->editable;
 
     // objectprops is not allowed to edit workflow fields when editing existing files which have a true workflow (and document editor)
     BOOLEAN edit_workflow_metadata := this->isnew OR NOT RecordExists(this->workfloweditor) OR NOT this->isobjectprops;

@@ -5,7 +5,6 @@
   <test script="recyclebin.whscr" />
   <test script="worklists.whscr" />
   <test script="testfoldersettings.whscr" />
-  <test script="rte-workflow.whscr" />
   <test script="testrte-links.whscr" />
   <test script="testrte-rtdtype.whscr" />
   <test script="testrte-images.whscr" />

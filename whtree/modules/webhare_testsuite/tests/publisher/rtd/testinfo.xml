@@ -4,6 +4,7 @@
   <test script="testrtdpublish.whscr" />
   <test script="test-rtdedit-basics.whscr" />
   <test script="test-rtdedit-savepublish.whscr" />
+  <test script="test-rtdedit-workflow.whscr" />
   <test script="test-rtdedit-scheduling.whscr" />
   <test script="test-rtdedit-issues.whscr" />
   <test script="test-plaintext-savepublish.whscr" />

@@ -740,6 +740,7 @@
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="tc:ComposableComponentBase" />
+    <xs:attributeGroup ref="tc:IsDirtyable" />
     <xs:attributeGroup ref="sc:TidOrTitle" />
     <xs:attributeGroup ref="BrowseFilterOptions" />
 
