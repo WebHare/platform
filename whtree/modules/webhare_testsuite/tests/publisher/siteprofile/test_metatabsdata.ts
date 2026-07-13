@@ -114,6 +114,9 @@ async function testMetadataReader() {
                 name: "checkIt"
               }, {
                 name: "extControlledField"
+              }, {
+                name: "aLink",
+                component: { "http://www.webhare.net/xmlns/publisher/components#intextlink": {} }
               }
             ]
           }, {
@@ -173,6 +176,8 @@ async function testMetadataReader() {
                 name: "check_it"
               }, {
                 name: "ext_controlled_field"
+              }, {
+                name: "a_link",
               }
             ]
           }, {
@@ -231,6 +236,8 @@ async function testOverrides() {
                   name: "checkIt"
                 }, {
                   name: "extControlledField"
+                }, {
+                  name: "aLink",
                 }
               ]
             }, {

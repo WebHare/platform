@@ -87,6 +87,9 @@ types:
       extControlledField:
         type: string
         title: extControlledField
+      aLink:
+        type: intExtLink
+        title: A link
   jsfolder1:
     metaType: folder
     title: "JS Folder 1"
@@ -139,7 +142,7 @@ apply:
     baseProps: [seotitle]
     editProps:
       - type: base_test_props
-        layout: [anyField, numberField, folksonomy, whUser, rtd, multiField, checkIt, extControlledField]
+        layout: [anyField, numberField, folksonomy, whUser, rtd, multiField, checkIt, extControlledField, aLink]
         override:
           numberField:
             constraints:
