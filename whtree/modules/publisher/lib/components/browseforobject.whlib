@@ -10,8 +10,8 @@ LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
-PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumFragmentBase
-< // ---------------------------------------------------------------------------
+PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumFragmentBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -90,6 +90,7 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumFragmentBase
   PUBLIC MACRO NEW()
   {
     EXTEND this BY TolliumIsComposable;
+    EXTEND this BY TolliumIsDirtyable;
     this->pvt_invisibletitle := TRUE;
     this->showclear := TRUE;
     this->browsetype := "list";
@@ -331,6 +332,7 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumFragmentBase
       this->value := result;
       IF (this->onchange != DEFAULT FUNCTION PTR)
         this->onchange();
+      this->SetDirty();
     }
   }
 
@@ -339,5 +341,6 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumFragmentBase
     this->value := 0;
     IF(this->onchange != DEFAULT FUNCTION PTR)
       this->onchange();
+    this->SetDirty();
   }
 >;

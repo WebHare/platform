@@ -25,15 +25,13 @@ MACRO ExpandHyperlinkComponents(OBJECT selectbox)
 }
 
 
-PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
-< // ---------------------------------------------------------------------------
+PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
 
   INTEGER current_linktype;
-
-  BOOLEAN initialvalueset;
 
   OBJECT ARRAY __linkhandlers; //internal link <linkhandlers> object
 
@@ -221,52 +219,45 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
     ^linktype->enabled := nowenable;
   }
 
-  MACRO SetValue(RECORD value)
-  {
+  MACRO SetValue(RECORD value) {
     this->EnsurePreInit();
+    IF(RecordExists(value) AND value.internallink = 0 AND value.externallink = "") //normalize value
+      value := DEFAULT RECORD;
 
-    IF(NOT RecordExists(value) OR (value.internallink = 0 AND value.externallink = ""))
-    {
+    IF(EncodeHSON(value) = EncodeHSON(this->GetValue()))
+      RETURN; //no change apparently
+
+    IF(NOT RecordExists(value)) {
       ^linktype->value := 0;
       ^internal->value := 0;
       ^append->value := "";
       ^external->value := "";
+      RETURN;
     }
-    ELSE
-    {
-      BOOLEAN didset;
-      FOREVERY(RECORD opt FROM ^linktype->options)
-      {
-        IF(opt.rowkey < 100) //not handling builtins here
-         CONTINUE;
 
-        IF(opt.handler->SetLinkRecordIfSupported(value))
-        {
-          didset := TRUE;
-          ^linktype->value := opt.rowkey;
-          BREAK;
-        }
-      }
-      IF(NOT didset)
-      {
-        IF(value.internallink != 0 AND this->internallinks)
-        {
-          ^linktype->value := 2;
-          ^internal->value := value.internallink;
-          ^append->value := value.append;
-        }
-        ELSE
-        {
-          ^linktype->value := 1; //external link
-          ^external->value := value.externallink;
-        }
+    BOOLEAN didset;
+    FOREVERY(RECORD opt FROM ^linktype->options) {
+      IF(opt.rowkey < 100) //not handling builtins here
+        CONTINUE;
+
+      IF(opt.handler->SetLinkRecordIfSupported(value)) {
+        didset := TRUE;
+        ^linktype->value := opt.rowkey;
+        BREAK;
       }
     }
 
-    IF (this->initialvalueset)
-      this->SetDirty();
-    ELSE
-      this->initialvalueset := TRUE;
+    IF(NOT didset) {
+      IF(value.internallink != 0 AND this->internallinks) {
+        ^linktype->value := 2;
+        ^internal->value := value.internallink;
+        ^append->value := value.append;
+      } ELSE {
+        ^linktype->value := 1; //external link
+        ^external->value := value.externallink;
+      }
+    }
+    this->SetDirty();
   }
 
   // ---------------------------------------------------------------------------
