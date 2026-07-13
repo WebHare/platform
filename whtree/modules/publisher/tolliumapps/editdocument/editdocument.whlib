@@ -385,7 +385,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
 
     this->contexts->editdocumentapi->onsetenabled(this->editable);
     this->frame->flags.canedit := this->editable;
-    this->frame->flags.readonly := NOT this->readonly;
+    this->frame->flags.readonly := this->readonly;
 
     RECORD state;
 
