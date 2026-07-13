@@ -508,15 +508,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
 
 
     IF (NOT work->HasFailed()) {
-      STRING ARRAY updatemetadatafields;
-      IF(^title->visible AND ^metapart->visible)
-        INSERT "title" INTO updatemetadatafields AT END;
-      IF(^description->visible AND ^metapart->visible)
-        INSERT "description" INTO updatemetadatafields AT END;
-      IF(^keywords->visible AND ^metapart->visible)
-        INSERT "keywords" INTO updatemetadatafields AT END;
-
-      this->workflowmgr->Save(CELL[ finalize := options.finalize, updatemetadatafields, ...publish_dialog_result ]);
+      this->workflowmgr->Save(CELL[ finalize := options.finalize, ...publish_dialog_result ]);
 
       //Warn if publishing to an unpublished site (but not if publishing outside a site)
       IF (options.finalize AND finalitem->parentsite != 0 AND OpenSite(finalitem->parentsite)->outputweb = 0)

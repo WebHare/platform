@@ -368,7 +368,6 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
   PUBLIC MACRO Save(RECORD options DEFAULTSTO DEFAULT RECORD) {
     options := ValidateOptions(CELL[ finalize := FALSE
                                    , publish := FALSE
-                                   , updatemetadatafields := STRING["title", "description", "keywords"]
                                    , publish_at := DEFAULT DATETIME
                                    , end_at := DEFAULT DATETIME
                                    ], options, [ optional := STRING["publish_at","end_at","publish"]]);
