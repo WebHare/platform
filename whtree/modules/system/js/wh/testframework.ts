@@ -72,7 +72,12 @@ function hasSlimSelect(el: HTMLElement): el is SlimSelectAPI {
 let testfw: TestFramework | undefined;
 if (typeof window !== 'undefined') {
   testfw = window.top?.__testframework;
-  whtest.setupLogging({ onLog: (...args) => { console.log(...args); testfw!.log(...args); } });
+  whtest.setupLogging({
+    onLog: (...args) => {
+      console.log(...args);
+      testfw!.log(...args.map(arg => typeof arg === "string" ? arg : JSON.stringify(arg)));
+    }
+  });
 }
 
 export type TestFrameWorkCallbacks = {
@@ -149,7 +154,7 @@ function logExplanation(explanation: Annotation) {
   if (typeof explanation === "function")
     explanation = explanation();
   console.error(explanation);
-  testfw?.log("* " + explanation + "\n");
+  testfw?.log("* " + explanation);
 }
 
 export function eqHTML(expected: string, actual: string, explanation?: string) {

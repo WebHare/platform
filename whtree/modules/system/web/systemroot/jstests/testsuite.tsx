@@ -16,6 +16,7 @@ import type { AssetPackState } from '@mod-platform/js/assetpacks/types';
 import { formatValidationMessage, logValidationMessagesToConsole } from "@mod-platform/js/devsupport/messages";
 import type { KeyboardModifierOptions } from 'dompack/testframework/keyboard';
 import type { StackTraceItem } from '@webhare/js-api-tools';
+import { html } from '@webhare/dompack/src/html';
 
 export type TestReport = {
   id: string;
@@ -705,10 +706,14 @@ class TestFramework {
 
       const bestlocation = findBestStackLocation(stacktrace);
       if (bestlocation) {
-        lognode.textContent = `Location: ${bestlocation.filename}:${bestlocation.line}:${bestlocation.col}`;
-        this.updateTestState();
+        lognode.replaceChildren("Location: ",
+          html("span", {
+            className: "wh-hserror__resourceref",
+            dataset: { "resourceref": JSON.stringify({ filename: bestlocation.filename, line: bestlocation.line, col: bestlocation.col }) }
+          }, [`${bestlocation.filename}:${bestlocation.line}:${bestlocation.col}`]));
       }
     });
+    this.updateTestState();
 
     if (this.currentwaitstack) {
       const stackframesRaw = await StackTrace.fromError(this.currentwaitstack, { sourceCache });
@@ -1139,14 +1144,11 @@ class TestFramework {
     };
   }
 
-  log(...text: unknown[]) {
-    const nodes = [document.createTextNode(text.map(e => typeof e === "string" ? e : JSON.stringify(e)).join(' ')), document.createElement("br")] as const;
-    this.lastlognodes.push(nodes[0]);
-    this.lastlognodes.push(nodes[1]);
-
-    qR('#logholder').appendChild(nodes[0]);
-    qR('#logholder').appendChild(nodes[1]);
-    return nodes[0];
+  log(...text: Array<string | HTMLElement>) {
+    const line = html('div', {}, text);
+    this.lastlognodes.push(line);
+    qR('#logholder').append(line);
+    return line;
   }
 
   updateTestState() {
