@@ -1,4 +1,4 @@
-import { isDate, type Money, type stdTypeOf } from "@webhare/std";
+import { isDate, stdTypeOf, typedEntries, type Money } from "@webhare/std";
 
 interface ColumnTypeDef {
   validDataTypes?: Array<ReturnType<typeof stdTypeOf>>;
@@ -9,11 +9,11 @@ type ValidColumnTypes = "string" | "number" | "date" | "boolean" | "money" | "ti
 export const ColumnTypes: Record<ValidColumnTypes, ColumnTypeDef> = {
   "string": {},
   "number": { validDataTypes: ["number"] },
+  "dateTime": { validDataTypes: ["Date", "null"] },
   "date": { validDataTypes: ["Date", "null"] },
   "boolean": { validDataTypes: ["boolean"] },
   "money": { validDataTypes: ["Money"] },
   "time": { validDataTypes: ["number"] },
-  "dateTime": { validDataTypes: ["Date", "null"] },
 };
 
 export type SpreadsheetColumn = {
@@ -62,6 +62,7 @@ export type SpreadsheetData = ({
   columns: SpreadsheetColumn[];
 } | {
   rows: Array<Record<string, unknown>>;
+  columns?: SpreadsheetColumn[];
 }) & {
   title?: string;
   timeZone?: string;
@@ -118,24 +119,36 @@ export function validateAndFixRowsColumns(options: SpreadsheetData, index: numbe
 
   if (!("columns" in options)) {
     //Infer them!
-    const cols: SpreadsheetColumn[] = [];
+    type SpeculatedSpreadsheetColumn = { name: string; title: string; type?: ValidColumnTypes; storeUTC?: boolean };
+    const speculatedCols: SpeculatedSpreadsheetColumn[] = [];
     for (const row of options.rows)
-      for (const [key] of Object.entries(row)) { //TODO infer Date and number ?
-        let matchCol: SpreadsheetColumn | undefined = cols.find((col) => col.name === key);
+      for (const [key, value] of Object.entries(row)) { //TODO infer Date and number ?
+        let matchCol = speculatedCols.find((col) => col.name === key);
         if (!matchCol) {
-          matchCol = { name: key, title: key, type: "string" };
-          cols.push(matchCol);
+          matchCol = { name: key, title: key };
+          speculatedCols.push(matchCol);
         }
+
+        const valueType = stdTypeOf(value);
+        const matchType = typedEntries(ColumnTypes).find(([type, def]) => def.validDataTypes?.includes(valueType));
+        const requireTz = matchType?.[0] === "date" || matchType?.[0] === "dateTime";
+
+        if (matchType && (options.timeZone || !requireTz) && (matchCol.type === undefined || matchCol.type === matchType?.[0])) { //we recognized this type and it's the first clue or matches the guessed type
+          if (!matchCol.type)
+            matchCol.type = matchType?.[0];
+          if (requireTz)
+            matchCol.storeUTC = true;
+        } else if (value && matchCol.type !== 'string') {
+          matchCol.type = "string"; //reset to 'string' if types are inconsistent
+        }
+        console.log(key, matchCol.type);
       }
-
-    return { ...options, columns: cols } as FixedSpreadsheetOptions & { title: string };
+    console.log(speculatedCols);
+    options.columns = speculatedCols.map((col) => ({ name: col.name, title: col.title, type: col.type ?? "string", storeUTC: col.storeUTC ?? false }));
+    console.log(options.columns);
   }
 
-  if (options.columns.length === 0) { //*if* you define a col[] array, we expect it to be there
-    throw new Error("No columns defined");
-  }
-
-  for (const column of options.columns) {
+  for (const column of options.columns || []) {
     if (column.type === "dateTime") {
       if (typeof column.storeUTC !== "boolean")
         throw new Error(`Column ${column.name} is of type dateTime but storeUTC is not a boolean`);
