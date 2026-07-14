@@ -2,7 +2,7 @@
   "name": "@webhare/system-tools",
   "type": "module",
   "version": "",
-  "description": "",
+  "description": "Useful wrappers around system APIs often used by WebHare scripts.",
   "main": "src/system-tools.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -14,6 +14,9 @@
     "entryPoints": [
       "./src/system-tools.ts"
     ]
+  },
+  "dependencies": {
+    "@webhare/std": ""
   },
   "private": true
 }

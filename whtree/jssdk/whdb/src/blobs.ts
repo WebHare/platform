@@ -3,7 +3,7 @@ import { mkdir, rename, stat, unlink } from 'node:fs/promises';
 import * as path from 'node:path';
 import * as process from 'node:process';
 import { WebHareBlob, WebHareDiskBlob } from '@webhare/services/src/webhareblob';
-import { storeDiskFile } from '@webhare/system-tools/src/fs';
+import { storeDiskFile, type StoreDiskFileSource } from '@webhare/system-tools/src/fs';
 import { statSync } from "node:fs";
 import type { PostgresPoolClient } from "kysely";
 
@@ -29,7 +29,7 @@ async function getFilePaths(blobpartid: string, createdir: boolean) {
   return { fullpath: paths.fullpath, temppath: path.join(paths.baseblobdir, "tmp", blobpartid) };
 }
 
-export async function uploadBlobToConnection(pg: PostgresPoolClient, blob: WebHareBlob | ReadableStream<Uint8Array>): Promise<{ blob: WebHareBlob; pgBlobId: string }> {
+export async function uploadBlobToConnection(pg: PostgresPoolClient, blob: StoreDiskFileSource): Promise<{ blob: WebHareBlob; pgBlobId: string }> {
   let finallength: number;
 
   const blobpartid = generateRandomId('hex', 16);
@@ -37,7 +37,7 @@ export async function uploadBlobToConnection(pg: PostgresPoolClient, blob: WebHa
   const databaseid = "AAAB" + blobpartid;
 
   const paths = await getFilePaths(blobpartid, true);
-  await storeDiskFile(paths.temppath, "stream" in blob ? blob.stream() : blob, { overwrite: true });
+  await storeDiskFile(paths.temppath, blob, { overwrite: true });
   try {
     finallength = (await stat(paths.temppath)).size;
     if (!finallength) {
@@ -51,7 +51,7 @@ export async function uploadBlobToConnection(pg: PostgresPoolClient, blob: WebHa
     throw e;
   }
 
-  if (!("stream" in blob))
+  if (!WebHareBlob.isWebHareBlob(blob))
     blob = await WebHareBlob.fromDisk(paths.fullpath);
 
   await pg.query("INSERT INTO webhare_internal.blob(id) VALUES(ROW($1,$2))", [databaseid, finallength]);

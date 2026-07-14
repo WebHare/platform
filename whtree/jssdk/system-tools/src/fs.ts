@@ -2,7 +2,8 @@ import { appendToArray, generateRandomId, regExpFromWildcards } from "@webhare/s
 import type { Dirent } from "node:fs";
 import { mkdir, open, type FileHandle, rename, unlink, readdir, rmdir, writeFile, readFile } from "node:fs/promises";
 import { isAbsolute, join, parse } from "node:path";
-import type { Stream } from "node:stream";
+import type Stream from "node:stream";
+import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 
 class ListDirectoryEntry {
   readonly type: "file" | "directory" | "symboliclink" | "socket" | null;
@@ -41,6 +42,8 @@ export interface StoreDiskFileOptions {
   onlyIfChanged?: boolean;
 }
 
+export type StoreDiskFileSource = string | ArrayBuffer | Uint8Array | Buffer | Stream.Readable | ReadableStream<Uint8Array<ArrayBuffer>> | Blob;
+
 /** Store a file to disk (atomically if possible)
  *
  * Does not replace an existing file unless explicitly specified with overwrite: true.
@@ -50,7 +53,7 @@ export interface StoreDiskFileOptions {
     @param data - Blob to write
     @returns \{ skipped: true \} if onlyIfChanged was set and the file was already up-to-date
 */
-export async function storeDiskFile(path: string, data: string | ArrayBuffer | Uint8Array | Buffer | Stream | ReadableStream<Uint8Array> | Blob, options?: StoreDiskFileOptions): Promise<{ skipped: boolean }> {
+export async function storeDiskFile(path: string, data: StoreDiskFileSource, options?: StoreDiskFileOptions): Promise<{ skipped: boolean }> {
   const usetemp = parse(path).base.length < 230 && !options?.inPlace;
   let writepath = usetemp ? path + ".tmp" + generateRandomId() : null;
   if (options?.onlyIfChanged) { //we'll check the content of any existing target first
@@ -78,8 +81,14 @@ export async function storeDiskFile(path: string, data: string | ArrayBuffer | U
       reservefile = await open(path, "ax"); //ax = append exclusive (prevent truncation)
     }
 
-    const writeData = (typeof data === "object" && "stream" in data) ? data.stream() : data instanceof ArrayBuffer ? Buffer.from(data) : data instanceof Uint8Array ? Buffer.from(data) : data;
+    const writeData =
+      (typeof data === "object" && "stream" in data) ? data.stream() as unknown as NodeReadableStream<Uint8Array>
+        : data instanceof ArrayBuffer ? Buffer.from(data)
+          : data instanceof Uint8Array ? Buffer.from(data)
+            : typeof data === "string" ? data
+              : data as unknown as NodeReadableStream<Uint8Array>; //workaround for recent TS type incompatibility
     await writeFile(writepath ?? path, writeData, { flag: options?.overwrite ? "w" : "wx" });
+
     if (writepath) {
       await rename(writepath, path);
       writepath = null;
