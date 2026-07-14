@@ -115,7 +115,7 @@ const SassImporter: sass.Importer = {
 };
 
 // Compiles SASS to CSS
-export default (captureplugin: CaptureLoadPlugin, options: { rootDir?: string } = {}) => ({
+export default (captureplugin: CaptureLoadPlugin) => ({
   name: "sass",
   setup: (build: esbuild.PluginBuild) => {
     const session = new SassLoggerSession();
