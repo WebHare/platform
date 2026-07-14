@@ -268,7 +268,9 @@ export class CurrentDragData {
 
 function getEventItemsTypeHash(event: DragEvent) {
   // The downloadurl type is set when initializing the drag event, but it won't be present in the drop event.
-  return Array.from(event.dataTransfer.types).filter(t => t !== "downloadurl").sort().join("\t");
+  // Chrome 150 started adding a "chromium/x-drag-id" type to the drop event, which is also not present in the dragstart event.
+  // TODO can we move to a whlitelist? why do we need this getEventItemsTypeHash anyway, a change seems to cause a drag to be seen as from an externalsource (hasExternalSource)
+  return Array.from(event.dataTransfer.types).filter(t => t !== "downloadurl" && t !== "chromium/x-drag-id").sort().join("\t");
 }
 
 export function getDragData(event: DragEvent) {
