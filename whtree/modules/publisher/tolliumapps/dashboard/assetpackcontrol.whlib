@@ -200,8 +200,7 @@ PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
   }
 >;
 
-PUBLIC STATIC OBJECTTYPE BundleProps EXTEND TolliumScreenBase
-<
+PUBLIC STATIC OBJECTTYPE BundleProps EXTEND TolliumScreenBase <
   OBJECT assetpackcontrol;
   STRING outputtag;
 
@@ -227,7 +226,7 @@ PUBLIC STATIC OBJECTTYPE BundleProps EXTEND TolliumScreenBase
   }
 
   MACRO GotEvents(RECORD ARRAY events) {
-    IF(RecordExists(SELECT FROM events WHERE this->outputtag IN assetpacks))
+    IF(RecordExists(SELECT FROM events WHERE this->outputtag IN data.assetpacks))
       this->Reload();
   }
 
