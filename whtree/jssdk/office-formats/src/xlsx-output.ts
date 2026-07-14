@@ -8,8 +8,9 @@ function TemporalToExcel(x: Temporal.Instant | Temporal.ZonedDateTime): number {
   return x.epochMilliseconds / 86400_000 + 25569;
 }
 
-function dateToExcel(x: Date): number {
-  return x.getTime() / 86400_000 + 25569;
+function dateToExcel(x: Date | Temporal.PlainDate): number {
+  const epochMilliseconds = "getTime" in x ? x.getTime() : x.toZonedDateTime("UTC").toInstant().epochMilliseconds;
+  return epochMilliseconds / 86400_000 + 25569;
 }
 
 // Temporal is somewhat heavier than
@@ -47,18 +48,25 @@ class WorksheetBuilder {
         type = "s";
         break;
       case "date":
-        storevalue = String(Math.floor(dateToExcel((value as Date))));
+        storevalue = String(Math.floor(dateToExcel(value as Date | Temporal.PlainDate)));
         type = "";
         break;
       case "dateTime": {
-        // The temporal conversion costs about 0.01ms, while utcToLocal costs about 0.004ms, so sticking with that one for now
-        if (!useTemporal) {
-          storevalue = String(dateToExcel(col.storeUTC ? utcToLocal(value as Date, options.timeZone!) : (value as Date)));
-        } else {
+        if (valType === "Date") {
+          // The temporal conversion costs about 0.01ms, while utcToLocal costs about 0.004ms, so sticking with that one for now
+          if (!useTemporal) {
+            storevalue = String(dateToExcel(col.storeUTC ? utcToLocal(value as Date, options.timeZone!) : (value as Date)));
+          } else {
+            storevalue = col.storeUTC ?
+              String(TemporalToExcel((value as Date).toTemporalInstant().toZonedDateTimeISO(options.timeZone!).toPlainDateTime().toZonedDateTime("UTC"))) :
+              String(dateToExcel(value as Date));
+          }
+        } else { //it's a temporal.instant
           storevalue = col.storeUTC ?
-            String(TemporalToExcel((value as Date).toTemporalInstant().toZonedDateTimeISO(options.timeZone!).toPlainDateTime().toZonedDateTime("UTC"))) :
-            String(dateToExcel(value as Date));
+            String(TemporalToExcel((value as Temporal.Instant).toZonedDateTimeISO(options.timeZone!).toPlainDateTime().toZonedDateTime("UTC"))) :
+            String(dateToExcel(new Date((value as Temporal.Instant).epochMilliseconds)));
         }
+
         type = "";
       } break;
       case "boolean":

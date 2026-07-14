@@ -234,6 +234,41 @@ async function testAutoXLSXColumnFiles() {
     ],
     ['Third row', false, '', 0, 0, '', 0, 0]
   ], await getRows(docWithTimezone));
+
+  //And test with Temporal generators
+  const docTemporalWithTimezone = await generateXLSX({ rows: getTestSpreadsheet({ temporal: true }).rows, timeZone: "Europe/Amsterdam" });
+  test.eq([
+    [
+      'title', 'bool',
+      'date', 'int',
+      'time', 'dt',
+      'mf', 'int64',
+      'floating'
+    ],
+    [
+      'Ti<>tle 1',
+      true,
+      new Date("2011-12-08T00:00:00Z"),
+      17,
+      25092000,
+      new Date("2011-12-08T07:58:12.000Z"),
+      1.5,
+      0,
+      3.5
+    ],
+    [
+      'Tit&le 2\nnext line!',
+      false,
+      new Date("2011-11-08T00:00:00.000Z"),
+      666,
+      666000,
+      new Date("2011-11-09T00:06:06.000Z"),
+      2.5,
+      -10000000000,
+      1.30000000004
+    ],
+    ['Third row', false, '', 0, 0, '', 0, 0]
+  ], await getRows(docTemporalWithTimezone));
 }
 
 async function testXLSXMultipleSheets() {

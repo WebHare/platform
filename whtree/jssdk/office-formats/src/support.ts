@@ -9,8 +9,8 @@ type ValidColumnTypes = "string" | "number" | "date" | "boolean" | "money" | "ti
 export const ColumnTypes: Record<ValidColumnTypes, ColumnTypeDef> = {
   "string": {},
   "number": { validDataTypes: ["number"] },
-  "dateTime": { validDataTypes: ["Date", "null"] },
-  "date": { validDataTypes: ["Date", "null"] },
+  "dateTime": { validDataTypes: ["Date", "Instant", "null"] },
+  "date": { validDataTypes: ["Date", "PlainDate", "null"] },
   "boolean": { validDataTypes: ["boolean"] },
   "money": { validDataTypes: ["Money"] },
   "time": { validDataTypes: ["number"] },
