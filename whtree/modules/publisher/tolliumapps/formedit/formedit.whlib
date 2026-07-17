@@ -158,8 +158,6 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
     this->contexts->editdocumentapi->onvalidate := PTR this->ValidateFormFile;
     this->contexts->editdocumentapi->onsave := PTR this->OnSave;
 
-    this->RefreshStoreResultsUI();
-
     this->LoadEditorExtensions();
     this->UpdateAllowDenyFormComponents();
   }
@@ -174,6 +172,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
   {
     RECORD data := this->contexts->editdocumentapi->GetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool");
     this->ReadFormDefinition(data.data, FALSE);
+    this->RefreshStoreResultsUI();
     IF(this->contexts->editdocumentapi->readonly)
       this->SetReadOnly(this->contexts->editdocumentapi->readonly); //this will currently trigger ReloadList
     ELSE

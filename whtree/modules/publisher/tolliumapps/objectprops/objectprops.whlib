@@ -393,7 +393,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     }
     ELSE IF (this->startdata.why = "edit")
     {
-      this->SetupEditBaseForExistingObject(this->startdata.fsobj, CELL[this->startdata.readonly, useworkflow := FALSE]);
+      this->SetupEditBaseForExistingObject(this->startdata.fsobj); // TODO should we have passed this? does objectprops currently support readonly, where are the tests? , CELL[this->startdata.readonly ]);
       this->sourceitem := OpenWHFSObject(this->itemid);
 
       IF (NOT ObjectExists(this->sourceitem))
