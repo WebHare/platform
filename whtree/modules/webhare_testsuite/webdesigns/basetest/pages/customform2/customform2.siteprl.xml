@@ -21,7 +21,6 @@
   <apply comment="Configure customform2">
     <to type="file" filetype="http://www.webhare.net/xmlns/webhare_testsuite/customform2" />
     <setobjecteditor name="publisher:webtoolform" separateapp="true" />
-    <extendformeditor settingsextension="customform2.xml#props" />
     <formintegration allowsubmittype="true" mailrtdtype="http://www.webhare.net/xmlns/webhare_testsuite/custommailrtdtype2" webtoolformhooks="customform2.whlib#CustomFormHooks" autocompleteusername="m/s-nummer" /><!--  -->
     <allowformquestion type="http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#multimergefield2" />
     <allowformhandler type="http://www.webhare.net/xmlns/publisher/forms#mailconfirmationhandler" />

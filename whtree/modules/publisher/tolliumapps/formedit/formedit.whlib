@@ -1556,16 +1556,9 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase <
     ^tabs->insertpoints :=
         [ [ name := "settings", component := ^settings_insertpoint ]
         ];
-    FOREVERY (STRING extension FROM data.extensions)
-    {
-      RECORD result := ^tabs->LoadTabsExtension(extension);
-      OBJECT settingsextension := result.fragment;
-      IF (settingsextension NOT EXTENDSFROM FormSettingsExtensionBase)
-        THROW NEW TolliumException(result.components[0], "Form settingsextension does not extend FormSettingsExtensionBase");
 
-      INSERT settingsextension INTO this->extensions AT END;
-      ^tabs->RunExtensionsPostInit();
-    }
+    IF(Length(data.extensions) > 0)
+      this->RunSimpleScreen("info", this->GetTid(".settingsextension-unsupported"));
 
     // If the disablecaptcha option is unavailable and there are no settings inserted, hide the storeresults divider
     ^storeresultsdivider->visible := ^other_settings->HasAnyVisibleComponents();

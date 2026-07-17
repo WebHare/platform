@@ -2188,6 +2188,7 @@
         <text tid="maxsignups-unit">registraties</text>
         <text tid="overwritestoreresults">Stel bewaartermijn in op</text>
         <text tid="settings">Formulierinstellingen</text>
+        <text tid="settingsextension-unsupported">Dit formuliertype gebruikt een uitbreiding van het instellingenscherm die niet langer ondersteund wordt in deze versie van WebHare.<br/><br/>Neem contact op met de ontwikkelaar of systeembeheerder om dit op te lossen.</text>
         <text tid="storeresults">Bewaartermijn resultaten</text>
         <text tid="unavailable">Het formulier is niet beschikbaar</text>
         <text tid="unavailabletext">Tekst indien niet beschikbaar of gesloten</text>

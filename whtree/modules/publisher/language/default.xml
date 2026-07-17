@@ -2190,6 +2190,7 @@
         <text tid="maxsignups-unit">registrations</text>
         <text tid="overwritestoreresults">Set retention period to</text>
         <text tid="settings">Form settings</text>
+        <text tid="settingsextension-unsupported">This form type uses an extension to the settings screen which is no longer compatible with this version of WebHare. <br/><br/>Please contact your developer or system administrator to resolve this.</text>
         <text tid="storeresults">Result retention period</text>
         <text tid="unavailable">The form is unavailable</text>
         <text tid="unavailabletext">Text if unavailable or closed</text>
