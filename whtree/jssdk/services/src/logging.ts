@@ -83,6 +83,8 @@ export function logError(error: Error, options?: LogErrorOptions): void {
 type CheckModuleQualified<T extends string> = T extends Lowercase<ModuleQualifiedName> ? T : "Must be a lowercase module qualified name";
 
 /** Log debug information
+ * @param source - Source in `modulename:debugtag` format
+ * @param data - Data to log. Must be JSON-serializable
 */
 export function logDebug<T extends string>(source: CheckModuleQualified<T>, data: LoggableRecord): void {
   parseModuleQualifiedName(source);
