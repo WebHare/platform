@@ -7,7 +7,7 @@ import { describeWHFSType, openFileOrFolder, openFolder, openSite, whfsType, typ
 import type { WebRequest } from "./request";
 import { getApplyTesterForObject, type WHFSApplyTester } from "@webhare/whfs/src/applytester";
 import { renderHSWidget, runHareScriptPage, wrapHSWebdesign } from "./hswebdesigndriver";
-import { importJSFunction, type RichTextDocument } from "@webhare/services";
+import { importJSFunction, type IntExtLink, type RichTextDocument } from "@webhare/services";
 import { createWebResponse, getAssetPackIntegrationCode, type PageBuilderDataTypes, type WebdesignPluginAPIs, type WebResponse } from "@webhare/router";
 import type { WHConfigScriptData_FromServer } from "@webhare/frontend/src/init";
 import { parseModuleQualifiedName } from "@webhare/services/src/naming";
@@ -16,7 +16,7 @@ import { getExtractedConfig, getVersionInteger } from "@mod-system/js/internal/c
 import { isLitty, litty, littyToString, rawLitty, type Litty } from "@webhare/litty";
 import type { InstanceData, WHFSTypes } from "@webhare/whfs/src/contenttypes";
 import { getWHFSObjRef } from "@webhare/whfs/src/support";
-import { isPromise, stringify, throwError } from "@webhare/std";
+import { isPromise, stringify, throwError, toCLocaleLowercase } from "@webhare/std";
 import { type LegacyResponseInsertable, type ResponseInsertable, type ResponseInsertPoints, type SiteResponse, SiteResponseSettings } from "./sitereponse";
 import { renderRTD } from "@webhare/services/src/richdocument-rendering";
 import { PageMetadata, getOpenGraphData } from "./metadata";
@@ -28,6 +28,9 @@ import { getWebHareDBLocation } from "@webhare/whfs/src/objects";
 import type { Timings } from "@mod-platform/js/logging/timings";
 import { minify } from 'html-minifier-next';
 import { setTidLanguage } from "@webhare/gettid";
+import { db } from "@webhare/whdb";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
+import { selectFSWHFSPath } from "@webhare/whdb/src/functions";
 
 export type PluginInterface<API extends object> = {
   api: API;
@@ -35,6 +38,13 @@ export type PluginInterface<API extends object> = {
 
 export type PagePluginInit = {
   settings: RawPluginSettings[];
+};
+
+export type LinkResolverContext = {
+  applyTester: WHFSApplyTester;
+  language: string;
+  targetObject: WHFSObject;
+  targetSite: Site;
 };
 
 /** @deprecated WH6.0 switches to PageBuilderFunction */
@@ -48,6 +58,8 @@ export type WidgetBuilderFunction = (request: PagePartRequest, data: InstanceDat
 
 /** Defines the callback offered by a plugin (not exported from webhare/router yet, plugin APIs are still unstable) */
 export type PagePluginFunction = (init: PagePluginInit, req: PagePluginRequest) => Promise<void> | void;
+
+export type LinkResolverFunction = (context: LinkResolverContext, link: IntExtLink) => Promise<string | null>;
 
 /** Options for creating a content page request */
 export type ContentPageRequestOptions = {
@@ -611,7 +623,7 @@ export class CPageRequest {
     //FIXME need an equivalent for overriding RTD rendering. HareScript does webdesign->rtd_rendering_engine BUT in TS we won't have the webdesign yet during pagerendering. So applytester needs to ship it
     const parsedWith = this._publicationSettings.maxContentWidth.match(/^(\d+)px$/);
     const maxImageWidth = parsedWith ? parseInt(parsedWith[1]) : undefined;
-    return renderRTD(this, rtd, { maxImageWidth });
+    return renderRTD(this, rtd, { maxImageWidth, resolveLink: this.resolveLink.bind(this) });
   }
 
   //FIXME need a better match for the widget type
@@ -635,6 +647,35 @@ export class CPageRequest {
       throw new Error(`Widget renderer '${renderer.onRenderWidget}' failed to return a proper Litty template`);
     return result;
   }
+
+  async resolveLink(link: IntExtLink): Promise<string | null> {
+    const plugins = getExtractedConfig("plugins");
+    const context = {
+      language: this.siteLanguage,
+      applyTester: this._applyTester,
+      targetObject: this.targetObject,
+      targetSite: this.targetSite,
+    };
+    let whfsPath: string | null = null;
+    for (const linkType of plugins.linkTypes) {
+      const isWhfs = linkType.startsWith.startsWith("whfs:");
+      let isMatch = false;
+      if (isWhfs && link.internalLink) {
+        whfsPath ??= "whfs:" + toCLocaleLowercase((await db<PlatformDB>()
+          .selectFrom("system.fs_objects")
+          .where("id", "=", link.internalLink).
+          select(selectFSWHFSPath().as("whfspath")).
+          executeTakeFirst())?.whfspath ?? "");
+        isMatch = whfsPath.startsWith(toCLocaleLowercase(linkType.startsWith));
+      } else if (!isWhfs && link.externalLink)
+        isMatch = link.externalLink.startsWith(linkType.startsWith);
+      if (isMatch && linkType.onResolve) {
+        const func = await importJSFunction<LinkResolverFunction>(linkType.onResolve);
+        return await func(context, link);
+      }
+    }
+    return await link.resolve();
+  }
 }
 
 /** Create a request for a WHFS object (eg. a page in the CMS/Publisher)
@@ -656,7 +697,7 @@ export async function createContentPageRequest(targetObject: WHFSObject, options
 }
 
 //How well can we isolate widgets (PagePartRequest users) in practice? ideally we won't provide APIs that can cause 2 widgets to conflict with each other
-export type PagePartRequest = Pick<CPageRequest, "renderRTD" | "renderWidget" | "targetFolder" | "targetObject" | "targetSite" | "targetPath" | "siteLanguage" | "isEditorPreview" | "isPublisherPreview">; //TODO need something to determine emailwidgets. IsTargetEmail() ?
+export type PagePartRequest = Pick<CPageRequest, "renderRTD" | "renderWidget" | "resolveLink" | "targetFolder" | "targetObject" | "targetSite" | "targetPath" | "siteLanguage" | "isEditorPreview" | "isPublisherPreview">; //TODO need something to determine emailwidgets. IsTargetEmail() ?
 type PageRequestBase = PagePartRequest & Pick<CPageRequest, "setFrontendData" | "setPageBuilderData" | "insertAt" | "webRequest" | "getInstance" | "pageMetadata" | "timings">;
 export type ContentPageRequest = PageRequestBase & Pick<CPageRequest, "buildWebPage" | "getPageRenderer" | "getPlugin" | "initializePlugins" | "applyToCurrentContext">;
 // Plugin API is only visible during PageBuildRequest as we don't want to initialize them it during the page run itself. eg. might still redirect

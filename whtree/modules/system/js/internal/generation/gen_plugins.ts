@@ -93,7 +93,7 @@ export async function generatePlugins(context: GenerateContext): Promise<string>
           startsWith: handler.startsWith,
           ...handler.resolveFunction ? { resolveFunction: resolveResource(mod.resourceBase, handler.resolveFunction || '') } : {},
           ...handler.tolliumComponent ? { tolliumComponent: resolveResource(mod.resourceBase, handler.tolliumComponent || '') } : {},
-          ...handler.onResolve ? { onResolve: handler.onResolve || '' } : {},
+          ...handler.onResolve ? { onResolve: resolveResource(mod.resourceBase, handler.onResolve) || '' } : {},
         });
       }
 

@@ -629,7 +629,7 @@ $defs:
         properties:
           startsWith:
             type: string
-            description: "What the link should start with to match this handler, eg 'x-mymodule-1:'"
+            description: "What the link should start with to match this handler, eg 'x-mymodule-1:'. Use 'whfs:/path/to/folder/' to match internal links in a specific folder."
           resolveFunction:
             type: string
             description: "HareScript function to resolve the link"

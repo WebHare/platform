@@ -3,6 +3,7 @@
 LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/rtd.whlib";
@@ -197,24 +198,52 @@ ASYNC MACRO TestIntExtLink_Tabsextension()
 
 MACRO TestLinkResolution() {
   testfw->BeginWork();
+  OBJECT linktarget := OpenWHFSPrivateFolder("webhare_testsuite")->EnsureFolder([ name := "content" ])->EnsureFile([ name := "linktarget.txt" ]);
+  testfw->CommitWork();
+  testfw->BeginWork();
+
+  RECORD richdoc := BuildRTDFromYAML(`
+- p:
+  - "Try this "
+  - text: link
+    link: x-webhare-testsuite-1:test-link-resolution
+- p:
+  - text: "And this "
+  - text: one
+    link:
+      internalLink: whfs::/webhare-private/webhare_testsuite/content/linktarget.txt
+`);
+
   OBJECT testdoc := GetTestsuiteTempFolder()->CreateFile([
     name := "linkresolution",
     typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
     // publish := TRUE
   ]);
   testdoc->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile", [
-    data := BuildRTDFromYAML(`
-- p:
-  - "Try this "
-  - text: link
-    link: x-webhare-testsuite-1:test-link-resolution
-`)]);
+    data := richdoc
+  ]);
+  OBJECT testdocjs := GetTestsuiteJSTempFolder()->CreateFile([
+    name := "linkresolution",
+    typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+    // publish := TRUE
+  ]);
+  testdocjs->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile", [
+    data := richdoc
+  ]);
   testfw->CommitWork();
 
   TestEq(TRUE, testfw->browser->GotoWebPage(GetPreviewLink(testdoc->id)));
 
   OBJECT ARRAY links := testfw->browser->QSA("a");
-  TestEq("https://beta.webhare.net/?subpath=test-link-resolution&target=/tmp/linkresolution", links[0]->GetAttribute("href"));
+  TestEq("https://beta.webhare.net/?resolvedby=hs&subpath=test-link-resolution&target=/tmp/linkresolution", links[0]->GetAttribute("href"));
+  TestEq("https://beta.webhare.net/?resolvedby=hs&whfspath=/webhare-private/webhare_testsuite/content/linktarget.txt", links[1]->GetAttribute("href"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(GetPreviewLink(testdocjs->id)));
+
+  links := testfw->browser->QSA("a");
+  TestEq("https://beta.webhare.net/?resolvedby=js&subpath=test-link-resolution&target=%2Ftmp%2Flinkresolution", links[0]->GetAttribute("href"));
+  TestEq("https://beta.webhare.net/?resolvedby=js&whfspath=%2Fwebhare-private%2Fwebhare_testsuite%2Fcontent%2Flinktarget.txt", links[1]->GetAttribute("href"));
+
 }
 
 

@@ -922,6 +922,20 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext <
   */
   PUBLIC STRING FUNCTION GetIntExtLinkTarget(RECORD intextlink)
   {
+    IF (intextlink.internallink != 0) {
+      RECORD ARRAY handlers := SELECT * FROM __GetExtractedConfig("plugins").link_types WHERE link_types.starts_with LIKE "whfs:*" AND resolve_function != "";
+      IF (IsValueSet(handlers)) {
+        STRING linkpath := "whfs:" || (SELECT AS STRING ToLowercase(COLUMN whfspath) FROM system.fs_objects WHERE id = intextlink.internallink);
+        FOREVERY (RECORD handler FROM handlers) {
+          IF (linkpath LIKE ToLowercase(handler.starts_with) || "*") {
+            RETURN MakeFunctionPtr(handler.resolve_function)(CELL[ webdesign := this
+                                                                 , applytester := this->targetapplytester
+                                                                 ], intextlink);
+          }
+        }
+      }
+    }
+
     STRING textlink := GetIntExtlinkTarget(intextlink);
     IF(textlink != "")
       textlink := this->RewriteHyperlink(textlink);
@@ -934,13 +948,13 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext <
       @return The final URL to use
   */
   PUBLIC STRING FUNCTION RewriteHyperlink(STRING href) {
-    RECORD ARRAY handlers := SELECT * FROM __GetExtractedConfig("plugins").link_types WHERE ToLowercase(href) LIKE link_types.starts_with || "*";
+    RECORD ARRAY handlers := SELECT * FROM __GetExtractedConfig("plugins").link_types WHERE ToLowercase(href) LIKE link_types.starts_with || "*" AND link_types.starts_with NOT LIKE "whfs:*";
     IF(Length(handlers) > 1)
       THROW NEW Exception(`Multiple link handlers match the URL '${href}': ${Detokenize((SELECT AS STRING ARRAY name FROM handlers),', ')}`);
     IF(Length(handlers) = 1 AND handlers[0].resolve_function != "")
       RETURN MakeFunctionPtr(handlers[0].resolve_function)(CELL[ webdesign := this
                                                                , applytester := this->targetapplytester
-                                                               ], href);
+                                                               ], [ internallink := 0, externallink := href, append := "" ]);
     RETURN href;
   }
 
