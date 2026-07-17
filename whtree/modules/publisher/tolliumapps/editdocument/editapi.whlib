@@ -121,12 +121,17 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI EXTEND TolliumEventSource <
   }
 
   PUBLIC MACRO SetEditContentTypes(STRING ARRAY types) {
+    IF(ObjectExists(this->editscreen->workflowmgr))
+      THROW NEW Exception(`Cannot modify editcontenttypes once intialization of the editor is done`);
+
     this->pvt_editcontenttypes := types;
-    this->editscreen->workflowmgr->AddTypes(types);
   }
 
   /// Get instance data of a given type from the object being edited (containing last changes)
   PUBLIC RECORD FUNCTION GetInstanceData(STRING type) {
+    IF(NOT ObjectExists(this->editscreen->workflowmgr))
+      THROW NEW Exception(`Cannot invoke GetInstanceData before the first LoadData callback`);
+
     RECORD originaldata := this->editscreen->workflowmgr->GetInstanceData(type);
     RECORD cached := SELECT * FROM this->instancedatacache WHERE namespace = type;
     IF (RecordExists(cached))

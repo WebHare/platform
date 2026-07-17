@@ -169,7 +169,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
     RETURN CELL [pinned, parentfullaccess];
   }
 
-  MACRO SetupEditBaseForExistingObject(INTEGER objectid, RECORD options) {
+  MACRO SetupEditBaseForExistingObject(INTEGER objectid, RECORD options DEFAULTSTO DEFAULT RECORD) {
     BOOLEAN isfolder := SELECT AS BOOLEAN COLUMN isfolder FROM system.fs_objects WHERE id = VAR objectid;
     this->__SetupEditBase(objectid, 0, isfolder, -1, options);
   }
@@ -182,10 +182,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
   MACRO __SetupEditBase(INTEGER objectid, INTEGER parent, BOOLEAN isfolder, INTEGER type, RECORD options) {
     this->isnew := objectid = 0;
 
-    options := ValidateOptions(CELL[ readonly := FALSE
-                                   , useworkflow := FALSE
-                                   , assumewriteaccess := FALSE
-                                   , workflowtypes := STRING[]
+    options := ValidateOptions(CELL[ assumewriteaccess := FALSE
                                   ], options);
 
     this->renderer := CreateMetatabsRenderer(CELL[ objectid, parent, isfolder, type, this->isobjectprops ]);
@@ -207,28 +204,33 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
     this->curtype := DescribeContentTypeById(type, CELL[ isfolder, mockifmissing := TRUE ]);
     this->namefollowstitle := type != whconstant_whfstype_foreignfolder;
 
-    STRING ARRAY workflowtypes := STRING[ "platform:web.metadata", ...options.workflowtypes ];
-
-    IF(objectid != 0 AND options.useworkflow) {
-      IF(RecordExists(this->renderer->metatabsconfig)) {
-         //add the metacontroller requested types to the type edit list
-        FOREVERY(RECORD t FROM this->renderer->metatabsconfig.types)
-          INSERT t.namespace INTO workflowtypes AT END;
-        FOREVERY(RECORD t FROM this->renderer->metatabsconfig.extend_props)
-          INSERT t.whfs_type INTO workflowtypes AT END;
-      }
-
-      this->workflowmgr := NEW WorkflowManager(objectid,
-        CELL[ user := this->contexts->user
-            , options.readonly
-            , options.assumewriteaccess
-            , workflowtypes
-            ]);
-    }
-
     this->itemid := objectid;
     this->SetupBaseSettings();
     this->assumewriteaccess := options.assumewriteaccess;
+  }
+
+  MACRO SetupWorkflowManager(RECORD options) {
+    STRING ARRAY workflowtypes := STRING[ "platform:web.metadata", ...options.workflowtypes, ...this->contexts->editdocumentapi->editcontenttypes ];
+
+    options := ValidateOptions(CELL[ readonly := FALSE
+                                   , useworkflow := FALSE
+                                   , workflowtypes := STRING[]
+                                  ], options);
+
+    IF(RecordExists(this->renderer->metatabsconfig)) {
+        //add the metacontroller requested types to the type edit list
+      FOREVERY(RECORD t FROM this->renderer->metatabsconfig.types)
+        INSERT t.namespace INTO workflowtypes AT END;
+      FOREVERY(RECORD t FROM this->renderer->metatabsconfig.extend_props)
+        INSERT t.whfs_type INTO workflowtypes AT END;
+    }
+
+    this->workflowmgr := NEW WorkflowManager(this->itemid,
+      CELL[ user := this->contexts->user
+          , options.readonly
+          , this->assumewriteaccess
+          , workflowtypes
+          ]);
   }
 
   MACRO DoInspectMetaTabs() {

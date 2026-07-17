@@ -842,13 +842,6 @@
           </xs:documentation>
         </xs:annotation>
         <xs:complexType>
-          <xs:attribute name="extendobject" type="xs:string">
-            <xs:annotation>
-              <xs:documentation>
-                Deprecated, use settingsextension instead
-              </xs:documentation>
-            </xs:annotation>
-          </xs:attribute>
           <xs:attribute name="settingsextension" type="xs:string">
             <xs:annotation>
               <xs:documentation>

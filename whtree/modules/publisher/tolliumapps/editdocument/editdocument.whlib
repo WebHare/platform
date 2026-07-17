@@ -82,18 +82,10 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     this->frame->flags.canpublish := FALSE;
 
     this->contexts->editdocumentapi->internallinkroots := data.internallinkroots;
-    this->SetupEditBaseForExistingObject(data.id, CELL[ data.readonly, data.assumewriteaccess, useworkflow := TRUE, workflowtypes := data.objeditor.types ]);
+    this->SetupEditBaseForExistingObject(data.id, CELL[ data.assumewriteaccess ]);
 
     this->sourceitem := OpenWHFSObject(this->itemid);
     this->scheduling_experiment := CellExists(this->experiments, "editdoc_scheduling") AND this->experiments.editdoc_scheduling = TRUE;
-
-    IF(this->workflowmgr->IsReadOnly() AND NOT this->tolliumuser->HasRightOn("system:fs_browse", this->itemid)) //not even browse access?
-    {
-      this->tolliumresult := "cancel";
-      RETURN;
-    }
-    IF (NOT this->GetExclusiveAccess([ id := this->itemid ], [ onbeforesteal := PTR this->GotScreenStolen ]))
-      RETURN;
 
     //ADDME deal with cases where users already make other modifications while we're stil opening ?
 
@@ -108,6 +100,15 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
 
     //Loads the extensions for the file type and invokes additional editor hooks
     this->SetupForFileEdit(this->itemid, data.objeditor);
+    this->SetupWorkflowManager( CELL[ data.readonly, useworkflow := TRUE, workflowtypes := data.objeditor.types ]);
+
+    IF(this->workflowmgr->IsReadOnly() AND NOT this->tolliumuser->HasRightOn("system:fs_browse", this->itemid)) //not even browse access?
+    {
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+    IF (NOT this->GetExclusiveAccess([ id := this->itemid ], [ onbeforesteal := PTR this->GotScreenStolen ]))
+      RETURN;
 
     ^publicationlistener->masks := [ "system:whfs.folder." || this->sourceitem->parent, "publisher:publish.folder." || this->sourceitem->parent ];
 

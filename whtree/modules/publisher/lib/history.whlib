@@ -145,8 +145,7 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     RETURN this->currentdraft ?? this->baseobject;
   }
 
-  /** Register additional types. This is okay as long as we haven't started working on the autosave yet */
-  PUBLIC MACRO AddTypes(STRING ARRAY types) {
+  MACRO AddTypes(STRING ARRAY types) {
     IF(Length(types) > 0) {
       IF(ObjectExists(this->currentautosave))
         THROW NEW Exception("Can't add types when an autosave is already active");
