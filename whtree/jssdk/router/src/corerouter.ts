@@ -1,9 +1,9 @@
 import * as whfs from "@webhare/whfs";
 import { type ContentBuilderFunction, type WebRequest, type WebResponse, createWebResponse } from "./router";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
-import { createContentPageRequest, buildTargetPath, type PagePartRequest, type WidgetBuilderFunction } from "./siterequest";
+import { createContentPageRequest, buildTargetPath, type PagePartRequest, type WidgetBuilderFunction, type ContentPageRequest } from "./siterequest";
 import * as undici from "undici";
-import { importJSFunction, type Instance, type RichTextDocument } from "@webhare/services";
+import { importJSFunction, type Instance, type IntExtLink, type RichTextDocument } from "@webhare/services";
 import { whconstant_webserver_hstrustedportoffset } from "@mod-system/js/internal/webhareconstants";
 import { getBasePort } from "@webhare/services/src/config";
 import type { WebServerPort } from "@mod-platform/js/webserver/webserver";
@@ -185,15 +185,20 @@ export async function renderTSWidgetHS(context: {
 
   const targetObject = await whfs.openFileOrFolder(context.targetobject);
 
+  let pagereq: ContentPageRequest | null = null;
   const pagePartRequest: PagePartRequest = {
-    //Consider taking the parent rendering context if available (or at least reuse the pagereq between invocations)
+    //Consider taking the parent rendering context if available
     renderRTD: async (rtd: RichTextDocument) => {
-      const pagereq = await createContentPageRequest(await whfs.openFileOrFolder(context.targetobject));
+      pagereq ??= await createContentPageRequest(targetObject);
       return pagereq.renderRTD(rtd);
     },
     renderWidget: async (widget: Instance) => {
-      const pagereq = await createContentPageRequest(await whfs.openFileOrFolder(context.targetobject));
+      pagereq ??= await createContentPageRequest(targetObject);
       return pagereq.renderWidget(widget);
+    },
+    resolveLink: async (link: IntExtLink) => {
+      pagereq ??= await createContentPageRequest(targetObject);
+      return pagereq.resolveLink(link);
     },
     targetObject: targetObject,
     targetFolder: targetObject.isFolder ? targetObject : await whfs.openFolder(context.targetfolder),

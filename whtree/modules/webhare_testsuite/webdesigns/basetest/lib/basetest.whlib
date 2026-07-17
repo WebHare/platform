@@ -281,10 +281,18 @@ PUBLIC STATIC OBJECTTYPE BaseTestProps EXTEND TolliumTabsExtensionBase
   }
 >;
 
-PUBLIC STRING FUNCTION ResolveTS1Link(RECORD context, STRING url) {
+PUBLIC STRING FUNCTION ResolveTS1Link(RECORD context, RECORD intextlink) {
   RETURN UpdateURLVariables("https://beta.webhare.net/",
-    CELL [ subpath := Tokenize(url,":")[1]
+    CELL [ subpath := Tokenize(intextlink.externallink,":")[1]
          , target := context.webdesign->targetobject->fullpath
+         , resolvedby := "hs"
+    ]);
+}
+
+PUBLIC STRING FUNCTION ResolveTS2Link(RECORD context, RECORD intextlink) {
+  RETURN UpdateURLVariables("https://beta.webhare.net/",
+    CELL [ whfspath := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = intextlink.internallink
+         , resolvedby := "hs"
     ]);
 }
 

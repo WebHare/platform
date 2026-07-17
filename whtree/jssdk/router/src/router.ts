@@ -20,7 +20,7 @@ export {
   createWebResponse, createJSONResponse, createRedirectResponse, HTTPErrorCode, HTTPSuccessCode, RPCError,
   type WebResponse, type HTTPStatusCode, type HTTPRedirectCode, type RPCErrorCodes
 } from './response';
-export type { WebDesignFunction, SiteRequest, ResponseBuilder, PageBuildRequest, PagePartRequest, ContentBuilderFunction, PagePluginRequest, PagePluginInit, PagePluginFunction } from './siterequest';
+export type { WebDesignFunction, SiteRequest, ResponseBuilder, PageBuildRequest, PagePartRequest, LinkResolverContext, ContentBuilderFunction, PagePluginRequest, PagePluginInit, PagePluginFunction, LinkResolverFunction } from './siterequest';
 export { createContentPageRequest } from './siterequest';
 export {
   RestRequest,

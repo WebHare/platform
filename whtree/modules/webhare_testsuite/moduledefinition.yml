@@ -146,8 +146,13 @@ rpcServices:
 linkTypes:
   testhandler1:
     startsWith: "x-webhare-testsuite-1:"
+    onResolve: webdesigns/basetest/lib/linkhandling.ts#resolveTS1Link
     resolveFunction: webdesigns/basetest/lib/basetest.whlib#ResolveTS1Link
     tolliumComponent: lib/screens/components/customlinkhandler.whlib#CustomLinkHandlerYaml
+  testhandler2:
+    startsWith: "whfs:/webhare-private/webhare_testsuite/content/"
+    onResolve: webdesigns/basetest/lib/linkhandling.ts#resolveTS2Link
+    resolveFunction: webdesigns/basetest/lib/basetest.whlib#ResolveTS2Link
 
 formDefinitions:
   customform: webdesigns/basetest/pages/customformdef/customformdef.formdef.xml

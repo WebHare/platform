@@ -3,9 +3,11 @@ import { rtdBlockDefaultClass, rtdTextStyles, type RichTextDocument, type RTDAno
 import { appendToArray, encodeString, maybePromiseAll } from "@webhare/std";
 import type { PagePartRequest } from "@webhare/router/src/siterequest";
 import { groupByLink } from "@webhare/hscompat/src/richdocument";
+import type { IntExtLink } from "./intextlink";
 
 export type RTDRenderingOptions = {
   maxImageWidth?: number;
+  resolveLink?: (link: IntExtLink) => Promise<string | null>;
 };
 
 export async function renderRTD(partRequest: PagePartRequest, rtd: RichTextDocument, options?: RTDRenderingOptions): Promise<Litty> {
@@ -86,7 +88,7 @@ export async function renderRTD(partRequest: PagePartRequest, rtd: RichTextDocum
       }
 
       if (linkitem.link) {
-        const url = await linkitem.link.resolve();
+        const url = options?.resolveLink ? await options.resolveLink(linkitem.link) : await linkitem.link.resolve();
         if (url)
           linkpart = [litty`<a href="${url}"${linkitem.target ? litty` target="${linkitem.target}"` : ""}>${linkpart}</a>`];
       }
