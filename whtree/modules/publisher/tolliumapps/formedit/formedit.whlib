@@ -59,8 +59,8 @@ CONSTANT RECORD basequestionlistrow :=
     ];
 
 
-PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
-< // ---------------------------------------------------------------------------
+PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -87,7 +87,6 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
   RECORD ARRAY editorextensions;
   STRING uselanguage;
 
-  INTEGER insertposition;
   BOOLEAN allowsubmittype;
   PUBLIC RECORD integrationsettings;
 
@@ -973,14 +972,6 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
             , tabext := MakeAbsoluteResourcePath(setting.siteprofile->name, setting.node->GetAttribute("settingsextension"))
             ] INTO this->editorextensions AT END;
       }
-      ELSE IF(setting.node->HasAttribute("extendobject"))
-      {
-        STRING library := Tokenize(setting.node->GetAttribute("extendobject"), "#")[0];
-        STRING objtype := Substring(setting.node->GetAttribute("extendobject"), Length(library) + 1);
-        library := MakeAbsoluteResourcePath(setting.siteprofile->name, library);
-
-        this->ApplyExtensionObject(library, objtype);
-      }
 
       IF (setting.node->HasAttribute("validationfunc"))
       {
@@ -997,72 +988,8 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
     }
   }
 
-  MACRO ApplyExtensionObject(STRING library, STRING objtype)
-  {
-    RECORD saveoptions := passthrough_formeditorextension_options;
-    TRY
-    {
-      STRING extid := `extension#${Length(this->editorextensions)}`;
-      //pass FormEditorExtensionBase::NEW() data through a global, so extensions can use NEW() without worrying about passthrough params
-      passthrough_formeditorextension_options := [ contexts := this->contexts
-                                                 ];
-      OBJECT extobj := MakeObject(library, objtype);
-      IF (extobj NOT EXTENDSFROM FormEditorExtensionBase)
-        THROW NEW Exception("Object does not derive from FormEditorExtensionBase");
-      RECORD ARRAY buttons, menuitems;
-      FOREVERY (RECORD button FROM extobj->GetToolbarButtons())
-      {
-        OBJECT newaction := this->CreateTolliumComponent("action");
-        newaction->onexecute := button.onexecute;
-        OBJECT newbutton := this->CreateTolliumComponent("button");
-        newbutton->title := button.title;
-        newbutton->icon := button.icon;
-        newbutton->action := newaction;
-        INSERT [ component := newbutton, type := "button" ] INTO buttons AT END;
-
-        OBJECT newmenuitem := this->CreateTolliumComponent("menuitem");
-        newmenuitem->title := button.title;
-        newmenuitem->action := newaction;
-        INSERT [ isdivider := FALSE, menuitem := newmenuitem ] INTO menuitems AT END;
-      }
-      ^toolbar->items := ^toolbar->items CONCAT buttons;
-      FOREVERY (RECORD item FROM menuitems)
-      {
-        INSERT item INTO this->frame->menubar->items AT this->insertposition;
-        this->insertposition := this->insertposition + 1;
-      }
-
-      INSERT CELL
-          [ extid
-          , extobj
-          , buttons
-          , menuitems
-          ] INTO this->editorextensions AT END;
-      //DELETE FROM oldextensions WHERE COLUMN extid = VAR extid;
-    }
-    CATCH (OBJECT e)
-    {
-      LogHarescriptException(e);
-      this->RunSimpleScreen("error", GetTid("publisher:tolliumapps.formedit.messages.extensionloaderror", `${library}#${objtype}`, e->what));
-    }
-    FINALLY
-    {
-      passthrough_formeditorextension_options := saveoptions;
-    }
-  }
-
   MACRO LoadEditorExtensions()
   {
-    // Is there an 'editdocumentmenu' insertion point?
-    this->insertposition :=
-        (SELECT AS INTEGER #items + 1
-           FROM ^menubar->items
-          WHERE NOT isdivider
-                AND menuitem->title = "#####") - 1;
-
-    IF (this->insertposition < 0)
-      this->insertposition := Length(this->frame->menubar->items);
-
     this->editorextensions := DEFAULT RECORD ARRAY;
     this->ApplyCustomSettings();
   }
@@ -1560,8 +1487,8 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
 >;
 
 
-PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
-< // ---------------------------------------------------------------------------
+PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -1578,8 +1505,7 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
   // Constructor & tollium admin stuff
   //
 
-  MACRO Init(RECORD data)
-  {
+  MACRO Init(RECORD data) {
     this->node := data.node;
     this->objectid := data.objectid;
 

@@ -9,35 +9,6 @@ LOADLIB "mod::publisher/lib/internal/forms/formedit-tollium.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib" EXPORT GetTid;
 
 
-
-PUBLIC STATIC OBJECTTYPE FormEditorExtensionBase
-<
-  //save storage for our API and Contexts objects so derived classes can't accidentaly modify them
-  RECORD pvt_options;
-
-  /// EditorExtensionsAPI object to communicate with the editor
-  PROPERTY api(this->pvt_options.api,-);
-  /// Contexts object as received by the editor
-  PROPERTY contexts(this->pvt_options.contexts,-);
-
-  MACRO NEW()
-  {
-    this->pvt_options := passthrough_formeditorextension_options;
-  }
-
-  /** @short Return a list of toolbar buttons to add to the editor screen
-      @return The buttons to add
-      @cell return.title The button title
-      @cell return.icon The button icon
-      @cell return.onexecute Pointer to the function to run when the button is pressed
-  */
-  PUBLIC RECORD ARRAY FUNCTION GetToolbarButtons()
-  {
-    RETURN DEFAULT RECORD ARRAY;
-  }
->;
-
-
 PUBLIC STATIC OBJECTTYPE FormSettingsExtensionBase EXTEND TolliumTabsExtensionBase
 < // ---------------------------------------------------------------------------
   //
