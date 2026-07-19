@@ -15,6 +15,19 @@ type WorkerList = Array<{
   totalCalls: number;
 }>;
 
+function onWorkerError(poolRef: WeakRef<WorkerPool>, worker: AsyncWorker, id: string, error: Error) {
+  console.error(`Worker ${id} failed: ${error}`);
+  logError(new Error(`Worker ${id} failed: ${error}`, { cause: error }));
+  const pool = poolRef.deref();
+  if (!pool)
+    return; //already deallocated
+
+  const pos = pool.workers.findIndex(w => w.worker === worker);
+  if (pos >= 0)
+    pool.workers.splice(pos, 1);
+  worker.close();
+}
+
 const cleanAfterCollection = new FinalizationRegistry((workers: WorkerList) => {
   for (const worker of workers)
     worker.worker.close();
@@ -62,14 +75,10 @@ export class WorkerPool {
         totalCalls: 1,
         id
       });
-      worker.on("error", (error) => {
-        console.error(`Worker ${id} failed: ${error}`);
-        logError(new Error(`Worker ${id} failed: ${error}`, { cause: error }));
-        const pos = this.workers.findIndex(w => w.worker === worker);
-        if (pos >= 0)
-          this.workers.splice(pos, 1);
-        worker.close();
-      });
+
+      //Make sure the errorhandler can't keep the workerpool alive
+      const poolRef = new WeakRef(this);
+      worker.on("error", function (error) { onWorkerError(poolRef, worker, id, error); });
     }
     try {
       return await fn(bestEntry.worker);
