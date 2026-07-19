@@ -1,4 +1,4 @@
-import { RestAPIWorkerPool } from "@mod-system/js/internal/openapi/workerpool";
+import { WorkerPool } from "@mod-system/js/internal/openapi/workerpool";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { createSharpImage, type SharpResizeOptions, type SharpAvifOptions, type SharpColor, type SharpExtendOptions, type SharpGifOptions, type SharpJpegOptions, type SharpPngOptions, type SharpRegion, type SharpWebpOptions, type Sharp } from "@webhare/deps";
 import { debugFlags } from "@webhare/env";
@@ -170,7 +170,7 @@ export async function returnImageForCache(request: HSImgCacheRequest): Promise<s
   return (await renderImageForCache(request)).toString("base64");
 }
 
-const workerPool = new RestAPIWorkerPool("restapi", 5, 100);
+const workerPool = new WorkerPool("imgcache", 5, 100);
 
 export async function __generateImageForCacheInternal(request: Required<HSImgCacheRequest>): Promise<void> {
   const result = await renderImageForCache(request);

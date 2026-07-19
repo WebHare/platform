@@ -14,7 +14,7 @@ const cleanAfterCollection = new FinalizationRegistry((workers: WorkerList) => {
   workers.splice(0);
 });
 
-export class RestAPIWorkerPool {
+export class WorkerPool {
   workers: WorkerList = [];
   counter = 0;
   id: string;
