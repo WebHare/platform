@@ -19,11 +19,9 @@ declare global {
 
 declare module "@webhare/env" {
   interface DebugRegistry {
-    "codeContexts": { [key in string]: WeakRef<CodeContext> };
+    codeContexts?: { [key in string]: WeakRef<CodeContext> };
   }
 }
-
-let contextcounter = 0;
 
 const als = new AsyncLocalStorage<CodeContext>;
 
@@ -85,10 +83,11 @@ export class CodeContext extends EventSource<CodeContextEvents> implements Async
   readonly allPromises = new Map<number, PromiseAdminData>;
   readonly mutexes: Set<string> = new Set;
   debugFlagsOverrides: DebugFlags[] = [{}];
+  start = Date.now(); //useful to have when inspecting
 
   constructor(title: string, metadata: CodeContextMetadata = {}) {
     super();
-    this.id = title === "root" ? "root" : `whcontext-${++contextcounter}: ${title}`;
+    this.id = title === "root" ? "root" : `whcontext-${globalThis.$wh.nextId++}: ${title}`;
     if (debugFlags.cclifecycle)
       console.trace(`[${this.id}] CodeContext created`);
     this.title = title;

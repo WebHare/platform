@@ -4,9 +4,10 @@ import { debugFlags } from "./envbackend";
 
 let debugRegFinalizer: FinalizationRegistry<{ type: keyof DebugRegistry; key: string }> | undefined;
 
-//TODO also expose DebugRegistry but this is tricky typewise
-export type WHGlobal = /*DebugRegistry & */ {
+export type WHGlobal = DebugRegistry & {
   debugFlags: typeof debugFlags;
+  /** Global counter to avoid HMRs from duplicating IDs */
+  nextId: number;
 };
 
 declare global {
@@ -14,14 +15,16 @@ declare global {
 }
 
 globalThis.$wh = {
-  debugFlags
+  debugFlags,
+  nextId: 1
 } satisfies WHGlobal;
 
-export function addToDebugRegistry<T extends keyof DebugRegistry>(type: T, key: string, value: NonNullable<ReturnType<DebugRegistry[T][string]["deref"]>>) {
+export function addToDebugRegistry<T extends keyof DebugRegistry>(type: T, key: string, value: NonNullable<ReturnType<NonNullable<DebugRegistry[T]>[string]["deref"]>>) {
   const debugRegistry = globalThis.$wh as unknown as DebugRegistry;
+  //@ts-ignore prevents '>   Type '{}' is not assignable to type 'never'. in jssdk builds, probably because noone yet extends DebugRegistry there
   debugRegistry[type] ||= {};
   debugRegFinalizer ||= new FinalizationRegistry(({ type: t, key: k }) => {
-    delete debugRegistry![t][k];
+    delete debugRegistry![t]?.[k];
   });
 
   if (debugRegistry[type][key])

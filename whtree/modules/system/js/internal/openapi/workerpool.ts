@@ -1,5 +1,12 @@
 import { logError } from "@webhare/services";
 import { AsyncWorker } from "../worker";
+import { addToDebugRegistry } from "@webhare/env/src/whglobal";
+
+declare module "@webhare/env" {
+  interface DebugRegistry {
+    workerPools?: { [key in string]: WeakRef<WorkerPool> };
+  }
+}
 
 type WorkerList = Array<{
   id: string;
@@ -20,14 +27,17 @@ export class WorkerPool {
   id: string;
   maxWorkers: number;
   maxCallsPerWorker: number;
+  start = Date.now(); //useful to have when inspecting
 
   constructor(id: string, maxWorkers: number, maxCallsPerWorker: number) {
-    this.id = id;
+    this.id = `workerpool-${globalThis.$wh.nextId++}: ${id}`;
     this.maxWorkers = maxWorkers;
     this.maxCallsPerWorker = maxCallsPerWorker;
 
     // Ensure that workers are closed when the pool is collected
     cleanAfterCollection.register(this, this.workers);
+
+    addToDebugRegistry("workerPools", this.id, this);
   }
 
   async runInWorker<T>(fn: (worker: AsyncWorker) => Promise<T>): Promise<T> {
