@@ -922,7 +922,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext <
   */
   PUBLIC STRING FUNCTION GetIntExtLinkTarget(RECORD intextlink)
   {
-    IF (intextlink.internallink != 0) {
+    IF (RecordExists(intextlink) AND intextlink.internallink != 0) {
       RECORD ARRAY handlers := SELECT * FROM __GetExtractedConfig("plugins").link_types WHERE link_types.starts_with LIKE "whfs:*" AND resolve_function != "";
       IF (IsValueSet(handlers)) {
         STRING linkpath := "whfs:" || (SELECT AS STRING ToLowercase(COLUMN whfspath) FROM system.fs_objects WHERE id = intextlink.internallink);
