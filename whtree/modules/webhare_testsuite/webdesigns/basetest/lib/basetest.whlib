@@ -324,3 +324,22 @@ PUBLIC STATIC OBJECTTYPE LegacyTab EXTEND TolliumTabsExtensionBase <
 
 PUBLIC STATIC OBJECTTYPE LegacyProps EXTEND TolliumTabsExtensionBase <
 >;
+
+BOOLEAN FUNCTION OnCanView(OBJECT fsobject)
+{
+  RETURN TRUE;
+}
+
+MACRO OnView(OBJECT openhandler, OBJECT fsobject, BOOLEAN autosave DEFAULTSTO FALSE)
+{
+  openhandler->SendUrl("https://example.org/");
+}
+
+PUBLIC RECORD FUNCTION RunDocumentEditorHooks(RECORD data)
+{
+  dumpvalue("HOOKED");
+  data.contexts->editdocumentapi->oncanview := PTR OnCanView;
+  data.contexts->editdocumentapi->onview := PTR OnView;
+  data.contexts->editdocumentapi->onpreview := PTR OnView;
+  RETURN data;
+}
