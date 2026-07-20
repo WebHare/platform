@@ -3,7 +3,7 @@ import { type MessagePort, MessageChannel, isMainThread } from "node:worker_thre
 import { AsyncWorker } from "@mod-system/js/internal/worker";
 import { triggerGarbageCollection } from "@webhare/test";
 import { createReturnValueWithTransferList } from "@webhare/services/src/ipc/localservice";
-import { RestAPIWorkerPool } from "@mod-system/js/internal/openapi/workerpool";
+import { WorkerPool } from "@mod-system/js/internal/openapi/workerpool";
 
 
 export class myTestClass {
@@ -101,7 +101,7 @@ async function runCleanupTest() {
 }
 
 async function workerPoolTest() {
-  const pool = new RestAPIWorkerPool("test", 1, 10);
+  const pool = new WorkerPool("test", 1, 10);
   // Worker should function as expected
   test.eq(18, await pool.runInWorker(async worker => {
     return worker.callRemote(`${__filename}#myTestFunc`, 11, 7);

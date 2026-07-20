@@ -1,5 +1,12 @@
 import { logError } from "@webhare/services";
 import { AsyncWorker } from "../worker";
+import { addToDebugRegistry } from "@webhare/env/src/whglobal";
+
+declare module "@webhare/env" {
+  interface DebugRegistry {
+    workerPools?: { [key in string]: WeakRef<WorkerPool> };
+  }
+}
 
 type WorkerList = Array<{
   id: string;
@@ -8,26 +15,42 @@ type WorkerList = Array<{
   totalCalls: number;
 }>;
 
+function onWorkerError(poolRef: WeakRef<WorkerPool>, worker: AsyncWorker, id: string, error: Error) {
+  console.error(`Worker ${id} failed: ${error}`);
+  logError(new Error(`Worker ${id} failed: ${error}`, { cause: error }));
+  const pool = poolRef.deref();
+  if (!pool)
+    return; //already deallocated
+
+  const pos = pool.workers.findIndex(w => w.worker === worker);
+  if (pos >= 0)
+    pool.workers.splice(pos, 1);
+  worker.close();
+}
+
 const cleanAfterCollection = new FinalizationRegistry((workers: WorkerList) => {
   for (const worker of workers)
     worker.worker.close();
   workers.splice(0);
 });
 
-export class RestAPIWorkerPool {
+export class WorkerPool {
   workers: WorkerList = [];
   counter = 0;
   id: string;
   maxWorkers: number;
   maxCallsPerWorker: number;
+  start = Date.now(); //useful to have when inspecting
 
   constructor(id: string, maxWorkers: number, maxCallsPerWorker: number) {
-    this.id = id;
+    this.id = `workerpool-${globalThis.$wh.nextId++}: ${id}`;
     this.maxWorkers = maxWorkers;
     this.maxCallsPerWorker = maxCallsPerWorker;
 
     // Ensure that workers are closed when the pool is collected
     cleanAfterCollection.register(this, this.workers);
+
+    addToDebugRegistry("workerPools", this.id, this);
   }
 
   async runInWorker<T>(fn: (worker: AsyncWorker) => Promise<T>): Promise<T> {
@@ -52,14 +75,10 @@ export class RestAPIWorkerPool {
         totalCalls: 1,
         id
       });
-      worker.on("error", (error) => {
-        console.error(`Worker ${id} failed: ${error}`);
-        logError(new Error(`Worker ${id} failed: ${error}`, { cause: error }));
-        const pos = this.workers.findIndex(w => w.worker === worker);
-        if (pos >= 0)
-          this.workers.splice(pos, 1);
-        worker.close();
-      });
+
+      //Make sure the errorhandler can't keep the workerpool alive
+      const poolRef = new WeakRef(this);
+      worker.on("error", function (error) { onWorkerError(poolRef, worker, id, error); });
     }
     try {
       return await fn(bestEntry.worker);

@@ -1,6 +1,6 @@
 /* The invoke service implements CallJS if invoked from native HareScript */
 
-import { RestAPIWorkerPool } from "@mod-system/js/internal/openapi/workerpool";
+import { WorkerPool } from "@mod-system/js/internal/openapi/workerpool";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { debugFlags } from "@webhare/env";
 import { toAuthAuditContext, type HarescriptJSCallContext } from "@webhare/hscompat/src/context";
@@ -100,7 +100,7 @@ export async function workerHandleCall({ lib, name, stringifiedArgs, hscontext, 
   }
 }
 
-let workerPool: RestAPIWorkerPool | undefined = undefined;
+let workerPool: WorkerPool | undefined = undefined;
 class CallJSService extends BackendServiceConnection {
   #runInline: boolean;
 
@@ -120,7 +120,7 @@ class CallJSService extends BackendServiceConnection {
       return options.camelcase && typeof decodedRetval === 'object' ? toSnakeCase(decodedRetval) : decodedRetval;
     }
 
-    workerPool ??= new RestAPIWorkerPool("CallJSService", 5, 1000);
+    workerPool ??= new WorkerPool("CallJSService", 5, 1000);
     return await workerPool.runInWorker(async (worker) => {
       if (options.camelcase)
         args = toCamelCase(args);
