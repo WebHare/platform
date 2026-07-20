@@ -215,14 +215,16 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI EXTEND TolliumEventSource <
 
   MACRO SetOnCanView(MACRO PTR callback)
   {
+    IF(ObjectExists(this->editscreen->workflowmgr))
+      THROW NEW Exception(`Cannot modify oncanview once intialization of the editor is done`);
     this->pvt_oncanview := callback;
-    this->editscreen->RefreshState();
   }
 
   MACRO SetOnCanPreview(MACRO PTR callback)
   {
+    IF(ObjectExists(this->editscreen->workflowmgr))
+      THROW NEW Exception(`Cannot modify oncanpreview once intialization of the editor is done`);
     this->pvt_oncanpreview := callback;
-    this->editscreen->RefreshState();
   }
 
   PUBLIC INTEGER FUNCTION GetContentObject(STRING version) {
