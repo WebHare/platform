@@ -8,30 +8,20 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
 
 OBJECT FUNCTION Rte()
 {
   RETURN TT("doceditor")->contents->rte;
 }
 
-BOOLEAN FUNCTION OnCanView(OBJECT fsobject)
-{
-  RETURN TRUE;
-}
-
-MACRO OnView(OBJECT openhandler, OBJECT fsobject, BOOLEAN autosave DEFAULTSTO FALSE)
-{
-  openhandler->SendUrl("https://example.org/");
-}
-
 MACRO Create()
 {
   testfw->BeginWork();
 
-  testfw->SetupTestWebdesignWebsite();
-
   // Grant read-only right on the test site to user 'reader'
-  testfw->GetUserObject("writer")->UpdateGrant("grant", "system:fs_browse", testfw->GetTestSite()->id, testfw->GetUserObject("reader"));
+  testfw->GetUserObject("writer")->UpdateGrant("grant", "system:fs_browse", OpenTestsuiteSite()->id, testfw->GetUserObject("reader"));
 
   testfw->CommitWork();
 }
@@ -41,47 +31,65 @@ OBJECT ASYNC FUNCTION TestReadOnly()
   BOOLEAN clicked;
 
   testfw->BeginWork();
-  OBJECT siteroot := testfw->GetTestSite()->rootobject;
+  OBJECT siteroot := GetTestsuiteTempFolder();
   OBJECT testfile := siteroot->CreateFile(
       [ name :=   "readonly.rtd"
       , type :=   OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id
       , title :=  "Readonly"
       ]);
+  OBJECT testfile_viewhooks := siteroot->CreateFile(
+      [ name :=   "readonly-viewhooks.rtd"
+      , type :=   OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id
+      , title :=  "Readonly"
+      ]);
   testfw->CommitWork();
-
 
   //////////////////////////////////////////////////////////////////////////////
   /// writer
-
+  RECORD openres;
   // Open rich document editor
   testfw->SetTestUser("writer");
+
+  // STORY: Test normal, unhooked RTD
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
 
   // It should be writeable
   TestEq(FALSE, topscreen->contexts->editdocumentapi->readonly);
 
-  // View should not be available
-  RECORD openres := ExecuteWindowOpenAction(TT("viewpublished"));
+  openres := ExecuteWindowOpenAction(TT("viewpublished"));
   TestEq("cancel", openres.type);
 
-  // Test if we can make view explicitly available
-  topscreen->contexts->editdocumentapi->oncanview := PTR OnCanView;
-  topscreen->contexts->editdocumentapi->onview := PTR OnView;
+  RTE()->TolliumWeb_FormUpdate('<p class="normal">This is the document</p>');
+  RTE()->SetDirty();
+
+  clicked := AWAIT ExpectNoScreenChange(PTR topscreen->^save->TolliumClick());
+  TestEq(TRUE, clicked);
+
+  // Close rich document editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  ////////////////////////////////
+  // STORY: Test hooked RTD
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile_viewhooks->id) ], target := DEFAULT RECORD ]));
+
+  // It should be writeable
+  TestEq(FALSE, topscreen->contexts->editdocumentapi->readonly);
+
+  // Test if we could make view explicitly available
   openres := ExecuteWindowOpenAction(TT("viewpublished"));
   TestEq("url", openres.type);
   TestEq("https://example.org/", openres.url);
 
-  // Reset custom view availability
-  topscreen->contexts->editdocumentapi->oncanview := DEFAULT MACRO PTR;
-  topscreen->contexts->editdocumentapi->onview := DEFAULT MACRO PTR;
-  openres := ExecuteWindowOpenAction(TT("viewpublished"));
-  TestEq("cancel", openres.type);
-
   // Add some text and save draft
   RTE()->TolliumWeb_FormUpdate('<p class="normal">This is the document</p>');
-  RTE()->__debug_simulatedirty(); //ADDME why doesn't the above command imply this?
+  RTE()->SetDirty();
   clicked := AWAIT ExpectNoScreenChange(PTR topscreen->^save->TolliumClick());
   TestEq(TRUE, clicked);
+
+  // Test custom preview handler
+  openres := ExecuteWindowOpenAction(TT("previewdraft"));
+  TestEq("url", openres.type);
+  TestEq("https://example.org/", openres.url);
 
   // Close rich document editor
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
@@ -125,18 +133,10 @@ OBJECT ASYNC FUNCTION TestReadOnly()
 
   // Publish the document
   AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("publish")->TolliumClick(), [ messagemask := "*save and publish*" ]);
-
-  testfile := OpenWHFSObject(testfile->id);
+   testfile := OpenWHFSObject(testfile->id);
   TestEq(TRUE, testfile->publish);
   TestAssert(DEFAULT DATETIME != testfile->firstpublishdate);
   TestEq(testfile->firstpublishdate, testfile->contentmodificationdate);
-
-  // Test custom preview handler
-  topscreen->contexts->editdocumentapi->onpreview := PTR OnView;
-  openres := ExecuteWindowOpenAction(TT("previewdraft"));
-  TestEq("url", openres.type);
-  TestEq("https://example.org/", openres.url);
-  topscreen->contexts->editdocumentapi->onpreview := DEFAULT MACRO PTR;
 
   // Close rich document editor
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
