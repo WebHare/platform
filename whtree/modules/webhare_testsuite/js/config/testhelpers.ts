@@ -16,7 +16,18 @@ export async function installTestModule(name: string, files: Record<string, stri
   console.log(`Creating module ${name}`);
   const installEventSignal = await signalOnEvent(`system:moduleupdate.${name}`);
   const archive = await loadlib("mod::system/whlibs/filetypes/archiving.whlib").CreateNewArchive("application/zip") as HSVMObject;
+  const addedDirs = new Set<string>();
   for (const [path, data] of Object.entries(files)) {
+    const paths: string[] = [];
+    for (let i = path.indexOf("/"), e = path.lastIndexOf("/"); i >= 0 && i <= e; i = path.indexOf("/", i + 1))
+      paths.push(path.substring(0, i));
+    for (const subPath of paths) {
+      if (!addedDirs.has(subPath)) {
+        await archive.AddFolder(name + "/" + subPath, new Date);
+        addedDirs.add(subPath);
+      }
+    }
+
     await archive.AddFile(name + "/" + path, WebHareBlob.from(data), new Date);
   }
   const modulearchive = await archive.MakeBlob();
