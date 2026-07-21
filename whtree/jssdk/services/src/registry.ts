@@ -7,9 +7,10 @@ import { readAnyFromDatabase } from "@webhare/whdb/src/formats";
 import type { RegistryKeys } from "@mod-platform/generated/ts/registry.ts";
 // @ts-ignore -- this file is only accessible when this is file loaded from a module (not from the platform tsconfig). this line *must* remain a @ts-ignore
 import type { } from "wh:ts/registry.ts";
-import { determineType, encodeHSON, getHSTypeName, type IPCMarshallableData } from "@webhare/hscompat/src/hson";
+import { determineType, encodeHSON, getHSTypeName, HareScriptType, type IPCMarshallableData } from "@webhare/hscompat/src/hson";
 import { WebHareBlob } from "./webhareblob";
 import { signalOnEvent } from "./backendevents";
+import { defaultDateTime } from "@webhare/hscompat/src/datetime";
 
 export type { RegistryKeys };
 export type RegistryKeyOfType<K> = { [P in keyof RegistryKeys]: RegistryKeys[P] extends K ? P : never }[keyof RegistryKeys];
@@ -102,8 +103,9 @@ export async function readRegistryKey(key: string, defaultValue?: unknown, opts?
       if (defaultType !== keyType && (defaultType !== "null" || typeof keyinfo.value !== "object")) //FIXME needs more smarts for Money/Date etc types
         throw new Error(`Invalid type in registry for registry key '${key}', got ${keyType} but expected ${defaultType}`);
     }
+
     if (isDate(keyinfo.value))
-      return keyinfo.value.toTemporalInstant();
+      return keyinfo.value.getTime() <= defaultDateTime.getTime() ? null : keyinfo.value.toTemporalInstant();
     return keyinfo.value;
   }
 
@@ -127,16 +129,19 @@ export async function writeRegistryKey(key: string, value: unknown, options?: { 
   if (!keyinfo.id && !options?.createIfNeeded && !options?.initialCreate)
     throw new Error(`No such registry key '${key}' - you may need to 'wh apply registry'`);
 
+  if (isTemporalInstant(value))
+    value = new Date(value.epochMilliseconds);
+
   //No type promotion! It would make your code racy, depending on first value ever written
   if (keyinfo.id) {
     const curvaltype = determineType(keyinfo.value);
+    if (curvaltype === HareScriptType.DateTime && value === null)
+      value = defaultDateTime;
+
     const newvaltype = determineType(value);
     if (curvaltype !== newvaltype)
       throw new Error(`Invalid type in registry for registry key '${key}', got ${getHSTypeName(curvaltype)} but expected ${getHSTypeName(newvaltype)}`);
   }
-
-  if (isTemporalInstant(value))
-    value = new Date(value.epochMilliseconds);
 
   const newvalue = encodeHSON(value as IPCMarshallableData);
   const newdata = Buffer.from(newvalue).length <= 4096 ? newvalue : "";

@@ -100,7 +100,7 @@ ${keys.map(key => {
     let tsType: string;
     switch (key.type) {
       case "string": tsType = "string"; break;
-      case "datetime": tsType = "Temporal.Instant"; break;
+      case "datetime": tsType = "Temporal.Instant | null"; break;
       case "boolean": tsType = "boolean"; break;
       case "integer": tsType = "number"; break;
       case "float": tsType = "number"; break;
