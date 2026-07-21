@@ -1195,6 +1195,7 @@
           <text tid="downloadkey">Download key</text>
           <text tid="generatecsr">Generate CSR</text>
           <text tid="invalidkeyfile">The file '<param p="1"/>' does not appear to be a valid private key</text>
+          <text tid="issuer">Issuer</text>
           <text tid="keyfile">Key file</text>
           <text tid="keylength">Key length</text>
           <text tid="keystillreferencedbyentity">This key is still referenced by a WRD entity from schema '<param p="1"/>', type '<param p="2"/>', entity tag '<param p="3"/>'.</text>
@@ -1211,6 +1212,7 @@
           <text tid="unsupportedsignaturealgorithm">The signature algorithm "<param p="1"/>" is not supported.</text>
           <text tid="uploadcertificate">Install certificate</text>
           <text tid="uploadkey">Upload key</text>
+          <text tid="validfrom">Valid from</text>
           <text tid="validuntil">Valid until</text>
           <text tid="viewcertificatechain">View certificates</text>
         </textgroup>
