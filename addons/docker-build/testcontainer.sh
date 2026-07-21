@@ -336,8 +336,10 @@ while true; do
   if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
     print_syntax
     exit 0
-  fi
-  if [ "$1" == "--containername" ]; then
+  elif [ "$1" == "-x" ]; then
+    shift
+    set -x
+  elif [ "$1" == "--containername" ]; then
     FIXEDCONTAINERNAME="$2"
     DOCKERARGS+=("--name=${FIXEDCONTAINERNAME}")
     shift
