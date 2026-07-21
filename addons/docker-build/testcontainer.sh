@@ -845,6 +845,7 @@ for MODULE in "$TESTINGMODULEDIR" $ADDMODULES; do
 
   if [ -d "$MODULE/.git" ]; then
     # Don't copy files that won't be committed due to default git ignore rules (TODO also support modules deep inside a git repo)
+    mkdir -p "$MODULETARGETDIR"
     echo "Copying $MODULE using git ls-files to honor .gitignore"
     if ! (cd "$MODULE" ; git ls-files -co --exclude-standard | tar -c -T -) | tar -x -C "$MODULETARGETDIR" ; then
       exit_failure_sh "Failed to copy $MODULE"
