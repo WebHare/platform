@@ -182,8 +182,14 @@ export class CPageRequest {
     if (!this._renderinfo.dynamicExecution)
       this.#webRequest = null;
 
-    //initialize the page metadata before returning the rendering function
-    this.pageMetadata.title = this._contentObject.title || this.targetFolder.title;
+    //for contentlinks we should still look at targetObject for title/seotitle metadata
+    const metadataSource = this.targetObject.type === "platform:filetypes.contentlink" ? this.targetObject : this._contentObject;
+
+    //base title for meta-title and pageHeading. folder title is a reasonable fallback for indexdocs but not for other files to prevent dupe titles
+    const baseTitle = metadataSource.title || (this.targetFolder.indexDoc === this.targetObject.id ? this.targetFolder.title : "");
+
+    //initialize the page metadata before returning the rendering function.
+    this.pageMetadata.title = baseTitle;
     const seoSettings = {
       ...await this.getInstance("platform:web.config"),
       ...await this.getInstance("platform:web.metadata"),
@@ -192,10 +198,10 @@ export class CPageRequest {
       this.pageMetadata.title = seoSettings.seoTitle;
     if (!this.pageMetadata.title && this.targetFolder.id !== this.targetFolder.parentSite) // Try the site root folder's title
       this.pageMetadata.title = (await openFolder(this.targetSite.id)).title;
-    if (!this.pageMetadata.title) // Still no title
-      this.pageMetadata.title = this.targetSite.name;
+
     this.pageMetadata.description = this.targetObject.description; //No fallback to folder. a folder's description is unlikely to apply to a file?
-    this.pageMetadata.pageHeading = seoSettings?.pageHeading || this.pageMetadata.title;
+    this.pageMetadata.pageHeading = seoSettings?.pageHeading || baseTitle; //seoTitle is *not* a valid fallback for the printed title
+
     if (this.targetObject.isFile)
       this.pageMetadata.keywords = this.targetObject.keywords;
 

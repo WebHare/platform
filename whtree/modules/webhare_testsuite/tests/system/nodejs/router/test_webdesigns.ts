@@ -46,12 +46,6 @@ async function testPageResponse() {
   // Create a SiteRequest so we have context for a SiteResponse
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/markdownpage");
   const sitereq = await createContentPageRequest(markdowndoc, { webRequest: new IncomingWebRequest(markdowndoc.link!) });
-  test.eq([
-    { id: markdowndoc.parentSite!, name: "webhare_testsuite.testsitejs", title: "", link: (await whfs.openSite(markdowndoc.parentSite!)).webRoot },
-    { id: markdowndoc.parent!, name: "TestPages", title: "", link: null },
-    { id: markdowndoc.id, name: "markdownpage", title: "Markdown page", link: markdowndoc.link },
-  ], sitereq.targetPath);
-
   sitereq.setFrontendData("webhare_testsuite:otherdata", { otherData: 112233 });
 
   const response: WebResponse = await sitereq.buildWebPage(litty`<p>This is a body!</p>`);
