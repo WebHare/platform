@@ -143,9 +143,7 @@ export function validateAndFixRowsColumns(options: SpreadsheetData, index: numbe
         }
         console.log(key, matchCol.type);
       }
-    console.log(speculatedCols);
     options.columns = speculatedCols.map((col) => ({ name: col.name, title: col.title, type: col.type ?? "string", storeUTC: col.storeUTC ?? false }));
-    console.log(options.columns);
   }
 
   for (const column of options.columns || []) {

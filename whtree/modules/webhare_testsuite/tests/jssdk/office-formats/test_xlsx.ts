@@ -58,8 +58,8 @@ async function getRows(xlsx: File) {
 
 export async function testXLSXColumnFiles() {
   //@ts-expect-error - Column definition is also rejected by TS
-  const incompleteColumNs: SpreadsheetColumn[] = [{ name: "date", type: "dateTime" }];
-  await test.throws(/storeUTC/, generateXLSX({ rows: testSheet.rows, columns: incompleteColumNs }));
+  const incompleteColumns: SpreadsheetColumn[] = [{ name: "date", type: "dateTime" }];
+  await test.throws(/storeUTC/, generateXLSX({ rows: testSheet.rows, columns: incompleteColumns }));
   await test.throws(/no timeZone/, generateXLSX({ rows: testSheet.rows, columns: columns.filter(_ => _.type === "dateTime").map(_ => ({ ..._, storeUTC: true })) }));
   await test.throws(/no timeZone/, generateXLSX({ rows: testSheet.rows, columns }));
 
