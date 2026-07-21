@@ -100,8 +100,6 @@ PUBLIC STRING FUNCTION AddWebserver(STRING url, RECORD options DEFAULTSTO DEFAUL
              , port
              , baseurl := RepackURL(CELL[unpackedurl.scheme, unpackedurl.host, unpackedurl.port, user := "", password := "", urlpath := "", urlpathslash := TRUE ])
              ] INTO system_internal.webservers;
-             //(id, type, baseurl,outputextension,port, diskfolder, stricttransportsecurity)
-             //VALUES(webserverid, options.outputserver ? 0 : 1, baseurl, ".html",Length(options.virtualhosts)=0?portid:0, options.diskfolder, options.stricttransportsecurity);
   //INSERT INTO
 
   RETURN "dbweb:" || webserverid;

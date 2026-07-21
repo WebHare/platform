@@ -46,7 +46,6 @@ PUBLIC RECORD ARRAY FUNCTION EnrichWebserversWithOutputFolder(RECORD ARRAY inrow
 PUBLIC RECORD FUNCTION DescribeDiskOutput(INTEGER siteid, STRING subfolder)
 {
   STRING webserver_diskroot;
-  STRING outputextension := ".html";
 
   IF(siteid = whconstant_whfsid_webharebackend)
   {
@@ -62,7 +61,7 @@ PUBLIC RECORD FUNCTION DescribeDiskOutput(INTEGER siteid, STRING subfolder)
     IF(primaryoutput.outputweb=0) //unpublished?
       RETURN DEFAULT RECORD;
 
-    RECORD ARRAY webinfos := SELECT id, diskfolder, webservers.outputextension, type
+    RECORD ARRAY webinfos := SELECT id, diskfolder, type
                                FROM system.webservers
                               WHERE id = primaryoutput.outputweb;
 
@@ -71,7 +70,6 @@ PUBLIC RECORD FUNCTION DescribeDiskOutput(INTEGER siteid, STRING subfolder)
     IF(webserver_diskroot = "")
       RETURN DEFAULT RECORD; //rule-only webserver?
 
-    outputextension := webinfos[0].outputextension;
     webserver_diskroot := MergePath(webserver_diskroot, ToLowercase(primaryoutput.outputfolder));
   }
 
@@ -80,8 +78,6 @@ PUBLIC RECORD FUNCTION DescribeDiskOutput(INTEGER siteid, STRING subfolder)
     RETURN DEFAULT RECORD;
 
   diskfolder := MergePath(webserver_diskroot, ToLowercase(subfolder));
-  RETURN CELL[ outputextension
-             , outputfolder := diskfolder
+  RETURN CELL[ outputfolder := diskfolder
              ];
 }
-

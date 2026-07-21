@@ -58,11 +58,8 @@ export const whconstant_default_warnexpirydays = 30;
 //Default key expiry warning (days) for automatically renewed keys
 export const whconstant_autorenewed_warnexpirydays = 21;
 
-//Default index page for webserver. Must be lowercase!
-export const whconstant_webserver_indexbasename = "index";
-
 //All possible index pages for webservers. indexbasename + all supported extensions
-export const whconstant_webserver_indexpages = [whconstant_webserver_indexbasename + ".html", whconstant_webserver_indexbasename + ".shtml"];
+export const whconstant_webserver_indexpages = ["index.html", "index.shtml"];
 
 //Webserver type of an interface webserver
 export const whconstant_webservertype_interface = 1;

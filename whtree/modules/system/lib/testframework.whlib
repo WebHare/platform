@@ -703,8 +703,8 @@ STATIC OBJECTTYPE TestFramework <
       STRING baseurl := options.secure_keyfile != "" ? "https://" : "http://";
       baseurl := baseurl || vhost || (options.port NOT IN [0,80,443] ? ":" || options.port : "") || "/";
 
-      INSERT INTO system.webservers(id, type, baseurl,outputextension,port, diskfolder, stricttransportsecurity)
-                 VALUES(webserverid, options.outputserver ? 0 : 1, baseurl, ".html",Length(options.virtualhosts)=0?portid:0, options.diskfolder, options.stricttransportsecurity);
+      INSERT INTO system.webservers(id, type, baseurl,port, diskfolder, stricttransportsecurity)
+                 VALUES(webserverid, options.outputserver ? 0 : 1, baseurl, Length(options.virtualhosts)=0?portid:0, options.diskfolder, options.stricttransportsecurity);
 
       //mark it
       INSERT INTO system.access(webserver,path,matchtype,hostingsrc,hostingpath)

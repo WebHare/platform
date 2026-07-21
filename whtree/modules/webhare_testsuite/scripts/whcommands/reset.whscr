@@ -125,8 +125,8 @@ IF(alttestsitehost != "")
 
   //recreate it
   INTEGER altwebserverid := Makeautonumber(system.webservers,"id");
-  INSERT INTO system.webservers(id,baseurl,outputextension,diskfolder)
-         VALUES (altwebserverid,alturl,'.html','webhare_testsuite.altsite/');
+  INSERT INTO system.webservers(id,baseurl,diskfolder)
+         VALUES (altwebserverid,alturl,'webhare_testsuite.altsite/');
 
   //Now setup the alternate site which should run on an alternative hostname, if available
   alttestsite := EnsureTestSite("webhare_testsuite.althost", [ recyclecontents := TRUE

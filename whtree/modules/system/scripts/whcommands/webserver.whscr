@@ -127,8 +127,8 @@ MACRO AddWebserver(STRING ARRAY params, BOOLEAN isbackend)
     TerminateScriptWithError(`A webserver for ${subargs.url} already exists`);
 
   INTEGER webserverid := MakeAutoNumber(system_internal.webservers,"id");
-  INSERT INTO system_internal.webservers(id, port, type, baseurl, outputextension, stricttransportsecurity, diskfolder)
-         VALUES (webserverid, webserver_port_id, isbackend ? 1 : 0, subargs.url, '.html', unpacked.scheme = "https" ? 31536000 : 0, isbackend ? "" : unpacked.host);
+  INSERT INTO system_internal.webservers(id, port, type, baseurl, stricttransportsecurity, diskfolder)
+         VALUES (webserverid, webserver_port_id, isbackend ? 1 : 0, subargs.url, unpacked.scheme = "https" ? 31536000 : 0, isbackend ? "" : unpacked.host);
 
   IF(isbackend)
   {

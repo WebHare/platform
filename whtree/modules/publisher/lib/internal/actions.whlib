@@ -603,14 +603,9 @@ PUBLIC MACRO AddDefaultIndexToFolder(INTEGER parentFolderID) {
 
     STRING filename := folderindex.newfilename;
     IF(filename="" AND createfiletype = "http://www.webhare.net/xmlns/publisher/dynamicfoldercontents")
-    {
       filename := "index.shtml";
-    }
-    ELSE IF(filename="")
-    {
-      INTEGER web := SELECT AS INTEGER outputweb FROM system.sites WHERE id = applytester->objsite;
-      filename := GetWebserverDefaultPage(web);
-    }
+    ELSE
+      filename := "index.html";
 
     parentfolderobj->CreateFile([ type := newfiletype->id
                                 , name := filename
