@@ -1005,6 +1005,7 @@
           <text tid="downloadkey">Sleutel downloaden</text>
           <text tid="generatecsr">CSR Genereren</text>
           <text tid="invalidkeyfile">Het bestand '<param p="1"/>' lijkt geen valide private key te zijn</text>
+          <text tid="issuer">Uitgever</text>
           <text tid="keyfile">Sleutelbestand</text>
           <text tid="keylength">Sleutellengte</text>
           <text tid="keystillreferencedbyentity">Deze sleutel wordt nog gerefereerd door een WRD entiteit van schema '<param p="1"/>', type '<param p="2"/>', entiteittag '<param p="3"/>'.</text>
@@ -1021,6 +1022,7 @@
           <text tid="unsupportedsignaturealgorithm">Het ondertekeningsalgoritme "<param p="1"/>" wordt niet ondersteund.</text>
           <text tid="uploadcertificate">Certificaat installeren</text>
           <text tid="uploadkey">Sleutel uploaden</text>
+          <text tid="validfrom">Geldig van</text>
           <text tid="validuntil">Geldig tot</text>
           <text tid="viewcertificatechain">Certificaten bekijken</text>
         </textgroup>
