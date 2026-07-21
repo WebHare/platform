@@ -39,6 +39,7 @@
   <test script="test_whmanager_bridge.ts" />
   <test script="test_stacktrace.ts" />
   <test script="test_hmr.ts" />
+  <test script="test_moduleinstall.ts" />
   <test script="test_generated_files.ts" />
   <test script="test_litty.ts" />
   <test script="test_witty.ts" />
