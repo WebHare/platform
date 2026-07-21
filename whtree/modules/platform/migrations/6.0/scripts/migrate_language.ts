@@ -15,7 +15,7 @@ runCli({
 
     // Process them
     const userLanguageChoices = new Map(userRegKeys.map(_ => ([
-      wrdGuidToUUID(`wrd:${_.name.match(/<wrd:([^>]+)>/)![1].toUpperCase()}`), //filter `123abc` from ` < wrd: 123abc >.tollium.locale`
+      wrdGuidToUUID(`wrd:${_.name.match(/<wrd:([^>]+)>/)![1].toUpperCase()}`), //filter `123abc` from `<wrd:123abc>.tollium.locale`
       (attempt(() => decodeHSON(_.data), null) as Record<string, string> | null)?.language
     ])));
 
