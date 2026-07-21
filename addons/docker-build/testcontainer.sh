@@ -336,8 +336,10 @@ while true; do
   if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
     print_syntax
     exit 0
-  fi
-  if [ "$1" == "--containername" ]; then
+  elif [ "$1" == "-x" ]; then
+    shift
+    set -x
+  elif [ "$1" == "--containername" ]; then
     FIXEDCONTAINERNAME="$2"
     DOCKERARGS+=("--name=${FIXEDCONTAINERNAME}")
     shift
@@ -646,7 +648,7 @@ if [ -z "$DOCKERBUILDFOLDER" ]; then
 fi
 
 # Independent tempdir
-TEMPBUILDROOT=$DOCKERBUILDFOLDER/$$$(date | (md5 2>/dev/null || md5sum) | head -c8)
+TEMPBUILDROOT=$DOCKERBUILDFOLDER/testcontainer-$$-$(date | (md5 2>/dev/null || md5sum) | head -c8)
 mkdir -p "${TEMPBUILDROOT}/docker-tests/modules"
 
 if [ -z "$ISPLATFORMTEST" ]; then # Tell the shutdownscript to use 'kill' as sleep won't respond to 'stop'
@@ -821,6 +823,8 @@ do
   fi
 done
 
+mkdir -p "${TEMPBUILDROOT}/docker-tests/modules"
+
 for MODULE in "$TESTINGMODULEDIR" $ADDMODULES; do
   if [ ! -d "$MODULE" ]; then
     if [ -z "$CI_JOB_TOKEN" ]; then
@@ -835,21 +839,24 @@ for MODULE in "$TESTINGMODULEDIR" $ADDMODULES; do
   fi
 
   MODULENAME="$(basename "$MODULE")"
-  echo "Copying module $MODULENAME"
+  MODULETARGETDIR="${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"
 
-  # Don't copy files that won't be committed due to default git ignore rules
-  mkdir -p "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"
+  [ -e "$MODULETARGETDIR" ] && die "Somehow $MODULETARGETDIR already exists, cannot copy $MODULE into it"
+
   if [ -d "$MODULE/.git" ]; then
-    if ! (cd "$MODULE" ; git ls-files -co --exclude-standard | tar -c -T -) | tar -x -C "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME" ; then
+    # Don't copy files that won't be committed due to default git ignore rules (TODO also support modules deep inside a git repo)
+    echo "Copying $MODULE using git ls-files to honor .gitignore"
+    if ! (cd "$MODULE" ; git ls-files -co --exclude-standard | tar -c -T -) | tar -x -C "$MODULETARGETDIR" ; then
       exit_failure_sh "Failed to copy $MODULE"
     fi
   else
     # non-git module, just copy all
-    mkdir -p "${TEMPBUILDROOT}/docker-tests/modules/"
-    cp -a "$MODULE" "${TEMPBUILDROOT}/docker-tests/modules/"
-    # TODO honor .gitignore
+    echo "Copying $MODULE without git ls-files, all files will be copied"
+    # as we've verified the target doesn't exist, this 'cp' will rename and create the module dir as we go
+    cp -a "${MODULE%/}" "$MODULETARGETDIR"
+    # TODO can we honor .gitignore ?
     # Remove wh fixmodules managed node_modules, wh fixmodules should apply them (keeps us closer to a CI environment)
-    rm -r "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"/node_modules "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"/webdesigns/*/node_modules 2>/dev/null
+    rm -r "$MODULETARGETDIR"/node_modules "$MODULETARGETDIR"/webdesigns/*/node_modules 2>/dev/null
   fi
 done
 
