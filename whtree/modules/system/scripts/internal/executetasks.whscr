@@ -22,6 +22,9 @@ INTEGER resetcount;
 OBJECT port;
 RECORD args;
 
+INTEGER maintenance_rnd_offset;
+INTEGER64 maintenance_jitter;
+
 RECORD ARRAY cachedtaskmetadata;
 
 OBJECT trans;
@@ -66,11 +69,15 @@ DATETIME FUNCTION GetTaskNextExecution(RECORD task)
           INTEGER maintenanceoffset := ToInteger(GetEnvironmentVariable("WEBHARE_MAINTENANCE_OFFSET"),0);
           IF(maintenanceoffset = 0)
             maintenanceoffset := ReadRegistryKey("system.tasks.maintenanceoffset");
-          IF(maintenanceoffset < 0 OR maintenanceoffset >= 1440) //larger than 24 hours...
-            maintenanceoffset := Random(0,1439); //then we'll take just something random in that range
+          IF(maintenanceoffset < 0 OR maintenanceoffset >= 1440) {
+            //larger than 24 hours...
+            maintenance_rnd_offset := maintenance_rnd_offset ?? Random(1,1439);
+            maintenanceoffset := maintenance_rnd_offset; //then we'll take just something random in that range
+          }
 
           //Add a small jitter between 0 and 1 minute to prevent everyone aiming for :00 exactly
-          timeoffset := maintenanceoffset * 60000i64 + Random(0,59999);
+          maintenance_jitter := maintenance_jitter ?? INTEGER64(Random(1,59999));
+          timeoffset := maintenanceoffset * 60000i64 + maintenance_jitter;
         }
 
         RETURN AddTimeToDate(timeoffset, GetNextCronTime(AddTimeToDate(-timeoffset,GetCurrentDatetime()), cacheinfo.runat));
