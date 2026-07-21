@@ -68,7 +68,7 @@ PUBLIC STRING FUNCTION GetFileSubpageURL(INTEGER fileid, STRING pagename)
       RETURN fileinfo.url;
     ELSE IF(fileinfo.isindexdoc)
     {
-      IF(ToLowercase(usefilename) = GetWebserverDefaultPage(fileinfo.outputweb)) //the file IS the default...
+      IF(ToLowercase(usefilename) = "index.html") //the file IS the default...
         usefilename := "^" || usefilename;
       RETURN ResolveToAbsoluteURL(fileinfo.url, EncodeURL(usefilename) || "/" || EncodeURL(pagename));
     }

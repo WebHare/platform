@@ -258,8 +258,8 @@ IF(is_first_initdb) {
           VALUES (portid, "", unpacked.port, unpacked.isdefaultport); //we assume 80/443 should be virtualhosted
 
     //on a DB with just 1 webserver of interface type, UpdateSystemBackendSite will automatically pick that one
-    INSERT INTO system.webservers(id,type,baseurl,outputextension,port)
-          VALUES (webserverid, 1, initial_backend, '.html',unpacked.isdefaultport ? 0 : portid);
+    INSERT INTO system.webservers(id,type,baseurl,port)
+          VALUES (webserverid, 1, initial_backend, unpacked.isdefaultport ? 0 : portid);
 
     Print(`WEBHARE_CI: Configured a webinterface at ${initial_backend}\n`);
     OBJECT backendsite := CreateSiteFromFolder(whconstant_whfsid_webharebackend);

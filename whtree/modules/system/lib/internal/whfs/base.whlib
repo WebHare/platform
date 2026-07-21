@@ -262,12 +262,6 @@ PUBLIC RECORD FUNCTION GetWHFSFileDirect(INTEGER fssettingid)
   RETURN newval;
 }
 
-// There are still some users setting outputexternsion to .shtml and in some rare cases we indeed need _that_ name
-PUBLIC STRING FUNCTION GetWebserverDefaultPage(INTEGER webserverid)
-{
-  RETURN whconstant_webserver_indexbasename || ((SELECT AS STRING outputextension FROM system.webservers WHERE webservers.id = webserverid) ?? ".html");
-}
-
 RECORD FUNCTION GetCacheablePublisherConfiguration()
 {
   RECORD config := [ stripextensions := Tokenize(ToUppercase(ReadRegistryKey("publisher.publication.stripextensions"))," ")

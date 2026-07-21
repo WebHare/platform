@@ -64,7 +64,6 @@ PUBLIC SCHEMA
     , INTEGER "type"
     , STRING "diskfolder"
     , STRING "baseurl"
-    , STRING "outputextension"
     , INTEGER "port" NULL := 0
     , INTEGER parent NULL := 0
     , STRING title

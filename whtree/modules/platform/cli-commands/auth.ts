@@ -95,9 +95,9 @@ runCli({
           created: s.created,
           sessionid: s.sessionid,
           userData: s.data?.user_data || null,
-          idToken: s.data?.tokeninfo?.id_token ? jwt.decode(s.data.tokeninfo.id_token, { complete: true }) : null,
+          idToken: s.data?.tokeninfo?.id_token ? jwt.decode(s.data.tokeninfo.id_token) : null,
           ...opts.tokens ? { tokens: s.data?.tokeninfo || null } : {}
-        }));
+        })).toSorted((lhs, rhs) => lhs.created < rhs.created ? 1 : -1); //show most recent first
         if (opts.json)
           console.log(JSON.stringify(finalList, null, 2));
         else

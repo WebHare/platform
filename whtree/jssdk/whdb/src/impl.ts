@@ -15,7 +15,7 @@ import {
 } from 'kysely';
 
 import { type BackendEvent, type BackendEventData, broadcast, fenceEvents } from '@webhare/services/src/backendevents';
-import type { WebHareBlob } from '@webhare/services/src/webhareblob';
+import { WebHareBlob } from '@webhare/services/src/webhareblob';
 import { type Mutex, lockMutex } from '@webhare/services/src/mutex.ts';
 import { debugFlags } from '@webhare/env/src/envbackend';
 import { __getBlobDatabaseId, __getBlobDiskFilePath, uploadBlobToConnection } from './blobs';
@@ -27,6 +27,7 @@ import { escapePGIdentifier } from './metadata';
 import { isError, isPromise, sleep, type WaitPeriod } from '@webhare/std';
 import type { PoolClient, WHDBClientInterface } from './connectionbase';
 import type { PGPassthroughQueryCallback } from '@webhare/postgrease';
+import type { StoreDiskFileSource } from '@webhare/system-tools';
 
 export const PGIsolationLevels = ["read committed", "repeatable read", "serializable"] as const;
 
@@ -129,14 +130,14 @@ class Work implements WorkObject {
     return __getBlobDatabaseId(data) || this.conn.client?.uploadTracker.byBlob.get(data);
   }
 
-  async uploadBlob(data: WebHareBlob | ReadableStream<Uint8Array>): Promise<WebHareBlob> {
+  async uploadBlob(data: StoreDiskFileSource): Promise<WebHareBlob> {
     if (!this.open)
       throw new Error(`Work is already closed`);
     if (!this.conn.client)
       throw new Error(`Connection was already closed`);
     if (debugFlags["db-readonly"])
       throw new DBReadonlyError();
-    if ("size" in data && (data.size === 0 || this.getUploadedBlobId(data))) //never need to upload a 0-byter or a blob we've already uploaded
+    if (WebHareBlob.isWebHareBlob(data) && (data.size === 0 || this.getUploadedBlobId(data))) //never need to upload a 0-byter or a blob we've already uploaded
       return data;
 
     const res = await uploadBlobToConnection(this.conn.client, data);
@@ -468,7 +469,7 @@ export class WHDBConnectionImpl implements WHDBConnection {
     return this.checkState(true).rollback();
   }
 
-  async uploadBlob(data: WebHareBlob | ReadableStream<Uint8Array>): Promise<WebHareBlob> {
+  async uploadBlob(data: StoreDiskFileSource): Promise<WebHareBlob> {
     return this.checkState(true).uploadBlob(data);
   }
 
@@ -673,7 +674,7 @@ export function rollbackWork() {
 /** Upload a blob to the database
  *  @returns Uploaded version of the blob. If the blob was uploaded earlier, the same WHDBBlob is returned
 */
-export async function uploadBlob(data: WebHareBlob | ReadableStream<Uint8Array>): Promise<WebHareBlob> {
+export async function uploadBlob(data: StoreDiskFileSource): Promise<WebHareBlob> {
   return getConnection().uploadBlob(data);
 }
 

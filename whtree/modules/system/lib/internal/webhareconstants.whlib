@@ -61,11 +61,8 @@ PUBLIC CONSTANT INTEGER whconstant_default_warnexpirydays := 30;
 //Default key expiry warning (days) for automatically renewed keys
 PUBLIC CONSTANT INTEGER whconstant_autorenewed_warnexpirydays := 21;
 
-//Default index page for webserver. Must be lowercase!
-PUBLIC CONSTANT STRING whconstant_webserver_indexbasename := "index";
-
 //All possible index pages for webservers. indexbasename + all supported extensions
-PUBLIC CONSTANT STRING ARRAY whconstant_webserver_indexpages := [whconstant_webserver_indexbasename || ".html", whconstant_webserver_indexbasename || ".shtml"];
+PUBLIC CONSTANT STRING ARRAY whconstant_webserver_indexpages := [ "index.html", "index.shtml"];
 
 //Webserver type of an output webserver
 PUBLIC CONSTANT INTEGER whconstant_webservertype_output := 0;

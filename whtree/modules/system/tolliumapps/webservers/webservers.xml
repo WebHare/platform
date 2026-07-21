@@ -160,10 +160,6 @@
           <option rowkey="63072000" />
         </select>
         <browseserverpath name="folder" width="1pr" acceptfiles="false" allowmanualedit="true" />
-        <select name="extension" type="pulldown" required="true" rowkeytype="string">
-          <option rowkey=".html" title=".html" />
-          <option rowkey=".shtml" title=".shtml" />
-        </select>
       </panel>
     </body>
   </screen>

@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 
 export type PackageJson = {
   version?: string;
+  type?: "commonjs" | "module";
   main?: string;
   name?: string;
   description?: string;
@@ -15,6 +16,7 @@ export type PackageJson = {
   typedocOptions?: {
     entryPoints?: string[];
   };
+  exports?: Record<string, { types?: string; import?: string; default?: string }>;
 };
 
 const npmJSPackageInstallOptions = ["--no-update-notifier", "--quiet", "--no-fund", "--no-audit", "--no-save", "--ignore-scripts", "--no-progress", "--omit=peer", "--omit=dev"];

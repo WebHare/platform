@@ -511,18 +511,13 @@ PUBLIC STATIC OBJECTTYPE UpdateWebserver EXTEND TolliumScreenBase
     this->parentid := params.parent;
     ^folder->startfolder := GetWebserverBaseOutputFolder();
 
-    IF (params.id = 0) // Add
-    {
-      ^extension->visible := FALSE;
-    }
-    ELSE //editing
+    IF (params.id != 0) //editing
     {
       RECORD webserverrec := SELECT * FROM system.webservers WHERE id = this->webserverid;
 
       this->origboundto := webserverrec.port;
       ^folder->value := FormatOutputPath(webserverrec.diskfolder);
       ^url->value := webserverrec.baseurl;
-      ^extension->value := webserverrec.outputextension;
       ^servertype->value := webserverrec.type = 0 AND webserverrec.diskfolder = "" ? -1 : webserverrec.type IN [0,1] ? webserverrec.type : 0;
       ^stricttransportsecurity->value := webserverrec.stricttransportsecurity;
     }
@@ -554,7 +549,6 @@ PUBLIC STATIC OBJECTTYPE UpdateWebserver EXTEND TolliumScreenBase
     // documentmap is not relevant for 'WebHare interface webserver' and will not be shown when creating a new webserver (you rarely change them!)
     ^folder->visible := ^servertype->value = 0 AND this->webserverid != 0;
     ^folder->required := ^servertype->value = 0 AND this->webserverid != 0;
-    ^extension->visible := ^servertype->value = 0 AND this->webserverid != 0;
   }
 
   MACRO OnBindingChange()
@@ -655,7 +649,6 @@ PUBLIC STATIC OBJECTTYPE UpdateWebserver EXTEND TolliumScreenBase
     UPDATE system.webservers
        SET diskfolder := ^servertype->value = 0 ? UnmapOutputPath(^folder->value) : ""
          , baseurl := url
-         , outputextension := ^servertype->value = 0 ? ^extension->value : ".html"
          , type := ^servertype->value = -1 ? 0 : ^servertype->value
          , port := ^boundto->value
          , stricttransportsecurity := ^stricttransportsecurity->value

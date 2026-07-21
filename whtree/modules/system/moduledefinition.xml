@@ -765,9 +765,7 @@ false = authentication is only necessary for users not matching the IP access ru
       <d:varchar name="diskfolder" maxlength="256">
         <d:documentation>Folder on disk, referring to the files of baseurl on disk. Paths must always be stored using forward slashes, and must end with a forward slash. (/)</d:documentation>
       </d:varchar>
-      <d:varchar name="outputextension" maxlength="64">
-        <d:documentation>Extension for generated formatted files (usually ".html")</d:documentation>
-      </d:varchar>
+      <d:obsoletecolumn name="outputextension" />
       <d:integer name="parent" ondelete="cascade" references=".webservers" />
       <d:integer name="port" references=".ports">
         <d:documentation>The port to which this webserver is bound. If this value is 0, this webserver can only be reached through a TCP port for which 'virtual hosting' has been enabled.</d:documentation>

@@ -213,6 +213,9 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
   }
 
   const start = new Date;
+  const logLevel: esbuild.LogLevel = data.logLevel || 'silent';
+  const verbose = ["verbose", "debug"].includes(logLevel);
+
   let esbuild_configuration: esbuild.BuildOptions & { outdir: string } = {
     stdin: {
       contents: generateEntryPoint(data.bundle.config.name, start, rootfiles),
@@ -270,14 +273,13 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
 
     nodePaths: [services.backendConfig.dataRoot + "node_modules/"],
     resolveExtensions: [".js", ".ts", ".tsx", ".es"], //es must be last so it can re-export .ts(x) without using extensions
-    logLevel: data.logLevel || 'silent'
+    logLevel
   };
 
   if (bundle.config.environment === 'window') //map 'global' to 'window' like some modules expect from webpack (see eg https://github.com/evanw/esbuild/issues/73)
     esbuild_configuration.define = { ...esbuild_configuration.define, global: "window" };
 
   let buildresult;
-  const verbose = ["verbose", "debug"].includes(esbuild_configuration.logLevel || '');
 
   try {
     if (bundle.config.esBuildSettings)

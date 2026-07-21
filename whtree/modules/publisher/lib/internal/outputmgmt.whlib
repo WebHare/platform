@@ -218,7 +218,7 @@ IF(ObjectExists(publishingbackendlink) AND cached_publish_info.istemplaterun)
 
   IF (contentfiletypeprops.ispublishedassubdir)
   {
-    firstpagename := whconstant_webserver_indexbasename || cached_publish_info.outputsettings.outputextension;
+    firstpagename := "index.html";
   }
   ELSE IF (file.id=folder.indexdoc) //folder index
   {
@@ -231,7 +231,7 @@ IF(ObjectExists(publishingbackendlink) AND cached_publish_info.istemplaterun)
         BREAK;
       }
     IF(firstpagename="")
-      firstpagename := whconstant_webserver_indexbasename || cached_publish_info.outputsettings.outputextension;
+      firstpagename := "index.html";
   }
   ELSE
   {

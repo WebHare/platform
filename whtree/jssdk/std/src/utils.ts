@@ -1,4 +1,4 @@
-import { isPromise } from "./quacks";
+import { isPromise } from "./quacks.ts";
 
 function propagateAbort(signal: AbortSignal, cb: ((reason: typeof signal["reason"]) => void) | AbortController) {
   if (signal.aborted) {

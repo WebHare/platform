@@ -98,8 +98,7 @@ PUBLIC STRING FUNCTION __GetSubpageBaseUrl(RECORD typeinfo, RECORD fileinfo)
     //An indexlink goes to file.url, others to a file.name/subpage
     IF(fileinfo.isindex)
     {
-       //we're supposed to check against GetWebserverDefaultPage(fileinfo.outputweb)... but setting the output extension to .shtml is deprecated anyway so try to get away with this..
-      IF(ToLowercase(usefilename) = whconstant_webserver_indexbasename || ".html")
+      IF(ToLowercase(usefilename) = "index.html")
         usefilename := "^" || usefilename;
       RETURN ResolveToAbsoluteURL(fileinfo.objecturl, EncodeURL(usefilename) || "/");
     }

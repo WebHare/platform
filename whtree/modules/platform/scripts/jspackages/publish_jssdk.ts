@@ -7,6 +7,10 @@ To simply verify the packges
 
 wh run mod::platform/scripts/jspackages/publish_jssdk.ts --verbose
 
+To enable them through `npm link`
+
+wh run mod::platform/scripts/jspackages/publish_jssdk.ts --link
+
 To publish alpha versions to NPM:
 
 wh run mod::platform/scripts/jspackages/publish_jssdk.ts --publish-alpha --verbose
@@ -26,6 +30,7 @@ runCli({
   description: "Validate/lint the WebHare JSSDK packages",
   flags: {
     "v,verbose": { description: "Verbose log level" },
+    "link": { description: "Enable packages through `npm link`" },
     "publish-alpha": { description: "Publish alpha packages" },
     "publish-prod": { description: "Publish production packages" },
   },
@@ -39,6 +44,12 @@ runCli({
 
     if (publishProd && publishAlpha)
       throw new Error("Use either --publish-prod or --publish-alpha but not both");
+    if (opts.link && publish)
+      throw new Error("Use either --link or --publish-* but not both");
+
+    const accesstoken = process.env.WEBHARE_JSSDK_PUBLISHTOKEN || '';
+    if (publish && !accesstoken)
+      throw new Error(`WEBHARE_JSSDK_PUBLISHTOKEN must be set to an Automation token with publish rights`);
 
     const axioms = await readAxioms();
 
@@ -141,7 +152,9 @@ runCli({
           module: "commonjs",
           types: [join(backendConfig.installationRoot, "node_modules/@types/node")],
           paths: { ["@webhare/" + pkgname]: ["."] } as Record<string, string[]>,
-          rewriteRelativeImportExtensions: true
+          rewriteRelativeImportExtensions: true,
+          //needed to allow fs.ts to include node:stream
+          esModuleInterop: true,
         }
       };
 
@@ -180,6 +193,8 @@ runCli({
             add --showConfig to dump final configuration
             add --traceResolution to debug import lookups
         */
+        if (verbose)
+          console.log(`Compiling ${pkgname} with tsc --outDir dist/`);
         const result = spawnSync(join(backendConfig.installationroot, "node_modules/.bin/tsc"), ["--outDir", "dist/"], { cwd: pkgroot, stdio });
         if (result.status) {
           console.error(`${pkgname} in ${pkgroot} failed`);
@@ -187,23 +202,28 @@ runCli({
         }
 
         packagejson.main = "dist/" + pkgname + ".js";
+        packagejson.type = "commonjs";
+        packagejson.exports = {
+          ".": {
+            "types": "./dist/" + pkgname + ".d.ts",
+            "import": "./dist/" + pkgname + ".js",
+            "default": "./dist/" + pkgname + ".js"
+          }
+        };
       }
 
       //Write the final package.json
       await writeFile(join(pkgroot, "package.json"), JSON.stringify(packagejson, null, 2) + '\n', "utf8");
     }
 
-    let accesstoken = '';
-    if (publish) {
-      accesstoken = process.env.WEBHARE_JSSDK_PUBLISHTOKEN || '';
-      if (!accesstoken)
-        throw new Error(`WEBHARE_JSSDK_PUBLISHTOKEN must be set to an Automation token with publish rights`);
-    }
-
     for (const pkgname of axioms.publishPackages) {
       const pkgroot = join(jssdkPath, pkgname);
 
-      if (publish) {
+      if (opts.link) {
+        const linkResult = spawnSync("npm", ["link"], { cwd: pkgroot, stdio });
+        if (linkResult.status)
+          throw new Error(`Failed to link ${pkgname}`);
+      } else if (publish) {
         //Publish it
         const tag = publishAlpha ? "alpha" : "latest";
         const publishResult = spawnSync("npm", ["publish", "--tag=" + tag, "--access=public", `--//registry.npmjs.org/:_authToken=${accesstoken}`], {
