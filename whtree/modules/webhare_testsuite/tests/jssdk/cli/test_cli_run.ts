@@ -204,7 +204,7 @@ async function testCLISubCommandParse() {
   }, []));
 
   test.eq({
-    cmd: "cmd",
+    cmd: ["cmd"],
     args: {},
     opts: {},
     specifiedOpts: [],
@@ -221,7 +221,7 @@ async function testCLISubCommandParse() {
   }, ["cmd"]));
 
   test.eq({
-    cmd: "hidden-cmd",
+    cmd: ["hidden-cmd"],
     args: {},
     opts: {},
     specifiedOpts: [],
@@ -239,7 +239,7 @@ async function testCLISubCommandParse() {
   }, ["hidden-cmd"]));
 
   test.eq({
-    cmd: "cmd",
+    cmd: ["cmd"],
     args: { f1: "a", f2: "b" },
     opts: { v: true, a: true },
     specifiedOpts: ["v", "a"],
@@ -330,6 +330,37 @@ async function testCLISubCommandParse() {
   }, ["--aa", "1", "--aa", "2", "--bb", "1", "--bb", "2", "--cc", "1", "--cc", "2", "--dd", "1", "--dd", "2"]));
 
 }
+
+async function testCLISubSubCommandParse() {
+  test.eq({
+    cmd: ["cmd1", "cmd1-2"],
+    args: { f1: "a", f2: "b" },
+    opts: { v: true, a: true, b: false },
+    specifiedOpts: ["v", "a"],
+    globalOpts: { v: true },
+    specifiedGlobalOpts: ["v"],
+  }, parse({
+    flags: { "v": { default: false } },
+    subCommands: {
+      "cmd1": {
+        flags: { a: { default: false } },
+        subCommands: {
+          "cmd1-1": {
+          },
+          "cmd1-2": {
+            arguments: [{ name: "<f1>" }, { name: "<f2>" }],
+            flags: { b: { default: false } },
+          }
+        }
+      },
+      "cmd2": {
+        flags: { b: { default: false } },
+        arguments: [{ name: "<f3>" }],
+      },
+    }
+  }, ["-v", "cmd1", "cmd1-2", "-a", "a", "b"]));
+}
+
 
 
 function dontRun(a: () => void) {
@@ -423,21 +454,21 @@ async function testCLITypes() {
       void res;
 
       test.typeAssert<test.Equals<{
-        cmd: "cmd";
+        cmd: ["cmd"];
         args: { f1: string };
         opts: { a: boolean };
         specifiedOpts: Array<"a">;
         globalOpts: object;
         specifiedGlobalOpts: never[];
       } | {
-        cmd: "cmd2";
+        cmd: ["cmd2"];
         args: { f2: "y" };
         opts: { b: boolean; s?: string; m: string[] };
         specifiedOpts: Array<"b" | "s" | "m">;
         globalOpts: object;
         specifiedGlobalOpts: never[];
       } | {
-        cmd: "cmd3";
+        cmd: ["cmd3"];
         args: object;
         opts: object;
         specifiedOpts: never[];
@@ -460,7 +491,7 @@ async function testCLITypes() {
       void res;
 
       test.typeAssert<test.Equals<{
-        cmd: "cmd";
+        cmd: ["cmd"];
         args: object;
         opts: { a: boolean; c: boolean; b?: string; d?: string };
         specifiedOpts: Array<"a" | "b" | "c" | "d">;
@@ -562,8 +593,8 @@ async function testCLIRun() {
           options: { s: {} },
           arguments: [{ name: "<f1>" }],
           main(data) {
-            test.typeAssert<test.Equals<{ args: { f1: string }; opts: { verbose: boolean; a: boolean; s?: string }; specifiedOpts: Array<"a" | "s" | "verbose">; cmd: "c" }, typeof data>>();
-            test.eq({ args: { f1: "a" }, opts: { a: true, verbose: false }, specifiedOpts: ["a"], cmd: "c" }, data);
+            test.typeAssert<test.Equals<{ args: { f1: string }; opts: { verbose: boolean; a: boolean; s?: string }; specifiedOpts: Array<"a" | "s" | "verbose">; cmd: ["c"] }, typeof data>>();
+            test.eq({ args: { f1: "a" }, opts: { a: true, verbose: false }, specifiedOpts: ["a"], cmd: ["c"] }, data);
             test.typeAssert<test.Equals<{ onDone?: () => void; globalOpts: { verbose: boolean }; specifiedGlobalOpts: Array<"verbose"> }, typeof res>>();
             test.eqPartial({ globalOpts: { verbose: false }, specifiedGlobalOpts: [] }, res);
           }
@@ -645,10 +676,10 @@ Options:
 
     test.typeAssert<test.Equals<
       typeof inferred.subCommands.test.main,
-      (data: { opts: { a: boolean; b?: "a" | "b" }; args: object; specifiedOpts: ("a" | "b")[]; cmd: "test" }) => void>>();
+      (data: { opts: { a: boolean; b?: "a" | "b" }; args: object; specifiedOpts: ("a" | "b")[]; cmd: ["test"] }) => void>>();
     test.typeAssert<test.Equals<
       typeof inferred.subCommands.test2.main,
-      (data: { opts: object; args: object; specifiedOpts: never[]; cmd: "test2" }) => void>>();
+      (data: { opts: object; args: object; specifiedOpts: never[]; cmd: ["test2"] }) => void>>();
 
     parse(inferred, ["test"]);
     runCli(inferred);
@@ -749,6 +780,35 @@ async function testCLIAutoCompletion() {
           },
         ],
       },
+      "subcmd": {
+        description: "Subcommand with subcommands",
+        options: {
+          "subopt": "an sub option",
+        },
+        subCommands: {
+          "sub1": {
+            description: "Subcommand 1",
+            options: {
+              "subopt1": "an sub option",
+            },
+            arguments: [
+              {
+                name: "<subarg>",
+                description: "Subcommand argument",
+                type: {
+                  parseValue: (arg: string) => arg,
+                  autoComplete: (arg: string) => ["subarg1", "subarg2"],
+                },
+              }
+            ],
+            main() { }
+          },
+          "sub2": {
+            description: "Subcommand 2",
+            main() { }
+          },
+        }
+      }
     },
   };
 
@@ -767,9 +827,11 @@ async function testCLIAutoCompletion() {
   test.eq(["--1by1=12345"], await runAutoComplete(mockData, ["--1by1=1234"], { cwd }));
 
   // Autocomplete subcommands
-  test.eq(["check\n", "convert\n"], await runAutoComplete(mockData, [""], { cwd }));
+  test.eq(["check\n", "convert\n", "subcmd\n"], await runAutoComplete(mockData, [""], { cwd }));
   test.eq(["convert\n"], await runAutoComplete(mockData, ["con"], { cwd }));
   test.eq(["convert\n"], await runAutoComplete(mockData, ["convert"], { cwd }));
+  test.eq(["subcmd\n"], await runAutoComplete(mockData, ["s"], { cwd }));
+  test.eq(["sub1\n", "sub2\n"], await runAutoComplete(mockData, ["subcmd", ""], { cwd }));
 
   const hiddenCommandData: ParseData = {
     subCommands: {
@@ -793,6 +855,7 @@ async function testCLIAutoCompletion() {
   test.eq(["-f\n"], await runAutoComplete(mockData, ["convert", "-f"], { cwd }));
   test.eq(["--format=json\n", "--format=xml\n"], await runAutoComplete(mockData, ["convert", "--format="], { cwd }));
   test.eq(["--format=json\n"], await runAutoComplete(mockData, ["convert", "--format=j"], { cwd }));
+  test.eq(["--subopt\n", "--subopt1\n"], await runAutoComplete(mockData, ["subcmd", "sub1", "--su"], { cwd }));
 
   //Lists
   test.eq(["sub:"], await runAutoComplete(mockData, ["check", "sub:123", "sub"], { cwd }));
@@ -802,6 +865,7 @@ async function testCLIAutoCompletion() {
   test.eq(["source1.txt\n", "source2.txt\n"], await runAutoComplete(mockData, ["convert", "source"], { cwd }));
   test.eq(["dest1.txt\n", "dest2.txt\n"], await runAutoComplete(mockData, ["convert", "source1.txt", "dest"], { cwd }));
   test.eq(["dest3.txt\n", "dest4.txt\n"], await runAutoComplete(mockData, ["convert", "source1.txt", "dest"], { cwd: "/other/" }));
+  test.eq(["subarg1\n", "subarg2\n"], await runAutoComplete(mockData, ["subcmd", "sub1", ""], { cwd: "/other/" }));
 
   // Handle unknown options
   test.eq([] as string[], await runAutoComplete(mockData, ["--unknown"], { cwd }));
@@ -924,6 +988,7 @@ async function testWHAutoComplete() {
 test.runTests([
   testCLIMainParse,
   testCLISubCommandParse,
+  testCLISubSubCommandParse,
   testCLITypes,
   testCLIRun,
   testCLIOptionTypes,

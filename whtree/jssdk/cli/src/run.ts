@@ -7,9 +7,9 @@ import { registerRun } from "./run-autocomplete";
 type CommandReturn = void | number | Promise<void> | Promise<number>;
 
 export class CLIError extends Error {
-  command?: string;
+  command?: string[];
 
-  constructor(message: string, command?: string) {
+  constructor(message: string, command?: string[]) {
     super(message);
     this.command = command;
   }
@@ -22,19 +22,19 @@ export class CLIConfigError extends CLIError {
 }
 
 export class CLIShowHelp extends CLIError {
-  options: { command?: string };
+  options: { command?: string[] };
 
-  constructor(message: string, options: { command?: string } = {}) {
+  constructor(message: string, options: { command?: string[] } = {}) {
     super(message, options.command);
     this.options = options;
   }
 }
 
-/** An error that will be printed to stderr (without a stackrace dump) and return an error code if handled by runCli */
+/** An error that will be printed to stderr (without a stacktrace dump) and return an error code if handled by runCli */
 export class CLIRuntimeError extends CLIError {
-  options: { exitCode?: number; showHelp?: boolean; command?: string };
+  options: { exitCode?: number; showHelp?: boolean; command?: string[] };
 
-  constructor(message: string, options: { exitCode?: number; showHelp?: boolean; command?: string } = {}) {
+  constructor(message: string, options: { exitCode?: number; showHelp?: boolean; command?: string[] } = {}) {
     super(message, options.command);
     this.options = options;
   }
@@ -42,11 +42,11 @@ export class CLIRuntimeError extends CLIError {
 
 export interface CLIArgumentType<ValueType> {
   /** Parses a user-provided value. Throws CLISyntaxError. Required to allow typeinference to work. */
-  parseValue(arg: string, options: { argName: string; command?: string }): ValueType;
+  parseValue(arg: string, options: { argName: string; command?: string[] }): ValueType;
   /** Return possible autocomplete sugegestions. Incomplete suggestions (user should add more text) should end with a '*'. Returned values that do not match the supplied 'startsWith' are ignored
    * `cwd` is the current working directory, is filled in from WH 5.9+.
   */
-  autoComplete?(startsWith: string, options: { argName: string; command?: string; cwd: string }): readonly string[] | Promise<readonly string[]>;
+  autoComplete?(startsWith: string, options: { argName: string; command?: string[]; cwd: string }): readonly string[] | Promise<readonly string[]>;
   description?: string;
 }
 
@@ -82,9 +82,7 @@ type Argument<J> = {
   type?: CLIArgumentType<J>;
 };
 
-type BaseOptionArgflags = {
-  /** Positional arguments */
-  arguments?: readonly [...Array<Argument<unknown>>];
+type BaseOptionFlags = {
   /** Flags (boolean options). Key names with dashes are converted to camelcase when passed to main() */
   flags?: Record<Lowercase<string>, FlagTemplate>;
   /** Options. Key names with dashes are converted to camelcase when passed to main() */
@@ -93,24 +91,31 @@ type BaseOptionArgflags = {
   mixedFlags?: boolean;
 };
 
-type SubCommandTemplate = BaseOptionArgflags & {
+type LevelData = BaseOptionFlags & ({
+  /** Positional arguments */
+  arguments?: readonly [...Array<Argument<unknown>>];
+  /** Main function to run for this command */
+  main?: unknown;
+  subCommands?: never;
+} | {
+  /** Subcommands for this command */
+  subCommands: Record<string, SubCommandTemplate>;
+  main?: never;
+});
+
+type SubCommandTemplate = LevelData & {
   shortDescription?: string;
   description?: string;
   hidden?: boolean;
-  main?: unknown;
 };
 
-export type ParseData = BaseOptionArgflags & ({
+export type ParseData = LevelData & {
   name?: string;
   description?: string;
-} & ({
-  subCommands?: never;
-  main?: unknown;
-} | {
-  subCommands?: Record<string, SubCommandTemplate>;
-}));
+};
 
-type OptArgBase = BaseOptionArgflags & {
+type OptArgBase = BaseOptionFlags & {
+  arguments?: readonly [...Array<Argument<unknown>>];
   subCommands?: Record<string, SubCommandTemplate>;
 };
 
@@ -163,6 +168,10 @@ type GetOptionListStoreName<K extends string> = K extends `${string},${infer E}`
 // Gets rid of the intersections within a type
 type Simplify<A extends object> = A extends object ? { [K in keyof A]: A[K] } : never;
 
+type Combine<Rec1, Rec2> = Simplify<{ [K in keyof Rec1]: K extends keyof Rec2 ? Combine<Rec1[K], Rec2[K]> : Rec1[K] } & { [K in keyof Rec2 as K extends keyof Rec1 ? never : K]: Rec2[K] }>;
+
+type ObjectUnionToIntersection<T> = (T extends unknown ? (x: T) => unknown : never) extends (x: infer R extends object) => unknown ? R : never;
+
 type IsMultiple<O extends OptionsTemplate> = O extends object ? O["multiple"] extends true ? true : false : false;
 
 type OptionValueAlwaysPresent<O extends OptionsTemplate> = IsMultiple<O> extends true ? true : O extends object ? "default" extends keyof O ? true : false : false;
@@ -180,12 +189,15 @@ type ArgumentsResult<Arguments extends ReadonlyArray<Argument<unknown>>> = [Argu
   { [ThisArgument in (Arguments[number]) as ThisArgument["name"] extends `[${string}]` ? NameOfArgument<ThisArgument> : never]?: TypeOfArgument<ThisArgument> }
 >;
 
+type FullOptionsResult<Rec extends OptArgBase> = Simplify<ObjectUnionToIntersection<Rec extends object ? OptionsResult<Rec["options"] & {}, Rec["flags"] & {}> : object>>;
+
+
 /// Calculate the resulting values record for main functions
-type MainData<Rec extends OptArgBase, Cmd extends string | null = null, ExtraOpts extends OptArgBase | null = null> = Simplify<{
+type MainData<Rec extends OptArgBase, Cmd extends string[] | null, AllRecs extends OptArgBase[]> = Simplify<{
   args: NarrowTruthy<ArgumentsResult<Rec["arguments"] & {}>>;
-  opts: NarrowTruthy<Simplify<OptionsResult<Rec["options"] & {}, Rec["flags"] & {}> & (ExtraOpts extends object ? OptionsResult<ExtraOpts["options"] & object, ExtraOpts["flags"] & object> : object)>>;
-  specifiedOpts: Array<keyof Simplify<OptionsResult<Rec["options"] & {}, Rec["flags"] & {}> & (ExtraOpts extends object ? OptionsResult<ExtraOpts["options"] & object, ExtraOpts["flags"] & object> : object)>>;
-} & (Cmd extends string ? { cmd: Cmd } : { cmd?: undefined })>;
+  opts: NarrowTruthy<FullOptionsResult<AllRecs[number]>>;
+  specifiedOpts: Array<keyof NarrowTruthy<FullOptionsResult<AllRecs[number]>>>;
+} & (Cmd extends string[] ? { cmd: Cmd } : { cmd?: undefined })>;
 
 /// Calculates the data for run() functions
 type GlobalData<Rec extends OptArgBase> = {
@@ -194,12 +206,13 @@ type GlobalData<Rec extends OptArgBase> = {
 };
 
 /// Build the declarations for the main functions
-type MainDeclarations<Rec extends OptArgBase, Cmd extends string | null = null, ExtraOpts extends OptArgBase | null = null> =
+type MainDeclarations<Rec extends OptArgBase, Cmd extends string[] | null = null, AllRecs extends OptArgBase[] = [Rec]> =
   (NarrowTruthy<Rec> extends { subCommands: any } ? {
-    subCommands: { [K in keyof Rec["subCommands"] & string]: MainDeclarations<NarrowTruthy<Rec>["subCommands"][K], K, Rec> };
+    subCommands: { [K in keyof Rec["subCommands"] & string]: MainDeclarations<NarrowTruthy<Rec>["subCommands"][K], Cmd extends string[] ? [...Cmd, K] : [K], [...AllRecs, NarrowTruthy<Rec>["subCommands"][K]]> };
   } : {
-    main: (data: MainData<Rec, Cmd, ExtraOpts>) => CommandReturn;
+    main: (data: MainData<Rec, Cmd, AllRecs>) => CommandReturn;
   });
+
 
 /// The type of the options and arguments of a record
 type PickRootOptionsArguments<T> = { [K in keyof T & ("options" | "flags" | "arguments")]: T[K] };
@@ -220,6 +233,7 @@ type InferRootOptionsArguments<T> = PickRootOptionsArguments<T> extends symbol ?
 
 /// Get only the subcommands and their options and arguments of the subcommands of a record
 type PickSubCommandOptionsArguments<T> = { [K in keyof T & "subCommands"]: { [C in keyof T[K]]: PickRootOptionsArguments<T[K][C]> } };
+type PickSubSubCommandOptionsArguments<T> = { [K in keyof T & "subCommands"]: { [C in keyof T[K]]: PickSubCommandOptionsArguments<T[K][C]> } };
 
 /** Same as InferRootOptionsArguments but for the subcommands. Note: this construction does not pick up type literals or
  * tuples (for the subcommand arguments) when using PickSubCommandOptionsArguments directly would. Those are not actually
@@ -228,21 +242,22 @@ type PickSubCommandOptionsArguments<T> = { [K in keyof T & "subCommands"]: { [C 
  * it gets influenced by the name of the argument, which is defined as a union of string literals).
 */
 type InferSubCommandOptionsArguments<T> = PickSubCommandOptionsArguments<T> extends symbol ? PickSubCommandOptionsArguments<T> : unknown;
+type InferSubSubCommandOptionsArguments<T> = PickSubSubCommandOptionsArguments<T> extends symbol ? PickSubSubCommandOptionsArguments<T> : unknown;
 
 /// Convert {} to object for options. For some reason, `& object` doesn't work here
 type NarrowTruthy<O> = {} extends Required<O> ? object : O;
 
 /// The result of parsing a commandline with the 'parse' function
-type ParseResult<GlobalRec extends OptArgBase, Rec extends OptArgBase, Cmd extends string | null = null, ExtraOpts extends OptArgBase | null = null> =
+type ParseResult<GlobalRec extends OptArgBase, Rec extends OptArgBase = GlobalRec, Cmd extends string[] | null = null, AllOpts extends OptArgBase[] = [GlobalRec]> =
   (Rec extends { subCommands: any } ? {
-    [K in keyof Rec["subCommands"] & string]: ParseResult<GlobalRec, Rec["subCommands"][K], K, Rec>
+    [K in keyof Rec["subCommands"] & string]: ParseResult<GlobalRec, Rec["subCommands"][K], Cmd extends string[] ? [...Cmd, K] : [K], [...AllOpts, Rec["subCommands"][K]]>
   }[keyof Rec["subCommands"] & string] :
-    Simplify<MainData<Rec, Cmd, ExtraOpts> & GlobalData<GlobalRec>>);
+    Simplify<MainData<Rec, Cmd, AllOpts> & GlobalData<GlobalRec>>);
 
 
 /** Check order of arguments, that required arguments aren't surrounded by optional arguments, max 1 rest parameter, etc
 */
-function checkArgumentsOrder(args: Array<Argument<unknown>>, cmd?: string): { trailingRequired: number } {
+function checkArgumentsOrder(args: Array<Argument<unknown>>, cmd?: string[]): { trailingRequired: number } {
   // Allow <required>* <optional>* ...rest(0,1)
   let curLevel = 3;
   let haveRest = 0;
@@ -333,20 +348,22 @@ function getVisibleSubCommandNames(subCommands: Record<string, SubCommandTemplat
 export function inferRunCliTypes<
   const E extends object,
   const S extends object,
+  const SS extends object,
   const Z
 >(
-  data: InferRootOptionsArguments<E> & InferSubCommandOptionsArguments<S> & NoInfer<ParseData & SanitizeOptArgs<E & S> & MainDeclarations<E & S>> & Z
+  data: InferRootOptionsArguments<E> & InferSubCommandOptionsArguments<S> & InferSubSubCommandOptionsArguments<SS> & NoInfer<ParseData & SanitizeOptArgs<E & Combine<S, SS>> & MainDeclarations<E & Combine<S, SS>>> & Z
 ): Z {
   return data;
 }
 
 export function parse<
   const E extends object,
-  const S extends object
+  const S extends object,
+  const SS extends object,
 >(
-  data: InferRootOptionsArguments<E> & InferSubCommandOptionsArguments<S> & NoInfer<ParseData & SanitizeOptArgs<E & S>>,
+  data: InferRootOptionsArguments<E> & InferSubCommandOptionsArguments<S> & InferSubSubCommandOptionsArguments<SS> & NoInfer<ParseData & SanitizeOptArgs<E & Combine<S, SS>>>,
   argv: string[]
-): ParseResult<E & S, E & S, null> {
+): ParseResult<E & Combine<S, SS>> {
   const parsedOpts: Record<string, unknown> = {};
   const parsedGlobalOpts: Record<string, unknown> = {};
   const parsedArgs: Record<string, unknown> = {};
@@ -355,7 +372,8 @@ export function parse<
 
   registerOptsAndFlags(optMap, parsedOpts, parsedGlobalOpts, true, data as OptData);
 
-  let command: [string, SubCommandTemplate] | undefined;
+  let level: LevelData = data;
+  let command: string[] | undefined;
   const specifiedOpts: string[] = [];
   const specifiedGlobalOpts: string[] = [];
 
@@ -378,7 +396,7 @@ export function parse<
         const parts = arg.slice(2).split("=");
         const key = parts[0];
         if (key.length <= 1)
-          throw new CLISyntaxError(`Invalid option syntax: ${JSON.stringify(arg)}`, command?.[0]);
+          throw new CLISyntaxError(`Invalid option syntax: ${JSON.stringify(arg)}`, command);
 
         const optionRef = optMap.get(key);
         if (!optionRef) {
@@ -390,7 +408,7 @@ export function parse<
             continue;
           }
           const bestMatch = getBestMatch(key, [...optMap.keys()]);
-          throw new CLISyntaxError(`Unknown option: ${JSON.stringify(key)}${bestMatch ? `, did you mean ${JSON.stringify(bestMatch)}?` : ``}`, command?.[0]);
+          throw new CLISyntaxError(`Unknown option: ${JSON.stringify(key)}${bestMatch ? `, did you mean ${JSON.stringify(bestMatch)}?` : ``}`, command);
         }
 
         const { storeName, isFlag, isGlobal, rec } = optionRef;
@@ -403,7 +421,7 @@ export function parse<
 
         if (isFlag) {
           if (parts.length > 1)
-            throw new CLISyntaxError(`Flag ${JSON.stringify(key)} does not take a value`, command?.[0]);
+            throw new CLISyntaxError(`Flag ${JSON.stringify(key)} does not take a value`, command);
           parsedOpts[storeName] = true;
           if (isGlobal)
             parsedGlobalOpts[storeName] = true;
@@ -411,13 +429,13 @@ export function parse<
           let strValue = parts[1];
           if (strValue === undefined) {
             if (i + 1 >= argv.length)
-              throw new CLISyntaxError(`Option ${JSON.stringify(key)} requires a value`, command?.[0]);
+              throw new CLISyntaxError(`Option ${JSON.stringify(key)} requires a value`, command);
             ++i;
             strValue = argv[i];
           }
 
           let storeValue = typeof rec === "object" && rec.type ?
-            rec.type.parseValue(strValue, { argName: `option ${JSON.stringify(key)}`, command: command?.[0] }) :
+            rec.type.parseValue(strValue, { argName: `option ${JSON.stringify(key)}`, command: command }) :
             strValue;
 
           if (typeof rec === "object" && rec.multiple)
@@ -434,13 +452,13 @@ export function parse<
           if (!optionRef) {
             if (key === "h") {
               showHelp = true;
-              // Try to read the subcommand, but only if there are subcommands specified
-              if (!data.subCommands || command)
+              // Try to read the subcommands, but only if there are subcommands specified
+              if (!data.subCommands)
                 break argvloop;
               continue;
             }
             const bestMatch = getBestMatch(key, [...optMap.keys()]);
-            throw new CLISyntaxError(`Unknown option: ${JSON.stringify(key)}${bestMatch ? `, did you mean ${JSON.stringify(bestMatch)}?` : ``}`, command?.[0]);
+            throw new CLISyntaxError(`Unknown option: ${JSON.stringify(key)}${bestMatch ? `, did you mean ${JSON.stringify(bestMatch)}?` : ``}`, command);
           }
 
           const { storeName, isFlag, isGlobal, rec } = optionRef;
@@ -462,12 +480,12 @@ export function parse<
               j += strValue.length;
             } else {
               if (i + 1 >= argv.length)
-                throw new CLISyntaxError(`Option ${JSON.stringify(key)} requires a value`, command?.[0]);
+                throw new CLISyntaxError(`Option ${JSON.stringify(key)} requires a value`, command);
               strValue = argv[++i];
             }
 
             let storeValue = typeof rec === "object" && rec.type ?
-              rec.type.parseValue(strValue, { argName: `option ${JSON.stringify(key)}`, command: command?.[0] }) :
+              rec.type.parseValue(strValue, { argName: `option ${JSON.stringify(key)}`, command: command }) :
               strValue;
 
             if (typeof rec === "object" && rec.multiple)
@@ -480,24 +498,25 @@ export function parse<
         }
       }
     } else {
-      if (!gotArgument) {
+      if (!gotArgument)
         gotArgument = true;
-        if (data.subCommands) {
-          const cmdObj = data.subCommands[arg];
-          if (!cmdObj) {
-            const bestMatch = getBestMatch(arg, getVisibleSubCommandNames(data.subCommands));
-            throw new CLISyntaxError(`Unknown subcommand: ${JSON.stringify(arg)}${bestMatch ? `, did you mean ${JSON.stringify(bestMatch)}?` : ``}`);
-          }
-          command = [arg, cmdObj];
-          registerOptsAndFlags(optMap, parsedOpts, parsedGlobalOpts, false, cmdObj as OptData);
-          mixedFlags = cmdObj.mixedFlags ?? mixedFlags;
-
-          // No need to process further if we have got a request for help
-          if (showHelp)
-            break;
-          continue;
+      if (level.subCommands) {
+        const cmdObj = level.subCommands[arg];
+        if (!cmdObj) {
+          const bestMatch = getBestMatch(arg, getVisibleSubCommandNames(level.subCommands));
+          throw new CLISyntaxError(`Unknown subcommand: ${JSON.stringify(arg)}${bestMatch ? `, did you mean ${JSON.stringify(bestMatch)}?` : ``}`);
         }
+        (command ??= []).push(arg);
+        level = cmdObj;
+        registerOptsAndFlags(optMap, parsedOpts, parsedGlobalOpts, false, cmdObj as OptData);
+        mixedFlags = cmdObj.mixedFlags ?? mixedFlags;
+
+        continue;
       }
+
+      // No need to process further if we have got a request for help
+      if (showHelp)
+        break;
 
       // Can't process the arguments inline, because required arguments at the end are supported
       argList.push(arg);
@@ -509,12 +528,12 @@ export function parse<
   if (data.subCommands && !command)
     throw new CLISyntaxError(`No subcommand specified`);
 
-  const cmdArgs = ((command ? command[1].arguments : data.arguments) || []) as Array<Argument<unknown>>;
-  const { trailingRequired } = checkArgumentsOrder(cmdArgs, command?.[0]);
+  const cmdArgs = "arguments" in level ? [...level.arguments ?? []] : [];
+  const { trailingRequired } = checkArgumentsOrder(cmdArgs, command);
 
   // Don't validate arguments when calling help
   if (showHelp)
-    throw new CLIShowHelp("", { command: command?.[0] });
+    throw new CLIShowHelp("", { command: command });
 
   // parse the arguments
   for (const arg of cmdArgs) {
@@ -524,39 +543,39 @@ export function parse<
       const parsed = argList.length <= trailingRequired ?
         [] :
         argList.splice(0, Math.max(minRequired, argList.length - trailingRequired))
-          .map(value => arg.type?.parseValue(value, { argName: `argument ${JSON.stringify(name)}`, command: command?.[0] }) ?? value);
+          .map(value => arg.type?.parseValue(value, { argName: `argument ${JSON.stringify(name)}`, command: command }) ?? value);
       if (parsed.length < minRequired)
-        throw new CLISyntaxError(`Missing required argument: ${name}`, command?.[0]);
+        throw new CLISyntaxError(`Missing required argument: ${name}`, command);
       parsedArgs[name] = parsed;
     } else if (arg.name.startsWith("<")) {
       const name = arg.name.slice(1, -1);
       if (!argList.length)
-        throw new CLISyntaxError(`Missing required argument: ${name}`, command?.[0]);
+        throw new CLISyntaxError(`Missing required argument: ${name}`, command);
       const value = argList.shift()!;
-      parsedArgs[name] = arg.type?.parseValue(value, { argName: `argument ${JSON.stringify(name)}`, command: command?.[0] }) ?? value;
+      parsedArgs[name] = arg.type?.parseValue(value, { argName: `argument ${JSON.stringify(name)}`, command: command }) ?? value;
     } else if (arg.name.startsWith("[")) {
       const name = arg.name.slice(1, -1);
       const value = argList.length > trailingRequired ? argList.shift() : undefined;
       if (value !== undefined)
-        parsedArgs[name] = arg.type?.parseValue(value, { argName: `argument ${JSON.stringify(name)}`, command: command?.[0] }) ?? value;
+        parsedArgs[name] = arg.type?.parseValue(value, { argName: `argument ${JSON.stringify(name)}`, command: command }) ?? value;
     } else
-      throw new CLIConfigError(`Invalid argument name: ${arg.name}`, command?.[0]);
+      throw new CLIConfigError(`Invalid argument name: ${arg.name}`, command);
   }
 
   if (argList.length)
-    throw new CLISyntaxError(`Too many arguments`, command?.[0]);
+    throw new CLISyntaxError(`Too many arguments`, command);
 
   return {
-    cmd: command?.[0],
+    cmd: command,
     args: parsedArgs,
     opts: parsedOpts,
     specifiedOpts,
     globalOpts: parsedGlobalOpts,
     specifiedGlobalOpts,
-  } as ParseResult<E & S, E & S, null>;
+  } as any;
 }
 
-export function printHelp(data: ParseData, options: { error?: CLIError; command?: string } = {}): void {
+export function printHelp(data: ParseData, options: { error?: CLIError; command?: string[] } = {}): void {
   const print = options.error ?
     (...args: unknown[]) => console.error(...args) :
     (...args: unknown[]) => console.log(...args);
@@ -578,6 +597,7 @@ export function printHelp(data: ParseData, options: { error?: CLIError; command?
     return names.split(",").map(name => name.length === 1 ? `-${name}` : `--${name}`).join(", ");
   }
 
+
   if (data.name)
     print(`Command: ${data.name}`);
   if (data.description)
@@ -586,43 +606,43 @@ export function printHelp(data: ParseData, options: { error?: CLIError; command?
   const secondColumnPadAt = 24;
   const maxDescriptionLen = 80;
 
-  const optionEntries = Object.entries({ ...data.options, ...data.flags }).sort(([a], [b]) => a.localeCompare(b)) as Array<[string, OptionsTemplate | FlagTemplate]>;
-  if (optionEntries.length) {
-    print(`Options:`);
-    for (const [name, option] of optionEntries) {
-      print(`  ${formatOptionNames(name).padEnd(secondColumnPadAt - 3, " ")} ${typeof option === "string" ? option : option.description || ""}${describeData(typeof option === "string" ? { description: option } : option)}`);
-    }
-  }
-  if (data.subCommands) {
-    const command = options.command ?? options.error?.command;
-    if (command) {
-      print(`Subcommand: ${command}`);
-      const commandRec = data.subCommands[command];
+  let levelData: LevelData = data;
+  const command = options.command ?? options.error?.command ?? [];
+  let indent = "";
 
-      const cmdOptionEntries = Object.entries({ ...commandRec?.options, ...commandRec?.flags }).sort(([a], [b]) => a.localeCompare(b));
-      if (cmdOptionEntries.length) {
-        print(`  Options:`);
-        for (const [name, option] of cmdOptionEntries) {
-          print(`    ${formatOptionNames(name).padEnd(secondColumnPadAt - 5, " ")} ${typeof option === "string" ? option : option.description || ""}${describeData(typeof option === "string" ? { description: option } : option)}`);
-        }
-      }
-      if (commandRec.arguments?.length) {
-        print(`  Arguments:`);
-        for (const arg of commandRec.arguments || [])
-          print(`    ${arg.name.padEnd(secondColumnPadAt - 5, " ")} ${arg.description || ""}${describeData(arg)}`);
-      }
-    } else {
-      print(`Subcommands:`);
-      for (const [name, cmd] of Object.entries(data.subCommands)
-        .filter(([, subCommand]) => !subCommand.hidden)
-        .sort(([a], [b]) => a.localeCompare(b))) {
-        print(`  ${name.padEnd(secondColumnPadAt - 3, " ")} ${cmd.shortDescription || (cmd.description ? (cmd.description.length > maxDescriptionLen ? cmd.description.slice(0, maxDescriptionLen - 1) + /*ellipsis*/"\u2026" : cmd.description) : "")}`);
+  for (; ;) {
+    const optionEntries = Object.entries({ ...levelData.options, ...levelData.flags }).sort(([a], [b]) => a.localeCompare(b)) as Array<[string, OptionsTemplate | FlagTemplate]>;
+    if (optionEntries.length) {
+      print(`${indent}Options:`);
+      for (const [name, option] of optionEntries) {
+        print(`${indent}  ${formatOptionNames(name).padEnd(secondColumnPadAt - 3, " ")} ${typeof option === "string" ? option : option.description || ""}${describeData(typeof option === "string" ? { description: option } : option)}`);
       }
     }
-  } else if (data.arguments?.length) {
-    print(`Arguments:`);
-    for (const arg of data.arguments || []) {
-      print(`  ${arg.name.padEnd(secondColumnPadAt - 3, " ")} ${arg.description || ""}`);
+
+    if (!levelData.subCommands || !command.length)
+      break;
+
+    const cmd = command.shift()!;
+    print(`${indent}Subcommand: ${cmd}`);
+    indent += "  ";
+    const subCmd = levelData.subCommands![cmd];
+    if (subCmd.description)
+      print(`${indent}Description: ${subCmd.description}`);
+
+    levelData = subCmd;
+  }
+
+  if (levelData.subCommands) {
+    print(`${indent}Subcommands:`);
+    for (const [name, cmd] of Object.entries(levelData.subCommands)
+      .filter(([, subCommand]) => !subCommand.hidden)
+      .sort(([a], [b]) => a.localeCompare(b))) {
+      print(`${indent}  ${name.padEnd(secondColumnPadAt - 3, " ")} ${cmd.shortDescription || (cmd.description ? (cmd.description.length > maxDescriptionLen ? cmd.description.slice(0, maxDescriptionLen - 1) + /*ellipsis*/"\u2026" : cmd.description) : "")}`);
+    }
+  } else if (levelData.arguments?.length) {
+    print(`${indent}Arguments:`);
+    for (const arg of levelData.arguments || []) {
+      print(`${indent}  ${arg.name.padEnd(secondColumnPadAt - 3, " ")} ${arg.description || ""}`);
     }
   }
 }
@@ -635,9 +655,10 @@ export function printHelp(data: ParseData, options: { error?: CLIError; command?
  */
 export function runCli<
   const E extends object,
-  const S extends object
+  const S extends object,
+  const SS extends object
 >(
-  data: InferRootOptionsArguments<E> & InferSubCommandOptionsArguments<S> & NoInfer<ParseData & SanitizeOptArgs<E & S> & MainDeclarations<E & S>>,
+  data: InferRootOptionsArguments<E> & InferSubCommandOptionsArguments<S> & InferSubSubCommandOptionsArguments<SS> & NoInfer<ParseData & SanitizeOptArgs<E & Combine<S, SS>> & MainDeclarations<E & Combine<S, SS>>>,
   options: {
     argv?: string[];
   } = {}
@@ -652,10 +673,10 @@ export function runCli<
   if (registerData.mode === "autocomplete")
     return runReturn;
 
-  const parsed: Record<string, unknown> & { cmd?: string } = {};
+  const parsed: Record<string, unknown> & { cmd?: string[] } = {};
   try {
     // The return type of parse is not very useful in this (generic) context, so we cast it to a useful type
-    const parseReturn = parse<E, S>(data, options.argv ?? process.argv.slice(2)) as { cmd?: string } & ReturnType;
+    const parseReturn = parse<E, S, SS>(data, options.argv ?? process.argv.slice(2)) as { cmd?: string[] } & ReturnType;
     runReturn.globalOpts = parseReturn.globalOpts;
     runReturn.specifiedGlobalOpts = parseReturn.specifiedGlobalOpts;
     for (const [key, value] of Object.entries(parseReturn))
@@ -682,14 +703,8 @@ export function runCli<
     await Promise.resolve();
 
     try {
-      let retval: CommandReturn;
-      if (parsed.cmd) {
-        const cmd = data.subCommands![parsed.cmd];
-        retval = (cmd.main as MainFunc)(parsed);
-      } else
-        retval = (data as { main: MainFunc }).main(parsed);
-
-      retval = await retval;
+      const cmdObj = (parsed.cmd ?? []).reduce((level, cmd) => level.subCommands![cmd], data as LevelData);
+      const retval = await (cmdObj as { main: MainFunc }).main(parsed);
       if (typeof retval === "number")
         process.exitCode ??= retval;
     } catch (e) {
@@ -806,8 +821,9 @@ export function enumOption<const T extends string>(allowedValues: readonly T[]):
  */
 export async function runAutoComplete(data: ParseData, argv: string[], { cwd }: { cwd: string }): Promise<string[]> {
   const optMap = new Map<string, { storeName: string; isFlag: true; isGlobal: boolean; rec: FlagTemplate } | { storeName: string; isFlag: false; isGlobal: boolean; rec: OptionsTemplate }>();
-  let command: [string, SubCommandTemplate] | undefined;
-
+  let levelData: LevelData = data;
+  let command: string[] | undefined;
+  let cmdArgs: Argument<unknown>[] = [];
   registerOptsAndFlags(optMap, null, null, true, data as OptData);
 
   let gotOptionTerminator = false;
@@ -839,7 +855,7 @@ export async function runAutoComplete(data: ParseData, argv: string[], { cwd }: 
           if (i === argv.length - 1) {
             // autocompleting the argument of this option
             if (typeof optionRef.rec === "object" && optionRef.rec.type?.autoComplete) {
-              const completes = await optionRef.rec.type.autoComplete(argv[i], { argName: `option ${JSON.stringify(key)}`, command: command?.[0], cwd });
+              const completes = await optionRef.rec.type.autoComplete(argv[i], { argName: `option ${JSON.stringify(key)}`, command, cwd });
               return completes.filter(c => c.startsWith(argv[i])).map(fixAutcompleteSuffix);
             }
             return [];
@@ -851,7 +867,7 @@ export async function runAutoComplete(data: ParseData, argv: string[], { cwd }: 
             if (optionRef?.isFlag || typeof optionRef?.rec !== "object" || !optionRef?.rec.type || !optionRef.rec.type.autoComplete)
               return [];
 
-            const completes = await optionRef.rec.type.autoComplete(parts[1], { argName: `option ${JSON.stringify(key)}`, command: command?.[0], cwd });
+            const completes = await optionRef.rec.type.autoComplete(parts[1], { argName: `option ${JSON.stringify(key)}`, command, cwd });
             return completes.map(c => `--${key}=${c}`).filter(c => c.startsWith(arg)).map(fixAutcompleteSuffix);
           }
 
@@ -882,7 +898,7 @@ export async function runAutoComplete(data: ParseData, argv: string[], { cwd }: 
           // option followed by immediate value
           if (isLast) {
             if (typeof optionRef.rec === "object" && optionRef.rec.type?.autoComplete) {
-              const completes = await optionRef.rec.type.autoComplete(arg.slice(j + 1), { argName: `option ${JSON.stringify(key)}`, command: command?.[0], cwd });
+              const completes = await optionRef.rec.type.autoComplete(arg.slice(j + 1), { argName: `option ${JSON.stringify(key)}`, command, cwd });
               return completes.map(c => `${arg.slice(0, j + 1)}${c}`).filter(c => c.startsWith(arg));
             }
             return [];
@@ -900,7 +916,7 @@ export async function runAutoComplete(data: ParseData, argv: string[], { cwd }: 
         ++i;
         if (i === argv.length - 1) {
           if (typeof optionRef.rec === "object" && optionRef.rec.type?.autoComplete) {
-            const completes = await optionRef.rec.type.autoComplete(arg.slice(j + 1), { argName: `option ${JSON.stringify(key)}`, command: command?.[0], cwd });
+            const completes = await optionRef.rec.type.autoComplete(arg.slice(j + 1), { argName: `option ${JSON.stringify(key)}`, command, cwd });
             return completes.filter(c => c.startsWith(arg));
           }
           return [];
@@ -913,32 +929,33 @@ export async function runAutoComplete(data: ParseData, argv: string[], { cwd }: 
     }
 
     // This is the command (if subCommands are specified) or an argument
-    if (data.subCommands && !command) {
+    if (levelData.subCommands) {
       if (isLast) {
-        return getVisibleSubCommandNames(data.subCommands).filter(k => k.startsWith(arg)).sort().map(k => `${k}\n`);
+        return getVisibleSubCommandNames(levelData.subCommands).filter(k => k.startsWith(arg)).sort().map(k => `${k}\n`);
       }
 
-      const cmdObj = data.subCommands[arg];
+      const cmdObj = levelData.subCommands[arg];
       if (!cmdObj)
         return [];
 
-      command = [arg, cmdObj];
+      levelData = cmdObj;
+      (command ??= []).push(arg);
+      if (!cmdObj.subCommands && "arguments" in cmdObj)
+        cmdArgs = [...cmdObj.arguments ?? []];
       registerOptsAndFlags(optMap, null, null, false, cmdObj as OptData);
       continue;
     }
 
-    const args: ReadonlyArray<Argument<unknown>> = (command ? command[1].arguments : data.arguments) || [];
-
-    if (argIdx >= args.length)
+    if (argIdx >= cmdArgs.length)
       return [];
 
     // FIXME: if required arguments follow the optional arguments, maybe merge autocompletes?
 
-    const curArg = args[argIdx];
+    const curArg = cmdArgs[argIdx];
     if (curArg.name.endsWith("...>") || curArg.name.endsWith("...]")) {
       if (isLast) {
         if (curArg.type?.autoComplete) {
-          const completes = await curArg.type.autoComplete(arg, { argName: `argument ${JSON.stringify(curArg.name)}`, command: command?.[0], cwd });
+          const completes = await curArg.type.autoComplete(arg, { argName: `argument ${JSON.stringify(curArg.name)}`, command, cwd });
           return completes.filter(c => c.startsWith(arg)).map(fixAutcompleteSuffix);
         }
         return [];
@@ -949,7 +966,7 @@ export async function runAutoComplete(data: ParseData, argv: string[], { cwd }: 
     ++argIdx;
     if (isLast) {
       if (curArg.type?.autoComplete) {
-        const completes = await curArg.type.autoComplete(arg, { argName: `argument ${JSON.stringify(curArg.name)}`, command: command?.[0], cwd });
+        const completes = await curArg.type.autoComplete(arg, { argName: `argument ${JSON.stringify(curArg.name)}`, command, cwd });
         return completes.filter(c => c.startsWith(arg)).map(fixAutcompleteSuffix);
       }
       return [];
