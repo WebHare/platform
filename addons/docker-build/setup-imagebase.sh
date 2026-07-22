@@ -117,6 +117,9 @@ PACKAGES+=(
   pango
 )
 
+# To be able to support oracle instantclient
+PACKAGES+=(libnsl)
+
 dnf install -y "${PACKAGES[@]}"
 
 source "${BASH_SOURCE%/*}/setup-base-shared.sh"

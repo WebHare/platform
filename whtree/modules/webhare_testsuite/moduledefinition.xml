@@ -307,6 +307,7 @@
     <obsoletenode name="apis" />
 
     <node name="registrytests">
+      <datetime name="temporal_instant" />
       <obsoletekey name="removekey" />
       <obsoletenode name="removenode" />
     </node>

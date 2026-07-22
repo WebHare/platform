@@ -1,5 +1,6 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { loadlib } from "@webhare/harescript";
+import { defaultDateTime } from "@webhare/hscompat";
 import { readRegistryKey, writeRegistryKey, getRegistryKeyEventMasks, WebHareBlob, readRegistryNode, type RegistryKeyOfType } from "@webhare/services";
 import { deleteRegistryKey, deleteRegistryNode, signalOnRegistryKeyChange, splitRegistryKey } from "@webhare/services/src/registry";
 import { Money } from "@webhare/std";
@@ -35,7 +36,7 @@ async function testLowLevel() {
   //@ts-expect-error -- taskthrownow is of type boolean
   "webhare_testsuite:tests.taskthrownow" satisfies RegistryKeyOfType<string>;
 
-  "webhare_testsuite:tests.lastaftercompile" satisfies RegistryKeyOfType<Temporal.Instant>;
+  "webhare_testsuite:tests.lastaftercompile" satisfies RegistryKeyOfType<Temporal.Instant | null>;
 
   //Ensure readRegistryKey trusts RegistryKeyOfType<boolean>
   const booleanKey: RegistryKeyOfType<boolean> = "webhare_testsuite:tests.taskthrownow";
@@ -164,6 +165,17 @@ async function testModuleDefs() {
 
   test.eq(0, await readRegistryKey("webhare_testsuite.registrytests.removekey", 0));
   test.eq(0, await readRegistryKey("webhare_testsuite.registrytests.removenode.subkey", 0));
+
+  await beginWork();
+  test.eq(null, await readRegistryKey("webhare_testsuite:registrytests.temporal_instant"));
+  await writeRegistryKey("webhare_testsuite:registrytests.temporal_instant", Temporal.Instant.from("2024-01-01T00:00:00Z"));
+  test.eq(Temporal.Instant.from("2024-01-01T00:00:00Z"), await readRegistryKey("webhare_testsuite:registrytests.temporal_instant"));
+  test.eq(new Date("2024-01-01T00:00:00Z"), await loadlib("mod::system/lib/configure.whlib").readRegistryKey("webhare_testsuite:registrytests.temporal_instant"));
+  await writeRegistryKey("webhare_testsuite:registrytests.temporal_instant", null);
+  test.eq(null, await readRegistryKey("webhare_testsuite:registrytests.temporal_instant"));
+  test.eq(defaultDateTime, await loadlib("mod::system/lib/configure.whlib").readRegistryKey("webhare_testsuite:registrytests.temporal_instant"));
+  await commitWork();
+
 }
 
 test.runTests([
