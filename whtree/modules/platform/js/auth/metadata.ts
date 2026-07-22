@@ -11,7 +11,7 @@ import type { IdTokenSigningAlgValuesSupported, OpenIdConfiguration } from "@web
 export async function wellKnownRouter(req: WebRequest): Promise<WebResponse> {
   const target = await lookupPublishedTarget(req.url.toString()); //TODO can't we use 'obj' directly instead of going through a URL lookup?
   if (!target?.targetObject)
-    throw new Error(`Unable to trace rqeuest back to a target`);
+    throw new Error(`Unable to trace request back to a target`);
 
   const tester = await getApplyTesterForObject(target.targetObject);
   const wrdSchemaTag = (await tester.getWRDAuth())?.wrdSchema;
