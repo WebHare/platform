@@ -43,6 +43,7 @@ PUBLIC RECORD ARRAY FUNCTION GetRevisionOfAllModulesDev()
   RECORD ARRAY results;
 
   RECORD ARRAY potentialfolders;
+  //FIXME walk moduleinstallation data, don't scan manually
   FOREVERY (STRING modulesdir FROM GetWebHareConfiguration().moduledirs)
   {
     FOREVERY (RECORD rec FROM SELECT * FROM ReadDiskDirectory(modulesdir, "*") WHERE type = 1)
@@ -91,7 +92,7 @@ RECORD FUNCTION GetRevisionOfGitModule(STRING modulepath)
 {
   IF (NOT RecordExists(GetDiskFileProperties(MergePath(modulepath, "moduledefinition.xml"))))
     RETURN DEFAULT RECORD;
-  IF (NOT RecordExists(GetDiskFileProperties(MergePath(modulepath, ".git"))))
+    IF(GetGitRepoRoot(modulepath) != "")
     RETURN DEFAULT RECORD;
 
   IF (modulepath NOT LIKE "*/")
@@ -109,8 +110,7 @@ RECORD FUNCTION GetRevisionOfGitModule(STRING modulepath)
              ];
 }
 
-RECORD FUNCTION CreateModuleManifest(STRING module, STRING modulepath, STRING login, STRING fullname, RECORD ARRAY filehashes, FUNCTION PTR testinclude, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
+RECORD FUNCTION CreateModuleManifest(STRING module, STRING modulepath, STRING login, STRING fullname, RECORD ARRAY filehashes, FUNCTION PTR testinclude, RECORD options DEFAULTSTO DEFAULT RECORD) {
   options := ValidateOptions(
       [ ignoremodifications :=  FALSE
       ], options);
@@ -207,10 +207,8 @@ RECORD FUNCTION CreateModuleManifest(STRING module, STRING modulepath, STRING lo
   {
     xml_changeset->SetAttribute("source", "local");
 
-    RECORD gitdirdata := GetDiskFileProperties(MergePath(modulepath, ".git"));
-
-    IF (RecordExists(gitdirdata))
-    {
+    STRING gitroot := GetGitRepoRoot(modulepath);
+    IF (gitroot != "") {
       RECORD md := AnalyzeGITModuleDir(modulepath, TRUE, TRUE);
       IF (RecordExists(md))
       {
@@ -608,7 +606,7 @@ PUBLIC RECORD FUNCTION AnalyzeGITModuleDir(STRING modulepath, BOOLEAN with_commi
   IF(with_fetch)
     ExecuteDevGitCommand(modulepath, ["fetch"]);
 
-  RECORD status := DescribeGitRepo(modulepath, FALSE); //TODO don't grab commits if not requested
+  RECORD status := DescribeGitRepo(modulepath); //TODO don't grab commits if not requested
   IF (status.status != "ok")
     RETURN DEFAULT RECORD;
 

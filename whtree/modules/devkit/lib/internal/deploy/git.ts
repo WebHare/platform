@@ -1,5 +1,8 @@
 import { logDebug } from "@webhare/services/src/logging";
+import { attempt } from "@webhare/std";
 import * as child_process from "child_process";
+import * as fs from "fs";
+import * as path from "path";
 import { simpleGit } from 'simple-git';
 
 //TODO is this useful?  https://isomorphic-git.org/docs/en/snippets#use-native-git-credential-manager
@@ -33,12 +36,27 @@ export async function executeGitCommandForeground(parameters: string[], { workin
   return exitinfo;
 }
 
+export function getGitRepoRoot(dir: string): string {
+  dir = path.resolve(dir);
+  while (dir) {
+    const gitPath = path.join(dir, ".git");
+    if (fs.existsSync(gitPath) && fs.statSync(gitPath).isDirectory())
+      return dir;
 
-function tryOrFallback<T>(func: () => Promise<T>, fallback: T): Promise<T> {
-  return func().catch(() => fallback);
+    const parentDir = path.dirname(dir);
+    if (parentDir === dir) {
+      break;
+    }
+    dir = parentDir;
+  }
+  return "";
 }
 
 export async function getRepoInfo(dir: string, options: { branch?: string } = {}) {
+  dir = path.resolve(dir); //clean it
+
+  const repoRoot = getGitRepoRoot(dir);
+  const subRoot = path.relative(repoRoot, dir);
   const gitty = simpleGit({ baseDir: dir });
 
   let branch;
@@ -48,8 +66,8 @@ export async function getRepoInfo(dir: string, options: { branch?: string } = {}
     branch = options.branch || 'HEAD';
   }
 
-  const head_oid = await tryOrFallback(() => gitty.revparse([branch]), '');
-  const origin_oid = await tryOrFallback(() => gitty.revparse([`origin/${branch}`]), '');
+  const head_oid = await attempt(() => gitty.revparse([branch]), '');
+  const origin_oid = await attempt(() => gitty.revparse([`origin/${branch}`]), '');
 
   const remotes = await gitty.getRemotes(true);
   const remote_url = remotes.find(r => r.name === 'origin')?.refs?.fetch ?? "";
@@ -59,7 +77,7 @@ export async function getRepoInfo(dir: string, options: { branch?: string } = {}
 
   const status = await gitty.status();
   // if (!status.isClean()) console.error(status);
-  const paths = status.files.map(f => ({ path: f.path }));
+  const paths = status.files.map(f => ({ path: f.path })).filter(f => f.path.startsWith(subRoot));
 
   const result = {
     branch,
@@ -81,7 +99,7 @@ export async function getRepoInfo(dir: string, options: { branch?: string } = {}
   return result;
 }
 
-export async function describeGitRepo(dir: string, obsolete: boolean) {
+export async function describeGitRepo(dir: string) {
   try {
     return await getRepoInfo(dir);
   } catch (e) {
