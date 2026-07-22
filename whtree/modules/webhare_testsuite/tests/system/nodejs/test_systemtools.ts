@@ -1,6 +1,6 @@
 import * as test from "@webhare/test";
 import { storeDiskFile, listDirectory, deleteRecursive } from "@webhare/system-tools";
-import { mkdtemp, stat, utimes } from 'node:fs/promises';
+import { mkdtemp, rm, stat, utimes } from 'node:fs/promises';
 import * as path from "node:path";
 import * as os from "node:os";
 import { existsSync, readFileSync, symlinkSync } from "node:fs";
@@ -70,6 +70,16 @@ async function testFS() {
   modtime = await rewindAndGetModTime(deepestfile);
   test.eq({ skipped: false }, await storeDiskFile(deepestfile, "Deepest file!", { overwrite: true }));
   test.assert(modtime < (await stat(deepestfile)).mtime, "Should have been touched (onlyIfChanged not set)");
+
+  // non-overwrite with a stream that fails should not create the file after the function returns
+  test.assert(!existsSync(path.join(tempdir, "3.txt")), "File should not exist before testing non-overwrite");
+  await test.throws(/Test error/, () => storeDiskFile(path.join(tempdir, "3.txt"), new Readable({ read() { this.destroy(new Error("Test error")); } }), { overwrite: false }));
+  test.assert(!existsSync(path.join(tempdir, "3.txt")), "File should not exist after failed write");
+
+  // should error out when the file already exists with overwrite: false
+  await storeDiskFile(path.join(tempdir, "3.txt"), "a", { overwrite: false });
+  await test.throws(/file already exists/, storeDiskFile(path.join(tempdir, "3.txt"), "a", { overwrite: false }));
+  await rm(path.join(tempdir, "3.txt"));
 
   symlinkSync(path.join(tempdir, "subdir"), path.join(tempdir, "subdir", "backup"));
 

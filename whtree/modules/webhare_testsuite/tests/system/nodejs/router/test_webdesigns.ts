@@ -572,6 +572,18 @@ async function testRouter_JSWebDesign() {
   await verifyMarkdownResponse(markdowndoc, result);
 }
 
+async function testRouter_JSLinkResolving() {
+  const { port, clientIp, localAddress } = await test.getTestWebserver("webhare_testsuite:basicrouter");
+  const linktypedoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/linktypes");
+  const result = await coreWebHareRouter(port, new IncomingWebRequest(linktypedoc.link!, { clientIp }), localAddress);
+
+  const doc = parseDocAsXML(await result.text(), "text/html", { rewriteHTML: true });
+  const links = doc.getElementsByTagName("a");
+  test.cmp(links.length, ">=", 2);
+  test.eq("https://beta.webhare.net/?resolvedby=js&subpath=test-link-resolution&target=%2FTestPages%2Flinktypes", links[0].getAttribute("href"));
+  test.eq("https://beta.webhare.net/?resolvedby=js&whfspath=%2Fwebhare-private%2Fwebhare_testsuite%2Fcontent%2Flinktarget.txt", links[1].getAttribute("href"));
+}
+
 test.runTests([
   test.reset,
   testPageResponse,
@@ -584,5 +596,6 @@ test.runTests([
   testPublishedJSSite,
   testCaptureJSRendered,
   testRouter_HSWebDesign,
-  testRouter_JSWebDesign
+  testRouter_JSWebDesign,
+  testRouter_JSLinkResolving,
 ]);

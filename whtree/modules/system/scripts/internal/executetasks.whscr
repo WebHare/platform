@@ -194,7 +194,7 @@ MACRO LaunchTask(RECORD task)
   LogDebug("system:executetasks", "starttask", [ tag := task.tag, pid := pid ]);
 }
 
-MACRO RunStartupScripts(STRING modulename)
+MACRO RunStartupScripts(STRING modulename, BOOLEAN runrunonce)
 {
   STRING ARRAY last_uncompleted_startup_scripts := uncompleted_startup_scripts;
 
@@ -232,6 +232,19 @@ MACRO RunStartupScripts(STRING modulename)
                , iteration := resetcount
             FROM mod.startupscripts WHERE when="afterlaunch");
   }
+
+  IF (runrunonce) {
+    INSERT [
+      id := 0,
+      script := "mod::system/scripts/internal/runonce-poststart.whscr",
+      tag := `poststart-runonce ${modulename ?? "platform"}`,
+      parameters := " |params| " || EncodeHSON([ modulename ]),
+      started := FALSE,
+      timeout := 0,
+      iteration := resetcount
+    ] INTO module_startup_scripts AT END;
+  }
+
   IF(args.debug)
   {
     Print("Scheduled startup scripts\n");
@@ -367,7 +380,7 @@ MACRO OnSoftReset(STRING event, RECORD data)
     RETURN; //no need to run scripts in response to a deletion
 
   IF (CellExists(data, "toreload") AND TypeID(data.toreload) = TypeID(STRING ARRAY) AND ("ALL" IN data.toreload OR "MODULEINIT" IN data.toreload))
-    RunStartupScripts("");
+    RunStartupScripts("", FALSE);
 }
 
 STRING FUNCTION HandleOutput(BOOLEAN iserror, STRING input, RECORD task)
@@ -684,7 +697,7 @@ OBJECT ASYNC FUNCTION GotIncomingLink()
         {
           Print("poststartmodule event, runstartup scripts for: " || (rec.msg.modulename ?? "*") || "\n");
         }
-        RunStartupScripts(rec.msg.modulename);
+        RunStartupScripts(rec.msg.modulename, TRUE);
         link->SendReply([ status := "ok" ], rec.msgid);
       }
       CASE "listprocesses"
@@ -747,7 +760,7 @@ ReadConfiguration();
 
 ResetCurrentStarts();
 WaitForPromise(CreateWHServiceStatePromise("poststartdone")); //don't bother runnning scheduled tasks until the system is ready
-RunStartupScripts("");
+RunStartupScripts("", FALSE);
 
 Debug("Starting main loop");
 InnerLoop();

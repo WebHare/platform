@@ -1,0 +1,20 @@
+type: platform:filetypes.richdocument
+instances:
+  - whfsType: platform:virtual.objectdata
+    clone: onCopy
+    data:
+      title: Link types and their resolving
+      publish: true
+  - whfsType: platform:filetypes.richdocument
+    clone: onCopy
+    data:
+      data:
+        - p:
+          - "Try this "
+          - text: link
+            link: x-webhare-testsuite-1:test-link-resolution
+        - p:
+          - text: "And this "
+          - text: one
+            link:
+              internalLink: whfs::/webhare-private/webhare_testsuite/content/linktarget.txt

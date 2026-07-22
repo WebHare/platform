@@ -1,0 +1,53 @@
+<?wh
+
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
+LOADLIB "mod::system/lib/internal/modulemanager.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/cluster/lockmanager.whlib";
+LOADLIB "mod::system/lib/internal/modules/migrations.whlib";
+
+
+RECORD ARRAY options :=
+  [ [ name := "debug", type := "switch" ]
+  , [ name := "module", type := "param" ]
+  ];
+
+RECORD args := ParseArguments(GetConsoleArguments(), options);
+
+MACRO HandleRunonceOutput(RECORD module, RECORD ro_result)
+{
+  FOREVERY(STRING msg FROM ro_result.messages)
+    Print(module.name || " poststart runonce script: " || msg || "\n");
+}
+
+MACRO RunPostStartRunOnceScripts()
+{
+  RECORD ARRAY modlist := GetWebHareModules();
+
+  FOREVERY (RECORD module FROM modlist)
+  {
+    IF (args.module != "" AND args.module != module.name)
+      CONTINUE;
+
+    // post-start.whscr can also run poststart scripts, so lock
+    OBJECT lock := OpenLockManager()->LockMutex("system:runonce.poststart");
+    TRY {
+      OBJECT validator := GetModuleXMLValidator(module.name);
+      INSERT CELL runoncescripts := ParseModuleDefRunonce(validator) INTO module;
+
+      RECORD ro_result := RunRunOnceScripts(module, "poststart", args.debug);
+      HandleRunonceOutput(module, ro_result);
+    } FINALLY {
+      lock->Release();
+    }
+  }
+}
+
+PRINT(`runonce-poststart start,arguments: ${Detokenize(GetConsoleArguments(), ",")}\n`);
+
+OpenPrimary();
+RunPostStartRunOnceScripts();
+PRINT(`runonce-poststart finished\n`);

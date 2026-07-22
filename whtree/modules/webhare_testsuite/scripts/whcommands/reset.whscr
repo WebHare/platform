@@ -59,6 +59,9 @@ MACRO SetupTestSite(OBJECT testsite) {
                     "site::webhare_testsuite.testsite" "$(wh getmoduledir webhare_testsuite)data/whfs/"
   */
 
+  // External files linked to by the testsuite
+  OBJECT linktarget := OpenWHFSPrivateFolder("webhare_testsuite")->EnsureFolder([ name := "content" ])->EnsureFile([ name := "linktarget.txt" ]);
+
   RECORD result := ImportIntoWHFS(testsite->rootobject->parent, [
       sourcepath := GetWebHareResourceDiskPath("mod::webhare_testsuite/data/whfs"),
       // printprogress := TRUE,

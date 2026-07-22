@@ -1,6 +1,6 @@
 import { appendToArray, generateRandomId, regExpFromWildcards } from "@webhare/std";
 import type { Dirent } from "node:fs";
-import { mkdir, open, type FileHandle, rename, unlink, readdir, rmdir, writeFile, readFile } from "node:fs/promises";
+import { mkdir, open, type FileHandle, rename, unlink, readdir, rmdir, writeFile, readFile, stat } from "node:fs/promises";
 import { isAbsolute, join, parse } from "node:path";
 import type Stream from "node:stream";
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
@@ -95,7 +95,18 @@ export async function storeDiskFile(path: string, data: StoreDiskFileSource, opt
     }
   } finally {
     //cleanup, ignore errors at this point
-    reservefile?.close().catch(function () {/*ignore*/ });
+    if (reservefile) {
+      try {
+        // check if the current file is the same as the reserved file (ie. we created it) and delete it if so
+        const reserveStat = await reservefile.stat();
+        const targetStat = await stat(path);
+        if (reserveStat.dev === targetStat.dev && reserveStat.ino === targetStat.ino) {
+          // dev and inode are the same, so we created the file and need to delete it
+          await unlink(path);
+        }
+      } catch (err) { /* ignore */ }
+      reservefile.close().catch(function () {/*ignore*/ });
+    }
     if (writepath)
       unlink(writepath).catch(function () {/*ignore*/ });
   }
