@@ -58,8 +58,8 @@ async function getRows(xlsx: File) {
 
 export async function testXLSXColumnFiles() {
   //@ts-expect-error - Column definition is also rejected by TS
-  const incopmpleteColums: SpreadsheetColumn[] = [{ name: "date", type: "dateTime" }];
-  await test.throws(/storeUTC/, generateXLSX({ rows: testSheet.rows, columns: incopmpleteColums }));
+  const incompleteColumns: SpreadsheetColumn[] = [{ name: "date", type: "dateTime" }];
+  await test.throws(/storeUTC/, generateXLSX({ rows: testSheet.rows, columns: incompleteColumns }));
   await test.throws(/no timeZone/, generateXLSX({ rows: testSheet.rows, columns: columns.filter(_ => _.type === "dateTime").map(_ => ({ ..._, storeUTC: true })) }));
   await test.throws(/no timeZone/, generateXLSX({ rows: testSheet.rows, columns }));
 
@@ -177,28 +177,98 @@ async function testAutoXLSXColumnFiles() {
     ],
     [
       'Ti<>tle 1',
-      'true',
+      true,
       'Thu Dec 08 2011 07:58:12 GMT+0100 (Central European Standard Time)',
-      '17',
-      '25092000',
+      17,
+      25092000,
       'Thu Dec 08 2011 07:58:12 GMT+0100 (Central European Standard Time)',
-      '1.5',
-      '0',
-      '3.5'
+      1.5,
+      0,
+      3.5
     ],
     [
       'Tit&le 2\nnext line!',
-      'false',
+      false,
       'Wed Nov 09 2011 00:06:06 GMT+0100 (Central European Standard Time)',
-      '666',
-      '666000',
+      666,
+      666000,
       'Wed Nov 09 2011 00:06:06 GMT+0100 (Central European Standard Time)',
-      '2.5',
-      '-10000000000',
-      '1.30000000004'
+      2.5,
+      -10000000000,
+      (val: number) => Math.abs(val - 1.30000000004) < 0.0001
     ],
-    ['Third row', 'false', '', '0', '0', '', '0', '0']
+    ['Third row', false, '', 0, 0, '', 0, 0]
   ], await getRows(doc));
+
+  //To autodetect Dates we *do* need an output timezone
+  const docWithTimezone = await generateXLSX({ rows: testSheet.rows, timeZone: "Europe/Amsterdam" });
+  test.eq([
+    [
+      'title', 'bool',
+      'date', 'int',
+      'time', 'dt',
+      'mf', 'int64',
+      'floating'
+    ],
+    [
+      'Ti<>tle 1',
+      true,
+      new Date("2011-12-08T07:58:12.000Z"),
+      17,
+      25092000,
+      new Date("2011-12-08T07:58:12.000Z"),
+      1.5,
+      0,
+      3.5
+    ],
+    [
+      'Tit&le 2\nnext line!',
+      false,
+      new Date("2011-11-09T00:06:06.000Z"),
+      666,
+      666000,
+      new Date("2011-11-09T00:06:06.000Z"),
+      2.5,
+      -10000000000,
+      1.30000000004
+    ],
+    ['Third row', false, '', 0, 0, '', 0, 0]
+  ], await getRows(docWithTimezone));
+
+  //And test with Temporal generators
+  const docTemporalWithTimezone = await generateXLSX({ rows: getTestSpreadsheet({ temporal: true }).rows, timeZone: "Europe/Amsterdam" });
+  test.eq([
+    [
+      'title', 'bool',
+      'date', 'int',
+      'time', 'dt',
+      'mf', 'int64',
+      'floating'
+    ],
+    [
+      'Ti<>tle 1',
+      true,
+      new Date("2011-12-08T00:00:00Z"),
+      17,
+      25092000,
+      new Date("2011-12-08T07:58:12.000Z"),
+      1.5,
+      0,
+      3.5
+    ],
+    [
+      'Tit&le 2\nnext line!',
+      false,
+      new Date("2011-11-08T00:00:00.000Z"),
+      666,
+      666000,
+      new Date("2011-11-09T00:06:06.000Z"),
+      2.5,
+      -10000000000,
+      1.30000000004
+    ],
+    ['Third row', false, '', 0, 0, '', 0, 0]
+  ], await getRows(docTemporalWithTimezone));
 }
 
 async function testXLSXMultipleSheets() {

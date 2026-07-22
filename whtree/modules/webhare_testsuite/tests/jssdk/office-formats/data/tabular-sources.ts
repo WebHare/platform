@@ -15,47 +15,46 @@ const columns: SpreadsheetColumn[] =
     { name: "floating", title: "Col 11:floating", type: "number", decimals: 3 }
   ];
 
-const now = new Date("2011-12-08T07:58:12");
-const sometime = new Date("2011-11-09T00:06:06");
+const now = new Date("2011-12-08T07:58:12+0100");
+const sometime = new Date("2011-11-09T00:06:06+0100");
 
-const reftrestrows = [
-  {
-    title: "Ti<>tle 1",
-    bool: true,
-    date: now,
-    int: 17,
-    time: now.getTime() % 86400_000,
-    dt: now,
-    mf: new Money("1.5"),
-    // sa: ["a", "2"],
-    int64: 0,
-    floating: 3.5
-  }, {
-    title: "Tit&le 2\nnext line!",
-    bool: false,
-    date: sometime,
-    int: 666,
-    time: 666_000, //666 secs after midnight = 00:11:06 or 12:11:06 AM
-    dt: sometime,
-    mf: new Money("2.5"),
-    // sa: [3, 4],
-    int64: -10_000_000_000, //10 Billion exceeds 32 bit int range, but not 53 bit JS number range
-    floating: 1.30000000004
-  }, {
-    title: "Third row",
-    bool: false,
-    date: null,
-    int: 0,
-    time: 0,
-    dt: null,
-    mf: new Money("0"),
-    // sa: [],
-    int64: 0,
-  }
-];
+export function getTestSpreadsheet(options?: { harescriptCompatible?: boolean; temporal?: boolean }) {
+  const rows = [
+    {
+      title: "Ti<>tle 1",
+      bool: true,
+      date: options?.temporal ? Temporal.PlainDate.from(now.toISOString().substring(0, 10)) : now,
+      int: 17,
+      time: now.getTime() % 86400_000,
+      dt: options?.temporal ? now.toTemporalInstant() : now,
+      mf: new Money("1.5"),
+      // sa: ["a", "2"],
+      int64: 0,
+      floating: 3.5
+    }, {
+      title: "Tit&le 2\nnext line!",
+      bool: false,
+      date: options?.temporal ? Temporal.PlainDate.from(sometime.toISOString().substring(0, 10)) : sometime,
+      int: 666,
+      time: 666_000, //666 secs after midnight = 00:11:06 or 12:11:06 AM
+      dt: options?.temporal ? sometime.toTemporalInstant() : sometime,
+      mf: new Money("2.5"),
+      // sa: [3, 4],
+      int64: options?.harescriptCompatible ? 42 : -10_000_000_000, //10 Billion exceeds 32 bit int range, but not 53 bit JS number range
+      floating: 1.30000000004
+    }, {
+      title: "Third row",
+      bool: false,
+      date: null,
+      int: 0,
+      time: 0,
+      dt: null,
+      mf: new Money("0"),
+      // sa: [],
+      int64: 0,
+    }
+  ];
 
-export function getTestSpreadsheet(options?: { harescriptCompatible?: boolean }) {
-  const rows = options?.harescriptCompatible ? reftrestrows.map(r => ({ ...r, int64: Math.abs(r.int64) > 2 ** 31 ? 42 : r.int64 })) : reftrestrows;
   return { columns, rows, withAutoFilter: true, timeZone: "Europe/Amsterdam", title: "This is a very long name for a spreadsheet" };
 }
 
