@@ -81,8 +81,22 @@ RUN --mount=type=tmpfs,target=/opt/whbuild \
     --mount=type=cache,id=compile,target=/tmp/compile  \
     /bin/bash -c ". /opt/wh/vendor/emsdk/emsdk_env.sh && /opt/wh/builder/make.sh install"
 
+################# STAGE base-amd64 -- base machine for amd64 build
+FROM       base AS base-amd64
+
+################# STAGE base-arm64 -- base machine for arm64 build
+FROM       base AS base-arm64
+
+# Puppeteer at arm64 needs chromium installed, otherwise it will try to download a chromium version that is not available for arm64.
+RUN --mount=type=cache,id=baseimage3-$TARGETARCH,sharing=locked,target=/var/cache/dnf \
+    dnf install -y chromium
+
+ENV \
+  PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+  PUPPETEER_EXECUTABLE_PATH="/usr/bin/chromium-browser"
+
 ################# STAGE devcontainer
-FROM       base AS devcontainer
+FROM       base-$TARGETARCH AS devcontainer
 
 ARG WHBUILD_EMSCRIPTEN_VERSION
 
@@ -127,7 +141,7 @@ ENTRYPOINT [ "/opt/container/entrypoint.sh" ]
 CMD [ "/opt/container/launch.sh" ]
 
 ################# STAGE 2 - application image
-FROM       base AS appimage
+FROM       base-$TARGETARCH AS appimage
 
 # Expose usual WebHare hostingports
 EXPOSE 13684
