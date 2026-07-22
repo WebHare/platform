@@ -35,7 +35,7 @@ if ! curl -fsS -o "$DLPATH" -z "$DLPATH" "${ASSETROOT}${GETFILE}" ; then
 fi
 
 mkdir /opt/opensearch
-tar zx -C /opt/opensearch --strip-components=1 -f $DLPATH
+tar zx -C /opt/opensearch --strip-components=1 -f "$DLPATH"
 chown -R opensearch /opt/opensearch
 
 # Remove the bundled JDK
