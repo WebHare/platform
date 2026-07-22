@@ -62,7 +62,8 @@ git_update_all()
           # Install any missing submodules
           git -C "$P" submodule update --init --recursive
         else
-          echo "$(tput setaf 3)Not updating branch $MODULE_BRANCH$(tput sgr0)"
+          echo "$(tput setaf 3)Not updating branch $MODULE_BRANCH, just fetching$(tput sgr0)"
+          git -C "$P" fetch --recurse-submodules
           UPDATEERRORS="$UPDATEERRORS $MODNAME"
         fi
       fi
