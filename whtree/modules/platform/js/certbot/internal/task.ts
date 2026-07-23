@@ -372,7 +372,7 @@ export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<Certif
     let certFolder = storedKeyPair ? await openFolder(storedKeyPair.id, { allowMissing: true }) : null;
     if (!certFolder) {
       // Create the certificate folder
-      const keystore = await openFolder("/webhare-private/system/keystore");
+      const keystore = await (await openFolder("/webhare-private/system")).ensureFolder("keystore");
       certFolder = await keystore.createFolder(`certbot-${requestDomains[0]}`.replaceAll("*", "_wildcard") + "-" + new Date().toISOString().slice(0, -5).replaceAll(/[-:]/g, "").replace("T", "-"));
     }
     const certFile = await certFolder.ensureFile("certificatechain.pem", { type: "platform:filetypes.plaintext" });

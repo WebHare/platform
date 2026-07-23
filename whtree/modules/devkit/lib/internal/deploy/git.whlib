@@ -7,9 +7,13 @@ LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 
-PUBLIC RECORD FUNCTION DescribeGitRepo(STRING repo, BOOLEAN obsolete)
+PUBLIC STRING FUNCTION GetGitRepoRoot(STRING repo) {
+  RETURN CallJS("./git.ts#getGitRepoRoot", repo);
+}
+
+PUBLIC RECORD FUNCTION DescribeGitRepo(STRING repo)
 {
-  RETURN WaitForPromise(ImportJS("./git.ts")->DescribeGitRepo(repo, obsolete));
+  RETURN WaitForPromise(ImportJS("./git.ts")->DescribeGitRepo(repo));
 }
 RECORD FUNCTION LocateGitExecutable()
 {
