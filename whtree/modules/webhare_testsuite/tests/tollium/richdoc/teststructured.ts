@@ -44,9 +44,9 @@ test.runTests(
         //select the paragraph
         rtetest.setRTESelection(test.getWin(), rte.getEditor(),
           {
-            startContainer: h2.nextSibling!.firstChild,
+            startContainer: h2.nextSibling!.firstChild!,
             startOffset: 5,
-            endContainer: h2.nextSibling!.firstChild,
+            endContainer: h2.nextSibling!.firstChild!,
             endOffset: 5
           });
 
@@ -55,9 +55,9 @@ test.runTests(
 
         rtetest.setRTESelection(test.getWin(), rte.getEditor(),
           {
-            startContainer: h2.firstChild,
+            startContainer: h2.firstChild!,
             startOffset: 5,
-            endContainer: h2.firstChild,
+            endContainer: h2.firstChild!,
             endOffset: 5
           });
 
@@ -265,9 +265,9 @@ test.runTests(
         const mypara = rte.qSA('p')[1];
         rtetest.setRTESelection(test.getWin(), rte.getEditor(),
           {
-            startContainer: mypara.firstChild,
+            startContainer: mypara.firstChild!,
             startOffset: 0,
-            endContainer: mypara.firstChild,
+            endContainer: mypara.firstChild!,
             endOffset: 4
           });
         test.click(test.compByName('structured').querySelector('.wh-rtd-button[data-button=a-href]'));
@@ -312,9 +312,9 @@ test.runTests(
         const textnode = rte.qSA("a")[1].nextSibling;
         rtetest.setRTESelection(test.getWin(), rte.getEditor(),
           {
-            startContainer: textnode,
+            startContainer: textnode!,
             startOffset: 5,
-            endContainer: textnode,
+            endContainer: textnode!,
             endOffset: 10
           });
 

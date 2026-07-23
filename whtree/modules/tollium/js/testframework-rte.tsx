@@ -1,7 +1,3 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-import * as dompack from 'dompack';
 import * as domfocus from 'dompack/browserfix/focus';
 import * as test from './testframework';
 import * as richdebug from '@mod-tollium/web/ui/components/richeditor/internal/richdebug';
@@ -10,15 +6,24 @@ import * as snapshots from '@mod-tollium/web/ui/components/richeditor/internal/s
 import Range from '@mod-tollium/web/ui/components/richeditor/internal/dom/range';
 import RangeIterator2 from '@mod-tollium/web/ui/components/richeditor/internal/dom/rangeiterator';
 import * as diff from 'diff';
-import ObjRTE from '@mod-tollium/webdesigns/webinterface/components/rte/rte.tsx';
+import type ObjRTE from '@mod-tollium/webdesigns/webinterface/components/rte/rte.tsx';
+import type StructuredEditor from '@mod-tollium/web/ui/components/richeditor/internal/structurededitor';
+import type FreeEditor from '@mod-tollium/web/ui/components/richeditor/internal/free-editor';
+import type { TestWaitItem } from './testframework';
 
 //capture the next richeditor-action event
 export function getNextAction() {
   return test.waitForEvent(test.getWin(), 'wh:richeditor-action', { capture: true, stop: true });
 }
 
+type WindowWithRTE = Window & { rte: StructuredEditor | FreeEditor };
+type NodeWithRTE = Node & { rte: StructuredEditor | FreeEditor };
+
 export class RTEDriver {
-  constructor(rte) {
+  rte: StructuredEditor | FreeEditor;
+  editor: StructuredEditor | FreeEditor;
+
+  constructor(rte: StructuredEditor | FreeEditor) {
     if (rte && typeof rte === 'string') {
       const comp = test.compByName(rte);
       if (comp)
@@ -26,7 +31,7 @@ export class RTEDriver {
     }
 
     if (!rte) {
-      rte = test.getWin().rte;
+      rte = (test.getWin() as WindowWithRTE | NodeWithRTE).rte;
       if (!rte)
         throw new Error("Test window has no RTE"); //TODO allow option
     }
@@ -34,11 +39,11 @@ export class RTEDriver {
     this.editor = rte.getEditor();
   }
 
-  qS(selector) {
+  qS(selector: string) {
     return this.rte.qS(selector);
   }
 
-  qSA(selector) {
+  qSA(selector: string) {
     return this.rte.qSA(selector);
   }
 
@@ -46,7 +51,7 @@ export class RTEDriver {
     return this.editor.getBody();
   }
 
-  setSelection(startContainer, startOffset, endContainer, endOffset) {
+  setSelection(startContainer: Node, startOffset: number, endContainer: Node, endOffset: number) {
     if (!startOffset)
       startOffset = 0;
 
@@ -74,18 +79,18 @@ export class RTEDriver {
   }
 }
 
-export function getTextChild(node) {
+export function getTextChild(node: Node | null) {
   while (node && node.nodeType !== 3)
     node = node.firstChild;
   return node;
 }
 
-export function RunIteratorOnRange2(win, range) {
+export function RunIteratorOnRange2(win: Window, range: Range) {
   const itr = new RangeIterator2(range);
   const list = [];
 
   while (!itr.atEnd()) {
-    const name = itr.node.nodeType === 3 ? '#text: ' + itr.node.nodeValue : itr.node.nodeName.toLowerCase();
+    const name = itr.node!.nodeType === 3 ? '#text: ' + itr.node!.nodeValue : itr.node!.nodeName.toLowerCase();
     list.push(name);
     itr.nextRecursive();
   }
@@ -96,6 +101,8 @@ export function RunIteratorOnRange2(win, range) {
 //get the current selection for the test window, avoiding Rangy and RTE
 export function getCurrentRawSelection() {
   const sel = test.getWin().getSelection();
+  if (!sel)
+    throw new Error("No selection available");
   return {
     anchor: { node: sel.anchorNode, offset: sel.anchorOffset },
     focus: { node: sel.focusNode, offset: sel.focusOffset },
@@ -105,11 +112,11 @@ export function getCurrentRawSelection() {
 
 }
 
-export function getRTESelection(win, rte) {
+export function getRTESelection(win: Window, rte: StructuredEditor | FreeEditor) {
   return rte.getSelectionRange().toDOMRange();
 }
 
-export function setRTESelection(win, rte, domrange) {
+export function setRTESelection(win: Window, rte: StructuredEditor | FreeEditor, domrange: { startContainer: Node; startOffset: number; endContainer: Node; endOffset: number }) {
   if (!domrange.endContainer) {
     domrange.endContainer = domrange.startContainer;
     if (!domrange.endOffset)
@@ -118,41 +125,37 @@ export function setRTESelection(win, rte, domrange) {
   rte.selectRange(Range.fromDOMRange(domrange));
 }
 
-export function getCompStyle(node, prop) {
+export function getCompStyle(node: HTMLElement, prop: string) {
   return getComputedStyle(node).getPropertyValue(prop);
 }
 
-export function testEqHTMLEx(unused, expect, node, locators) {
+export function testEqHTMLEx(unused: unknown, expect: string, node: Node, locators?: domlevel.Locator[]) {
   const actual = richdebug.cloneNodeWithTextQuotesAndMarkedLocators(node, locators || []).innerHTML;
   test.eqHTML(expect, actual);
 }
 
-export function testEqSelHTMLEx(unused, expect) {
-  const rte = test.getWin().rte.getEditor();
+export function testEqSelHTMLEx(unused: unknown, expect: string) {
+  const rte = (test.getWin() as WindowWithRTE).rte.getEditor();
   const range = rte.getSelectionRange();
   testEqHTMLEx(undefined, expect, rte.getBody(), [range.start, range.end]);
 }
 
-export function setRawStructuredContent(win, structuredhtml) {
+export function setRawStructuredContent(win: Window, structuredhtml: string) {
   setStructuredContent(win, structuredhtml, true);
 }
 
-export function setStructuredContent(rte, structuredhtml, options?) {
+export function setStructuredContent(rte: StructuredEditor | Window | WindowWithRTE | NodeWithRTE | Node | null, structuredhtml: string, options?: boolean | { raw?: boolean; verify?: boolean }) {
   options = { raw: false, verify: true, ...(typeof options === "boolean" ? { raw: options } : options || {}) };
 
   if (!rte) {
-    rte = test.getWin().rte;
+    rte = (test.getWin() as WindowWithRTE).rte as StructuredEditor;
     if (!rte)
       throw new Error(`test.getWin() has no rte`);
-  } else if (rte && !rte.bodydiv) //doesn't look like a RTE...
-  {
-    rte = rte.rte;
+  } else if (rte && (("document" in rte || "nodeType" in rte))) {//doesn't look like a RTE...
+    rte = (rte as WindowWithRTE).rte as StructuredEditor;
     if (!rte)
       throw new Error(`Window passed as first argument has no rte`);
   }
-
-  if (!rte.setContentsHTML && rte.editrte)
-    rte = rte.editrte; //needed until the RTE is 'flattened', ie no editmodes
 
   if (options.raw)
     rte.setContentsHTMLRaw(structuredhtml);
@@ -174,34 +177,34 @@ export function setStructuredContent(rte, structuredhtml, options?) {
   return locators;
 }
 
-export function getRawHTMLTextArea(win) {
+export function getRawHTMLTextArea(win: Window) {
   const ta = test.compByName('code').querySelector('textarea');
   return ta;
 }
 
-export function getRawHTMLCode(win) {
+export function getRawHTMLCode(win: Window) {
   let code = getRawHTMLTextArea(win).value;
   code = code.split('\n').join('').split('</html>')[0]; //strip comments behind the </html>
   return code;
 }
 
-export function getRTE(win, toddname) {
+export function getRTE(win: Window, toddname: string) {
   const comp = test.compByName(toddname);
   if (!comp)
     throw new Error("No such component with name '" + toddname + "'");
   return (comp.propTodd as ObjRTE).rte;
 }
 
-export function getPreActionState(rte) {
+export function getPreActionState(rte: StructuredEditor | FreeEditor) {
   const snapshot = snapshots.generateSnapshot(rte.getBody(), rte.getSelectionRange());
   return { __snapshot: snapshot, __undopos: rte.undopos };
 }
 
-function getStack(message) {
-  try { throw new Error(message); } catch (e) { return e.stack; }
+function getStack(message: string) {
+  try { throw new Error(message); } catch (e) { return (e as Error).stack!; }
 }
 
-export async function testUndoRedo(rte, preactionstate, { stack } = {}) {
+export async function testUndoRedo(rte: StructuredEditor | FreeEditor, preactionstate: ReturnType<typeof getPreActionState>, { stack }: { stack?: string } = {}) {
   // console.log(`testUndoRedo prestate`, "\n" + snapshots.dumpSnapShot(preactionstate.__snapshot), preactionstate.__snapshot);
   stack = stack || getStack(`trace`);
 
@@ -212,7 +215,7 @@ export async function testUndoRedo(rte, preactionstate, { stack } = {}) {
     throw new Error(`Expected an action that recorded an undo event\n` + stack);
 
   const last = rte.undostack.length && rte.undostack[rte.undostack.length - 1];
-  if (!last.finished)
+  if (!last || !last.finished)
     throw new Error(`Last undo item wasn't finished\n` + stack);
 
   //console.log("wait for undo stack to update");
@@ -284,7 +287,7 @@ export async function undoBarrier() {
   await test.sleep(1);
 }
 
-export async function runWithUndo(rte, func, options = {}) {
+export async function runWithUndo(rte: StructuredEditor | FreeEditor, func: () => Promise<void> | void, options: { waits?: TestWaitItem } = {}) {
   const prestate = getPreActionState(rte);
   const stack = getStack(`stack`);
 
@@ -299,36 +302,75 @@ export async function runWithUndo(rte, func, options = {}) {
   await testUndoRedo(rte, prestate, { stack });
 }
 
-
 class ClipBoardEmul {
-  constructor(props) {
-    this.files = props.files;
-    this.items = props.items;
-    this.types = props.types;
+  files: File[];
+  items: DataTransferItem[];
+  types: string[];
+  _typesdata: Record<string, unknown>;
+
+  constructor(props: { files?: File[]; items?: DataTransferItem[]; types?: string[]; typesdata: Record<string, unknown> }) {
+    this.files = props.files || [];
+    this.items = props.items || [];
+    this.types = props.types || [];
     this._typesdata = props.typesdata;
   }
 
-  getData(type) {
+  getData(type: string) {
     return this._typesdata[type];
   }
 }
 
-export async function paste(rte, props) {
-  const target = domfocus.getCurrentlyFocusedElement();
+export async function paste(rte: StructuredEditor, props: {
+  typesdata: Record<string, unknown>;
+  files?: File[];
+  items?: DataTransferItem[];
+  types?: string[];
+} | DataTransfer) {
+  const target = domfocus.getCurrentlyFocusedElement()!;
 
-  /* event spec: https://w3c.github.io/clipboard-apis/#clipboard-event-interfaces
-     only firefox is said to implement clipboard currently so we'll create a plain event */
-  const evt = target.ownerDocument.createEvent('Event');
+  if (props instanceof DataTransfer) {
+    const evt = new target.ownerDocument.defaultView!.ClipboardEvent("paste", {
+      bubbles: true,
+      cancelable: true,
+      clipboardData: props,
+    });
 
-  const types = Object.keys(props.typesdata);
-  types.contains = key => types.includes(key);
+    const dodefault = target.dispatchEvent(evt);
+    return dodefault;
+  } else {
+    /* event spec: https://w3c.github.io/clipboard-apis/#clipboard-event-interfaces
+       only firefox is said to implement clipboard currently so we'll create a plain event */
+    const evt = target.ownerDocument.createEvent('Event');
 
-  props = { types, ...props };
-  const cpdata = new ClipBoardEmul(props);
+    const types = Object.keys(props.typesdata);
+    (types as string[] & { contains: unknown }).contains = (key: string) => types.includes(key);
 
-  evt.initEvent('paste', true, true);
-  Object.defineProperty(evt, 'clipboardData', { get: () => cpdata });
+    props = { types, ...props };
+    const cpdata = new ClipBoardEmul(props);
 
-  const dodefault = target.dispatchEvent(evt);
-  return dodefault;
+    evt.initEvent('paste', true, true);
+    Object.defineProperty(evt, 'clipboardData', { get: () => cpdata });
+
+    const dodefault = target.dispatchEvent(evt);
+    return dodefault;
+  }
+
+}
+
+export function copy(rte: StructuredEditor) {
+  const target = domfocus.getCurrentlyFocusedElement()!;
+
+  const clipboardData = new DataTransfer();
+
+  // 3. Dispatch the synthetic copy event for your event listeners
+  const copyEvent = new target.ownerDocument.defaultView!.ClipboardEvent("copy", {
+    bubbles: true,
+    cancelable: true,
+    clipboardData,
+  });
+
+  // Just set some data to the clipboardData object, for example:
+  clipboardData.setData("text/plain", target.innerText);
+  target.dispatchEvent(copyEvent);
+  return clipboardData;
 }

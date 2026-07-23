@@ -349,6 +349,8 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   knownimages: string[] = [];
   language: string;
   bodydiv;
+  undopos: number;
+  undostack: { finished: boolean }[];
 
   private allChangeObserver: MutationObserver;
   private allChangeObserverActive = false;
@@ -1065,12 +1067,12 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   // Public API
   //
 
-  setContentsHTML(htmlcode, options) {
+  setContentsHTML(htmlcode: string, options?: { raw?: boolean }) {
     //note: WE don't use 'raw', but the structurededitor does! raw bypasses its cleanup
     this.bodydiv.innerHTML = htmlcode;
     this.setCursorAtLocator(new domlevel.Locator(this.getBody()));
   }
-  setContentsHTMLRaw(htmlcode) {
+  setContentsHTMLRaw(htmlcode: string) {
     this.setContentsHTML(htmlcode, { raw: true });
   }
 

@@ -1,5 +1,3 @@
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as domlevel from "./domlevel";
 import { encodeString } from "@webhare/std";
 
@@ -13,12 +11,26 @@ import { encodeString } from "@webhare/std";
    put in the src later, far after the saving of the snapshots
 */
 
-function parseNode(node) {
+export type Snapshot = {
+  node: Node;
+  type: "snapshot";
+  childNodes: ParseResult[] | null;
+  range: domlevel.Range;
+};
+
+type ParseResult = {
+  node: Node;
+  type: "element" | "embedded" | "text" | "unknown";
+  childNodes: ParseResult[] | null;
+  attrs: Record<string, string> | null;
+  nodeValue: string | null;
+};
+
+function parseNode(node: Node) {
   // Use a fixed record to describe nodes, JITs like them
-  const result =
-  {
+  const result: ParseResult = {
     node: node,
-    type: "",
+    type: "unknown",
     childNodes: null,
     attrs: null,
     nodeValue: ""
@@ -30,11 +42,11 @@ function parseNode(node) {
         if (domlevel.isEmbeddedObject(node)) {
           // No need to recurse into embedded objects (only done when result.childNodes is an array)
           result.type = "embedded";
-          result.attrs = domlevel.getAllAttributes(node);
+          result.attrs = domlevel.getAllAttributes(node as HTMLElement);
         } else {
           result.type = "element";
           result.childNodes = [];
-          result.attrs = domlevel.getAllAttributes(node);
+          result.attrs = domlevel.getAllAttributes(node as HTMLElement);
         }
       } break;
     case 3: // text
@@ -51,7 +63,7 @@ function parseNode(node) {
   return result;
 }
 
-function generateSnapshotRecursive(node, resultlist) {
+function generateSnapshotRecursive(node: Node, resultlist: ParseResult[]) {
   for (const subnode of Array.from(node.childNodes)) {
     const parsed = parseNode(subnode);
     resultlist.push(parsed);
@@ -62,7 +74,7 @@ function generateSnapshotRecursive(node, resultlist) {
 }
 
 // Make sure all attributes are set according to attrs, removes other attributes
-function restoreAttributes(node, attrs) {
+function restoreAttributes(node: HTMLElement, attrs: Record<string, string>) {
   const current = domlevel.getAllAttributes(node);
   let needset = false;
 
@@ -92,10 +104,10 @@ function restoreAttributes(node, attrs) {
 }
 
 /// Restores text and attributes of a node (non-recursive)
-function restoreNode(doc, item) {
+function restoreNode(doc: Document, item: ParseResult) {
   let result = item.node;
   if (item.attrs)
-    restoreAttributes(result, item.attrs);
+    restoreAttributes(result as HTMLElement, item.attrs);
   if (item.type === "text") {
     try {
       // IE sometimes transforms text nodes to EmptyTextNodes - can't change nodeValue, can't insert
@@ -103,14 +115,14 @@ function restoreNode(doc, item) {
         result.nodeValue = item.nodeValue;
     } catch (e) {
       // If that happens, don't care about browser undo anymore
-      result = doc.createText(item.nodeValue);
+      result = doc.createTextNode(item.nodeValue || "");
     }
   }
 
   return result;
 }
 
-function restoreSnapshotRecursive(doc, node, resultlist) {
+function restoreSnapshotRecursive(doc: Document, node: Node, resultlist: ParseResult[]) {
   let lastinserted = null;
 
   // Convert the nodes, insert them at the beginning of the node childlist
@@ -130,7 +142,7 @@ function restoreSnapshotRecursive(doc, node, resultlist) {
 
   // Remove all nodes after the last inserted node
   while (node.lastChild !== lastinserted)
-    node.lastChild.remove();
+    node.lastChild?.remove();
 }
 
 /** Takes a snapshot of the current contents of rootnode
@@ -138,11 +150,10 @@ function restoreSnapshotRecursive(doc, node, resultlist) {
     @param range - Range to save (selection range)
     @returns Snapshot record
 */
-export function generateSnapshot(rootnode, range) {
-  const snapshot =
-  {
+export function generateSnapshot(rootnode: Node, range: domlevel.Range): Snapshot {
+  const snapshot = {
     node: rootnode,
-    type: "snapshot",
+    type: "snapshot" as const,
     childNodes: [],
     range: range.clone()
   };
@@ -157,8 +168,8 @@ export function generateSnapshot(rootnode, range) {
     @param range - Range to save (selection range)
     @returns Selection range to restore
 */
-export function restoreSnapshot(rootnode, snapshot) {
-  restoreSnapshotRecursive(rootnode.ownerDocument, rootnode, snapshot.childNodes);
+export function restoreSnapshot(rootnode: Node, snapshot: Snapshot) {
+  restoreSnapshotRecursive(rootnode.ownerDocument!, rootnode, snapshot.childNodes!);
 
   const range = snapshot.range.clone();
   if (range.start.element === snapshot.node)
@@ -169,9 +180,12 @@ export function restoreSnapshot(rootnode, snapshot) {
   return range;
 }
 
+export function compressSnapshotChildNodes(left: ParseResult, right: ParseResult): { left: ParseResult; right: ParseResult } | null;
+export function compressSnapshotChildNodes(left: Snapshot, right: Snapshot): { left: Snapshot; right: Snapshot } | null;
+
 /** Removes childnodes of trees that are equal
 */
-export function compressSnapshotChildNodes(left, right) {
+export function compressSnapshotChildNodes(left: Snapshot | ParseResult, right: Snapshot | ParseResult) {
   if (!left.childNodes || !right.childNodes) {
     //console.log(`cscn not both children`, left, right);
     return null;
@@ -181,8 +195,8 @@ export function compressSnapshotChildNodes(left, right) {
   left = { ...left };
   right = { ...right };
 
-  left.childNodes = [...left.childNodes];
-  right.childNodes = [...right.childNodes];
+  left.childNodes = [...left.childNodes || []];
+  right.childNodes = [...right.childNodes || []];
 
   const leftChildNodeLength = left.childNodes.length;
   const rightChildNodeLength = right.childNodes.length;
@@ -234,7 +248,7 @@ export function compressSnapshotChildNodes(left, right) {
   return { left, right };
 }
 
-function attrsEqual(a, b, isimg) {
+function attrsEqual(a: unknown, b: unknown, isimg: boolean) {
   if (!a || !b)
     return !a === !b;
 
@@ -254,7 +268,7 @@ function attrsEqual(a, b, isimg) {
   return true;
 }
 
-export function snapshotsEqual(left, right) {
+export function snapshotsEqual(left: Snapshot, right: Snapshot) {
   if (left.node !== right.node) {
     console.log('nodes unequal');
     return false;
@@ -275,15 +289,16 @@ export function snapshotsEqual(left, right) {
   return true;
 }
 
-export function dumpSnapShot(item, snapshot, indent) {
-  snapshot = snapshot || item;
+export function dumpSnapShot(item: ParseResult | Snapshot, snapshot?: Snapshot, indent?: number): string {
+  if (!snapshot && item.type === "snapshot")
+    snapshot = item;
   indent = indent || 0;
 
   if (item.type === "text")
     return `"${item.nodeValue}"`;
 
   let res = `<${item.node.nodeName}`;
-  if (item.attrs) {
+  if ("attrs" in item && item.attrs) {
     for (const a of Object.entries(item.attrs))
       res += ` ${a[0]}="${encodeString(a[1], 'attribute')}"`;
   }

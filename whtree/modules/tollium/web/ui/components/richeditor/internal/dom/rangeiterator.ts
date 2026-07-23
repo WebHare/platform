@@ -1,19 +1,20 @@
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
+import type * as domlevel from '../domlevel';
 
 export default class RangeIterator2 {
-  constructor(xrange) {
-    /// Ancestor of the selection range
-    this.ancestor = null;
-    /// Current iterator
-    this.current = null;
-    /// Node pointed to by current iterator, null when at end
-    this.node = null;
-    /// range.start ascended toward start to parent of current node (marks partially selected node of range start)
-    this.localstart = null;
-    /// range.end ascended toward start to parent of current node (marks partially selected node of range end)
-    this.localend = null;
+  /// Ancestor of the selection range
+  ancestor: Node | null = null;
+  /// Node pointed to by current iterator, null when at end
+  node: Node | null = null;
+  /// Selection range
+  range: domlevel.Range;
+  /// range.start ascended toward start to parent of current node (marks partially selected node of range start)
+  localstart: domlevel.Locator | null = null;
+  /// range.end ascended toward start to parent of current node (marks partially selected node of range end)
+  localend: domlevel.Locator | null = null;
+  /// Current iterator
+  current: domlevel.Locator | null = null;
 
-    /// Selection range
+  constructor(xrange: domlevel.Range) {
     this.range = xrange.clone();
 
     //console.log('ITR2 org range', richdebug.getStructuredOuterHTML(this.range.getAncestorElement(), { range: this.range }, true));
@@ -57,9 +58,9 @@ export default class RangeIterator2 {
     return this.nextInternal(true);
   }
 
-  nextInternal(recursive) {
+  nextInternal(recursive: boolean) {
     //console.log('ITR2 nextRecursive', richdebug.getStructuredOuterHTML(this.ancestor, { range: this.range, localstart: this.localstart, localend: this.localend, current: this.current }, true));
-    if (this.current.equals(this.range.end)) {
+    if (!this.ancestor || !this.node || !this.current || this.current.equals(this.range.end)) {
       //console.log(' immediately at end');
       this.node = null;
       return false;
