@@ -391,7 +391,7 @@ async function startBackendService(name: string) {
       break;
     } catch (e) {
       smLog(`Service manager backend service failed with error: ${e} `);
-      await sleep(1000);
+      await new Promise(resolve => setTimeout(resolve, 1000).unref()); //wait a second before retrying, but don't block process exit if we're shutting down
     }
   }
 }

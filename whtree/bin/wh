@@ -136,10 +136,10 @@ export WEBHARE_DATABASEPATH="${WEBHARE_DATAROOT}postgresql"
 
 export PGUSER="root" #postgres user, must be locked for compatibility between dev and prod
 if [ -n "$WEBHARE_IN_CONTAINER" ]; then
-  # In containers we keep the PG socket *out* of the data folder as it tends to fail with volume mounts to eg a macOS drive
-  export PGHOST="$WEBHARE_DIR/currentinstall/pg/"
+  # Allow placing the PG socket *out* of the data folder as it tends to fail with volume mounts to eg a macOS drive
+  export PGHOST="${WEBHARE_PGHOST:-$WEBHARE_DIR/currentinstall/pg/}"
 else
-  # But for source installs keeping het PG socket in currentinstall/pg breaks podman builds as it doesn't understand how to checksum whtree/ then
+  # And for source installs keeping het PG socket in currentinstall/pg breaks podman builds as it doesn't understand how to checksum whtree/ then
   export PGHOST="$WEBHARE_DATABASEPATH"
 fi
 export PGPORT=$((WEBHARE_BASEPORT + 8))

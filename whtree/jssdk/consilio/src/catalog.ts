@@ -20,7 +20,7 @@ import { loadlib } from "@webhare/harescript";
 import type { AttachedIndex, CatalogListEntry, CatalogSuffix } from "./types";
 import { isValidIndexSuffix } from "./support";
 import { buildGeneratorContext } from "@mod-system/js/internal/generation/generator";
-import { getExpectedCatalogs } from "@mod-platform/js/configure/consilio";
+import { getExpectedCatalogs } from "@mod-platform/js/configure/consilio-config";
 import { getBasePort } from "@webhare/services/src/config";
 
 interface AttachedIndexWithAddress extends AttachedIndex {

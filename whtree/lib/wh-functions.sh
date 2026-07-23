@@ -264,12 +264,22 @@ trim()
 #   BRANCH_IMAGES image tags with shortcuts for the branch
 #   PUBLIC_IMAGES image tags that will be deployed
 #   PUSH_BUILD_IMAGES if 1, push build and branch images
+# shellcheck disable=SC2120 # all parameters are optional
 get_finaltag()
 {
   BUILD_IMAGE=
   BRANCH_IMAGES=
   PUBLIC_IMAGES=
   PUSH_BUILD_IMAGES=
+  LOCALTAG=devbuild
+
+  # loop while number of arguments isn't zero
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --devcontainer) LOCALTAG=developcontainer; shift;;
+      *) echo "Unknown argument $1" 1>&2; exit 1;;
+    esac
+  done
 
   local ADDTAGS
   getwebhareversion
@@ -331,8 +341,7 @@ get_finaltag()
 
   else
     # local build. No pushes or deploys
-    BUILD_IMAGE="localhost/webhare/platform:devbuild"
-    WEBHARE_VERSION=${WEBHARE_VERSION}
+    BUILD_IMAGE="localhost/webhare/platform:$LOCALTAG"
   fi
 
   if [ -n "$PUBLIC_IMAGES" ]; then

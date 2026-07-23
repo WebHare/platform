@@ -45,6 +45,7 @@ NOCHECKMODULE=
 FIXEDCONTAINERNAME=
 TESTINGMODULENAME=""
 USEPODMAN=
+ENABLECACHE=
 
 if ! hash -r apk 2>/dev/null ; then #If alpine we expect busybox and should NOT add --no-xattrs
   HOSTTAROPTIONS=(--no-xattrs)
@@ -430,6 +431,9 @@ while true; do
   elif [ "$1" == "--localdeps" ] ; then
     LOCALDEPS=1
     shift
+  elif [ "$1" == "--enable-cache" ] ; then
+    ENABLECACHE=1
+    shift
   elif [[ $1 =~ ^- ]]; then
     echo "Illegal option '$1'. Use 'wh testcontainer --help' for help"
     exit 1
@@ -646,10 +650,20 @@ trap cleanup EXIT
 if [ -z "$DOCKERBUILDFOLDER" ]; then
   DOCKERBUILDFOLDER="/tmp/"
 fi
+# Ensures DOCKERBUILDFOLDER is resolved to the real path and ends with a slash
+DOCKERBUILDFOLDER="$(cd "$DOCKERBUILDFOLDER" && pwd -P)/"
 
 # Independent tempdir
 TEMPBUILDROOT=$DOCKERBUILDFOLDER/testcontainer-$$-$(date | (md5 2>/dev/null || md5sum) | head -c8)
 mkdir -p "${TEMPBUILDROOT}/docker-tests/modules"
+
+# cache dir
+if [ -n "$ENABLECACHE" ]; then
+  CACHEDIR="${DOCKERBUILDFOLDER}wh-ci-cache/"
+  echo "Using cache in directory: $CACHEDIR"
+  mkdir -p "${CACHEDIR}.npm"
+  DOCKERARGS+=("-v" "${CACHEDIR}.npm:/opt/whdata/root/.npm:rw")
+fi
 
 if [ -z "$ISPLATFORMTEST" ]; then # Tell the shutdownscript to use 'kill' as sleep won't respond to 'stop'
   TESTENV_KILLCONTAINER1=1

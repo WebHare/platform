@@ -136,13 +136,13 @@ export default class StructuredEditor extends EditorBase {
 
   async _gotCopy(event) {
     dompack.stop(event);
-    await copySelectionToClipboard(this);
+    await copySelectionToClipboard(this, event);
   }
 
   async _gotCut(event) {
     dompack.stop(event);
     const undolock = this.getUndoLock();
-    await copySelectionToClipboard(this);
+    await copySelectionToClipboard(this, event);
     this.removeSelection();
     this.checkDomStructure();
     undolock.close();
@@ -1952,7 +1952,7 @@ export default class StructuredEditor extends EditorBase {
     return res;
   }
 
-  setContentsHTML(text, options) {
+  setContentsHTML(text: string, options?: { raw?: boolean }) {
     if (options && options.raw)
       return super.setContentsHTML(text);
 

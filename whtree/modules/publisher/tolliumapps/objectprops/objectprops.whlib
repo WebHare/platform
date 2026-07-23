@@ -221,9 +221,9 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
 
     //For existing items, copy actual publish setting. For new items, look at initialpublish setting. don't distinguish between duplicate/templates etc, KISS
     ^publish->value := this->startdata.why = "edit" ? iscurrentlypublished : ^publish->visible AND this->curtype.initialpublish;
-    ^notpublished->visible := NOT ^publish->value;
+    ^notpublished->visible := NOT this->isfolder AND NOT ^publish->value;
 
-    IF(NOT ^publish->visible) {
+    IF(^notpublished->visible) {
       ^notpublishedtext->value := this->GetTid(".typenotpublished", ^type->value);
     }
 

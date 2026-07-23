@@ -144,5 +144,25 @@ test.runTests(
         rtetest.testEqSelHTMLEx(test.getWin(),
           `<ul class="unordered"><li><a href="https://www.example.nl">"Studentenstatuut"</a><ul class="unordered"><li>"test(*0*)(*1*)"</li></ul></li></ul>`);
       }
+    },
+    "Copy test within styling nodes",
+    async function () {
+      await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured');
+
+      // setup styled content with selection inside of it
+      rtetest.setStructuredContent(test.getWin(),
+        `<p class="normal"><a href="http://example.com"><i><b><u><strike><sup>"a(*0*)b(*1*)c"</sup></strike></u></b></i></a></p>`);
+
+      const rte = test.getWin().rte.getEditor() as StructuredEditor;
+      rte.getBody().focus();
+
+      const transfer = await rtetest.copy(rte);
+
+      // clear the document and paste the copied content back in
+      rtetest.setStructuredContent(test.getWin(), `<p class="normal">"(*0*)(*1*)"<br data-wh-rte="bogus"></p>`);
+      await rtetest.paste(rte, transfer);
+
+      rtetest.testEqSelHTMLEx(test.getWin(),
+        `<p class="normal"><a href="http://example.com"><i><b><u><strike><sup>"b(*0*)(*1*)"</sup></strike></u></b></i></a></p>`);
     }
   ]);
