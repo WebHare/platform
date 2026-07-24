@@ -9,8 +9,11 @@ get_postgres_binaries()   # params: targetvar version
   LOCATIONS+=("$WEBHARE_DIR/libexec/postgres/$2/bin/") # Allows you to ship or move a postgres install into the WebHare tree for easier management
 
   if [ "$WEBHARE_PLATFORM" = "darwin" ]; then
-    if [ -x "$(brew --prefix)/opt/postgresql@${2}/bin/postgres" ]; then
-      LOCATIONS+=("$(brew --prefix)/opt/postgresql@${2}/bin/")
+    # brew may not be accessible to the user running this script, so check the known hardcoded locations
+    if [ -x "/opt/homebrew/opt/postgresql@${2}/bin/postgres" ]; then
+      LOCATIONS+=("/opt/homebrew/opt/postgresql@${2}/bin/")
+    elif [ -x "/usr/local/opt/postgresql@${2}/bin/postgres" ]; then
+      LOCATIONS+=("/usr/local/opt/postgresql@${2}/bin/")
     fi
   fi
 
