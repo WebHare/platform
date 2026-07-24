@@ -92,7 +92,7 @@ RECORD FUNCTION GetRevisionOfGitModule(STRING modulepath)
 {
   IF (NOT RecordExists(GetDiskFileProperties(MergePath(modulepath, "moduledefinition.xml"))))
     RETURN DEFAULT RECORD;
-    IF(GetGitRepoRoot(modulepath) != "")
+    IF(GetGitRepoRoot(modulepath) = "")
     RETURN DEFAULT RECORD;
 
   IF (modulepath NOT LIKE "*/")
