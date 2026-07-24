@@ -1,4 +1,4 @@
-import { listStoredKeyPairs, openStoredKeyPair } from "@mod-platform/js/webserver/keymgmt";
+import { listStoredKeyPairs } from "@mod-platform/js/webserver/keymgmt";
 import { runCli } from "@webhare/cli";
 import { describeTask, listTasks, scheduleTask } from "@webhare/services";
 import { toSnakeCase } from "@webhare/std";
@@ -25,7 +25,6 @@ runCli({
       }
     }
 
-
     for (const cert of allCerts) {
       // In scope?
       if (!cert.name.startsWith("certbot-"))
@@ -36,15 +35,6 @@ runCli({
       if (taskId) {
         if (debug)
           console.log(`Request task ${taskId} already scheduled for '${cert.name}'`);
-        continue;
-      }
-
-      // Should this certificate be renewed?
-      const storedKeyPair = await openStoredKeyPair(cert.id);
-      const checkResult = await storedKeyPair.shouldRenew();
-      if (!checkResult.shouldRenew) {
-        if (debug)
-          console.log(`Skipping '${cert.name}': still valid until ${checkResult.validUntil.toString()}`);
         continue;
       }
 

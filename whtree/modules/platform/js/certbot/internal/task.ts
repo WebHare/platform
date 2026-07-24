@@ -1,8 +1,9 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { systemConfigSchema } from "@mod-platform/generated/wrd/webhare";
+import { ACMEChallengeHandlerBase, type ACMEChallengeHandlerFactory } from "@mod-platform/js/certbot/acmechallengehandler";
 import { acme, testCertificate } from "@mod-platform/js/certbot/certbot";
 import { doRequestACMECertificate, getCertifiableHostNames } from "@mod-platform/js/certbot/internal/certbot";
-import { ACMEChallengeHandlerBase, type ACMEChallengeHandlerFactory } from "@mod-platform/js/certbot/acmechallengehandler";
+import type { AcmeDirectory } from "@mod-platform/js/certbot/vendor/acme/src/mod";
 import { listStoredKeyPairs, openStoredKeyPair } from "@mod-platform/js/webserver/keymgmt";
 import { loadlib } from "@webhare/harescript";
 import {
@@ -26,6 +27,33 @@ import { stat, unlink } from "node:fs/promises";
 
 type StoredKeyPairProps = Awaited<ReturnType<typeof listStoredKeyPairs>>[0];
 type StoredKeyPair = Awaited<ReturnType<typeof openStoredKeyPair>>;
+
+export type CertificateRequestResult = {
+  /** The request was successful */
+  success: true;
+  /** The id of the certificate/key pair that was updated/created */
+  certificateId: number;
+  /** For staging requests, the result certificate */
+  certificate?: string;
+  /** For staging requests, the result private key */
+  privateKey?: string;
+} | {
+  /** The request was not successful */
+  success: false;
+  /** The error code */
+  error: "nodomains" | "certificateobsolete" | "noprovider" | "noproviderdirectory" | "hostnotlocal" | "hostconnecterror" | "requesterror" | "testerror" | "error" | "stillvalid";
+  /** Additional error data */
+  errorData?: string;
+};
+
+type CertificateRequestData = {
+  certificateId?: number;
+  domains?: string[];
+  isRenewal?: boolean;
+  staging?: boolean;
+  testOnly?: boolean;
+  debug?: boolean;
+};
 
 async function getBestCertificateForHost(keyPairs: StoredKeyPairProps[], hostname: string) {
   let bestCert: StoredKeyPair | null = null;
@@ -69,32 +97,29 @@ async function isCertificateForHostname(keyPair: StoredKeyPair, hostname: string
   return false;
 }
 
-export type CertificateRequestResult = {
-  /** The request was successful */
-  success: true;
-  /** The id of the certificate/key pair that was updated/created */
-  certificateId: number;
-  /** For staging requests, the result certificate */
-  certificate?: string;
-  /** For staging requests, the result private key */
-  privateKey?: string;
-} | {
-  /** The request was not successful */
-  success: false;
-  /** The error code */
-  error: "nodomains" | "certificateobsolete" | "noprovider" | "noproviderdirectory" | "hostnotlocal" | "hostconnecterror" | "requesterror" | "testerror" | "error" | "stillvalid";
-  /** Additional error data */
-  errorData?: string;
-};
+function encodeCertBytes(hexBytes: string) {
+  const encoded = Buffer.from(hexBytes, "hex").toBase64({ alphabet: "base64url" });
+  if (encoded.endsWith("="))
+    return /(.*[^=])=+$/.exec(encoded)![1];
+  return encoded;
+}
 
-type CertificateRequestData = {
-  certificateId?: number;
-  domains?: string[];
-  isRenewal?: boolean;
-  staging?: boolean;
-  testOnly?: boolean;
-  debug?: boolean;
-};
+function shouldRenew(start: Temporal.Instant, end: Temporal.Instant) {
+  // Use the algorithm suggested by RFC 9773 to determine wether we should renew or not
+
+  // 1. Select a uniform random time within the suggested window.
+  const now = Temporal.Now.instant();
+  const window = end.epochMilliseconds - start.epochMilliseconds;
+  const rt = start.add(Temporal.Duration.from({ milliseconds: Math.floor(Math.random() * window) }));
+
+  // 2. If the selected time is in the past, attempt renewal immediately.
+  // 3. Otherwise, if the client can schedule itself to attempt renewal at exactly the selected time, do so.
+  // 4. Otherwise, if the selected time is before the next time that the client would wake up normally, attempt renewal immediately.
+  // 5. Otherwise, sleep until the next normal wake time, re-check ARI, and return to "1."
+
+  // We don't schedule ourselves and usually run once each day, so we can just check if the selected time is less than one day away
+  return Temporal.Instant.compare(rt, now.add({ hours: 24 })) < 0;
+}
 
 //Implements task platform:requestcertificate
 export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<CertificateRequestData>, CertificateRequestResult>): Promise<TaskResponse> {
@@ -104,16 +129,7 @@ export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<Certif
   // Find the domains to request certificates for
   const domains = taskdata.domains ?? [];
   const storedKeyPair = taskdata.certificateId ? await openStoredKeyPair(taskdata.certificateId) : null;
-  if (storedKeyPair && taskdata.isRenewal) {
-    const checkResult = await storedKeyPair.shouldRenew();
-    if (!checkResult.shouldRenew) {
-      return req.resolveByCompletion({
-        success: false,
-        error: "stillvalid",
-        errorData: checkResult.validUntil.toString(),
-      });
-    }
-  } else if (taskdata.certificateId)
+  if (taskdata.certificateId && !storedKeyPair)
     return req.resolveByPermanentFailure("Certificate not found", {
       result: {
         success: false,
@@ -234,9 +250,58 @@ export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<Certif
       }
     });
 
+  if (storedKeyPair && taskdata.isRenewal) {
+    // If this is a renewal of an existing certificate, do an ARI check
+    // https://letsencrypt.org/2024/04/25/guide-to-integrating-ari-into-existing-acme-clients
+    let haveARICheck = false;
+    // Retrieve the provider directory for the renewalInfo url
+    let result = await fetch(directory);
+    if (result.ok) {
+      const provDir = await result.json() as AcmeDirectory;
+      if (provDir.renewalInfo) {
+        // Get the certificate's Authority Key Identifier and Serial Number
+        const keyIdentifier = await storedKeyPair.getKeyIdentifier();
+        const serialNumber = await storedKeyPair.getSerialNumber();
+
+        if (taskdata.debug)
+          logDebug("platform:certbot", { "#what": "Do an ARI check", renewalInfoUrl: provDir.renewalInfo, keyIdentifier, serialNumber });
+        if (keyIdentifier && serialNumber) {
+          // Construct the ARI CertID and fetch the renewal info
+          const certID = encodeCertBytes(keyIdentifier) + "." + encodeCertBytes(serialNumber);
+          result = await fetch(provDir.renewalInfo + (!provDir.renewalInfo.endsWith("/") ? "/" : "") + certID);
+          if (result.ok) {
+            const renewalInfo = await result.json() as { suggestedWindow?: { start: string; end: string }; explanationUrl?: string };
+            if (taskdata.debug)
+              logDebug("platform:certbot", { "#what": "Got renewal info", renewalInfo });
+            if (renewalInfo.suggestedWindow) {
+              if (!shouldRenew(Temporal.Instant.from(renewalInfo.suggestedWindow.start), Temporal.Instant.from(renewalInfo.suggestedWindow.end))) {
+                return req.resolveByCompletion({
+                  success: false,
+                  error: "stillvalid",
+                  errorData: renewalInfo.suggestedWindow.end,
+                });
+              }
+              haveARICheck = true;
+            }
+          }
+        }
+      }
+    }
+    if (!haveARICheck) {
+      const checkResult = await storedKeyPair.shouldRenew();
+      if (!checkResult.shouldRenew) {
+        return req.resolveByCompletion({
+          success: false,
+          error: "stillvalid",
+          errorData: checkResult.validUntil.toString(),
+        });
+      }
+    }
+  }
+
   let keyPair: CryptoKeyPair | undefined = undefined;
   if (provider.accountPrivatekey)
-    keyPair = await acme.CryptoKeyUtils.importKeyPairFromPemPrivateKey(await provider.accountPrivatekey.resource.text());
+    keyPair = await acme.CryptoKeyUtils.importKeyPairFromPemPrivateKey(await provider.accountPrivatekey.file.text());
 
   // Check if any of the domains is a wildcard domain (in which case we need to use DNS challenge) and if all non-wildcard
   // domains are reachable
