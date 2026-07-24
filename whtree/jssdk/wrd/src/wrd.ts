@@ -186,6 +186,9 @@ export async function extendSchema(tag: string, options: { schemaDefinitionXML: 
   await loadlib("mod::wrd/lib/internal/metadata/updateschema.whlib").UpdateSchema(wrdschema, schemadef, { isCreate: false });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const schemaCache: Map<string, WeakRef<WRDSchemaType<any>>> = new Map();
+
 /** Open a WRD schema by tag */
 export function wrd<T extends keyof WRDSchemaLike>(tag: T): WRDSchemaType<WRDSchemaLike[T]>;
 
@@ -202,5 +205,8 @@ export function wrd<S extends keyof WRDSchemaLike = never>(tag: [S] extends [nev
   : WRDSchemaType<WRDSchemaLike[S]>;
 
 export function wrd(tag: string): WRDSchemaType {
-  return new WRDSchemaType(tag);
+  let schema = schemaCache?.get(tag)?.deref();
+  if (!schema)
+    schemaCache.set(tag, new WeakRef(schema = new WRDSchemaType(tag)));
+  return schema;
 }
