@@ -382,6 +382,10 @@ class ServiceManagerClient extends BackendServiceConnection {
     await metaMgr.relaunch();
   }
 
+  shutdown() {
+    this.#mgr().shutdownSignal("client");
+  }
+
   getEnvironment() {
     return getServiceSpawnEnvironment(serviceManagerId);
   }
@@ -452,8 +456,8 @@ class ServiceManager {
       smLog(`Updated servicelist for ${source}: added ${[...addedServices].join(", ") || "(none)"}, removed ${[...removeServices].join(", ") || "(none)"} `);
   }
 
-  shutdownSignal = (signal: NodeJS.Signals) => {
-    smLog(`Received signal '${signal}'${this.shuttingDown ? ' but already shutting down' : ', shutting down'} `, { signal, wasShuttingDown: this.shuttingDown });
+  shutdownSignal = (signal: NodeJS.Signals | "client") => {
+    smLog(`${signal === "client" ? "Received shutdown request" : `Received signal '${signal}'`}${this.shuttingDown ? ' but already shutting down' : ', shutting down'} `, { signal, wasShuttingDown: this.shuttingDown });
     this.shutdown();
   };
 

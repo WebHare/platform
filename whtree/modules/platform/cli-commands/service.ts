@@ -124,6 +124,13 @@ runCli({
         await smservice.reload();
       }
     },
+    "shutdown": {
+      description: "Shut down WebHare and exit the service manager",
+      main: async ({ opts, args }) => {
+        const smservice = await openBackendService("platform:servicemanager");
+        await smservice.shutdown();
+      }
+    },
     "start": {
       description: "Start a service",
       arguments: [{ name: "<service>", description: "Service name" }],
