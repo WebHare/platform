@@ -7,6 +7,9 @@
   <test script="webfeatures.whscr"/>
   <test script="test_forms.whscr"/>
   <test script="test_abtest.whscr"/>
+  <test name="test_abtest-jssite" script="test_abtest.whscr">
+    <arg value="--jssite"/>
+  </test>
   <jstest file="test-abtest-frontend.ts"/>
   <test script="test_widgets.whscr"/>
   <test script="test_widget_preview.whscr"/>

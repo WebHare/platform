@@ -1,21 +1,28 @@
 <?wh
 
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
+RECORD args := ParseArguments(GetConsoleArguments(),
+                              [ [ name := "jssite", type := "switch" ]
+                              ]);
+
 
 MACRO TestABTest()
 {
   testfw->BeginWork();
-  OBJECT abtestfolder := GetTestsuiteTempFolder()->EnsureFolder([name := "abtestfolder"]);
+  OBJECT testfolder := args.jssite ? GetTestsuiteJSTempFolder() : GetTestsuiteTempFolder();
+  OBJECT abtestfolder := testfolder->EnsureFolder([name := "abtestfolder"]);
 
   OBJECT abtesttype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/abtest/abtestfile");
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
@@ -23,10 +30,10 @@ MACRO TestABTest()
   OBJECT variant2 := abtestfolder->CreateFile([name := "variant2", title := "Variant 2", type := richdoctype->id, publish := FALSE ]);
   OBJECT otherdoc := abtestfolder->CreateFile([name := "otherdoc", title := "Other Doc", type := richdoctype->id, publish := TRUE, ordering := 3 ]);
   OBJECT abtester := abtestfolder->CreateFile([name := "abtest", title := "A/B test", type := abtesttype->id, publish := TRUE]);
-  OBJECT abtester_contentlink := abtestfolder->CreateFile([name := "abtester_contentlink", title := "A/B test contentlink", type := 20, publish := TRUE, filelink := abtester->id ]);
+  OBJECT abtester_contentlink := abtestfolder->CreateFile([name := "abtester_contentlink", title := "A/B test contentlink", type := whconstant_whfstype_contentlink, publish := TRUE, filelink := abtester->id ]);
 
   OBJECT subfolder := abtestfolder->CreateFolder([name := "subfolder"]);
-  OBJECT subfolder_contentlink := subfolder->CreateFile([name := "subfolder_contentlink", title := "A/B test contentlink", type := 20, publish := TRUE, filelink := abtester->id ]);
+  OBJECT subfolder_contentlink := subfolder->CreateFile([name := "subfolder_contentlink", title := "A/B test contentlink", type := whconstant_whfstype_contentlink, publish := TRUE, filelink := abtester->id ]);
 
   abtestfolder->UpdateMetadata([ indexdoc := abtester->id ]);
   abtesttype->SetInstanceData(abtester->id,
@@ -48,7 +55,9 @@ MACRO TestABTest()
   testfw->WaitForPublishCompletion(abtestfolder->id);
 
   TestEq(TRUE, testfw->browser->GotoWebPage(abtestfolder->OpenByName("abtest")->indexurl));
-  TestEq(abtester->whfspath, testfw->browser->QS("#content")->GetAttribute("data-navigationobjectpath"));
+  IF(NOT args.jssite) {
+    TestEq(abtester->whfspath, testfw->browser->QS("#content")->GetAttribute("data-navigationobjectpath"));
+  }
   TestEq(variant2->whfspath, testfw->browser->QS("#content")->GetAttribute("data-targetobjectpath"));
   TestEqLike("*This is variant 2.*", testfw->browser->QS("#content")->textcontent);
   TestEq("B", testfw->browser->GetCookie("webhare-abtest-myabtest"));
@@ -60,7 +69,9 @@ MACRO TestABTest()
   testfw->browser->SetSessionCookie("webhare-abtest-myabtest","A");
 
   TestEq(TRUE, testfw->browser->GotoWebPage(abtestfolder->OpenByName("abtest")->indexurl));
-  TestEq(abtester->whfspath, testfw->browser->QS("#content")->GetAttribute("data-navigationobjectpath"));
+  IF(NOT args.jssite) {
+    TestEq(abtester->whfspath, testfw->browser->QS("#content")->GetAttribute("data-navigationobjectpath"));
+  }
   TestEq(variant1->whfspath, testfw->browser->QS("#content")->GetAttribute("data-targetobjectpath"));
   TestEqLike("*This is variant 1.*", testfw->browser->QS("#content")->textcontent);
   TestEq("A", testfw->browser->GetCookie("webhare-abtest-myabtest"));
@@ -79,7 +90,7 @@ MACRO TestABTest()
   TestEq("A", testfw->browser->document->documentelement->GetAttribute("data-experiment-variant"));
   TestEq("B", testfw->browser->GetCookie("webhare-abtest-myabtest"), "Session cookie should be unaffected by variant selection");
 
-  //Access it through content links
+  //Access it through content links. A content link just takes the first variant and does not execute its own a/b test
   TestEq(TRUE, testfw->browser->GotoWebPage(abtestfolder->OpenByName("abtester_contentlink")->indexurl));
   TestEqLike("*This is variant 1.*", testfw->browser->QS("#content")->textcontent);
   TestEq(FALSE, testfw->browser->document->documentelement->HasAttribute("data-experiment-id"));
