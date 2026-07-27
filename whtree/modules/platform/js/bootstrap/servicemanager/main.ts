@@ -24,7 +24,7 @@ import { RotatingLogFile } from "../../logging/rotatinglogfile";
 import { runBackendService } from "@webhare/services/src/ipc/backendservicerunner";
 import type { LoggableRecord } from "@webhare/services/src/logmessages";
 import bridge from '@mod-system/js/internal/whmanager/bridge';
-import { getAllServices, getServiceManagerChildPids, getSpawnSettings } from './gatherservices';
+import { getAllServices, getServiceManagerChildPids, getServiceSpawnEnvironment, getSpawnSettings } from './gatherservices';
 import { defaultShutDownStage, type ServiceDefinition, Stage, shouldRestartService, type WebHareVersionFile } from './smtypes';
 import { updateWebHareConfigFile } from '@mod-system/js/internal/generation/gen_config';
 import { kill } from "node:process";
@@ -380,6 +380,10 @@ class ServiceManagerClient extends BackendServiceConnection {
 
   async relaunch() {
     await metaMgr.relaunch();
+  }
+
+  getEnvironment() {
+    return getServiceSpawnEnvironment(serviceManagerId);
   }
 }
 
