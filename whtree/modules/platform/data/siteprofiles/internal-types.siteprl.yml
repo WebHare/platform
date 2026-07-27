@@ -7,11 +7,18 @@ types:
       instance:
         type: instance
   system.keystorefolder:
-    # Applied to folders inside /webhare-private/system/keystore. Not that useful anymore as we generally renew keys when requesting a cert so the keystorefolder's config is not carried over
+    # Applied to folders inside /webhare-private/system/keystore
     namespace: http://www.webhare.net/xmlns/system/keystorefolder
     comment: Key store settings
     metaType: folder
     members:
+      # Renewal Info url (ARI)
+      renewalInfo:
+        type: string
+      # Retry renewal after this date/time (ISO string)
+      retryRenewalAfter:
+        type: string
+      # Not that useful anymore as we generally renew keys when requesting a cert so the keystorefolder's config is not carried over
       warnexpirydays:
         type: integer
 

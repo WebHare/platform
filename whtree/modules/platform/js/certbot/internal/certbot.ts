@@ -1,13 +1,15 @@
+import { systemConfigSchema } from "@mod-platform/generated/wrd/webhare";
 import {
   type AcmeAccount,
   AcmeClient,
+  ACME_DIRECTORY_URLS,
   AcmeWorkflows,
   type DnsTxtRecord,
   type HttpResource,
 } from "@mod-platform/js/certbot/vendor/acme/src/mod";
 import { loadlib } from "@webhare/harescript";
-import { pick } from "@webhare/std";
 import { logError } from "@webhare/services";
+import { pick, regExpFromWildcards } from "@webhare/std";
 import { resolveDns } from "@mod-platform/js/certbot/vendor/acme/src/resolveDns.node";
 
 //TODO remove once we're at TS6
@@ -191,4 +193,41 @@ class UpdateHandler {
         httpResources: this.httpResources
       });
   }
+}
+
+export async function getProviderForDomains(domains: string[], staging?: boolean) {
+  // Find the relevant certificate provider
+  const providers = await systemConfigSchema
+    .query("certificateProvider")
+    .select([
+      "wrdId", "issuerDomain", "acmeDirectory", "accountPrivatekey", "eabKid", "eabHmackey", "email", "allowlist",
+      "keyPairAlgorithm", "acmeChallengeHandler", "skipConnectivityCheck", "wrdOrdering"
+    ])
+    .execute();
+  // Split the allowlist into separate domain masks
+  const providersWithMasks = providers.map(provider => ({
+    ...provider,
+    allowlist: provider.allowlist
+      .split(" ").filter(_ => _) // split into separate masks
+      .map(_ => regExpFromWildcards(_)), // convert to regexp
+  })).sort((a, b) => a.wrdOrdering - b.wrdOrdering); // sort by ordering
+  // Find the first matching provider
+  let provider: typeof providersWithMasks[0] | null = null;
+  for (const prov of providersWithMasks) {
+    // If this provider has an allowlist, every requested host must match one of the allowlist masks
+    if (!prov.allowlist.length || domains.every(host => prov.allowlist.some(regexp => regexp.test(host)))) {
+      provider = prov;
+      break;
+    }
+  }
+  if (!provider)
+    return { provider: null, directory: null };
+
+  let directory = provider.acmeDirectory;
+  if (!directory) {
+    if (provider.issuerDomain === "letsencrypt.org") {
+      directory = staging ? ACME_DIRECTORY_URLS.LETS_ENCRYPT_STAGING : ACME_DIRECTORY_URLS.LETS_ENCRYPT;
+    }
+  }
+  return { provider, directory };
 }

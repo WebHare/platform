@@ -2,8 +2,7 @@ import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { systemConfigSchema } from "@mod-platform/generated/wrd/webhare";
 import { ACMEChallengeHandlerBase, type ACMEChallengeHandlerFactory } from "@mod-platform/js/certbot/acmechallengehandler";
 import { acme, testCertificate } from "@mod-platform/js/certbot/certbot";
-import { doRequestACMECertificate, getCertifiableHostNames } from "@mod-platform/js/certbot/internal/certbot";
-import type { AcmeDirectory } from "@mod-platform/js/certbot/vendor/acme/src/mod";
+import { doRequestACMECertificate, getCertifiableHostNames, getProviderForDomains } from "@mod-platform/js/certbot/internal/certbot";
 import { listStoredKeyPairs, openStoredKeyPair } from "@mod-platform/js/webserver/keymgmt";
 import { loadlib } from "@webhare/harescript";
 import {
@@ -19,7 +18,7 @@ import {
   type TaskResponse,
 } from "@webhare/services";
 import { getAllModuleYAMLs } from "@webhare/services/src/moduledefparser";
-import { addDuration, pick, regExpFromWildcards, throwError, toCamelCase, type ToSnakeCase } from "@webhare/std";
+import { addDuration, pick, throwError, toCamelCase, type ToSnakeCase } from "@webhare/std";
 import { listDirectory } from "@webhare/system-tools";
 import { beginWork, db, onFinishWork } from "@webhare/whdb";
 import { openFolder } from "@webhare/whfs";
@@ -27,33 +26,6 @@ import { stat, unlink } from "node:fs/promises";
 
 type StoredKeyPairProps = Awaited<ReturnType<typeof listStoredKeyPairs>>[0];
 type StoredKeyPair = Awaited<ReturnType<typeof openStoredKeyPair>>;
-
-export type CertificateRequestResult = {
-  /** The request was successful */
-  success: true;
-  /** The id of the certificate/key pair that was updated/created */
-  certificateId: number;
-  /** For staging requests, the result certificate */
-  certificate?: string;
-  /** For staging requests, the result private key */
-  privateKey?: string;
-} | {
-  /** The request was not successful */
-  success: false;
-  /** The error code */
-  error: "nodomains" | "certificateobsolete" | "noprovider" | "noproviderdirectory" | "hostnotlocal" | "hostconnecterror" | "requesterror" | "testerror" | "error" | "stillvalid";
-  /** Additional error data */
-  errorData?: string;
-};
-
-type CertificateRequestData = {
-  certificateId?: number;
-  domains?: string[];
-  isRenewal?: boolean;
-  staging?: boolean;
-  testOnly?: boolean;
-  debug?: boolean;
-};
 
 async function getBestCertificateForHost(keyPairs: StoredKeyPairProps[], hostname: string) {
   let bestCert: StoredKeyPair | null = null;
@@ -97,29 +69,32 @@ async function isCertificateForHostname(keyPair: StoredKeyPair, hostname: string
   return false;
 }
 
-function encodeCertBytes(hexBytes: string) {
-  const encoded = Buffer.from(hexBytes, "hex").toBase64({ alphabet: "base64url" });
-  if (encoded.endsWith("="))
-    return /(.*[^=])=+$/.exec(encoded)![1];
-  return encoded;
-}
+export type CertificateRequestResult = {
+  /** The request was successful */
+  success: true;
+  /** The id of the certificate/key pair that was updated/created */
+  certificateId: number;
+  /** For staging requests, the result certificate */
+  certificate?: string;
+  /** For staging requests, the result private key */
+  privateKey?: string;
+} | {
+  /** The request was not successful */
+  success: false;
+  /** The error code */
+  error: "nodomains" | "certificateobsolete" | "noprovider" | "noproviderdirectory" | "hostnotlocal" | "hostconnecterror" | "requesterror" | "testerror" | "error" | "stillvalid";
+  /** Additional error data */
+  errorData?: string;
+};
 
-function shouldRenew(start: Temporal.Instant, end: Temporal.Instant) {
-  // Use the algorithm suggested by RFC 9773 to determine wether we should renew or not
-
-  // 1. Select a uniform random time within the suggested window.
-  const now = Temporal.Now.instant();
-  const window = end.epochMilliseconds - start.epochMilliseconds;
-  const rt = start.add(Temporal.Duration.from({ milliseconds: Math.floor(Math.random() * window) }));
-
-  // 2. If the selected time is in the past, attempt renewal immediately.
-  // 3. Otherwise, if the client can schedule itself to attempt renewal at exactly the selected time, do so.
-  // 4. Otherwise, if the selected time is before the next time that the client would wake up normally, attempt renewal immediately.
-  // 5. Otherwise, sleep until the next normal wake time, re-check ARI, and return to "1."
-
-  // We don't schedule ourselves and usually run once each day, so we can just check if the selected time is less than one day away
-  return Temporal.Instant.compare(rt, now.add({ hours: 24 })) < 0;
-}
+type CertificateRequestData = {
+  certificateId?: number;
+  domains?: string[];
+  isRenewal?: boolean;
+  staging?: boolean;
+  testOnly?: boolean;
+  debug?: boolean;
+};
 
 //Implements task platform:requestcertificate
 export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<CertificateRequestData>, CertificateRequestResult>): Promise<TaskResponse> {
@@ -129,7 +104,16 @@ export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<Certif
   // Find the domains to request certificates for
   const domains = taskdata.domains ?? [];
   const storedKeyPair = taskdata.certificateId ? await openStoredKeyPair(taskdata.certificateId) : null;
-  if (taskdata.certificateId && !storedKeyPair)
+  if (storedKeyPair && taskdata.isRenewal) {
+    const checkResult = await storedKeyPair.shouldRenew(taskdata.staging);
+    if (!checkResult.shouldRenew) {
+      return req.resolveByCompletion({
+        success: false,
+        error: "stillvalid",
+        errorData: checkResult.retryAfter ? `Retry after ${checkResult.retryAfter.toString()}` : checkResult.validUntil ? `Valid until ${checkResult.validUntil.toString()}` : undefined,
+      });
+    }
+  } else if (taskdata.certificateId && !storedKeyPair)
     return req.resolveByPermanentFailure("Certificate not found", {
       result: {
         success: false,
@@ -203,29 +187,7 @@ export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<Certif
   }
 
   // Find the relevant certificate provider
-  const providers = await systemConfigSchema
-    .query("certificateProvider")
-    .select([
-      "wrdId", "issuerDomain", "acmeDirectory", "accountPrivatekey", "eabKid", "eabHmackey", "email", "allowlist",
-      "keyPairAlgorithm", "acmeChallengeHandler", "skipConnectivityCheck", "wrdOrdering"
-    ])
-    .execute();
-  // Split the allowlist into separate domain masks
-  const providersWithMasks = providers.map(provider => ({
-    ...provider,
-    allowlist: provider.allowlist
-      .split(" ").filter(_ => _) // split into separate masks
-      .map(_ => regExpFromWildcards(_)), // convert to regexp
-  })).sort((a, b) => a.wrdOrdering - b.wrdOrdering); // sort by ordering
-  // Find the first matching provider
-  let provider: typeof providersWithMasks[0] | null = null;
-  for (const prov of providersWithMasks) {
-    // If this provider has an allowlist, every requested host must match one of the allowlist masks
-    if (!prov.allowlist.length || requestDomains.every(host => prov.allowlist.some(regexp => regexp.test(host)))) {
-      provider = prov;
-      break;
-    }
-  }
+  const { provider, directory } = await getProviderForDomains(requestDomains, taskdata.staging);
   if (!provider)
     return req.resolveByTemporaryFailure(`No matching certificate provider found matching domains ${requestDomains.join(", ")}`, {
       result: {
@@ -234,13 +196,6 @@ export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<Certif
         errorData: requestDomains.join(", "),
       }
     });
-
-  let directory = provider.acmeDirectory;
-  if (!directory) {
-    if (provider.issuerDomain === "letsencrypt.org") {
-      directory = taskdata.staging ? acme.ACME_DIRECTORY_URLS.LETS_ENCRYPT_STAGING : acme.ACME_DIRECTORY_URLS.LETS_ENCRYPT;
-    }
-  }
   if (!directory)
     return req.resolveByTemporaryFailure(`No directory for provider ${provider.issuerDomain}`, {
       nextRetry: null, result: {
@@ -249,55 +204,6 @@ export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<Certif
         errorData: provider.issuerDomain,
       }
     });
-
-  if (storedKeyPair && taskdata.isRenewal) {
-    // If this is a renewal of an existing certificate, do an ARI check
-    // https://letsencrypt.org/2024/04/25/guide-to-integrating-ari-into-existing-acme-clients
-    let haveARICheck = false;
-    // Retrieve the provider directory for the renewalInfo url
-    let result = await fetch(directory);
-    if (result.ok) {
-      const provDir = await result.json() as AcmeDirectory;
-      if (provDir.renewalInfo) {
-        // Get the certificate's Authority Key Identifier and Serial Number
-        const keyIdentifier = await storedKeyPair.getKeyIdentifier();
-        const serialNumber = await storedKeyPair.getSerialNumber();
-
-        if (taskdata.debug)
-          logDebug("platform:certbot", { "#what": "Do an ARI check", renewalInfoUrl: provDir.renewalInfo, keyIdentifier, serialNumber });
-        if (keyIdentifier && serialNumber) {
-          // Construct the ARI CertID and fetch the renewal info
-          const certID = encodeCertBytes(keyIdentifier) + "." + encodeCertBytes(serialNumber);
-          result = await fetch(provDir.renewalInfo + (!provDir.renewalInfo.endsWith("/") ? "/" : "") + certID);
-          if (result.ok) {
-            const renewalInfo = await result.json() as { suggestedWindow?: { start: string; end: string }; explanationUrl?: string };
-            if (taskdata.debug)
-              logDebug("platform:certbot", { "#what": "Got renewal info", renewalInfo });
-            if (renewalInfo.suggestedWindow) {
-              if (!shouldRenew(Temporal.Instant.from(renewalInfo.suggestedWindow.start), Temporal.Instant.from(renewalInfo.suggestedWindow.end))) {
-                return req.resolveByCompletion({
-                  success: false,
-                  error: "stillvalid",
-                  errorData: renewalInfo.suggestedWindow.end,
-                });
-              }
-              haveARICheck = true;
-            }
-          }
-        }
-      }
-    }
-    if (!haveARICheck) {
-      const checkResult = await storedKeyPair.shouldRenew();
-      if (!checkResult.shouldRenew) {
-        return req.resolveByCompletion({
-          success: false,
-          error: "stillvalid",
-          errorData: checkResult.validUntil.toString(),
-        });
-      }
-    }
-  }
 
   let keyPair: CryptoKeyPair | undefined = undefined;
   if (provider.accountPrivatekey)

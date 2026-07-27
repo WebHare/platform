@@ -1,9 +1,11 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
+import { getProviderForDomains } from "@mod-platform/js/certbot/internal/certbot";
+import type { AcmeDirectory } from "@mod-platform/js/certbot/vendor/acme/src/AcmeClient";
 import { ASN1_TAGS } from "@mod-platform/js/certbot/vendor/acme/src/Asn1/Asn1";
 import { decodeSequence, decodeTagLengthValue } from "@mod-platform/js/certbot/vendor/acme/src/Asn1/Asn1DecodeHelpers";
 import { toFSPath } from "@webhare/services";
 import { db } from "@webhare/whdb";
-import { openFolder, type WHFSFolder } from "@webhare/whfs";
+import { openFolder, whfsType, type WHFSFolder } from "@webhare/whfs";
 import { createHash, X509Certificate } from "node:crypto";
 import { readFileSync } from "node:fs";
 
@@ -50,6 +52,30 @@ const decodeObjectIdentifier = (objIdTLVDer: Uint8Array<ArrayBuffer>) => {
   }
   return [oidPart1, oidPart2, ...rest].join(".");
 };
+
+function encodeCertBytes(hexBytes: string) {
+  const encoded = Buffer.from(hexBytes, "hex").toBase64({ alphabet: "base64url" });
+  if (encoded.endsWith("="))
+    return /(.*[^=])=+$/.exec(encoded)![1];
+  return encoded;
+}
+
+function shouldRenew(start: Temporal.Instant, end: Temporal.Instant) {
+  // Use the algorithm suggested by RFC 9773 to determine wether we should renew or not
+
+  // 1. Select a uniform random time within the suggested window.
+  const now = Temporal.Now.instant();
+  const window = end.epochMilliseconds - start.epochMilliseconds;
+  const rt = start.add(Temporal.Duration.from({ milliseconds: Math.floor(Math.random() * window) }));
+
+  // 2. If the selected time is in the past, attempt renewal immediately.
+  // 3. Otherwise, if the client can schedule itself to attempt renewal at exactly the selected time, do so.
+  // 4. Otherwise, if the selected time is before the next time that the client would wake up normally, attempt renewal immediately.
+  // 5. Otherwise, sleep until the next normal wake time, re-check ARI, and return to "1."
+
+  // We don't schedule ourselves and usually run once each day, so we can just check if the selected time is less than one day away
+  return Temporal.Instant.compare(rt, now.add({ hours: 24 })) < 0;
+}
 
 export function splitPEMCertificateBundle(bundle: string): string[] {
   const certs: string[] = [];
@@ -111,7 +137,62 @@ class StoredKeyPair {
     this.keyFolder = keyFolder;
   }
 
-  async shouldRenew(): Promise<{ shouldRenew: boolean; validUntil: Temporal.Instant }> {
+  async shouldRenew(staging?: boolean): Promise<{ shouldRenew: boolean; validUntil?: Temporal.Instant; retryAfter?: Temporal.Instant | null }> {
+    // Check if we have a renewalInfo url, so we can use ARI to check if we have to renew yet
+    const data = await whfsType("platform:system.keystorefolder").get(this.id);
+    if (data.retryRenewalAfter) {
+      const retryAfter = Temporal.Instant.from(data.retryRenewalAfter);
+      if (Temporal.Instant.compare(retryAfter, Temporal.Now.instant()) > 0)
+        return { shouldRenew: false, retryAfter };
+    }
+    let renewalInfo = data.renewalInfo;
+    if (!renewalInfo) {
+      // Retrieve the renewalInfo url from the provider and store it
+      const { directory } = await getProviderForDomains(await this.getDNSNames(), staging);
+      if (directory) {
+        // Retrieve the provider directory for the renewalInfo url
+        const result = await fetch(directory);
+        if (result.ok) {
+          const acmeDirectory = await result.json() as AcmeDirectory;
+          if (acmeDirectory.renewalInfo) {
+            // Get the certificate's Authority Key Identifier and Serial Number
+            const keyIdentifier = await this.getKeyIdentifier();
+            const serialNumber = await this.getSerialNumber();
+
+            if (keyIdentifier && serialNumber) {
+              // Construct and store the ARI CertID
+              const certID = encodeCertBytes(keyIdentifier) + "." + encodeCertBytes(serialNumber);
+              renewalInfo = acmeDirectory.renewalInfo + (!renewalInfo.endsWith("/") ? "/" : "") + certID;
+              await whfsType("platform:system.keystorefolder").set(this.id, { renewalInfo });
+            }
+          }
+        }
+      }
+    }
+    if (renewalInfo) {
+      // We have a renewalInfo url, do an ARI check
+      // https://letsencrypt.org/2024/04/25/guide-to-integrating-ari-into-existing-acme-clients
+      const result = await fetch(renewalInfo);
+      if (result.ok) {
+        // If we receive a Retry-After header, store it
+        const retryAfterSeconds = parseInt(result.headers.get("retry-after") ?? "") || 0;
+        const retryAfter = retryAfterSeconds ? (Temporal.Now.instant().add({ seconds: retryAfterSeconds })) : null;
+        await whfsType("platform:system.keystorefolder").set(this.id, { retryRenewalAfter: retryAfter?.toString() });
+        // Read the renewal info and check if we should renew
+        const info = await result.json() as { suggestedWindow?: { start: string; end: string }; explanationUrl?: string };
+        if (info.suggestedWindow) {
+          const windowStart = Temporal.Instant.from(info.suggestedWindow.start);
+          const windowEnd = Temporal.Instant.from(info.suggestedWindow.end);
+          return {
+            shouldRenew: shouldRenew(windowStart, windowEnd),
+            validUntil: windowStart,
+            retryAfter,
+          };
+        }
+      }
+      //FIXME: Should we re-retrieve the renewalInfo url if the renewal call failed as it might have changed?
+    }
+
     const validFrom = await this.getValidFrom();
     const validUntil = await this.getValidTo();
 
