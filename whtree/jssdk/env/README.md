@@ -17,8 +17,7 @@ If you use @webhare/env *outside WebHare* these preloads may not be present and 
 the following code will parse the SV_DEBUG environment variable for any flags:
 
 ```typescript
-import { enableFetchDebugging } from '@webhare/env';
-import { updateDebugConfig } from '@webhare/env/dist/envbackend'; //NOTE: currently an internal API
+import { enableFetchDebugging, updateDebugConfig } from '@webhare/env';
 
 updateDebugConfig({ //FIXME internal api.Rob: sja, we zouden ook bij het setten van een debugflag die callbacks kunnen aanroepen  zo vaak gebeurt het niet
   tags: process.env.SV_DEBUG?.split(',') || [],
