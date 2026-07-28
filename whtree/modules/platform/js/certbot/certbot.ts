@@ -4,6 +4,7 @@ import { beginWork, commitWork } from "@webhare/whdb";
 import { createPrivateKey, X509Certificate } from "node:crypto";
 import { lookupKey, splitPEMCertificateBundle } from "../webserver/keymgmt";
 import type { CertificateRequestResult } from "./internal/task";
+import { toCamelCase, toSnakeCase, type ToSnakeCase } from "@webhare/std";
 
 export * as acme from "@mod-platform/js/certbot/vendor/acme/src/mod";
 
@@ -23,14 +24,14 @@ type CertificateRequestOptions = {
 /** Request a certificate for one or more domains hosted by this installation */
 export async function requestACMECertificate(domains: string[], options?: CertificateRequestOptions): Promise<CertificateRequestResult> {
   await beginWork();
-  const taskId = await scheduleTask("platform:requestcertificate", {
+  const taskId = await scheduleTask("platform:requestcertificate", toSnakeCase({
     certificateId: options?.certificateId ?? 0,
     isRenewal: options?.isRenewal ?? true,
     domains,
     staging: options?.staging ?? true,
     testOnly: options?.testOnly ?? false,
     debug: options?.debug ?? false,
-  });
+  }));
   await commitWork();
 
   try {
@@ -38,6 +39,10 @@ export async function requestACMECertificate(domains: string[], options?: Certif
   } catch (e) {
     return { success: false, error: "error", errorData: (e as Error).message };
   }
+}
+
+export async function requestACMECertificateForHs(domains: string[], options?: ToSnakeCase<CertificateRequestOptions>): Promise<ToSnakeCase<CertificateRequestResult>> {
+  return toSnakeCase(await requestACMECertificate(domains, toCamelCase(options)));
 }
 
 type TestCertificateOptions = {
