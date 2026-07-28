@@ -1050,6 +1050,7 @@
           <text tid="expires_in_days">Verloopt over <param p="1"/> dagen</text>
           <text tid="expires_soon_in_days"><html:b>Verloopt over <param p="1"/> dagen</html:b></text>
           <text tid="notsignedbynextcert">Niet getekend door volgende certificaat!</text>
+          <text tid="renewalfrom">Vernieuwbaar vanaf</text>
           <text tid="selfsigned">Zelf-ondertekend</text>
           <text tid="signature">Ondertekening</text>
           <text tid="signaturenotchecked">Ondertekening kan niet worden geverifieerd</text>

@@ -1240,6 +1240,7 @@
           <text tid="expires_in_days">Expires in <param p="1"/> days</text>
           <text tid="expires_soon_in_days"><html:b>Expires in <param p="1"/> days</html:b></text>
           <text tid="notsignedbynextcert">Not signed by next certificate!</text>
+          <text tid="renewalfrom">Renewable from</text>
           <text tid="selfsigned">Self-signed</text>
           <text tid="signature">Signature</text>
           <text tid="signaturenotchecked">Signature cannot be checked</text>
