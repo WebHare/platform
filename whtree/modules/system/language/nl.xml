@@ -999,6 +999,9 @@
           <text tid="certificate">Certificaat</text>
           <text tid="certificatedoesnotmatchissuer">De issuer van het vertificaat komt niet overeen met de subject van het ondertekenende certificaat.</text>
           <text tid="certificatenotforthiskey">Dit certificaat behoort niet bij de geselecteerde sleutel.</text>
+          <text tid="certificaterenewalerror">Er is een fout opgetreden bij het vernieuwen van het certificaat.<br/><br/><param p="1"/></text>
+          <text tid="certificaterenewed">Het certificaat is vernieuwd.</text>
+          <text tid="certificatestillvalid">Het certificaat hoeft nog niet vernieuwd te worden.<ifparam p="1" value=""><br/><br/>Wil je het certificaat geforceerd vernieuwen?</ifparam></text>
           <text tid="createselfsignedcert">Zelf-ondertekend certificaat aanmaken</text>
           <text tid="deletekey">Sleutel verwijderen</text>
           <text tid="downloadcertificate">Certificaat downloaden</text>
@@ -1010,12 +1013,13 @@
           <text tid="keylength">Sleutellengte</text>
           <text tid="keystillreferencedbyentity">Deze sleutel wordt nog gerefereerd door een WRD entiteit van schema '<param p="1"/>', type '<param p="2"/>', entiteittag '<param p="3"/>'.</text>
           <text tid="keystillreferencedbyport">Deze sleutel wordt nog gebruikt door de binding van poort <param p="2"/>, IP <param p="1"/>.</text>
-          <text tid="main">Sleutels and certificaten</text>
+          <text tid="main">Sleutels en certificaten</text>
           <text tid="missingcertificate">Het certificaat voor uitgever '<param p="1"/>' bevindt zich niet in het certificaatbestand en is ook niet bekend bij de centrale certificaatopslag.</text>
           <text tid="missingcertificatechain">Dit certificaatbestand bevat geen certificaatketting.</text>
           <text tid="nocertificatenamesfound">Geen DNS namen gevonden voor deze sleutel/certificaat paar</text>
           <text tid="noncertificateinchain">Dit bestand bevat een incorrect certificaat.</text>
           <text tid="overwritewithselfsigned">Weet je zeker dat je het certificaat van deze sleutel wilt vervangen door een zelf-ondertekend certificaat?</text>
+          <text tid="renewcertificate">Certificaat vernieuwen</text>
           <text tid="requestnewcertificate">Vraag nieuwe sleutel/certificaat aan</text>
           <text tid="signatureverificationfailed">De validatie van de certificaatketting is mislukt.</text>
           <text tid="suredeletekey">Weet je zeker dat je sleutel '<param p="1"/>' wilt verwijderen? Deze operatie kan niet ongedaan worden gemaakt!</text>
@@ -1025,6 +1029,17 @@
           <text tid="validfrom">Geldig van</text>
           <text tid="validuntil">Geldig tot</text>
           <text tid="viewcertificatechain">Certificaten bekijken</text>
+          <textgroup gid="certificateerrors">   <!-- tolliumapps.config.keystore.main.certificateerrors -->
+            <text tid="certificateobsolete">Dit certificaat is niet langer nodig, maar wordt nog gebruikt door een SSL-poort.</text>
+            <text tid="error">Er is een fout opgetreden: <param p="1"/></text>
+            <text tid="hostconnecterror">Fout bij controleren van domein: <param p="1"/></text>
+            <text tid="hostnotlocal">Domein '<param p="1"/>' wordt niet gehost door deze installatie.</text>
+            <text tid="nodomains">Geen domeinen voor dit certificaat.</text>
+            <text tid="noprovider">Geen certificaatverstrekker gevonden voor dit certificaat.</text>
+            <text tid="noproviderdirectory">Geen directory ontvangen voor de certificaatverstrekker via <param p="1"/></text>
+            <text tid="requesterror">Fout bij aanvragen van certificaat: <param p="1"/></text>
+            <text tid="testerror">Ongeldig certificaat ontvangen: <param p="1"/></text>
+          </textgroup>
         </textgroup>
         <textgroup gid="viewcertificatechain">   <!-- tolliumapps.config.keystore.viewcertificatechain -->
           <text tid="altnames">Alternatieve namen</text>
