@@ -26,8 +26,7 @@
     <task runat=" 3  2 * * *" runtz="maintenance" script="scripts/tasks/cleanversions.whscr" tag="system_cleanversions" />
     <task runat=" 6  2 * * *" runtz="maintenance" script="scripts/tasks/cleanfsdata.whscr" tag="system_cleanfsdata" />
     <task runat="11  3 * * *" runtz="maintenance" script="scripts/tasks/fix_whfs.whscr" tag="system_fix_whfs" />
-    <task runat="19  4 * * *" runtz="maintenance" script="scripts/tasks/renewcertbot.ts" tag="renewcertbot" description="Renew certbot certificates" />
-
+    <task runat="19  */6 * * *" runtz="maintenance" script="scripts/tasks/renewcertbot.ts" tag="renewcertbot" description="Renew certbot certificates" />
     <task runat="29  * * * *" runtz="maintenance" script="scripts/tasks/cleanup_hourly.whscr" tag="cleanup_hourly" description="Hourly cleanup" />
     <task runat="39  * * * *" runtz="maintenance" script="scripts/tasks/uploadstatus.whscr" tag="uploadstatus" runatstartup="true" />
     <task runat="*/10 * * * *" runtz="maintenance" script="scripts/tasks/webserverusage.whscr" tag="webserverusage" description="Process webserver usage stats" />
@@ -557,7 +556,7 @@ false = authentication is only necessary for users not matching the IP access ru
       <d:varchar name="description" maxlength="1024">
         <d:documentation>Describe this port</d:documentation>
       </d:varchar>
-      <d:obsoletecolumn name="keyname" /> <!-- obsoleted in 6.0 but not sure when it was originally removed -->
+      <d:obsoletecolumn name="keyname" />  <!-- obsoleted in 6.0 but not sure when it was originally removed -->
     </d:table>
 
     <d:table name="proxies" primarykey="id">
@@ -859,8 +858,7 @@ false = authentication is only necessary for users not matching the IP access ru
       </d:integer>
       <d:boolean name="workflow">
         <d:documentation>This instance is managed as part of a workflow (drafts/autosaves) - it had clone: onDraft at one point during the workflow and has been in an editProps component.
-          This instance will not be deleted even if all members are unset so we can see the difference between 'explicitly cleared in this draft' versus 'did not exist when we started this draft'.
-        </d:documentation>
+          This instance will not be deleted even if all members are unset so we can see the difference between 'explicitly cleared in this draft' versus 'did not exist when we started this draft'.</d:documentation>
       </d:boolean>
     </d:table>
 
