@@ -15,6 +15,9 @@ types:
       # Renewal Info url (ARI)
       renewalInfo:
         type: string
+      # The start of the certificate renewal window (ISO string)
+      renewWindowStart:
+        type: string
       # Retry renewal after this date/time (ISO string)
       retryRenewalAfter:
         type: string

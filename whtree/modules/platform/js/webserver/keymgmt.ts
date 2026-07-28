@@ -183,6 +183,7 @@ class StoredKeyPair {
         if (info.suggestedWindow) {
           const windowStart = Temporal.Instant.from(info.suggestedWindow.start);
           const windowEnd = Temporal.Instant.from(info.suggestedWindow.end);
+          await whfsType("platform:system.keystorefolder").set(this.id, { renewWindowStart: windowStart.toString() });
           return {
             shouldRenew: shouldRenew(windowStart, windowEnd),
             validUntil: windowStart,
