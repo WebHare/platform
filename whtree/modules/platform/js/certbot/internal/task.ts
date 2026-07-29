@@ -107,10 +107,15 @@ export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<Certif
   if (storedKeyPair && taskdata.isRenewal) {
     const checkResult = await storedKeyPair.shouldRenew(taskdata.staging);
     if (!checkResult.shouldRenew) {
+      let errorData: string | undefined = undefined;
+      if (checkResult.validUntil)
+        errorData = `Valid until ${checkResult.validUntil.toString()}`;
+      if (checkResult.retryAfter)
+        errorData = errorData ? `${errorData} (retry after ${checkResult.retryAfter.toString()})` : `Retry after ${checkResult.retryAfter.toString()}`;
       return req.resolveByCompletion({
         success: false,
         error: "stillvalid",
-        errorData: checkResult.retryAfter ? `Retry after ${checkResult.retryAfter.toString()}` : checkResult.validUntil ? `Valid until ${checkResult.validUntil.toString()}` : undefined,
+        errorData,
       });
     }
   } else if (taskdata.certificateId && !storedKeyPair)
