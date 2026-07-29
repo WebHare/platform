@@ -16,27 +16,39 @@ runCli({
     const allCerts = await listStoredKeyPairs();
     await beginWork();
 
-    certLoop: for (const cert of allCerts) {
+    // Get a list of certificates for which a request task is already running
+    const certTasks: Map<number, number> = new Map();
+    for (const task of await listTasks("platform:requestcertificate", { onlyPending: true })) {
+      const data = await describeTask(task.id);
+      if (data?.data && typeof data.data === "object" && "certificate_id" in data.data && typeof data.data.certificate_id === "number") {
+        certTasks.set(data.data.certificate_id, task.id);
+      }
+    }
+
+    for (const cert of allCerts) {
       // In scope?
       if (!cert.name.startsWith("certbot-"))
-        continue certLoop;
+        continue;
 
       // Don't schedule if a task for this certificate is already running/pending
-      for (const task of await listTasks("platform:requestcertificate", { onlyPending: true })) {
-        const data = await describeTask(task.id);
-        if (data?.data && typeof data.data === "object" && "certificate_id" in data.data && data.data.certificate_id === cert.id) {
-          if (debug)
-            console.log(`Request task ${task.id} already scheduled for '${cert.name}'`);
-          continue certLoop;
-        }
+      const taskId = certTasks.get(cert.id);
+      if (taskId) {
+        if (debug)
+          console.log(`Request task ${taskId} already scheduled for '${cert.name}'`);
+        continue;
       }
 
+      // Should this certificate be renewed?
       const storedKeyPair = await openStoredKeyPair(cert.id);
-      const checkResult = await storedKeyPair.shouldRenew();
+      const checkResult = await storedKeyPair.shouldRenew(options.staging);
       if (!checkResult.shouldRenew) {
-        if (debug)
-          console.log(`Skipping '${cert.name}': still valid until ${checkResult.validUntil.toString()}`);
-        continue certLoop;
+        if (debug) {
+          if (checkResult.retryAfter)
+            console.log(`Skipping '${cert.name}': no need to check before ${checkResult.retryAfter.toString()}`);
+          else if (checkResult.validUntil)
+            console.log(`Skipping '${cert.name}': still valid until ${"retryAfter" in checkResult ? "at least " : ""}${checkResult.validUntil.toString()}`);
+        }
+        continue;
       }
 
       if (debug)

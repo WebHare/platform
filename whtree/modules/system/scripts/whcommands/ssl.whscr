@@ -12,7 +12,7 @@ LOADLIB "mod::system/lib/keystore.whlib";
 
 MACRO CertBot(RECORD subargs)
 {
-  RECORD res := CallJS("mod::platform/js/certbot/certbot.ts#requestACMECertificate", STRING[ subargs.primaryhostname, ...subargs.hostnames ], CELL[ subargs.staging, subargs.debug ]);
+  RECORD res := CallJS("mod::platform/js/certbot/certbot.ts#requestACMECertificateForHs", STRING[ subargs.primaryhostname, ...subargs.hostnames ], CELL[ subargs.staging, subargs.debug ]);
   IF(NOT res.success)
   {
     IF (res.error = "hostnotlocal")

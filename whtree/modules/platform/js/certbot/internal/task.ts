@@ -1,8 +1,8 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { systemConfigSchema } from "@mod-platform/generated/wrd/webhare";
-import { acme, testCertificate } from "@mod-platform/js/certbot/certbot";
-import { doRequestACMECertificate, getCertifiableHostNames } from "@mod-platform/js/certbot/internal/certbot";
 import { ACMEChallengeHandlerBase, type ACMEChallengeHandlerFactory } from "@mod-platform/js/certbot/acmechallengehandler";
+import { acme, testCertificate } from "@mod-platform/js/certbot/certbot";
+import { doRequestACMECertificate, getCertifiableHostNames, getProviderForDomains } from "@mod-platform/js/certbot/internal/certbot";
 import { listStoredKeyPairs, openStoredKeyPair } from "@mod-platform/js/webserver/keymgmt";
 import { loadlib } from "@webhare/harescript";
 import {
@@ -18,7 +18,7 @@ import {
   type TaskResponse,
 } from "@webhare/services";
 import { getAllModuleYAMLs } from "@webhare/services/src/moduledefparser";
-import { addDuration, pick, regExpFromWildcards, throwError, toCamelCase, type ToSnakeCase } from "@webhare/std";
+import { addDuration, pick, throwError, toCamelCase, type ToSnakeCase } from "@webhare/std";
 import { listDirectory } from "@webhare/system-tools";
 import { beginWork, db, onFinishWork } from "@webhare/whdb";
 import { openFolder } from "@webhare/whfs";
@@ -105,15 +105,20 @@ export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<Certif
   const domains = taskdata.domains ?? [];
   const storedKeyPair = taskdata.certificateId ? await openStoredKeyPair(taskdata.certificateId) : null;
   if (storedKeyPair && taskdata.isRenewal) {
-    const checkResult = await storedKeyPair.shouldRenew();
+    const checkResult = await storedKeyPair.shouldRenew(taskdata.staging);
     if (!checkResult.shouldRenew) {
+      let errorData: string | undefined = undefined;
+      if (checkResult.validUntil)
+        errorData = `Valid until ${checkResult.validUntil.toString()}`;
+      if (checkResult.retryAfter)
+        errorData = errorData ? `${errorData} (retry after ${checkResult.retryAfter.toString()})` : `Retry after ${checkResult.retryAfter.toString()}`;
       return req.resolveByCompletion({
         success: false,
         error: "stillvalid",
-        errorData: checkResult.validUntil.toString(),
+        errorData,
       });
     }
-  } else if (taskdata.certificateId)
+  } else if (taskdata.certificateId && !storedKeyPair)
     return req.resolveByPermanentFailure("Certificate not found", {
       result: {
         success: false,
@@ -187,29 +192,7 @@ export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<Certif
   }
 
   // Find the relevant certificate provider
-  const providers = await systemConfigSchema
-    .query("certificateProvider")
-    .select([
-      "wrdId", "issuerDomain", "acmeDirectory", "accountPrivatekey", "eabKid", "eabHmackey", "email", "allowlist",
-      "keyPairAlgorithm", "acmeChallengeHandler", "skipConnectivityCheck", "wrdOrdering"
-    ])
-    .execute();
-  // Split the allowlist into separate domain masks
-  const providersWithMasks = providers.map(provider => ({
-    ...provider,
-    allowlist: provider.allowlist
-      .split(" ").filter(_ => _) // split into separate masks
-      .map(_ => regExpFromWildcards(_)), // convert to regexp
-  })).sort((a, b) => a.wrdOrdering - b.wrdOrdering); // sort by ordering
-  // Find the first matching provider
-  let provider: typeof providersWithMasks[0] | null = null;
-  for (const prov of providersWithMasks) {
-    // If this provider has an allowlist, every requested host must match one of the allowlist masks
-    if (!prov.allowlist.length || requestDomains.every(host => prov.allowlist.some(regexp => regexp.test(host)))) {
-      provider = prov;
-      break;
-    }
-  }
+  const { provider, directory } = await getProviderForDomains(requestDomains, taskdata.staging);
   if (!provider)
     return req.resolveByTemporaryFailure(`No matching certificate provider found matching domains ${requestDomains.join(", ")}`, {
       result: {
@@ -218,13 +201,6 @@ export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<Certif
         errorData: requestDomains.join(", "),
       }
     });
-
-  let directory = provider.acmeDirectory;
-  if (!directory) {
-    if (provider.issuerDomain === "letsencrypt.org") {
-      directory = taskdata.staging ? acme.ACME_DIRECTORY_URLS.LETS_ENCRYPT_STAGING : acme.ACME_DIRECTORY_URLS.LETS_ENCRYPT;
-    }
-  }
   if (!directory)
     return req.resolveByTemporaryFailure(`No directory for provider ${provider.issuerDomain}`, {
       nextRetry: null, result: {
@@ -236,7 +212,7 @@ export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<Certif
 
   let keyPair: CryptoKeyPair | undefined = undefined;
   if (provider.accountPrivatekey)
-    keyPair = await acme.CryptoKeyUtils.importKeyPairFromPemPrivateKey(await provider.accountPrivatekey.resource.text());
+    keyPair = await acme.CryptoKeyUtils.importKeyPairFromPemPrivateKey(await provider.accountPrivatekey.file.text());
 
   // Check if any of the domains is a wildcard domain (in which case we need to use DNS challenge) and if all non-wildcard
   // domains are reachable

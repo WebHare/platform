@@ -1189,6 +1189,9 @@
           <text tid="certificate">Certificate</text>
           <text tid="certificatedoesnotmatchissuer">The certificate issuer does not match the subject of the signing certificate.</text>
           <text tid="certificatenotforthiskey">This certificate does not belong to the selected key.</text>
+          <text tid="certificaterenewalerror">An error occurred while renewing the certificate.<br/><br/><param p="1"/></text>
+          <text tid="certificaterenewed">The certificate is renewed.</text>
+          <text tid="certificatestillvalid">The certificate does not have to be renewed yet.<ifparam p="1" value=""><br/><br/>Do you want to force a certificate renewal?</ifparam></text>
           <text tid="createselfsignedcert">Create self-signed certificate</text>
           <text tid="deletekey">Delete key</text>
           <text tid="downloadcertificate">Download certificate</text>
@@ -1206,6 +1209,7 @@
           <text tid="nocertificatenamesfound">No DNS names found for this key/certificate pair</text>
           <text tid="noncertificateinchain">This file contains an invalid certificate.</text>
           <text tid="overwritewithselfsigned">Are you sure you want to replace the certificate of this key with a self-signed certificate?</text>
+          <text tid="renewcertificate">Renew certificate</text>
           <text tid="requestnewcertificate">Request new key/certificate</text>
           <text tid="signatureverificationfailed">The validation of the certificate chain failed.</text>
           <text tid="suredeletekey">Are you sure you want to delete key '<param p="1"/>'? This operation can't be undone!</text>
@@ -1215,6 +1219,17 @@
           <text tid="validfrom">Valid from</text>
           <text tid="validuntil">Valid until</text>
           <text tid="viewcertificatechain">View certificates</text>
+          <textgroup gid="certificateerrors" keepemptyreason="referenced from certbot task">   <!-- tolliumapps.config.keystore.main.certificateerrors -->
+            <text tid="certificateobsolete">This certificate is no longer needed, but still referred to by an SSL port.</text>
+            <text tid="error">An error occurred: <param p="1"/></text>
+            <text tid="hostconnecterror">Error while checking domain: <param p="1"/></text>
+            <text tid="hostnotlocal">Domain '<param p="1"/>' is not hosted by this installation.</text>
+            <text tid="nodomains">No domains for this certificate.</text>
+            <text tid="noprovider">No certificate provider found for this certificate.</text>
+            <text tid="noproviderdirectory">No directory retrieved for the certificate provider at <param p="1"/></text>
+            <text tid="requesterror">Error requesting certificate: <param p="1"/></text>
+            <text tid="testerror">Invalid certificate received: <param p="1"/></text>
+          </textgroup>
         </textgroup>
         <textgroup gid="viewcertificatechain">   <!-- tolliumapps.config.keystore.viewcertificatechain -->
           <text tid="altnames">Alternative names</text>
@@ -1225,6 +1240,7 @@
           <text tid="expires_in_days">Expires in <param p="1"/> days</text>
           <text tid="expires_soon_in_days"><html:b>Expires in <param p="1"/> days</html:b></text>
           <text tid="notsignedbynextcert">Not signed by next certificate!</text>
+          <text tid="renewalfrom">Renewable from</text>
           <text tid="selfsigned">Self-signed</text>
           <text tid="signature">Signature</text>
           <text tid="signaturenotchecked">Signature cannot be checked</text>
@@ -1234,7 +1250,6 @@
           <text tid="validfrom">Valid from</text>
           <text tid="validuntil">Valid until</text>
           <text tid="viewcertificatechain">Certificate chain</text>
-          <text tid="warnexpirydays">Warn if expiring in</text>
         </textgroup>
       </textgroup>
       <textgroup gid="mailrouting">   <!-- tolliumapps.config.mailrouting -->

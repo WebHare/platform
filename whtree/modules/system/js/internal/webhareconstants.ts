@@ -56,7 +56,7 @@ export const whconstant_whfsid_private_platform = 26;
 export const whconstant_default_warnexpirydays = 30;
 
 //Default key expiry warning (days) for automatically renewed keys
-export const whconstant_autorenewed_warnexpirydays = 21;
+export const whconstant_autorenewed_warnexpirydays = 14;
 
 //All possible index pages for webservers. indexbasename + all supported extensions
 export const whconstant_webserver_indexpages = ["index.html", "index.shtml"];

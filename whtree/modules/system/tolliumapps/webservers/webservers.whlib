@@ -788,7 +788,7 @@ PUBLIC STATIC OBJECTTYPE ExportUsageStats EXTEND TolliumScreenBase
 
 PUBLIC RECORD FUNCTION RequestCert(STRING ARRAY names, BOOLEAN staging)
 {
-  RETURN CallJS("mod::platform/js/certbot/certbot.ts#requestACMECertificate", names, CELL[ staging ]);
+  RETURN CallJS("mod::platform/js/certbot/certbot.ts#requestACMECertificateForHs", names, CELL[ staging ]);
 }
 
 PUBLIC STATIC OBJECTTYPE CertbotRequest EXTEND TolliumScreenBase
@@ -827,11 +827,11 @@ PUBLIC STATIC OBJECTTYPE CertbotRequest EXTEND TolliumScreenBase
 
       IF (result.error = "hostnotlocal")
       {
-        work->AddError(this->GetTid(".nothostedhere", result.errordata));
+        work->AddError(this->GetTid(".nothostedhere", result.error_data));
       }
       ELSE
       {
-        work->AddError(result.error || (CellExists(result, "errordata") ? ": " || result.errordata : ""));
+        work->AddError(result.error || (CellExists(result, "error_data") ? ": " || result.error_data : ""));
       }
 
       work->Finish();

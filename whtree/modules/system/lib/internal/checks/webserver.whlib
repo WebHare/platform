@@ -193,14 +193,24 @@ PUBLIC RECORD ARRAY FUNCTION CheckCertificates()
             , jumpto := jumpto
             , messagetag := [ type := "system:webserver.key", keyname := obj->name ]
             ] INTO messages AT END;
-      ELSE IF (certdata.valid_until < AddDaysToDate(keypair.warnexpirydays ?? obj->GetDefaultRenewalWarningPeriod(), now))
+      ELSE
       {
-        RECORD diff := GetDateTimeDifference(now, certdata.valid_until);
-        INSERT
-            [ msg := ":The certificate for key '" || obj->name || "' will expire in " || diff.days || " days"
-            , jumpto := jumpto
-            , messagetag := [ type := "system:webserver.key", keyname := obj->name ]
-            ] INTO messages AT END;
+        RECORD period := obj->GetDefaultRenewalWarningPeriod();
+        IF (period.renew_window_start != DEFAULT DATETIME AND now > period.renew_window_start)
+          INSERT
+              [ msg := ":The certificate for key '" || obj->name || "' should be renewed since " || FormatISO8601DateTime(period.renew_window_start)
+              , jumpto := jumpto
+              , messagetag := [ type := "system:webserver.key", keyname := obj->name ]
+              ] INTO messages AT END;
+        ELSE IF (certdata.valid_until < AddDaysToDate(period.warnexpirydays, now))
+        {
+          RECORD diff := GetDateTimeDifference(now, certdata.valid_until);
+          INSERT
+              [ msg := ":The certificate for key '" || obj->name || "' will expire in " || diff.days || " days"
+              , jumpto := jumpto
+              , messagetag := [ type := "system:webserver.key", keyname := obj->name ]
+              ] INTO messages AT END;
+        }
       }
     }
     CATCH(OBJECT e)
