@@ -93,16 +93,20 @@ export function getSpawnSettings(serviceManagerId: string, service: ServiceDefin
   const args = service.cmd.slice(1);
 
   return {
-    cmd, args, env: {
-      ...process.env,
-      ///Unique ID to find children  - get from root servicemanager?
-      WEBHARE_SERVICEMANAGERID: serviceManagerId,
-      //Prevent manual compiles for processes started through us (We'll manage whcompile)
-      WEBHARE_NOMANUALCOMPILE: "1",
-      //For backwards compatibility, don't leak these. Maybe we should set them and inherit them everywhere, but it currently breaks starting other node-based services (Eg chatplane)
-      NODE_PATH: "",
-      NODE_OPTIONS: ""
-    }
+    cmd, args, env: getServiceSpawnEnvironment(serviceManagerId)
+  };
+}
+
+export function getServiceSpawnEnvironment(serviceManagerId: string): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    ///Unique ID to find children  - get from root servicemanager?
+    WEBHARE_SERVICEMANAGERID: serviceManagerId,
+    //Prevent manual compiles for processes started through us (We'll manage whcompile)
+    WEBHARE_NOMANUALCOMPILE: "1",
+    //For backwards compatibility, don't leak these. Maybe we should set them and inherit them everywhere, but it currently breaks starting other node-based services (Eg chatplane)
+    NODE_PATH: "",
+    NODE_OPTIONS: ""
   };
 }
 

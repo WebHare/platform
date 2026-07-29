@@ -85,6 +85,29 @@ runCli({
         console.table(state.availableServices.toSorted(compareProperties(["name"])));
       }
     },
+    "get-environment": {
+      description: "Show the environment variables in the currently running service manager",
+      flags: {
+        json: { description: "Output environment variables as JSON" }
+      },
+      arguments: [{ name: "[prefix]", description: "Only include variables whose name starts with this prefix (eg WEBHARE_)" }],
+      main: async ({ opts, args }) => {
+        const smservice = await openBackendService("platform:servicemanager");
+        const env = await smservice.getEnvironment();
+        const prefix = args.prefix || "";
+        const filteredEntries = Object.entries(env)
+          .filter(([name]) => !prefix || name.startsWith(prefix))
+          .toSorted(([a], [b]) => a.localeCompare(b));
+
+        if (opts.json) {
+          console.log(JSON.stringify(Object.fromEntries(filteredEntries), null, 2));
+          return;
+        }
+
+        for (const [name, value] of filteredEntries)
+          console.log(`${name}=${value ?? ""}`);
+      }
+    },
     "relaunch": {
       description: "Relaunch the service manager",
       main: async ({ opts, args }) => {
@@ -99,6 +122,13 @@ runCli({
       main: async ({ opts, args }) => {
         const smservice = await openBackendService("platform:servicemanager");
         await smservice.reload();
+      }
+    },
+    "shutdown": {
+      description: "Shut down WebHare and exit the service manager",
+      main: async ({ opts, args }) => {
+        const smservice = await openBackendService("platform:servicemanager");
+        await smservice.shutdown();
       }
     },
     "start": {

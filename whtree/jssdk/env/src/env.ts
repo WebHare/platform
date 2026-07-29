@@ -10,6 +10,7 @@ import type { DTAPStage } from "./concepts";
 export { type NavigateInstruction, navigateTo } from "./navigation";
 export { enableFetchDebugging } from "./fetchdebug";
 export { addToDebugRegistry } from "./whglobal";
+export { updateDebugConfig } from "./envbackend";
 export { type DTAPStage, dtapStage, debugFlags, isLive, backendBase, getAssetBase, setAssetBase, getModulePublicAssetBase };
 
 //user locale *which Tollium and sites should start to use to define localization, and perhaps gettid too?)

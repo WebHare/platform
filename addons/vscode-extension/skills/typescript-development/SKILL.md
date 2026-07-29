@@ -16,6 +16,9 @@ When creating a TS for a command line script (usually in the `scripts/whcommands
 
 The flags, options and arguments passed to run() serve as an example. Update as needed for the script
 
+For `@webhare/cli` command definitions:
+- Use `flags` for boolean switches (for example `--json`)
+- Use `options` for value-taking switches (for example `--prefix WEBHARE_`)
 The actual code goes into the main property/function. should return '0' on success and non-zero (between 1 and 255) on failure.
 
 The most minimal example of how to set up a command line application in WebHare is
