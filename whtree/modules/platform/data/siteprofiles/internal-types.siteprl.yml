@@ -21,9 +21,6 @@ types:
       # Retry renewal after this date/time (ISO string)
       retryRenewalAfter:
         type: string
-      # Not that useful anymore as we generally renew keys when requesting a cert so the keystorefolder's config is not carried over
-      warnexpirydays:
-        type: integer
 
   ## Instance data
   publisher.dbpublication:
