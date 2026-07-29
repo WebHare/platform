@@ -28,7 +28,7 @@ export async function requestACMECertificate(domains: string[], options?: Certif
     certificateId: options?.certificateId ?? 0,
     isRenewal: options?.isRenewal ?? true,
     domains,
-    staging: options?.staging ?? true,
+    staging: options?.staging ?? false,
     testOnly: options?.testOnly ?? false,
     debug: options?.debug ?? false,
   }));
