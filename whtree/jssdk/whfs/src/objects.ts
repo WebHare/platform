@@ -282,6 +282,9 @@ abstract class WHFSBaseObject {
   get modifiedBy(): AuthorizationInterface | null {
     return this.dbrecord.modifiedby ? __getAuthorizationInterfaceForUser(this.dbrecord.modifiedby) : null;
   }
+  get snapshotFor(): number | null {
+    return this.dbrecord.snapshotfor;
+  }
 
   /** Re-read cached data from the database, returns whether the object still exists */
   async refresh(options: { allowMissing: true }): Promise<boolean>;

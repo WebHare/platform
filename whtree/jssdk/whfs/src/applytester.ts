@@ -588,23 +588,6 @@ export class WHFSApplyTester {
       webDesign.contentNavStops = apply.webdesign.has_contentnavstops ? apply.webdesign.contentnavstops : webDesign.contentNavStops;
     }
 
-    /* FIXME content link support. we should consider
-         a) loading the contentlink-reference during getBaseInfoForApplyCheck or even when opening ?
-         b) having our caller deal with this. I'm not sure JS will even require us to explain the file already
-    if(this->objinfo.obj.type.namespace === "http://www.webhare.net/xmlns/publisher/contentlink")
-
-       = 20)//content link
-      {
-        OBJECT link_tester := GetApplyTesterForObject(this->objinfo.obj.filelink);
-        IF (ObjectExists(link_tester))
-          webdesign.renderinfo := link_tester->GetObjRenderInfo();
-        ELSE
-          webdesign.is404 := TRUE;
-      }
-      ELSE
-      {
-        webdesign.renderinfo := this->GetObjRenderInfo();
-      }*/
     //Parse plugins
     const namedplugins = new Map<string, PluginData>();
 
