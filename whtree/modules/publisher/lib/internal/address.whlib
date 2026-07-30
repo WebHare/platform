@@ -9,49 +9,48 @@ LOADLIB "mod::wrd/lib/address.whlib";
 
 RECORD cached_countrylists;
 
-  /** @param orderings List of orderings. Last ordering MUST exist and have an empty fieldorder
-      @param country
-      @param fields List of fields
-      @cell fields.fieldorder List of tags. Last record must have
-      @cell fields.countries List of applicable countries
-      @cell fields.tag
-  */
-  RECORD ARRAY FUNCTION AddFieldsToOrderings(RECORD ARRAY orderings, STRING country, RECORD ARRAY fields)
+/** @param orderings List of orderings. Last ordering MUST exist and have an empty fieldorder
+    @param country
+    @param fields List of fields
+    @cell fields.fieldorder List of tags. Last record must have
+    @cell fields.countries List of applicable countries
+    @cell fields.tag
+*/
+RECORD ARRAY FUNCTION AddFieldsToOrderings(RECORD ARRAY orderings, STRING country, RECORD ARRAY fields)
+{
+  FOREVERY (RECORD rec FROM orderings)
   {
-    FOREVERY (RECORD rec FROM orderings)
+    INTEGER pos := -1;
+    BOOLEAN valid_ordering := TRUE;
+    STRING ARRAY neworder;
+    FOREVERY (RECORD field FROM fields)
     {
-      INTEGER pos := -1;
-      BOOLEAN valid_ordering := TRUE;
-      STRING ARRAY neworder;
-      FOREVERY (RECORD field FROM fields)
+      STRING tag := ToLowercase(field.tag);
+      INTEGER fpos := SearchElement(rec.fieldorder, tag);
+      IF (fpos = -1)
+        INSERT tag INTO neworder AT END;
+      ELSE
       {
-        STRING tag := ToLowercase(field.tag);
-        INTEGER fpos := SearchElement(rec.fieldorder, tag);
-        IF (fpos = -1)
-          INSERT tag INTO neworder AT END;
-        ELSE
+        IF (fpos < pos)
         {
-          IF (fpos < pos)
-          {
-            valid_ordering := FALSE;
-            BREAK;
-          }
-          neworder := neworder CONCAT ArraySlice(rec.fieldorder, pos + 1, fpos - pos);
-          pos := fpos;
+          valid_ordering := FALSE;
+          BREAK;
         }
-      }
-      IF (valid_ordering)
-      {
-        IF (IsDefaultValue(orderings[#rec].fieldorder))
-          INSERT [ fieldorder := STRING[], countries := STRING[] ] INTO orderings AT END;
-        orderings[#rec].fieldorder := neworder;
-        INSERT country INTO orderings[#rec].countries AT END;
-        RETURN orderings;
+        neworder := neworder CONCAT ArraySlice(rec.fieldorder, pos + 1, fpos - pos);
+        pos := fpos;
       }
     }
-    THROW NEW Exception(`Orderings array not correctly initialized`);
+    IF (valid_ordering)
+    {
+      IF (IsDefaultValue(orderings[#rec].fieldorder))
+        INSERT [ fieldorder := STRING[], countries := STRING[] ] INTO orderings AT END;
+      orderings[#rec].fieldorder := neworder;
+      INSERT country INTO orderings[#rec].countries AT END;
+      RETURN orderings;
+    }
   }
-
+  THROW NEW Exception(`Orderings array not correctly initialized`);
+}
 
 PUBLIC OBJECT FUNCTION ReadCountries(STRING language) {
   IF (NOT CellExists(cached_countrylists, language))
@@ -71,13 +70,13 @@ PUBLIC OBJECT FUNCTION ReadCountries(STRING language) {
 }
 
 
-PUBLIC STATIC OBJECTTYPE FormAddressAPI <
+PUBLIC STATIC OBJECTTYPE FormAddressAPI EXTEND AddressFormatAPI<
   OBJECT applytester;
   RECORD info;
   PUBLIC OBJECT validators; // validator cache
   OBJECT form;
 
-  MACRO NEW(OBJECT form) {
+  MACRO NEW(OBJECT form) : AddressFormatAPI(form->formlanguagecode) {
     this->validators := NEW ValueMapper();
     this->form := form;
     this->info := __LookupFormIntegrationAddressInfo(form->formapplytester);
@@ -95,7 +94,7 @@ PUBLIC STATIC OBJECTTYPE FormAddressAPI <
     // Get all fields that are defined for at least one available country
     FOREVERY (STRING code FROM codes)
     {
-      RECORD ARRAY fields := GetAddressFormat(code, [ language := this->form->formlanguagecode ]).fields;
+      RECORD ARRAY fields := this->GetAddressFormat(code).fields;
       STRING ARRAY disablefields;
 
       IF (NOT this->validators->Has(code))
@@ -120,7 +119,7 @@ PUBLIC STATIC OBJECTTYPE FormAddressAPI <
 
       orderings := AddFieldsToOrderings(orderings, code, fields);
 
-      FOREVERY (RECORD field FROM GetAddressFormat(code, [ language := this->form->formlanguagecode ]).fields)
+      FOREVERY (RECORD field FROM this->GetAddressFormat(code).fields)
       {
         IF(field.hide)
           CONTINUE; //we're almost only used to request new addresses so this should be (mostly?) safe
