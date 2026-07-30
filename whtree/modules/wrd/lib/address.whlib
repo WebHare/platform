@@ -536,6 +536,60 @@ PUBLIC STRING FUNCTION JoinHousenumber(STRING nr, STRING detail)
   RETURN TrimWhitespace(nr) || (ToInteger(Left(detail,1),-1) != -1 ? " " : "") || detail;
 }
 
+PUBLIC STATIC OBJECTTYPE AddressFormatAPI <
+  RECORD addressinfo;
+  RECORD langcache;
+  STRING language;
+
+  MACRO NEW(STRING language) {
+    this->addressinfo := GetAddressInfoData();
+    this->language := language;
+  }
+
+  STRING FUNCTION GetText(STRING tid) {
+    IF(NOT CellExists(this->langcache, tid))
+      this->langcache := CellInsert(this->langcache, tid, GetTidForLanguage(this->language, tid));
+    RETURN GetCell(this->langcache, tid);
+  }
+
+  PUBLIC RECORD FUNCTION GetAddressFormat(STRING countrycode) {
+    countrycode := ToUppercase(countrycode);
+
+    BOOLEAN hidestate := countrycode IN this->addressinfo.hidestate;
+    BOOLEAN requirestate := countrycode IN this->addressinfo.requirestate;
+    BOOLEAN requirezip := countrycode IN this->addressinfo.requirezip;
+    STRING nrplace :=countrycode IN this->addressinfo.nrdetail.before ? "before" : countrycode IN this->addressinfo.nrdetail.after ? "after" : "hide";
+
+    RECORD ARRAY fields := SELECT TEMPORARY hide := (field = "state" AND hidestate) OR (field = "nr_detail" AND nrplace = "hide")
+                                , tag := ToUppercase(field)
+                                , autocomplete := CellExists(addressfields, "autocomplete") ? addressfields.autocomplete : ""
+                                , title := this->GetText(tid)
+                                , hide := hide
+                                , required := field = "state" ? requirestate
+                                              : field = "zip" ? requirezip
+                                              : hide ? FALSE
+                                              : field = "nr_detail" ? nrplace != "hide"
+                                              : TRUE
+                            FROM this->addressinfo.addressfields
+                            WHERE field != "country";
+
+    RECORD ARRAY format;
+    IF(CellExists(this->addressinfo.customformat, countrycode)) {
+      format := GetCell(this->addressinfo.customformat, countrycode);
+    } ELSE {
+      format := [[ fields := nrplace = "after" ? [ "street", "nr_detail" ] : [ "nr_detail", "street" ]]
+                ,[ fields := [ "zip", "city", "state" ]]
+                ];
+    }
+    INSERT [ fields := [ "country" ]] INTO format AT END;
+
+    RETURN CELL [ fields
+                , format
+                , onlyStreet := countrycode IN this->addressinfo.onlyStreet
+                ];
+  }
+
+>;
 
 /** @short Describe the address format for a country
     @param countrycode Requested country
@@ -546,48 +600,10 @@ PUBLIC STRING FUNCTION JoinHousenumber(STRING nr, STRING detail)
     @cell(string) return.fields.title Label in requested language
     @cell(boolean) return.fields.hide We recommend hiding this field for this country, especially if not yet set
     @cell(boolean) return.onlyStreet If true we recommend a single line version  of the street field */
-PUBLIC RECORD FUNCTION GetAddressFormat(STRING countrycode, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  countrycode := ToUppercase(countrycode);
+PUBLIC RECORD FUNCTION GetAddressFormat(STRING countrycode, RECORD options DEFAULTSTO DEFAULT RECORD) {
   options := ValidateOptions( [ language := "" ], options);
   STRING language := options.language ?? GetTidLanguage();
-
-  RECORD addressinfo := GetAddressInfoData();
-  BOOLEAN hidestate := countrycode IN addressinfo.hidestate;
-  BOOLEAN requirestate := countrycode IN addressinfo.requirestate;
-  BOOLEAN requirezip := countrycode IN addressinfo.requirezip;
-  STRING nrplace :=countrycode IN addressinfo.nrdetail.before ? "before" : countrycode IN addressinfo.nrdetail.after ? "after" : "hide";
-
-  RECORD ARRAY fields := SELECT TEMPORARY hide := (field = "state" AND hidestate) OR (field = "nr_detail" AND nrplace = "hide")
-                              , tag := ToUppercase(field)
-                              , autocomplete := CellExists(addressfields, "autocomplete") ? addressfields.autocomplete : ""
-                              , title := GetTidForLanguage(language, tid)
-                              , hide := hide
-                              , required := field = "state" ? requirestate
-                                            : field = "zip" ? requirezip
-                                            : hide ? FALSE
-                                            : field = "nr_detail" ? nrplace != "hide"
-                                            : TRUE
-                           FROM addressinfo.addressfields
-                          WHERE field != "country";
-
-  RECORD ARRAY format;
-  IF(CellExists(addressinfo.customformat, countrycode))
-  {
-    format := GetCell(addressinfo.customformat, countrycode);
-  }
-  ELSE
-  {
-    format := [[ fields := nrplace = "after" ? [ "street", "nr_detail" ] : [ "nr_detail", "street" ]]
-              ,[ fields := [ "zip", "city", "state" ]]
-              ];
-  }
-  INSERT [ fields := [ "country" ]] INTO format AT END;
-
-  RETURN CELL [ fields
-              , format
-              , onlyStreet := countrycode IN addressinfo.onlyStreet
-              ];
+  RETURN NEW AddressFormatAPI(language)->GetAddressFormat(countrycode);
 }
 
 /** @short Get an address validator as configured for a WRD schema

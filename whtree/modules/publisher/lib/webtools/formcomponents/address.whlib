@@ -10,6 +10,7 @@ LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::publisher/lib/forms/components.whlib";
 LOADLIB "mod::publisher/lib/forms/editor.whlib";
+LOADLIB "mod::publisher/lib/internal/address.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
@@ -66,25 +67,6 @@ RECORD ARRAY countryregions :=
           ]
       ]
     ];
-
-RECORD cached_countrylists;
-
-OBJECT FUNCTION ReadCountries(STRING language)
-{
-  IF (NOT CellExists(cached_countrylists, language))
-  {
-    OBJECT countrymap := NEW ValueMapper();
-    RECORD ARRAY allcountries :=
-        SELECT TEMPORARY translation := GetCell(allcountries, language)
-             , fromval := code
-             , toval := translation
-          FROM GetCountryList(language) AS allcountries;
-    countrymap->AddMultiple(allcountries);
-    countrymap->Add("-", GetTid("publisher:formcomponents.address.divider"));
-    cached_countrylists := CellInsert(cached_countrylists, language, countrymap);
-  }
-  RETURN GetCell(cached_countrylists, language);
-}
 
 STRING ARRAY FUNCTION CheckCountryList(STRING ARRAY countries, OBJECT allcountries, STRING langcode)
 {
@@ -441,13 +423,12 @@ PUBLIC RECORD FUNCTION ParseFormAddress(RECORD fielddef, OBJECT node, RECORD par
           ];
 }
 
-PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
-< // ---------------------------------------------------------------------------
+PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
 
-  OBJECT validators; // validator cache
   STRING ARRAY pvt_countrylist;
   RECORD ARRAY allfields;
   OBJECT allcountries;
@@ -480,7 +461,6 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
     this->pvt_required := TRUE;
 
     // Initialize before setting countrylist, which uses those
-    this->validators := NEW ValueMapper();
     this->fieldtitles := field.fieldtitles;
     this->allcountries := ReadCountries(this->form->formlanguagecode);
 
@@ -556,8 +536,7 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
     }
   }
 
-  MACRO SetCountryList(STRING ARRAY countrylist)
-  {
+  MACRO SetCountryList(STRING ARRAY countrylist) {
     IF (RecordExists(this->allfields))
     {
       IF (GetDTAPStage() = "development")
@@ -565,85 +544,14 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
       RETURN;
     }
 
+    OBJECT addressapi := this->form->__GetFormAddressAPI();
     this->pvt_countrylist := CheckCountryList(countrylist, this->allcountries, this->form->formlanguagecode);
     IF (Length(this->countrylist) = 0)
       RETURN;
 
-    RECORD ARRAY orderings :=
-        [ [ fieldorder := STRING[]
-          , countries :=  STRING[]
-          ]
-        ];
-
-    RECORD info := __LookupFormIntegrationAddressInfo(this->form->formapplytester);
-    // Get all fields that are defined for at least one available country
-    FOREVERY (STRING code FROM SELECT AS STRING ARRAY DISTINCT cc FROM ToRecordArray(this->countrylist, "cc") WHERE cc != "-")
-    {
-      RECORD ARRAY fields := GetAddressFormat(code, [ language := this->form->formlanguagecode ]).fields;
-      STRING ARRAY disablefields;
-
-      IF (NOT this->validators->Has(code))
-      {
-        OBJECT validator := __GetAddressLookupAPIForSettings(info, code);
-        IF (ObjectExists(validator))
-        {
-          this->validators->Add(code, validator);
-          IF(Length(validator->completionfields) > 0) //actually disabling still requires a country specific optin
-          {
-            IF(code = "NL" AND "nl-zip-force" IN this->_addressoptions)
-              disablefields := validator->completionfields;
-          }
-        }
-      }
-
-      IF (code = "NL") //reorder for NL
-      {
-        IF ("nl-zip-suggest" IN this->_addressoptions OR "nl-zip-force" IN this->_addressoptions)
-          fields := SELECT * FROM fields ORDER BY (SearchElement([ "ZIP", "NR_DETAIL" ], tag) + 1 ?? 99);
-      }
-
-      orderings := this->AddFieldsToOrderings(orderings, code, fields);
-
-      FOREVERY (RECORD field FROM GetAddressFormat(code, [ language := this->form->formlanguagecode ]).fields)
-      {
-        IF(field.hide)
-          CONTINUE; //we're almost only used to request new addresses so this should be (mostly?) safe
-
-        RECORD fieldrec := SELECT *, idx := #allfields FROM this->allfields WHERE allfields.tag = field.tag;
-        IF (RecordExists(fieldrec))
-        {
-          INSERT code INTO this->allfields[fieldrec.idx].countries AT END;
-          IF (field.required)
-            INSERT code INTO this->allfields[fieldrec.idx].requiredfor AT END;
-          IF (field.tag IN disablefields)
-            INSERT code INTO this->allfields[fieldrec.idx].disabledfor AT END;
-          IF (field.autocomplete NOT IN this->allfields[fieldrec.idx].autocomplete)
-            INSERT field.autocomplete INTO this->allfields[fieldrec.idx].autocomplete AT END;
-        }
-        ELSE
-          INSERT
-              CELL[ ...field
-                  , countries := STRING[ code ]
-                  , requiredfor := field.required ? [ code ] : STRING[]
-                  , disabledfor := field.tag IN disablefields ? [ code ] : STRING[]
-                  , autocomplete := field.autocomplete != "" ? STRING[ field.autocomplete ] : STRING[]
-                  ] INTO this->allfields AT END;
-      }
-    }
-
-    // First ordering is the one of the first country, order the fields in that order
-    this->allfields :=
-        SELECT *
-          FROM this->allfields
-      ORDER BY SearchElement(orderings[0].fieldorder, tag);
-
-    orderings :=
-        SELECT *
-          FROM orderings
-         WHERE LENGTH(fieldorder) != 0
-      ORDER BY LENGTH(countries);
-
-    orderings[END-1].countries := STRING[];
+    STRING ARRAY active_codes := SELECT AS STRING ARRAY DISTINCT cc FROM ToRecordArray(this->countrylist, "cc") WHERE cc != "-";
+    RECORD countryfields := addressapi->GetCountryFields(active_codes, this->addressoptions);
+    this->allfields := countryfields.allfields;
 
     // Add a country field
     OBJECT countryfield := this->CreateSubField("select", "country");
@@ -651,7 +559,7 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
     countryfield->type := "pulldown";
     countryfield->required := TRUE;
     countryfield->autocomplete := STRING[ ...this->autocomplete, "country" ];
-    countryfield->dataset := [ orderingdata := orderings, checks := Detokenize(this->_addressoptions,' ') ];
+    countryfield->dataset := [ orderingdata := countryfields.orderings, checks := Detokenize(this->_addressoptions,' ') ];
     RECORD ARRAY countryoptions := [ [ rowkey := "", title := "", enabled := FALSE ] ];
     OBJECT allcountries := ReadCountries(this->form->formlanguagecode);
     FOREVERY (STRING code FROM this->countrylist)
@@ -761,49 +669,6 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
           [ formintegrationplugin->countrylist
           , options := formintegrationplugin->addressoptions
           ];
-  }
-
-  /** @param orderings List of orderings. Last ordering MUST exist and have an empty fieldorder
-      @param country
-      @param fields List of fields
-      @cell fields.fieldorder List of tags. Last record must have
-      @cell fields.countries List of applicable countries
-      @cell fields.tag
-  */
-  RECORD ARRAY FUNCTION AddFieldsToOrderings(RECORD ARRAY orderings, STRING country, RECORD ARRAY fields)
-  {
-    FOREVERY (RECORD rec FROM orderings)
-    {
-      INTEGER pos := -1;
-      BOOLEAN valid_ordering := TRUE;
-      STRING ARRAY neworder;
-      FOREVERY (RECORD field FROM fields)
-      {
-        STRING tag := ToLowercase(field.tag);
-        INTEGER fpos := SearchElement(rec.fieldorder, tag);
-        IF (fpos = -1)
-          INSERT tag INTO neworder AT END;
-        ELSE
-        {
-          IF (fpos < pos)
-          {
-            valid_ordering := FALSE;
-            BREAK;
-          }
-          neworder := neworder CONCAT ArraySlice(rec.fieldorder, pos + 1, fpos - pos);
-          pos := fpos;
-        }
-      }
-      IF (valid_ordering)
-      {
-        IF (IsDefaultValue(orderings[#rec].fieldorder))
-          INSERT [ fieldorder := STRING[], countries := STRING[] ] INTO orderings AT END;
-        orderings[#rec].fieldorder := neworder;
-        INSERT country INTO orderings[#rec].countries AT END;
-        RETURN orderings;
-      }
-    }
-    THROW NEW Exception(`Orderings array not correctly initialized`);
   }
 
   // ---------------------------------------------------------------------------
@@ -954,12 +819,13 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
 
   RECORD FUNCTION CheckAddress(RECORD value)
   {
-    IF (CellExists(value, "country") AND this->validators->Has(value.country))
+    OBJECT addressapi := this->form->__GetFormAddressAPI();
+    IF (CellExists(value, "country") AND addressapi->validators->Has(value.country))
     {
       IF (value.country = "NL" AND "nl-zip-force" IN this->addressoptions)
         value := CELL[ ...value, street := "", city := "" ];
 
-      RETURN this->validators->Lookup(value.country)->CheckAddress(value);
+      RETURN addressapi->validators->Lookup(value.country)->CheckAddress(value);
     }
     ELSE
     {
