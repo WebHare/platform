@@ -148,8 +148,7 @@ MACRO TestRecompileAfterModuleReplace()
   testfw->SetupTestModule(CELL[ timestampfolder := TRUE, replaceexistingmodule := TRUE, modulename := mytempmodulename ]);
   SetupWebDesign("publisher:blank", mytempmodulename, "TestDesign", [ aftercompiletask := "webhare_testsuite:aftercompile"] );
   AddImportViaMod(2);
-  RecompileSiteProfiles("TestRecompileAfterModuleReplace"); //makes sure the XML/siteprl changes are picked up synchronously
-  ApplyWebHareConfiguration([ subsystems := ["assetpacks"], source := "TestRecompileAfterModuleReplace" ]);
+  ApplyWebHareConfiguration([ subsystems := ["siteprofiles", "assetpacks"], source := "TestRecompileAfterModuleReplace" ]);
 
   OBJECT assetpackcontrol := WaitForPromise(OpenWebHareService("platform:assetpacks"));
   WaitForPromise(assetpackcontrol->RecompileBundle(extracted.outputtag)); //don't want to wait for fswatch to pick it up
@@ -160,7 +159,7 @@ MACRO TestRecompileAfterModuleReplace()
   CheckTestUsedFilePaths(status, 2);
 
   AddImportViaMod(1);
-  RecompileSiteProfiles("TestRecompileAfterModuleReplace.2"); //makes sure the XML/siteprl changes are picked up synchronously
+  ApplyWebHareConfiguration([ subsystems := ["siteprofiles"], source := "TestRecompileAfterModuleReplace.2" ]);
 
   WaitForPromise(assetpackcontrol->RecompileBundle(extracted.outputtag)); //don't want to wait for fswatch to pick it up
   WaitForPromise(assetpackcontrol->WaitForCompile(extracted.outputtag, FALSE));
