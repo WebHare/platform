@@ -25,7 +25,6 @@ type FSMemberRow = Selectable<PlatformDB, "system.fs_members">;
 export const unknownfiletype: WHFSTypeName = "platform:filetypes.unknown";
 export const normalfoldertype: WHFSTypeName = "platform:foldertypes.default";
 
-//WARNING we may need to make this API async in the future. It's not publicly exposed yet though so for now it's okay to be sync
 export function getType(type: string | number, kind?: "fileType" | "folderType"): CSPContentType | undefined {
   const types = getExtractedHSConfig("siteprofiles").contenttypes;
   if (typeof type === "string") {
@@ -94,7 +93,7 @@ export async function describeWHFSType(type: keyof WHFSTypes | string | number, 
 export async function describeWHFSType(type: keyof WHFSTypes | string | number, options?: { allowMissing?: boolean; metaType?: "fileType" | "folderType" }): Promise<WHFSTypeInfo | null>;
 
 export async function describeWHFSType(type: keyof WHFSTypes | string | number, options?: { allowMissing?: boolean; metaType?: "fileType" | "folderType" }): Promise<WHFSTypeInfo | null> {
-  const matchtype = await getType(type, options?.metaType); //NOTE: This API is currently sync... but isn't promising to stay that way so just in case we'll pretend its async
+  const matchtype = getType(type, options?.metaType);
   if (!matchtype) {
     if (!options?.allowMissing || type === "") //never accept '' (but we do accept '0' as that is historically a valid file type in WebHare)
       throw new Error(`No such type: '${type}'`);
@@ -115,6 +114,7 @@ export async function describeWHFSType(type: keyof WHFSTypes | string | number, 
     };
   }
 
+  //TODO just load the IDs of the members into the CSP, we have enough data already, and then we don't need to go to the database just for that on every describe
   const allmembers = await db<PlatformDB>().selectFrom("system.fs_members").selectAll().where("fs_type", "=", matchtype.id).execute();
   const members = mapRecurseMembers(allmembers);
 

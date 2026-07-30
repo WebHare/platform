@@ -120,7 +120,6 @@ export async function executeSHTMLRequestHS(webreq: WebRequestInfo, webdesignurl
 
 /** Invoked by HareScript's whfsexecute (dynamic) or publishwebdesign (static) to render a page */
 export async function executeContentPageRequestHS(targetId: number, options?: {
-  contentfile?: number;
   errorcode?: number;
   webreq?: WebRequestInfo;
   ispublisherpreview?: boolean;
@@ -138,15 +137,8 @@ export async function executeContentPageRequestHS(targetId: number, options?: {
       return createWebResponse(`<html><body>WCS_/WDS_ JSON-RPC requests are not supported for JS-hosted webpages</body></html>`, { status: 400 }).asWebResponseInfo();
   }
 
-  const targetObject = await whfs.openFileOrFolder(targetId);
-  if (!targetObject || !targetObject.parentSite || !targetObject.parent)
-    throw new Error(`Invalid fileid '${targetId}' for content page request`);
-
-  //Note that options.contentfile is not set for content links in dynamic requests. we need to look those up ourselves. TODO deal with broken target
-  const contentFile = options?.contentfile ?? (targetObject.type === "platform:filetypes.contentlink" ? (targetObject as whfs.WHFSFile).target?.internalLink : targetId);
-
-  const contentObject = contentFile && contentFile !== targetId ? await whfs.openFile(contentFile, { allowHistoric: true }) : undefined;
-  const whfsreq = await createContentPageRequest(targetObject, { webRequest, statusCode: options?.errorcode, contentObject, isPublisherPreview: options?.ispublisherpreview, timings });
+  const targetObject = await whfs.openFileOrFolder(targetId, { allowHistoric: true });
+  const whfsreq = await createContentPageRequest(targetObject, { webRequest, statusCode: options?.errorcode, isPublisherPreview: options?.ispublisherpreview, timings });
   if (options?.errorcode) {
     //FIXME We need to create proper error page body. Pass sufficient info to the webdesign?
     const resp = await whfsreq.buildWebPage(litty`Errorcode ${options.errorcode}`);
@@ -204,6 +196,7 @@ export async function renderTSWidgetHS(context: {
     targetFolder: targetObject.isFolder ? targetObject : await whfs.openFolder(context.targetfolder),
     targetSite: await whfs.openSite(context.targetsite) as PagePartRequest["targetSite"],
     targetPath: await buildTargetPath(targetObject),
+    isLinkedContent: false,
     siteLanguage: context.sitelanguage,
     isEditorPreview: context.iseditorpreview,
     isPublisherPreview: context.ispublisherpreview,

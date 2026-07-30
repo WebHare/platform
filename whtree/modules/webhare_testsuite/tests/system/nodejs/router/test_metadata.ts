@@ -144,6 +144,9 @@ async function testPageMetadata() {
      doc1-clink2 - points to doc1
      - title: Doc1 Clink2
 
+     doc1-clink3 - points to doc1
+     - seoTitle: Doc1 Clink3 Seo
+
      doc2:
      - title: (empty, falls back to folder title)
      - seoTitle: (mepty)
@@ -166,7 +169,7 @@ async function testPageMetadata() {
 
   const doc1clink1 = await testfolder.ensureFile("doc1clink1", { publish: true, title: "", type: "platform:filetypes.contentlink", target: new IntExtLink(doc1.id) });
   const doc1clinkreq1 = await createContentPageRequest(doc1clink1, { webRequest: new IncomingWebRequest(doc1clink1.link!) });
-
+  test.eq(true, doc1clinkreq1.isLinkedContent);
   test.eq("", doc1clinkreq1.pageMetadata.title);
   test.eq("", doc1clinkreq1.pageMetadata.pageHeading);
 
@@ -182,6 +185,13 @@ async function testPageMetadata() {
 
   test.eq("Doc1 Clink2", doc1clinkreq2.pageMetadata.title);
   test.eq("Doc1 Clink2", doc1clinkreq2.pageMetadata.pageHeading);
+
+  const doc1clink3 = await testfolder.ensureFile("doc1clink3", { publish: true, type: "platform:filetypes.contentlink", target: new IntExtLink(doc1.id) });
+  await whfsType("platform:web.metadata").set(doc1clink3.id, { seoTitle: "TheDoc1 Clink3 Seo" });
+  const doc1clinkreq3 = await createContentPageRequest(doc1clink3, { webRequest: new IncomingWebRequest(doc1clink3.link!) });
+
+  test.eq("TheDoc1 Clink3 Seo", doc1clinkreq3.pageMetadata.title);
+  test.eq("", doc1clinkreq3.pageMetadata.pageHeading);
 
   const doc2 = await testfolder.ensureFile("doc2", { publish: true, title: "", type: "platform:filetypes.markdown" });
   const doc2Req = await createContentPageRequest(doc2, { webRequest: new IncomingWebRequest(doc2.link!) });
