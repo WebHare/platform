@@ -8,6 +8,8 @@ LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 LOADLIB "mod::publisher/lib/dialogs.whlib";
@@ -699,7 +701,7 @@ MACRO TestContentLink()
 
   testfw->BeginWork();
   OBJECT formfile := testsite->OpenByPath("webtools/form");
-  OBJECT contentlink := testsite->OpenByPath("tmp")->CreateFile ([ name := "linktoform", type := 20, filelink := formfile->id, publish := TRUE ]);
+  OBJECT contentlink := testsite->OpenByPath("tmp")->CreateFile ([ name := "linktoform", type := whconstant_whfstype_contentlink, filelink := formfile->id, publish := TRUE ]);
   testfw->CommitWork();
 
   IF(testfw->debug)
