@@ -1,0 +1,166 @@
+<?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/localization.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::wrd/lib/address.whlib";
+
+RECORD cached_countrylists;
+
+  /** @param orderings List of orderings. Last ordering MUST exist and have an empty fieldorder
+      @param country
+      @param fields List of fields
+      @cell fields.fieldorder List of tags. Last record must have
+      @cell fields.countries List of applicable countries
+      @cell fields.tag
+  */
+  RECORD ARRAY FUNCTION AddFieldsToOrderings(RECORD ARRAY orderings, STRING country, RECORD ARRAY fields)
+  {
+    FOREVERY (RECORD rec FROM orderings)
+    {
+      INTEGER pos := -1;
+      BOOLEAN valid_ordering := TRUE;
+      STRING ARRAY neworder;
+      FOREVERY (RECORD field FROM fields)
+      {
+        STRING tag := ToLowercase(field.tag);
+        INTEGER fpos := SearchElement(rec.fieldorder, tag);
+        IF (fpos = -1)
+          INSERT tag INTO neworder AT END;
+        ELSE
+        {
+          IF (fpos < pos)
+          {
+            valid_ordering := FALSE;
+            BREAK;
+          }
+          neworder := neworder CONCAT ArraySlice(rec.fieldorder, pos + 1, fpos - pos);
+          pos := fpos;
+        }
+      }
+      IF (valid_ordering)
+      {
+        IF (IsDefaultValue(orderings[#rec].fieldorder))
+          INSERT [ fieldorder := STRING[], countries := STRING[] ] INTO orderings AT END;
+        orderings[#rec].fieldorder := neworder;
+        INSERT country INTO orderings[#rec].countries AT END;
+        RETURN orderings;
+      }
+    }
+    THROW NEW Exception(`Orderings array not correctly initialized`);
+  }
+
+
+PUBLIC OBJECT FUNCTION ReadCountries(STRING language) {
+  IF (NOT CellExists(cached_countrylists, language))
+  {
+    OBJECT countrymap := NEW ValueMapper();
+    RECORD ARRAY allcountries :=
+        SELECT TEMPORARY translation := GetCell(allcountries, language)
+             , fromval := code
+             , toval := translation
+          FROM GetCountryList(language) AS allcountries;
+    countrymap->AddMultiple(allcountries);
+    //TODO GetTid shouldn't be in a cachable function (but '-' is only used inside tollium, not frontend, so it will work out)
+    countrymap->Add("-", GetTid("publisher:formcomponents.address.divider"));
+    cached_countrylists := CellInsert(cached_countrylists, language, countrymap);
+  }
+  RETURN GetCell(cached_countrylists, language);
+}
+
+
+PUBLIC STATIC OBJECTTYPE FormAddressAPI <
+  OBJECT applytester;
+  RECORD info;
+  PUBLIC OBJECT validators; // validator cache
+  OBJECT form;
+
+  MACRO NEW(OBJECT form) {
+    this->validators := NEW ValueMapper();
+    this->form := form;
+    this->info := __LookupFormIntegrationAddressInfo(form->formapplytester);
+  }
+
+  PUBLIC RECORD FUNCTION GetCountryFields(STRING ARRAY codes, STRING ARRAY addressoptions) {
+    RECORD ARRAY orderings :=
+        [ [ fieldorder := STRING[]
+          , countries :=  STRING[]
+          ]
+        ];
+
+    RECORD ARRAY allfields;
+
+    // Get all fields that are defined for at least one available country
+    FOREVERY (STRING code FROM codes)
+    {
+      RECORD ARRAY fields := GetAddressFormat(code, [ language := this->form->formlanguagecode ]).fields;
+      STRING ARRAY disablefields;
+
+      IF (NOT this->validators->Has(code))
+      {
+        OBJECT validator := __GetAddressLookupAPIForSettings(this->info, code);
+        IF (ObjectExists(validator))
+        {
+          this->validators->Add(code, validator);
+          IF(Length(validator->completionfields) > 0) //actually disabling still requires a country specific optin
+          {
+            IF(code = "NL" AND "nl-zip-force" IN addressoptions)
+              disablefields := validator->completionfields;
+          }
+        }
+      }
+
+      IF (code = "NL") //reorder for NL
+      {
+        IF ("nl-zip-suggest" IN addressoptions OR "nl-zip-force" IN addressoptions)
+          fields := SELECT * FROM fields ORDER BY (SearchElement([ "ZIP", "NR_DETAIL" ], tag) + 1 ?? 99);
+      }
+
+      orderings := AddFieldsToOrderings(orderings, code, fields);
+
+      FOREVERY (RECORD field FROM GetAddressFormat(code, [ language := this->form->formlanguagecode ]).fields)
+      {
+        IF(field.hide)
+          CONTINUE; //we're almost only used to request new addresses so this should be (mostly?) safe
+
+        RECORD fieldrec := SELECT *, idx := #allfields FROM allfields WHERE allfields.tag = field.tag;
+        IF (RecordExists(fieldrec))
+        {
+          INSERT code INTO allfields[fieldrec.idx].countries AT END;
+          IF (field.required)
+            INSERT code INTO allfields[fieldrec.idx].requiredfor AT END;
+          IF (field.tag IN disablefields)
+            INSERT code INTO allfields[fieldrec.idx].disabledfor AT END;
+          IF (field.autocomplete NOT IN allfields[fieldrec.idx].autocomplete)
+            INSERT field.autocomplete INTO allfields[fieldrec.idx].autocomplete AT END;
+        }
+        ELSE
+          INSERT
+              CELL[ ...field
+                  , countries := STRING[ code ]
+                  , requiredfor := field.required ? [ code ] : STRING[]
+                  , disabledfor := field.tag IN disablefields ? [ code ] : STRING[]
+                  , autocomplete := field.autocomplete != "" ? STRING[ field.autocomplete ] : STRING[]
+                  ] INTO allfields AT END;
+      }
+    }
+
+    // First ordering is the one of the first country, order the fields in that order
+    allfields :=
+        SELECT *
+          FROM allfields
+      ORDER BY SearchElement(orderings[0].fieldorder, tag);
+
+    orderings :=
+        SELECT *
+          FROM orderings
+         WHERE LENGTH(fieldorder) != 0
+      ORDER BY LENGTH(countries);
+
+    orderings[END-1].countries := STRING[];
+
+    RETURN CELL[ allfields, orderings ];
+  }
+>;

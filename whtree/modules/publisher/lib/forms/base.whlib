@@ -15,6 +15,7 @@ LOADLIB "wh::util/localization.whlib";
 
 LOADLIB "mod::publisher/lib/analytics.whlib";
 LOADLIB "mod::publisher/lib/webtools/formhandlers/storeresults.whlib";
+LOADLIB "mod::publisher/lib/internal/address.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/opener.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/rendering.whlib";
@@ -307,6 +308,7 @@ PUBLIC STATIC OBJECTTYPE FormBase <
   BOOLEAN __havepreinited;
   STRING __formlanguagecode;
   OBJECT __formlastwork;
+  OBJECT __addressapi;
 
   /// Callbacks that may add to the form dataset
   FUNCTION PTR ARRAY __formattributescallbacks;
@@ -581,6 +583,11 @@ PUBLIC STATIC OBJECTTYPE FormBase <
   //
   // Internal public API
   //
+  PUBLIC OBJECT FUNCTION __GetFormAddressAPI() {
+    IF(NOT ObjectExists(this->__addressapi))
+      this->__addressapi := NEW FormAddressAPI(this);
+    RETURN this->__addressapi;
+  }
 
   PUBLIC OBJECT FUNCTION __InstantiateField(OBJECT parent, RECORD field)
   {
