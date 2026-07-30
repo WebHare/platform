@@ -25,7 +25,7 @@ PUBLIC MACRO LogToJSONLog(STRING logname, RECORD data)
     @cell options.info Extra info to log (will be hson encoded)
     @cell options.contextinfo If present, overrides the contextinfo set by SetErrorContextInfo.
 */
-RECORD FUNCTION EncodeHarescriptException(OBJECT e, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC RECORD FUNCTION EncodeHarescriptException(OBJECT e, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   RECORD ARRAY errors;
   IF (e EXTENDSFROM HarescriptErrorException)

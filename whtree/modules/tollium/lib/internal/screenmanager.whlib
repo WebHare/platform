@@ -4,7 +4,7 @@ LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
-
+LOADLIB "mod::system/lib/internal/cluster/logwriter.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
@@ -453,11 +453,11 @@ PUBLIC OBJECTTYPE ScreenManager
     {
       poppedevent.src->TolliumDispatchEvent(poppedevent.type, poppedevent.data);
     }
-    FINALLY
+    FINALLY(OBJECT e)
     {
       IF(isworkopen = FALSE AND HavePrimaryTransaction() AND GetPrimary()->IsWorkOpen())
       {
-        LogError("tollium:doevents", "Work leak in " || this->frame->name || " handling event ", [ errortype := "workleak", src := poppedevent.src->name, eventtype := poppedevent.type ]);
+        LogError("tollium:doevents", "Work leak in " || this->frame->name || " handling event ", [ errortype := "workleak", src := poppedevent.src->name, eventtype := poppedevent.type, exc := ObjectExists(e) ? EncodeHarescriptException(e) : DEFAULT RECORD ]);
         GetPrimary()->RollbackWork();
       }
     }
