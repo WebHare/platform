@@ -1308,7 +1308,12 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext <
     IF(this->__config.js AND NOT IsWasm()) { //this is probably a SHTML file in HS that has opened a JS webdesign. Inefficient but we'll need to support it
       RECORD torender := RunAndCaptureHSBody(this, PTR this->CallWithScope(contents));
       RECORD webresponse := CallJS("mod::platform/js/pagebuilders/pagebuilders-hs.ts#runJSDesignForRenderedHSPage", this->targetobject->id, torender);
-      ExecuteWebResponse(webresponse); //terminates the script
+      IF(IsRequest())
+        ExecuteWebResponse(webresponse); //terminates the script
+      ELSE
+        SendBlobTo(0, webresponse.body);
+
+      RETURN;
     }
 
     IF(ObjectExists(this->pagewitty))

@@ -98,19 +98,19 @@ MACRO MyResetResponse() {
 
 PUBLIC RECORD FUNCTION RunAndCaptureHSBody(OBJECT webdesign, MACRO PTR renderfunc) {
   INTEGER capture := CreateStream();
-  RedirectOutputTo(capture);
+  INTEGER saveredirect := RedirectOutputTo(capture);
 
   TRY {
     renderfunc();
 
     BLOB content := MakeBlobFromStream(capture);
-    RedirectOutputTo(0);
+    RedirectOutputTo(saveredirect);
     capture := 0;
 
     RETURN EncodeWebdesignResponse(webdesign, content, RECORD[]);
   } FINALLY {
     IF(capture != 0) {
-      RedirectOutputTo(0);
+      RedirectOutputTo(saveredirect);
       MakeBlobFromStream(capture); //and discard it
     }
   }
