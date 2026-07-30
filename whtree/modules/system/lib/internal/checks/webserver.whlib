@@ -154,7 +154,6 @@ PUBLIC RECORD ARRAY FUNCTION CheckCertificates()
   DATETIME now := GetCurrentDatetime();
 
   RECORD ARRAY keypairs := ListKeyPairs();
-  keypairs := OpenWHFSType("http://www.webhare.net/xmlns/system/keystorefolder")->Enrich(keypairs, "id", ["warnexpirydays"]);
 
   FOREVERY (RECORD keypair FROM keypairs)
   {
