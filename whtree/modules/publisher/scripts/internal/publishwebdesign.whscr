@@ -27,7 +27,8 @@ IF(NOT RecordExists(webdesigninfo))
 PUBLISHER_SetCaptureSubPaths(webdesigninfo.renderinfo.capturesubpaths);
 
 IF(webdesigninfo.js) {
-  RECORD response := CallJS("@webhare/router/src/corerouter.ts#executeContentPageRequestHS", file.id, CELL[ contentfile := contentfile.id ]);
+  //We are only used for publishing static files, and they will never be a version. Content links are handled inside createContentPageRequest
+  RECORD response := CallJS("@webhare/router/src/corerouter.ts#executeContentPageRequestHS", file.id);
   STRING ctype := SELECT AS STRING row[1] FROM ToRecordArray(response.headers,'row') WHERE row[0]="content-type";
   IF(ctype != "text/html;charset=utf-8")
     THROW NEW Exception(`Output of JS-rendered webdesign must be 'text/html;charset=utf-8', but got '${ctype}'`);

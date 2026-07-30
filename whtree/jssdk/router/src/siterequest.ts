@@ -31,6 +31,7 @@ import { setTidLanguage } from "@webhare/gettid";
 import { db } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { selectFSWHFSPath } from "@webhare/whdb/src/functions";
+import { getType } from "@webhare/whfs/src/describe";
 
 export type PluginInterface<API extends object> = {
   api: API;
@@ -67,8 +68,8 @@ export type ContentPageRequestOptions = {
   webRequest?: WebRequest;
   /** Status code, defaults to 200 */
   statusCode?: number;
-  /** Object with the actual content (the target of a content link or a WHFSObject containing a historic or draft version) */
-  contentObject?: WHFSObject;
+  /** We're rendering a contentlink (or similar type such as A/B tests), some properties need to be taken from the targetObject instead of contentObject */
+  isLinkedContent?: boolean;
   /** If set, the request is being made in the context of an editor preview. Widgets often change rendering or become non-interactive when being shown in a RTD editor */
   isEditorPreview?: boolean;
   /** If set, the request is being made in the context of a publisher preview */
@@ -113,12 +114,17 @@ export class CPageRequest {
   #webRequest: WebRequest | null;
   #pageMetadata!: PageMetadata;
 
+  /** The in-site object whose location we are 'targetting' to publish. From this we get the filename, URL, publish status, navigational context */
   readonly targetObject: WHFSObject; //we could've gone for "WHFSFile | null" but then you'd *always* have to check for null. pointing to WHFSObject allows you to only check the real type sometimes
-  /** The source of the content. private because we think users shouldn't be looking at it */
+  /** The source of the content. private because we think users shouldn't be looking at it. This is the object where we get content from (eg the body). May be a draft/historic version. */
   private readonly _contentObject: WHFSObject;
+
+  /** The site to which we're publishing */
+  readonly targetSite: Site & { webRoot: string }; //mark webRoot as set, or we wouldn't be rendering a ContentPageRequest
+  /** The folder containing the published target */
   readonly targetFolder: WHFSFolder;
-  //mark webRoot as set, or we wouldn't be rendering a ContentPageRequest
-  readonly targetSite: Site & { webRoot: string };
+  /** If we're rendering linked content (a contentLink or A/B test). Some properties need to be taken from the targetObject in this case */
+  readonly isLinkedContent: boolean;
 
   /** The navigation path entries from the site root to the current targetObject */
   targetPath: Array<TargetPathEntry> = [];
@@ -151,16 +157,17 @@ export class CPageRequest {
   /** Page builder data */
   private pageBuilderData: Record<string, unknown> = {};
 
-  constructor(targetSite: Site, targetFolder: WHFSFolder, targetObject: WHFSObject, options?: ContentPageRequestOptions) {
+  constructor(targetSite: Site, targetFolder: WHFSFolder, targetObject: WHFSObject, contentObject: WHFSObject, options?: ContentPageRequestOptions) {
     this.#webRequest = options?.webRequest ?? null;
     this.targetSite = targetSite as Site & { webRoot: string };
     this.targetFolder = targetFolder;
     this.targetObject = targetObject;
-    this._contentObject = options?.contentObject || targetObject;
+    this._contentObject = contentObject;
     this._statusCode = options?.statusCode || 200;
     this._isEditorPreview = options?.isEditorPreview || false;
     this._isPublisherPreview = options?.isPublisherPreview || false;
     this.timings = options?.timings;
+    this.isLinkedContent = options?.isLinkedContent || false;
 
     this.frontendConfig = {
       siteRoot: this.targetSite.webRoot || "",
@@ -182,18 +189,23 @@ export class CPageRequest {
     if (!this._renderinfo.dynamicExecution)
       this.#webRequest = null;
 
-    //for contentlinks we should still look at targetObject for title/seotitle metadata
-    const metadataSource = this.targetObject.type === "platform:filetypes.contentlink" ? this.targetObject : this._contentObject;
+    const seoSettings = {
+      //We always use the target's web.config, no need to look that up
+      ...await this.getInstance("platform:web.config", { source: "target" }),
+      //Metadata is workflowed. But for a contentlink some properties have to come from the target object
+      ...await this.getInstance("platform:web.metadata"),
+    };
+    if (this.isLinkedContent) {
+      const targetMetadata = await this.getInstance("platform:web.metadata", { source: "target" });
+      seoSettings.seoTitle = targetMetadata.seoTitle;
+    }
 
     //base title for meta-title and pageHeading. folder title is a reasonable fallback for indexdocs but not for other files to prevent dupe titles
-    const baseTitle = metadataSource.title || (this.targetFolder.indexDoc === this.targetObject.id ? this.targetFolder.title : "");
+    const baseTitle = (this.isLinkedContent ? this.targetObject.title : this._contentObject.title) || (this.targetFolder.indexDoc === this.targetObject.id ? this.targetFolder.title : "");
 
     //initialize the page metadata before returning the rendering function.
     this.pageMetadata.title = baseTitle;
-    const seoSettings = {
-      ...await this.getInstance("platform:web.config"),
-      ...await this.getInstance("platform:web.metadata"),
-    };
+
     if (!this.targetObject.isFolder && seoSettings?.seoTitle)
       this.pageMetadata.title = seoSettings.seoTitle;
     if (!this.pageMetadata.title && this.targetFolder.id !== this.targetFolder.parentSite) // Try the site root folder's title
@@ -323,9 +335,18 @@ export class CPageRequest {
     this.pageBuilderData[dataObject] = data;
   }
 
-  //TODO do we like this name? or getInstanceData? or.. we don't have a TS name for it yet?
-  async getInstance<const Type extends keyof WHFSTypes | string & {}>(type: string extends Type ? Type : WHFSTypeName): Promise<[Type] extends [WHFSTypeName] ? WHFSTypes[Type]["GetFormat"] : InstanceData> {
-    return whfsType(type).get(this._contentObject.id);
+  private getSourceFor<const Type extends keyof WHFSTypes | string & {}>(type: string extends Type ? Type : WHFSTypeName): "target" | "content" {
+    const typeinfo = getType(type);
+    return typeinfo?.workflow ? "content" : "target";
+  }
+
+  /** Get data for a whfsType. Considers versioning and contentlinks to ensure the right version is picked
+   * @param type - The whfsType to get data for
+   * @param options.source - Override the source for the data. Usually you should let WebHare autoselect the right source or fix the type's metadata if it gets it wrong
+   */
+  async getInstance<const Type extends keyof WHFSTypes | string & {}>(type: string extends Type ? Type : WHFSTypeName, options?: { source?: "target" | "content" }): Promise<[Type] extends [WHFSTypeName] ? WHFSTypes[Type]["GetFormat"] : InstanceData> {
+    const source = (options?.source || this.getSourceFor(type)) === "target" ? this.targetObject : this._contentObject;
+    return whfsType(type).get(source.id);
   }
 
   /** Load the function that can actually generate pages for us */
@@ -686,24 +707,29 @@ export class CPageRequest {
 
 /** Create a request for a WHFS object (eg. a page in the CMS/Publisher)
  * @param options - Options for creating the content page request, such as the associated WebRequest.
- * @param targetObject - The WHFS object to create the request for
+ * @param toRender - The WHFS object to create the request for
  */
-export async function createContentPageRequest(targetObject: WHFSObject, options?: ContentPageRequestOptions): Promise<ContentPageRequest> {
+export async function createContentPageRequest(toRender: WHFSObject, options?: ContentPageRequestOptions): Promise<ContentPageRequest> {
+  //Chase down the objects
+  const isLinkedContent = toRender.type === "platform:filetypes.contentlink" || toRender.type === "platform:filetypes.abtest";
+  const targetObject = toRender.snapshotFor ? await openFileOrFolder(toRender.snapshotFor, { allowHistoric: true }) : toRender;
+  const contentObject = toRender.isFile && toRender.type === "platform:filetypes.contentlink" ? await openFileOrFolder(toRender.target?.internalLink ?? throwError(`Contentlink #${toRender.id} lost its target`)) : toRender;
+
   if (!targetObject.parentSite)
-    throw new Error(`Target '${targetObject.whfsPath}' (#${targetObject.id}) is not in a site`);
+    throw new Error(`Target '${targetObject.whfsPath}' (#${targetObject.id}) is not in a site (toRender: ${toRender.id})`);
 
   const targetSite = await openSite(targetObject.parentSite);
   const targetFolder = targetObject.isFolder ? targetObject as WHFSFolder : targetObject.parent ? await openFolder(targetObject.parent) : null; //parent must exist if we're in a site.
   if (!targetFolder)
     throw new Error(`Target folder #${targetObject.parent}) not found`);
 
-  const req = new CPageRequest(targetSite, targetFolder, targetObject, options);
+  const req = new CPageRequest(targetSite, targetFolder, targetObject, contentObject, { isLinkedContent, ...options });
   await req._preparePageRequestBase();
   return req;
 }
 
 //How well can we isolate widgets (PagePartRequest users) in practice? ideally we won't provide APIs that can cause 2 widgets to conflict with each other
-export type PagePartRequest = Pick<CPageRequest, "renderRTD" | "renderWidget" | "resolveLink" | "targetFolder" | "targetObject" | "targetSite" | "targetPath" | "siteLanguage" | "isEditorPreview" | "isPublisherPreview">; //TODO need something to determine emailwidgets. IsTargetEmail() ?
+export type PagePartRequest = Pick<CPageRequest, "renderRTD" | "renderWidget" | "resolveLink" | "targetFolder" | "targetObject" | "targetSite" | "targetPath" | "siteLanguage" | "isLinkedContent" | "isEditorPreview" | "isPublisherPreview">; //TODO need something to determine emailwidgets. IsTargetEmail() ?
 type PageRequestBase = PagePartRequest & Pick<CPageRequest, "setFrontendData" | "setPageBuilderData" | "insertAt" | "webRequest" | "getInstance" | "pageMetadata" | "timings">;
 export type ContentPageRequest = PageRequestBase & Pick<CPageRequest, "buildWebPage" | "getPageRenderer" | "getPlugin" | "initializePlugins" | "applyToCurrentContext">;
 // Plugin API is only visible during PageBuildRequest as we don't want to initialize them it during the page run itself. eg. might still redirect
