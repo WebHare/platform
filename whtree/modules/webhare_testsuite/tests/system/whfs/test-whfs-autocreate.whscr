@@ -2,11 +2,12 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
-LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
@@ -340,7 +341,7 @@ MACRO AutoCreateTypes() {
   testfw->CommitWork();
 
   testfw->DeleteTestModule();
-  RecompileSiteProfiles("AutoCreateTypes");
+  ApplyWebHareConfiguration([ subsystems := ["siteprofiles"], source := "AutoCreateTypes" ]);
 
   testfw->BeginWOrk();
   FlushUnreferredContentData(); //needed to reliably test
@@ -431,7 +432,7 @@ MACRO AutoCreateTypes() {
   testfw->CommitWork();
 
   testfw->DeleteTestModule();
-  RecompileSiteProfiles("AutoCreateTypes.2");
+  ApplyWebHareConfiguration([ subsystems := ["siteprofiles"], source := "AutoCreateTypes.2" ]);
 
   testfw->WaitForPublishCompletion(testdatafolder->id);
   testfw->BeginWork();
@@ -480,7 +481,7 @@ MACRO AutoCreateTypes() {
   testfw->RollbackWork();
 
   testfw->DeleteTestModule();
-  RecompileSiteProfiles("AutoCreateTypes.3");
+  ApplyWebHareConfiguration([ subsystems := ["siteprofiles"], source := "AutoCreateTypes.3" ]);
 
   testfw->BeginWork();
   FlushUnreferredContentData(); //needed to reliably test
