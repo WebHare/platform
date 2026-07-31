@@ -48,7 +48,7 @@ export async function checkWRDSchema(tag: string, onIssue: (issue: WRDIssue) => 
     if (attr.domain && !types.find(t => t.id === attr.domain)) {
       onIssue({ message: `WRD type ${attr.fullTag} refers to type #${attr.domain} in its domain field which is not in the same schema` });
     }
-    if (!isValidWRDAttributeTag(tagToJS(attr.tag))) {
+    if (!isValidWRDAttributeTag(tagToJS(attr.tag)) && !tag.startsWith("newsletter:")) { //newsletter: will likely never support TS and has been superseded by connect so no point to keep complaining about tag misuse
       onIssue({ message: `WRD attribute ${attr.fullTag} has invalid tag '${tagToJS(attr.tag)}'` });
     }
   }
