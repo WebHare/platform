@@ -14,7 +14,7 @@ import type { GlobalRight, TargettedRight } from "@webhare/auth";
 import { describeWHFSType, getType } from "./describe";
 import { resolveResource } from "@webhare/services";
 import type { ApplyAuth, ApplySetMetadata } from "@mod-platform/generated/schema/siteprofile";
-import { openType, whfsType, type WHFSTypeName } from "@webhare/whfs/src/contenttypes";
+import { openType, whfsType, type WHFSTypeInfo, type WHFSTypeName } from "@webhare/whfs/src/contenttypes";
 import { lookupURL, type LookupURLOptions } from "./lookupurl";
 import { isHistoricWHFSSpace } from "./support";
 import { whconstant_whfsid_repository } from "@mod-system/js/internal/webhareconstants";
@@ -177,26 +177,36 @@ async function getHistoricBaseInfo(obj: WHFSObject): Promise<BaseInfo> {
   return getBaseInfoForMockedApplyCheck(origparent, obj.isFolder, obj.type, currentname);
 }
 
-export async function getBaseInfoForApplyCheck(obj: WHFSObject): Promise<BaseInfo> {
+export async function getBaseInfoForApplyCheck(obj: WHFSObject, options?: { type?: WHFSTypeName }): Promise<BaseInfo> {
   if (isHistoricWHFSSpace(obj.whfsPath))
     return await getHistoricBaseInfo(obj);
 
   const siteapply = await getSiteApplicabilityInfo(obj.parentSite);
   let site: SiteRow | null = null;
-  if (obj.parentSite) {
+  if (obj.parentSite) { //TOOD Caller should be able to supply this if it already knows
     site = await db<PlatformDB>().selectFrom("system.sites").
       selectAll().
       select(selectSitesWebRoot().as("webroot")).
       where("id", "=", obj.parentSite).executeTakeFirst() ?? null; //TODO why doesn't getSiteApplicabilityInfo give us what we need here
   }
 
-  let typeneedstemplate = false;
-  if (obj.isFile) {
-    const typeinfo = await describeWHFSType(obj.type, { allowMissing: true });
-    if (typeinfo?.metaType === "fileType" && typeinfo.isWebPage)
-      typeneedstemplate = true;
+  // Gather type info. Caller should specify it if it already knows to save us a database lookup
+  let typeinfo: WHFSTypeInfo | null = null;
+  if (options?.type)
+    typeinfo = await describeWHFSType(options.type, { allowMissing: true });
+
+  // For contentlinks we substitute the target type for our type when evaluating contentlink rules
+  if (!typeinfo && obj.isFile && obj.type === "platform:filetypes.contentlink" && obj.target?.internalLink) {
+    const targetTypeId = await db<PlatformDB>().selectFrom("system.fs_objects").select("type").where("id", "=", obj.target.internalLink).executeTakeFirst();
+    typeinfo = await describeWHFSType(targetTypeId?.type || 0, { allowMissing: true, metaType: "fileType" });
   }
-  //TODO don't actually open the objects if we can avoid it.
+  if (!typeinfo)
+    typeinfo = await describeWHFSType(obj.type, { allowMissing: true });
+
+  const typeneedstemplate = typeinfo?.metaType === "fileType" && typeinfo.isWebPage;
+
+  //TODO don't actually open the objects if we can avoid it. allow caller to supply them
+  //TODO don't applytesters need the full typeinfo instead of just the type name ?
   return {
     ...siteapply,
     obj,
@@ -204,7 +214,7 @@ export async function getBaseInfoForApplyCheck(obj: WHFSObject): Promise<BaseInf
     parent: obj.parentSite === obj.id || !obj.parent ? (obj as WHFSFolder) //a root *has* to be a folder
       : (await openFolder(obj.parent)),
     isfile: obj.isFile,
-    type: obj.type,
+    type: typeinfo?.scopedType || typeinfo?.namespace || obj.type,
     typeneedstemplate,
   };
 }
@@ -691,8 +701,8 @@ export class WHFSApplyTester {
   }
 }
 
-export async function getApplyTesterForObject(obj: WHFSObject) {
-  return new WHFSApplyTester(await getBaseInfoForApplyCheck(obj));
+export async function getApplyTesterForObject(obj: WHFSObject, options?: { type?: WHFSTypeName }) {
+  return new WHFSApplyTester(await getBaseInfoForApplyCheck(obj, options));
 }
 
 export async function getApplyTesterForMockedObject(parent: WHFSFolder, isFolder: boolean, type: WHFSTypeName, name = "new object") { //FIXME why defaults on an internal API?

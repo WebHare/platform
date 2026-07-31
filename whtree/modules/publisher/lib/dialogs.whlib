@@ -19,6 +19,7 @@ LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
@@ -450,7 +451,10 @@ PUBLIC MACRO RunFSObjectEditApplication(OBJECT parentscreen, INTEGER objectid, R
 
   //INTEGER siteid := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id=objectid;
   OBJECT applytester := GetApplyTesterForObject(objectid);
-  RECORD editorinfo := applytester->GetLastValueForCell("SETOBJECTEDITOR");
+  RECORD editorinfo;
+  IF(fileobj->type != whconstant_whfstype_contentlink) //contentlinks will always use objectprops
+    editorinfo := applytester->GetLastValueForCell("SETOBJECTEDITOR");
+
   RECORD objeditor;
   IF(RecordExists(editorinfo) AND editorinfo.name != "")
     objeditor := GetObjectEditor(editorinfo.name);

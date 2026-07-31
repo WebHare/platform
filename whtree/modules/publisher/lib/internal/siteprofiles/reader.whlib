@@ -238,11 +238,19 @@ RECORD FUNCTION GetFakeObject(BOOLEAN isfolder, INTEGER type, STRING basefullpat
          ];
 }
 
-RECORD FUNCTION GetBaseInfoForApplyCheck(INTEGER fsobjectid)
+RECORD FUNCTION GetBaseInfoForApplyCheck(INTEGER fsobjectid, INTEGER known_type)
 {
   RECORD fsobjinfo := SELECT id, parent, parentsite, type, filelink, fullpath, whfspath, indexdoc, isfolder, url FROM system.fs_objects WHERE id = fsobjectid;
   IF(NOT RecordExists(fsobjinfo))
     RETURN DEFAULT RECORD;
+
+  IF(known_type >= 0) //our caller already knows the final type
+    fsobjinfo.type := known_type;
+  ELSE IF(fsobjinfo.type = whconstant_whfstype_contentlink) { //replace with target type for apply rule evaluation
+    RECORD match := SELECT fs_objects.type FROM system.fs_objects WHERE id = fsobjinfo.filelink;
+    IF(RecordExists(match))
+      fsobjinfo.type := match.type;
+  }
 
   RECORD siteapply := GetSiteApplicabilityInfo(fsobjinfo.parentsite);
   RECORD site;
@@ -1731,9 +1739,10 @@ STATIC OBJECTTYPE ApplyRuleTester <
     @public
     @loadlib mod::publisher/lib/siteprofiles.whlib
 */
-PUBLIC OBJECT FUNCTION GetApplyTesterForObject(INTEGER obj)
+PUBLIC OBJECT FUNCTION GetApplyTesterForObject(INTEGER obj, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  RECORD objinfo := GetBaseInfoForApplyCheck(obj);
+  options := ValidateOptions(CELL[type := -1], options);
+  RECORD objinfo := GetBaseInfoForApplyCheck(obj, options.type);
   IF (NOT RecordExists(objinfo))
     RETURN DEFAULT OBJECT;
 

@@ -138,8 +138,6 @@ export class CPageRequest {
 
   /** Apply tester for the target object. Not exposed through official interfaces as applyteser itself is still an internal object */
   public _applyTester!: WHFSApplyTester;
-  /** If we're publishing a content link, the link's apply tester. Otherwise identical to _applyTester */
-  private _contentApplyTester!: WHFSApplyTester;
   private _renderinfo!: Awaited<ReturnType<WHFSApplyTester["getObjRenderInfo"]>>;
   private _siteLanguage!: string;
   private _publicationSettings!: Awaited<ReturnType<WHFSApplyTester["getWebDesignInfo"]>>;
@@ -207,9 +205,8 @@ export class CPageRequest {
   }
 
   async _preparePageRequestBase() {
-    this._applyTester = await getApplyTesterForObject(this.targetObject);
-    this._contentApplyTester = this.targetObject.type === "platform:filetypes.contentlink" ? await getApplyTesterForObject(this._contentObject) : this._applyTester; //if we're a contentlink, we want to use the applytester of our target for things like rendering and getting frontend data, but we still want to keep track of the original content object for plugins and such
-    this._renderinfo = await this._contentApplyTester.getObjRenderInfo();
+    this._applyTester = await getApplyTesterForObject(this.targetObject, { type: this._contentObject.type });
+    this._renderinfo = await this._applyTester.getObjRenderInfo();
     this._siteLanguage = await this._applyTester.getSiteLanguage(); //FIXME we need to be in a CodeContext and set tid!
     this._publicationSettings = await this._applyTester.getWebDesignInfo();
     this.#pageMetadata = new PageMetadata(await this._applyTester.getPageMetadata());
@@ -402,12 +399,12 @@ export class CPageRequest {
       return (request: ContentPageRequest) => runHareScriptPage(request, { hsPageObjectType: this._renderinfo.hsPageObjectType });
     }
 
-    const typeInfo = await describeWHFSType(this._contentApplyTester.type);
+    const typeInfo = await describeWHFSType(this._applyTester.type);
     if (typeInfo?.metaType === "widgetType") { //a widget can be rendered as a HTML fragment
       return async (_request: ContentPageRequest) => {
-        const data = await whfsType(this._contentApplyTester.type).get(this._contentObject.id);
+        const data = await whfsType(this._applyTester.type).get(this._contentObject.id);
         //TODO do we need an API to get the dbLoc for renderHSWidget (and later similar?) calls?
-        const widget = await this.renderWidget({ whfsType: this._contentApplyTester.type, data, [dbLoc]: getWebHareDBLocation(this._contentObject) });
+        const widget = await this.renderWidget({ whfsType: this._applyTester.type, data, [dbLoc]: getWebHareDBLocation(this._contentObject) });
         this.pageMetadata.htmlClasses.push('wh-widgetpreview');
         return this.render({ body: widget });
       };
