@@ -994,14 +994,35 @@ async function testWRDRoundTrips() {
 
 async function testRegressions() {
   //HTML parser needs to be loose as not everything we find in the database is consistent, we've allowed too many direct writes in the past in HS:
-  const htmlWithBadClass = `<html><body><p class="MsoNormal"><span lang="EN-US">The TechMed\nCentre, formerly the Technohal, houses the institute of the same name and\nseveral research groups in the Health area. The building also contains several\nresearch labs and the educational programmes Biomedical Technology, Health\nSciences and Technical Medicine.<p xmlns:o=""></p></span></p></body></html>`;
-  const parseResult = await buildRTDFromHareScriptRTD({ htmltext: WebHareBlob.from(htmlWithBadClass), instances: [], embedded: [], links: [] });
-  test.eqPartial([
-    {
-      tag: "p",
-      items: [{ text: 'The TechMed Centre, formerly the Technohal, houses the institute of the same name and several research groups in the Health area. The building also contains several research labs and the educational programmes Biomedical Technology, Health Sciences and Technical Medicine.' }]
-    }
-  ], parseResult.blocks);
+  {
+    const htmlWithBadClass = `<html><body><p class="MsoNormal"><span lang="EN-US">The TechMed\nCentre, formerly the Technohal, houses the institute of the same name and\nseveral research groups in the Health area. The building also contains several\nresearch labs and the educational programmes Biomedical Technology, Health\nSciences and Technical Medicine.<p xmlns:o=""></p></span></p></body></html>`;
+    const parseResult = await buildRTDFromHareScriptRTD({ htmltext: WebHareBlob.from(htmlWithBadClass), instances: [], embedded: [], links: [] });
+    test.eqPartial([
+      {
+        tag: "p",
+        items: [{ text: 'The TechMed Centre, formerly the Technohal, houses the institute of the same name and several research groups in the Health area. The building also contains several research labs and the educational programmes Biomedical Technology, Health Sciences and Technical Medicine.' }]
+      }
+    ], parseResult.blocks);
+  }
+
+  //This wasn't being parsed properly
+  {
+    const htmlWithUnparsedWidget = `<html><body><div class="-wh-rtd-embeddedobject" data-instanceid="8SOriSRJRu3GUp09y6O8cQ"></div></body></html>`;
+    const parseResult = await buildRTDFromHareScriptRTD({
+      htmltext: WebHareBlob.from(htmlWithUnparsedWidget), instances: [{
+        instanceid: "8SOriSRJRu3GUp09y6O8cQ",
+        data: {
+          whfstype: "webhare_testsuite:global.generic_test_type",
+          aFloat: 2.5,
+        }
+      }], embedded: [], links: []
+    });
+    test.eqPartial([
+      {
+        widget: test.expectInstance("webhare_testsuite:global.generic_test_type", { aFloat: 2.5 }, { partial: true })
+      }
+    ], parseResult.blocks);
+  }
 }
 
 async function testRTDOutput() {
