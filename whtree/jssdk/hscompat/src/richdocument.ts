@@ -381,7 +381,7 @@ class HSRTDImporter {
       const tag = child.tagName.toLowerCase();
       const classNames = parseXSList(child.getAttribute("class"));
 
-      if (tag === "div" && classNames.includes("wh-rtd-embeddedobject")) { //FIXME only enter this path if it's actually an object
+      if (tag === "div" && (classNames.includes("wh-rtd-embeddedobject") || classNames.includes("-wh-rtd-embeddedobject"))) { //FIXME only enter this path if it's actually an object
         const widget = await this.reconstructWidget(child);
         if (widget)
           blocks.push({ widget });
