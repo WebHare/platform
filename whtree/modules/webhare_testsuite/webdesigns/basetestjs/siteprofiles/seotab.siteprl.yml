@@ -1,0 +1,38 @@
+apply:
+  - to:
+      not:
+        sitePath: "*seotab*"
+  - to:
+      and:
+        - is: index
+        - not:
+            is: index
+            sitePath: "*seotab*"
+  - to:
+      sitePath: "*seotab*"
+    baseProps:
+      seoTab: true
+  - to:
+      sitePath: "*seotitle*"
+    baseProps:
+      seoTitle: true
+  - to:
+      sitePath: "*pageheading*"
+    baseProps:
+      pageHeading: true
+  - to:
+      sitePath: "*noindex*"
+    baseProps:
+      noIndex: true
+  - to:
+      sitePath: "*nofollow*"
+    baseProps:
+      noFollow: true
+  - to:
+      sitePath: "*noarchive*"
+    baseProps:
+      noarchive: true
+  - to:
+      sitePath: "*yesfollow*"
+    baseProps:
+      noFollow: false

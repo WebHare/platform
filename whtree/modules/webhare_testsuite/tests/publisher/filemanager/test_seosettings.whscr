@@ -1,5 +1,6 @@
 <?wh
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
 LOADLIB "wh::ooxml/spreadsheet.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
@@ -14,19 +15,26 @@ LOADLIB "mod::consilio/lib/pagelists.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
+RECORD args := ParseArguments(GetConsoleArguments(),
+                              [ [ name := "jssite", type := "switch" ]
+                              ]);
+
 OBJECT seotestroot, root, noindeximage, seotitlefile, pageheadingfile, noindexfolder, forced_noindex_nofollow_yesfollow_file, seotestfile, seoheadertitlefolder, noindexsubfolder, noindexsubfile,
        noindexsubfolderindex, nofollowfolder, nofollowsubfolder, nofollowsubfile, forced_noindex_file, forced_nofollow_file, forced_noarchive_file, forced_noindex_nofollow_noarchive_file;
 
 MACRO PrepIt()
 {
+  OBJECT testsite := args.jssite ? OpenTestsuiteJSSite() : OpenTestsuiteSite();
+  OBJECT testfolder := args.jssite ? GetTestsuiteJSTempFolder() : GetTestsuiteTempFolder();
+
   testfw->BeginWork();
-  testfw->GetUserObject("marge")->UpdateGrant("grant", "system:fs_fullaccess",  OpenTestsuiteSite()->rootobject->id, testfw->GetUserObject("marge"), [ allowselfassignment := TRUE ]);
-  testfw->GetUserObject("lisa")->UpdateGrant("grant", "system:fs_fullaccess",  OpenTestsuiteSite()->rootobject->id, testfw->GetUserObject("lisa"), [ allowselfassignment := TRUE ]);
+  testfw->GetUserObject("marge")->UpdateGrant("grant", "system:fs_fullaccess",  testsite->rootobject->id, testfw->GetUserObject("marge"), [ allowselfassignment := TRUE ]);
+  testfw->GetUserObject("lisa")->UpdateGrant("grant", "system:fs_fullaccess",  testsite->rootobject->id, testfw->GetUserObject("lisa"), [ allowselfassignment := TRUE ]);
 
-  OBJECT usetype := OpenWHFSType("platform:filetypes.contentlisting"); //no doceditor but *does* have a webdesign and can publish SEO met atags
+  OBJECT usetype := OpenWHFSType("platform:filetypes.contentlisting"); //no doceditor but *does* have a webdesign and can publish SEO meta tags
 
-  root := OpenTestsuiteSite()->rootobject;
-  seotestroot := GetTestsuiteTempFolder()->CreateFolder([name := "seotab"]);
+  root := testsite->rootobject;
+  seotestroot := testfolder->CreateFolder([name := "seotab"]);
   seotestfile := seotestroot->CreateFile([name := "seotestfile", type := usetype->id, publish := TRUE ]);
   seotitlefile := seotestroot->CreateFile([name := "seotitlefile", type := usetype->id, publish := TRUE, title := "navtitle seotitlefile" ]);
   pageheadingfile := seotestroot->CreateFile([name := "pageheadingfile", type := usetype->id, publish := TRUE, title := "navtitle pageheadingfile" ]);
@@ -66,7 +74,8 @@ MACRO PrepIt()
 }
 
 ASYNC MACRO RunSeoTabUITests(BOOLEAN expect_advanced_access) {
-  STRING basefolder := `${OpenTestsuiteSite()->rootobject->whfspath}tmp/seotab/`;
+  OBJECT testsite := args.jssite ? OpenTestsuiteJSSite() : OpenTestsuiteSite();
+  STRING basefolder := `${testsite->rootobject->whfspath}tmp/seotab/`;
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ `${basefolder}noindex/noindexsub/img.jpg` ] ]));
   AWAIT ExpectScreenChange(+1, PTR TTClick("props"));

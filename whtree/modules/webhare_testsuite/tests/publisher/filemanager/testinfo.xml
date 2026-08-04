@@ -1,6 +1,9 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
   <test script="test_objectprops.whscr" />
   <test script="test_seosettings.whscr" />
+  <test name="test_seosettings-jssite" script="test_seosettings.whscr">
+    <arg value="--jssite"/>
+  </test>
   <test script="test_siteprops.whscr" />
   <test script="test_types.whscr" />
   <test script="test_archive.whscr" />
