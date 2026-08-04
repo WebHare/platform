@@ -1,5 +1,6 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::util/localization.whlib";
 LOADLIB "wh::javascript.whlib";
@@ -333,6 +334,11 @@ MACRO CountryListTest()
   TestEq("Kosovo", xk[0].NL);
   TestEq(TRUE, CellExists(xk[0], "EN"));
   TestEq("Kosovo", xk[0].EN);
+
+  STRING ARRAY hs_countrycodes := SELECT AS STRING ARRAY code FROM GetCountryList([ "en" ]);
+  STRING ARRAY ts_countrycodes := CallJS("@webhare/harescript/src/syscalls.ts#getBuiltinCountryList");
+  TestEq(STRING[], ArrayDelete(hs_countrycodes, ts_countrycodes));
+  TestEq(STRING[], ArrayDelete(ts_countrycodes, hs_countrycodes));
 }
 
 
