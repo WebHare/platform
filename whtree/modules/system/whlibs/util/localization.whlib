@@ -552,7 +552,9 @@ PUBLIC RECORD ARRAY FUNCTION GetCountryList(VARIANT locale)
   IF(IsWASM())
     RETURN EM_Syscall("getCountryList", CELL[locales]);
 
-  RETURN __ICU_GetCountryList(locales);
+  RECORD ARRAY result := __ICU_GetCountryList(locales);
+  DELETE FROM result WHERE code IN ['CQ', 'DG', 'EA', 'IC']; //not 'real' countries, at least not in WH 5.9
+  RETURN result;
 }
 
 
