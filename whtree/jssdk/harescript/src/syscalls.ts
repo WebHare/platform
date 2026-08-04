@@ -128,12 +128,17 @@ export function localizeDateTime(_hsvm: HareScriptVM, params: {
   };
 }
 
-//TODO cache the country mapping - allow users to get a subset?
+//split off for testing purposes. should probably have a better name and move to some @webhare/... library
 let countrycodes: string[] | undefined;
-export function getCountryList(hsvm: HareScriptVM, { locales }: { locales: string[] }): Array<Record<string, string>> {
+export function getBuiltinCountryList() {
   countrycodes ||= [...Object.keys(JSON.parse(readFileSync(backendConfig.installationRoot + "node_modules/country-list-js/data/iso_alpha_3.json", "utf8")))].sort();
+  return countrycodes;
+}
+
+//TODO cache the country mapping - allow users to get a subset?
+export function getCountryList(hsvm: HareScriptVM, { locales }: { locales: string[] }): Array<Record<string, string>> {
   const regionmaps = locales.map(lang => ({ lang, names: new Intl.DisplayNames(lang, { type: "region" }) }));
-  return countrycodes.map(code => ({
+  return getBuiltinCountryList().map(code => ({
     code: code,
     ...Object.fromEntries(regionmaps.map(_ => [_.lang, _.names.of(code)]))
   }));
