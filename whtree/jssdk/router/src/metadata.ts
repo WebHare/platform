@@ -59,7 +59,7 @@ export class PageMetadata {
     return [...this.#htmlPrefixes.values()];
   }
 
-  #robotsTag = INITIAL_ROBOTS_TAG;
+  #robotsTag = { ...INITIAL_ROBOTS_TAG };
   get robotsTag() {
     return this.#robotsTag;
   }
