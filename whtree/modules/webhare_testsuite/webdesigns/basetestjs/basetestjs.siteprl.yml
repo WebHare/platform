@@ -256,3 +256,4 @@ apply:
 
 applySiteProfiles:
   - ./metadata.siteprl.yml
+  - ./siteprofiles/seotab.siteprl.yml
