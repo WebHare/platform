@@ -72,7 +72,7 @@ export function parseUserAgent(ua: string): UserAgentInfo {
  * @param event - Event to check
  */
 export function isMultiSelectKey(event: KeyboardEvent | MouseEvent): boolean {
-  return browser.platform === 'mac' ? event.metaKey : event.ctrlKey;
+  return getBrowser().platform === 'mac' ? event.metaKey : event.ctrlKey;
 }
 
 /**
@@ -81,14 +81,14 @@ export function isMultiSelectKey(event: KeyboardEvent | MouseEvent): boolean {
  * @param event - Event to check
  */
 export function isCopyKey(event: KeyboardEvent | MouseEvent): boolean {
-  return browser.platform === 'mac' ? event.altKey : event.ctrlKey;
+  return getBrowser().platform === 'mac' ? event.altKey : event.ctrlKey;
 }
 
-/** @deprecated Use getBrowser() instead, available since WH5.6.3. We will remove `browser` in the future to improve tree shaking */
-export const browser: Readonly<UserAgentInfo> = Object.freeze(parseUserAgent(globalThis.navigator?.userAgent || ""));
+let browser: Readonly<UserAgentInfo> | undefined;
 
 /** Get browser information */
 export function getBrowser(): Readonly<UserAgentInfo> {
+  browser ||= Object.freeze(parseUserAgent(globalThis.navigator?.userAgent || ""));
   //Offer this as a function to improve treeshakability
   return browser;
 }
