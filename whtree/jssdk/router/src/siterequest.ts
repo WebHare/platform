@@ -12,7 +12,7 @@ import { createWebResponse, getAssetPackIntegrationCode, type PageBuilderDataTyp
 import type { WHConfigScriptData_FromServer } from "@webhare/frontend/src/init";
 import { parseModuleQualifiedName } from "@webhare/services/src/naming";
 import type { FrontendDataTypes } from "@webhare/frontend";
-import { getExtractedConfig, getVersionInteger } from "@mod-system/js/internal/configuration";
+import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import { isLitty, litty, littyToString, rawLitty, type Litty } from "@webhare/litty";
 import type { InstanceData, WHFSTypes } from "@webhare/whfs/src/contenttypes";
 import { getWHFSObjRef } from "@webhare/whfs/src/support";
@@ -174,7 +174,6 @@ export class CPageRequest {
       site: {},
       obj: {},
       dtapStage: dtapStage,
-      server: getVersionInteger() //TODO we intend to completely deprecate this. should never depend on server versions
     };
   }
 
