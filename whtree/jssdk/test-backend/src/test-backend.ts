@@ -60,7 +60,7 @@ export function getRandomTestModuleName() {
 }
 
 async function cleanupWRDTestSchemas() {
-  for (const schema of await listSchemas())
+  for (const schema of await listSchemas({ includeInvalidTags: true }))
     if (schema.tag === whconstant_wrd_testschema
       || schema.tag === whconstant_wrd_testschema + ".bak"
       || schema.tag.startsWith(whconstant_wrd_testschema + ".bak (")
