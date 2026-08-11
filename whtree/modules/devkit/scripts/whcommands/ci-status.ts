@@ -1,52 +1,16 @@
-import { devsupportSchema } from "wh:wrd/devkit";
 import { getRepoInfo } from '@mod-devkit/lib/internal/deploy/git';
 import process from 'node:process';
 import { Gitlab } from '@gitbeaker/rest';
-import { beginWork, commitWork } from "@webhare/whdb/src/whdb";
 import { runCli } from "@webhare/cli";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { getAutomergeConfig } from '@mod-devkit/lib/internal/deploy/devsupport';
 
 function shortLogMessage(text: string) {
   text = text.split('\n')[0];
   if (text.length > 50)
     text = text.slice(0, 50) + '…';
   return text;
-}
-
-async function getAutomergeConfig(forrepo: string) {
-  const user = process.env.USER;
-  if (!user || ["root", "git", "webhare"].includes(user)) {
-    console.error(`Could not determine user name`);
-    process.exit(1);
-  }
-
-  let apiroot = '', project = '';
-  const git_repo = forrepo.match(/^git@([^:]*):(.*)\.git$/)
-    || forrepo.match(/^git@([^:]*):(.*)$/); //URLs may or may not end in .git, at least on GitLab
-  if (git_repo) {
-    apiroot = `https://${git_repo[1]}`;
-    project = git_repo[2];
-  } else {
-    console.error(`Cannot figure out API root for git url: ${forrepo}`);
-    process.exit(1);
-  }
-
-  //Look up this forge
-  let forgeid = await devsupportSchema.search("forge", "url", apiroot);
-  if (!forgeid) {
-    console.log(`No forge found for ${apiroot} - creating`);
-    await beginWork();
-    forgeid = await devsupportSchema.insert("forge", ({ url: apiroot }));
-    await commitWork();
-  }
-
-  const forgesettings = await devsupportSchema.getFields("forge", forgeid, ["token"]);
-  if (!forgesettings?.token) {
-    console.error(`Set up an API token for forge ${apiroot} in the dev deploy app. https://my.webhare.dev/?app=dev:deploy/forges`);
-    process.exit(1);
-  }
-  return { user, apiroot, token: forgesettings.token, project };
 }
 
 runCli({
@@ -78,7 +42,7 @@ runCli({
     const config = await getAutomergeConfig(repoinfo.remote_url);
     const automergeBranch = `automerge/${config.user}/${repoinfo.branch}`;
 
-    const gitlabclient = new Gitlab({ host: config.apiroot, token: config.token });
+    const gitlabclient = new Gitlab({ host: config.apiRoot, token: config.token });
     if (verbose)
       console.log(`Looking up pipeline`);
 
