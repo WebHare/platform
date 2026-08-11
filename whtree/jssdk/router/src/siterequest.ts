@@ -729,13 +729,15 @@ export async function createContentPageRequest(toRender: WHFSObject, options?: C
 }
 
 //How well can we isolate widgets (PagePartRequest users) in practice? ideally we won't provide APIs that can cause 2 widgets to conflict with each other
-export type PagePartRequest = Pick<CPageRequest, "renderRTD" | "renderWidget" | "resolveLink" | "targetFolder" | "targetObject" | "targetSite" | "targetPath" | "siteLanguage" | "isLinkedContent" | "isEditorPreview" | "isPublisherPreview">; //TODO need something to determine emailwidgets. IsTargetEmail() ?
-type PageRequestBase = PagePartRequest & Pick<CPageRequest, "setFrontendData" | "setPageBuilderData" | "insertAt" | "webRequest" | "getInstance" | "pageMetadata" | "timings">;
-export type ContentPageRequest = PageRequestBase & Pick<CPageRequest, "buildWebPage" | "getPageRenderer" | "getPlugin" | "initializePlugins" | "applyToCurrentContext">;
-// Plugin API is only visible during PageBuildRequest as we don't want to initialize them it during the page run itself. eg. might still redirect
-export type PageBuildRequest = PageRequestBase & Pick<CPageRequest, "render" | "getPlugin" | "content" | "getPageBuilderData">;
+export type PagePartRequest = Pick<CPageRequest, "renderRTD" | "renderWidget" | "resolveLink" | "targetFolder" | "targetObject" | "targetSite" | "targetPath" | "siteLanguage" | "isLinkedContent" | "isEditorPreview" | "isPublisherPreview" | "webRequest" | "getInstance" | "timings">; //TODO need something to determine emailwidgets. IsTargetEmail() ?
 
-export type PagePluginRequest = PageRequestBase & Pick<CPageRequest, "getPlugin" | "addPlugin">;
+type PageRequestBase = PagePartRequest & Pick<CPageRequest, "setFrontendData" | "setPageBuilderData" | "insertAt" | "pageMetadata" | "getPlugin">;
+
+export type ContentPageRequest = PageRequestBase & Pick<CPageRequest, "buildWebPage" | "getPageRenderer" | "initializePlugins" | "applyToCurrentContext">;
+// Plugin API is only visible during PageBuildRequest as we don't want to initialize them it during the page run itself. eg. might still redirect
+export type PageBuildRequest = PageRequestBase & Pick<CPageRequest, "render" | "content" | "getPageBuilderData">;
+
+export type PagePluginRequest = PageRequestBase & Pick<CPageRequest, "addPlugin">;
 
 /** @deprecated SiteRequest will be removed after WH6 */
 export type SiteRequest = Pick<CPageRequest, "createComposer" | "contentObject" | "targetSite" | "targetObject" | "targetFolder" | "webRequest">;

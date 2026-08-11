@@ -14,6 +14,7 @@ import { runHareScriptPage } from "./hswebdesigndriver";
 import { whfsType } from "@webhare/whfs";
 import { Timings, asServerTimingHeader } from "@mod-platform/js/logging/timings";
 import { getCodeContext } from "@webhare/services/src/codecontexts";
+import type { InstanceData, WHFSTypeName, WHFSTypes } from "@webhare/whfs/src/contenttypes";
 
 export async function lookupPublishedTarget(url: string, options?: whfs.LookupURLOptions) {
   const lookupresult = await whfs.lookupURL(new URL(url), options);
@@ -192,6 +193,10 @@ export async function renderTSWidgetHS(context: {
       pagereq ??= await createContentPageRequest(targetObject);
       return pagereq.resolveLink(link);
     },
+    getInstance: async function <const Type extends keyof WHFSTypes | string & {}>(getType: string extends Type ? Type : WHFSTypeName, options?: { source?: "target" | "content" }): Promise<[Type] extends [WHFSTypeName] ? WHFSTypes[Type]["GetFormat"] : InstanceData> {
+      return whfsType(getType).get(targetObject.id);
+    },
+    webRequest: null,
     targetObject: targetObject,
     targetFolder: targetObject.isFolder ? targetObject : await whfs.openFolder(context.targetfolder),
     targetSite: await whfs.openSite(context.targetsite) as PagePartRequest["targetSite"],
