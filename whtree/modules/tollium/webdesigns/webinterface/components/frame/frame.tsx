@@ -455,6 +455,9 @@ export class ObjFrame extends ToddCompBase {
     return createdcomp;
   }
 
+  getComponent(name: "frame"): this;
+  getComponent<T extends ToddCompBase>(name: string): T | undefined;
+
   getComponent<T extends ToddCompBase>(name: string): T | undefined {
     return this.objectMap.get(name) as T | undefined;
   }

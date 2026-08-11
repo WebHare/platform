@@ -35,6 +35,8 @@ export const gridlineHeight = 28; //grid vertical size (28 pixels) including mar
 export const gridlineInnerHeight = gridlineHeight - gridlineTotalMargin;
 export const gridlineSnapMax = 8; //never add more than this amount of pixels to snap. an attempt to prevent inlineblocks from wildly generating empty space. this is mostly manually tuning and maybe we shouldn't do it
 
+export const checkeredBackground = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAQ0lEQVQoFWNkIBKcPn26gRilTMQoIkXNqIGkhBZ2taNhiD1cSBFlJDYHmJqaNhBj8GikEBNK+NWMhiH+8CFGluphCACyjgcI7XmCdAAAAABJRU5ErkJggg==";
+
 export const settings =
 {
   tab_stacked_vpadding_inactive: 1, // border-bottom: 1px (only for inactive!)
