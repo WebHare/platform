@@ -40,7 +40,7 @@ import { setupKeyboardHandling } from "./shell/keyboardhandling";
 import { AppMgr } from './shell/appmgr';
 
 import * as $todd from './support';
-import { type ApplicationBase, BackendApplication, FrontendEmbeddedApplication, registerJSApp } from './application';
+import { type ApplicationBase, type ApplicationOptions, BackendApplication, FrontendEmbeddedApplication, registerJSApp } from './application';
 import ApplicationBar from './shell/applicationbar';
 import "./apps/dashboard";
 import "./apps/oauth";
@@ -165,8 +165,13 @@ class IndyShell extends TolliumShell {
    * Application management
    */
 
-  startFrontendApplication(appname: string, parentapp, options) {
-    const application = new FrontendEmbeddedApplication(this, appname, (options && options.target) || {}, parentapp, options);
+  startFrontendApplication(appname: string, parentapp: ApplicationBase | null, options?:
+    {
+      target?: AppLaunchInstruction["target"];
+      src?: string;
+    } & ApplicationOptions
+  ) {
+    const application = new FrontendEmbeddedApplication(this, appname, options?.target || {}, parentapp, options);
     $todd.applications.push(application);
 
     application.loadApplication({
@@ -178,7 +183,10 @@ class IndyShell extends TolliumShell {
 
     return application;
   }
-  startBackendApplication(appname: string, parentapp, options?) {
+  startBackendApplication(appname: string, parentapp: ApplicationBase | null, options?:
+    {
+      target?: AppLaunchInstruction["target"];
+    } & ApplicationOptions) {
     if (appname === '__jsapp_hack__') //FIXME proper way to start JS frontend apps
       return this.startFrontendApplication('TestJSApp', parentapp, { src: '/tollium_todd.res/webhare_testsuite/tollium/jsapp.js' });
 
@@ -300,7 +308,7 @@ class IndyShell extends TolliumShell {
     setInterval(() => this.checkVersion(), 5 * 60 * 1000); //check for version updates etc every 5 minutes
 
     if (!this.dashboardapp && data.settings.dashboard)
-      this.dashboardapp = this.startFrontendApplication('tollium:builtin.dashboard', null, { src: '/.tollium/ui/js/dashboard.js', fixedonappbar: true });
+      this.dashboardapp = this.startFrontendApplication('tollium:builtin.dashboard', null, { fixedonappbar: true });
 
     data.settings.initialinstructions.forEach(instr => this.executeInstruction(instr));
 
