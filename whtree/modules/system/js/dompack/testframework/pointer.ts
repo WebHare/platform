@@ -1290,15 +1290,11 @@ export function focus(target: ValidElementTarget) { //focus could have gone into
 }
 
 export function canClick(element: ValidElementTarget, options?: ElementTargetOptions) {
-  let x: string | number = "50%", y: string | number = "50%";
-  if (typeof arguments[1] === 'number') { // receiving old style x,y coordinates
-    x = arguments[1];
-    y = arguments[2] || "50%";
-    console.warn("Deprecated canClick syntax, use {x,y} as option parameters in WH5.5+");
-  } else {
-    x = options?.x ?? "50%";
-    y = options?.y ?? "50%";
-  }
+  if (typeof options === 'number')  // receiving old style x,y coordinates
+    throw new Error("Unsupported canClick syntax, use {x,y} as option parameters in WH5.5+");
+
+  const x = options?.x ?? "50%";
+  const y = options?.y ?? "50%";
 
   element = _resolveToSingleElement(element);
 
