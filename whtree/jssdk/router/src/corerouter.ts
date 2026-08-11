@@ -15,6 +15,7 @@ import { whfsType } from "@webhare/whfs";
 import { Timings, asServerTimingHeader } from "@mod-platform/js/logging/timings";
 import { getCodeContext } from "@webhare/services/src/codecontexts";
 import type { InstanceData, WHFSTypeName, WHFSTypes } from "@webhare/whfs/src/contenttypes";
+import type { StructuredDataItem } from "./metadata";
 
 export async function lookupPublishedTarget(url: string, options?: whfs.LookupURLOptions) {
   const lookupresult = await whfs.lookupURL(new URL(url), options);
@@ -196,6 +197,8 @@ export async function renderTSWidgetHS(context: {
     getInstance: async function <const Type extends keyof WHFSTypes | string & {}>(getType: string extends Type ? Type : WHFSTypeName, options?: { source?: "target" | "content" }): Promise<[Type] extends [WHFSTypeName] ? WHFSTypes[Type]["GetFormat"] : InstanceData> {
       return whfsType(getType).get(targetObject.id);
     },
+    //ignoring structured data, the infrastructure is not there in a HS webdesign
+    addStructuredData(item: StructuredDataItem) { },
     webRequest: null,
     targetObject: targetObject,
     targetFolder: targetObject.isFolder ? targetObject : await whfs.openFolder(context.targetfolder),

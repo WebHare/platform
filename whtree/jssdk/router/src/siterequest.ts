@@ -19,7 +19,7 @@ import { getWHFSObjRef } from "@webhare/whfs/src/support";
 import { isPromise, stringify, throwError, toCLocaleLowercase } from "@webhare/std";
 import { type LegacyResponseInsertable, type ResponseInsertable, type ResponseInsertPoints, type SiteResponse, SiteResponseSettings } from "./sitereponse";
 import { renderRTD } from "@webhare/services/src/richdocument-rendering";
-import { PageMetadata, getOpenGraphData } from "./metadata";
+import { PageMetadata, getOpenGraphData, type StructuredDataItem } from "./metadata";
 import { dbLoc } from "@webhare/services/src/symbols";
 import type { WebHareDBLocation } from "@webhare/services/src/descriptor";
 import { debugFlags, dtapStage, setAssetBase } from "@webhare/env";
@@ -389,6 +389,11 @@ export class CPageRequest {
     return (request: ContentPageRequest) => request.buildWebPage(litty``);
   }
 
+  /** Add a structured data item to the page metadata. This API is the only supported way for widgets to supply structured data */
+  addStructuredData(item: StructuredDataItem) {
+    this.pageMetadata.structuredData.push(item);
+  }
+
   /** Initialize plugins */
   async initializePlugins() {
     if (this.didInitializePlugins)
@@ -535,17 +540,8 @@ export class CPageRequest {
     return '';
   }
 
-  private getFinalStructuredData() {
-    return this.pageMetadata.structuredData.filter(
-      item => item["@type"] !== "BreadcrumbList" || (Array.isArray(item.itemListElement) && item.itemListElement.length > 0) //don't print empty breadcrumbs, useless and fails google's webmaster console
-    ).map(item => ({
-      "@context": "https://schema.org",
-      ...item
-    }));
-  }
-
   private async renderBodyFinale(): Promise<Litty> {
-    const schemaOrgItems = this.getFinalStructuredData();
+    const schemaOrgItems = this.#pageMetadata.getFinalStructuredData();
     // IF (IsRequest() AND IsWHDebugOptionSet("win"))
     //   PrintInvokedWitties();
     //used by dev plugins to ensure they really run last and can catch any resources loaded by body-bottom
@@ -729,7 +725,7 @@ export async function createContentPageRequest(toRender: WHFSObject, options?: C
 }
 
 //How well can we isolate widgets (PagePartRequest users) in practice? ideally we won't provide APIs that can cause 2 widgets to conflict with each other
-export type PagePartRequest = Pick<CPageRequest, "renderRTD" | "renderWidget" | "resolveLink" | "targetFolder" | "targetObject" | "targetSite" | "targetPath" | "siteLanguage" | "isLinkedContent" | "isEditorPreview" | "isPublisherPreview" | "webRequest" | "getInstance" | "timings">; //TODO need something to determine emailwidgets. IsTargetEmail() ?
+export type PagePartRequest = Pick<CPageRequest, "renderRTD" | "renderWidget" | "resolveLink" | "targetFolder" | "targetObject" | "targetSite" | "targetPath" | "siteLanguage" | "isLinkedContent" | "isEditorPreview" | "isPublisherPreview" | "webRequest" | "getInstance" | "timings" | "addStructuredData">; //TODO need something to determine emailwidgets. IsTargetEmail() ?
 
 type PageRequestBase = PagePartRequest & Pick<CPageRequest, "setFrontendData" | "setPageBuilderData" | "insertAt" | "pageMetadata" | "getPlugin">;
 

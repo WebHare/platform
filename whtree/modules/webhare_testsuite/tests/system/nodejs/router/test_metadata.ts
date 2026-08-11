@@ -24,7 +24,7 @@ async function testBreadCrumbs() {
   ], breadcrumbs[0].itemListElement);
 
   parsed = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/staticpage");
-  breadcrumbs = test.extractSchemaOrgData(parsed.doc).filter(_ => _["@type"] === "BreadcrumbList");
+  breadcrumbs = parsed.schemaOrg.filter(_ => _["@type"] === "BreadcrumbList");
   test.eq(1, breadcrumbs.length);
   test.eq([
     {
