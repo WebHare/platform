@@ -6,7 +6,7 @@ import type { ObjFrame } from '@mod-tollium/webdesigns/webinterface/components/f
 import type DirtyListener from '@mod-tollium/webdesigns/webinterface/components/frame/dirtylistener';
 import type { SelectionMatch, TolliumCondition } from './types';
 import type { BackendApplication } from './application';
-import { generateRandomId, toSnakeCase } from "@webhare/std";
+import { generateRandomId, toSnakeCase, updateURL } from "@webhare/std";
 import type ObjAction from '@mod-tollium/webdesigns/webinterface/components/action/action';
 import type ObjForward from '@mod-tollium/webdesigns/webinterface/components/action/forward';
 
@@ -750,27 +750,20 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
   * Public API
   */
 
-  getFileTransferBaseURL(options?: { filename?: string }) {
-    let url = $todd.resourcebase + "filetransfer.shtml";
-    if (options && options.filename)
-      url += "/" + encodeURIComponent(options.filename);
-    url += '?l=' + encodeURIComponent(this.owner.hostapp.whsid);
-    url += '&w=' + encodeURIComponent(this.owner.screenname);
-    url += '&n=' + encodeURIComponent(this.name);
-    return url;
-  }
-
   /** @param type - Type of message
       @param data - Data to send
   */
   getFileTransferURL(type: "download" | "asyncdownload" | "asyncwindowopen", data?: unknown, options?: { filename?: string }) {
     const ftid = 'FT:c' + ++urlgencounter;
-    let url = this.getFileTransferBaseURL(options);
-    url += '&t=' + encodeURIComponent(type);
-    if (data)
-      url += "&d=" + encodeURIComponent(JSON.stringify(data));
-    url += "&s=" + ftid;
-    return { url: url, id: ftid };
+    const url = updateURL(new URL("/.wh/common/tollium/filetransfer.shtml", location.href), {
+      l: this.owner.hostapp.whsid,
+      w: this.owner.screenname,
+      n: this.name,
+      s: ftid,
+      t: type,
+      ...data ? { d: JSON.stringify(data) } : {},
+    });
+    return { url: url.toString(), id: ftid };
   }
 
   /****************************************************************************************************************************

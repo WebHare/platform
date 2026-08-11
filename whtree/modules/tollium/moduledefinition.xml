@@ -22,11 +22,6 @@
     <!-- We'll host the /ui/ on all paths. Nothing harmful there, only static assets -->
     <webrule path="allroots:/.tollium/ui/" match="initial" priority="after" redirecttodir="web:ui/" />
 
-    <!-- FIXME is it dangerous to host this everywhere ? it was limited.. . -->
-    <webrule path="allroots:/.tollium/ui/filetransfer.shtml"
-             match="initial"
-             priority="after"
-             redirecttoscript="internal/filetransfer.shtml" />
     <webrule path="allroots:/.tollium/exclusiveaccess/"
              match="initial"
              priority="after"

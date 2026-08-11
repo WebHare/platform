@@ -2327,9 +2327,8 @@ PUBLIC OBJECTTYPE TolliumControllerBase <
 
   PUBLIC STRING FUNCTION GetComponentFileTransferURL(OBJECT component, STRING type, RECORD data, RECORD options)
   {
-    STRING url := "/.tollium/ui/filetransfer.shtml";
-    IF (CellExists(options, "FILENAME") AND options.filename != "")
-      url := url || "/" || EncodeURL(options.filename);
+    STRING url := "/.wh/common/tollium/filetransfer.shtml";
+
     url := AddVariableToURL(url, "l", this->applicationid);
     url := AddVariableToURL(url, "w", component->owner->frame->instancename);
     url := AddVariableToURL(url, "n", GetComponentName(component));

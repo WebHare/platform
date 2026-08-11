@@ -611,10 +611,6 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor <
         img := this->AddNewImage(src);
     }
 
-    // ADDME  ?
-    // IF(NOT RecordExists(originalimg) AND data.src LIKE "*/.tollium/ui/filetransfer.shtml*")
-    //   originalimg := SELECT * FROM this->cidcache WHERE data.src LIKE "*" || url; //handle incomplete urls
-
     IF(NOT recordexists(img))
     {
       print("not found " || src || "\n");
