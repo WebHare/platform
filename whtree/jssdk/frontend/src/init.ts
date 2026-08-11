@@ -6,7 +6,7 @@ import { debugFlags, initEnv } from "@webhare/env/src/envbackend";
 import { getBrowserDebugFlags } from "@webhare/env/src/init-browser";
 import { getLang } from "@webhare/dompack/src/tree";
 import type { FrontendDataTypes } from "@webhare/frontend";
-import { omit } from "@webhare/std";
+import { omit, throwError } from "@webhare/std";
 
 
 /** The format of the <script id="wh-config"> object  */
@@ -45,7 +45,7 @@ interface WHConfigScriptData_LegacyFields {
 }
 
 let config: WHConfigScriptData_FromServer | undefined;
-let siteroot;
+let siteroot: string | undefined;
 let dtapStage: DTAPStage = "production";
 
 //if document is undefined, we're serverside or in a worker
@@ -79,14 +79,11 @@ export const frontendConfig: WHConfigScriptData & {
   dtapstage: dtapStage,
   islive: dtapStage === "production" || dtapStage === "acceptance",
   siteroot: siteroot || "",
+  ...typeof document !== "undefined" ? { locale: getLang().tag } : {},
 } as WHConfigScriptData & WHConfigScriptData_LegacyFields;
 
 // this is what we actually store in the config object but is type-unsafe to access. Plugins still store data in the config object
 export type WHConfigSerializedData = WHConfigScriptData & WHConfigScriptData_LegacyFields & { [key in keyof FrontendDataTypes]?: FrontendDataTypes[key] };
-
-if (typeof document !== "undefined") {
-  frontendConfig.locale = getLang().tag;
-}
 
 if (dtapStage === "development") { //WH6.0: it's time to hard phase-out the old fields
   Object.defineProperties(frontendConfig, {
@@ -135,6 +132,6 @@ export function getFrontendData<Type extends keyof FrontendDataTypes>(dataObject
  *
  * @returns The site root URL (ending with a slash)
 */
-export function getSiteRoot() { //now an API to improve treeshaking
-  return frontendConfig.siteRoot;
+export function getSiteRoot(): string { //now an API to improve treeshaking
+  return siteroot ?? throwError("Site root is undefined. HTML code may be broken");
 }
