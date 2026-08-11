@@ -1,5 +1,4 @@
 import * as dompack from '@webhare/dompack';
-import * as whintegration from '@mod-system/js/wh/integration';
 import type { ApplicationBase } from './application';
 import { debugFlags } from '@webhare/env';
 import type { FlagSet, SelectionMatch, TolliumMessage } from './types';
@@ -75,7 +74,6 @@ export const settings =
 
 export const applicationstack: ApplicationBase[] = [];
 export const applications: ApplicationBase[] = [];
-export const resourcebase = new URL(whintegration.config.obj.toddroot as string, location.href).toString();
 export const customactions: Record<string, (data: { action: string; screen: ObjFrame }) => void> = {};
 
 export function getActiveApplication() {

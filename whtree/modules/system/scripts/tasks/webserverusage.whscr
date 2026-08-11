@@ -202,7 +202,8 @@ MACRO Main()
     BOOLEAN skipmeasure;
     IF(rec.url LIKE "/wh_events/*"
        OR rec.url = "/wh_services/tollium/todd/RunToddComm"
-       OR rec.url = "/.tollium/ui/comm.whsock"
+       OR rec.url = "/.tollium/ui/comm.whsock" //old comm.whsock url, pre WH6.1
+       OR rec.url = "/.wh/common/tollium/comm.whsock" //current comm.whsock url
        OR rec.url LIKE "/tollium_todd/comm.shtml*"
        )
     {

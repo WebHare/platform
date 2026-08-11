@@ -17,7 +17,7 @@ export default class WebSocketTransport extends TransportBase {
   }
 
   connectWebsocket() {
-    const url = (new URL('/.tollium/ui/comm.whsock', location.href)).toString();
+    const url = (new URL('/.wh/common/tollium/comm.whsock', location.href)).toString();
     this.socket = new WebSocket('ws' + url.substr(4));
     this.socket.addEventListener('open', () => this.gotOpen());
     this.socket.addEventListener('message', e => this.gotMessage(e));

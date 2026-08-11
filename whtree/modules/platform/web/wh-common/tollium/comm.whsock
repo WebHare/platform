@@ -1,5 +1,7 @@
 ﻿<?wh
-/// Communication module for todd-NG, websockets style
+/* Communication module for todd-NG, websockets style
+   we are hosted as /.wh/common/tollium/comm.whsock
+*/
 
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/algorithms.whlib";
