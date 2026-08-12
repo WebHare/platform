@@ -80,7 +80,9 @@
 
   <backend>
     <webrule path="allroots:/.wh/devkit/" match="initial" router="js/wh-devkit/wh-devkit.ts#devkitRouter" />
-    <webrule path="root:/sdk-docs/" match="initial">
+    <!-- we need searchallcases=true for sdk docs to work on linux hosts as typedoc puts out mixedcase files
+         potentially a custom router (https://typedoc.org/documents/Options.Output.html#router) could fix this -->
+    <webrule path="root:/sdk-docs/" match="initial" searchallcases="true">
       <addheader header="x-robots-tag" value="noindex,nofollow"/>
       <tryfolder path="whdata::storage/devkit/sdk-docs/" />
       <tryfile path="scripts/web/sdk-notfound.shtml" />
