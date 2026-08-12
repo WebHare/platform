@@ -37,7 +37,7 @@ class ApplyFinishHandler implements FinishHandler {
       applyConfiguration({
         subsystems: Array.from(this.subsystems),
         source: Array.from(this.sources).join(", ")
-      }) : Promise.resolve();
+      }).then(() => { }) : Promise.resolve();
 
     this.defer.resolve(applyPromise);
 

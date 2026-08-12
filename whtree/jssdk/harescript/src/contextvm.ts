@@ -19,7 +19,10 @@ export function ensureCodeContextHSVM(): Promise<HSVMWrapper> {
   });
 }
 
-/** Get rid of any running context HSVM (the one used for global loadlib and MakeObject) */
+/** Get rid of any running context HSVM (the one used for global loadlib and MakeObject). This may be used to refresh the HSVM after
+ * a loadlib() VM call triggered a HareScript error (causing "already shut down" exceptions), however other things such as transaction
+ * may still be in an unknown state, making this API less useful than expected. We may decide to remove it.
+*/
 export function releaseCodeContextHSVM() {
   releaseScopedResource(HSVMSymbol).then(() => { }, () => { });
 }
