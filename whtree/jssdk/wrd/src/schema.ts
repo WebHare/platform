@@ -7,7 +7,7 @@ import { ensureScopedResource, setScopedResource } from "@webhare/services/src/c
 import { tagToHS, tagToJS, checkValidWRDTag, type WRDAttributeConfiguration, isValidWRDSchemaTag, isValidWRDAttributeTag, isValidWRDTypeTag } from "./wrdsupport";
 import { getSchemaData, schemaExists, type SchemaData } from "./db";
 import { getDefaultJoinRecord, runSimpleWRDQuery } from "./queries";
-import { generateRandomId, isTruthy, omit, pick, stringify, throwError } from "@webhare/std";
+import { generateRandomId, isTemporalInstant, isTruthy, omit, pick, stringify, throwError } from "@webhare/std";
 import { type EnrichmentResult, executeEnrichment, type RequiredKeys } from "@mod-system/js/internal/util/algorithms";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { __internalUpdEntity } from "./updates";
@@ -120,6 +120,8 @@ function translateToLegacyUpdate<T>(toUpdate: T): T {
       translated[legacyField] = translated[field];
       delete translated[field];
     }
+    if (isTemporalInstant(translated[legacyField]))
+      translated[legacyField] = new Date(translated[legacyField].epochMilliseconds);
   }
   return translated as T;
 }

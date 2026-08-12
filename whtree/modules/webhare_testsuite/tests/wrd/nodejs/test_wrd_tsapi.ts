@@ -369,7 +369,7 @@ async function testNewAPI() {
   */
   const testrecorddata: TestRecordDataInterface = { x: "FourtyTwo" } as TestRecordDataInterface;
 
-  const basePerson = { whuserUnit: unit_id, wrdauthAccountStatus: { status: "active" } } as const;
+  const basePerson = { whuserUnit: unit_id, wrdauthAccountStatus: { status: "active" }, wrdCreated: Temporal.Instant.from("2026-01-01T00:00:00Z") } as const;
 
   const firstperson = await schema.insert("wrdPerson", { ...basePerson, wrdInitials: "F", wrdLastNamePrefix: "van de", wrdLastName: "lastname", wrdContactEmail: "first@beta.webhare.net", testJson: { mixedCase: [1, "yes!"], big: 4200420042n, date: new Date("2025-01-21T14:35:00Z") }, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdGender: "male" });
   test.eq({ wrdLastNamePrefix: "van de" }, await schema.getFields("wrdPerson", firstperson, ["wrdLastNamePrefix"]));
@@ -390,7 +390,10 @@ async function testNewAPI() {
   const randomData = generateRandomId("base64url", 4096);
   const secondPersonGuid = generateRandomId("uuidv4"); //verify we're allowed to set the guid
   const secondperson = await schema.insert("wrdPerson", { ...basePerson, wrdFirstName: "second", wrdLastName: "lastname2", wrdContactEmail: "second@beta.webhare.net", testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [randomData] }, wrdGuid: secondPersonGuid, wrdGender: "female" });
-  const deletedperson = await schema.insert("wrdPerson", { ...basePerson, wrdFirstName: "deleted", wrdLastName: "lastname3", wrdContactEmail: "deleted@beta.webhare.net", testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdClosed: new Date(), wrdGender: "other" });
+
+  const temporalNow = Temporal.Now.instant();
+  const deletedperson = await schema.insert("wrdPerson", { ...basePerson, wrdFirstName: "deleted", wrdLastName: "lastname3", wrdContactEmail: "deleted@beta.webhare.net", testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdClosed: temporalNow, wrdGender: "other" });
+  test.eq({ wrdCreated: Temporal.Instant.from("2026-01-01T00:00:00Z"), wrdClosed: temporalNow }, await schema.getFields("wrdPerson", deletedperson, ["wrdCreated", "wrdClosed"], { historyMode: "all" }));
 
   //prevent creating WRD style guids
   await test.throws(/Invalid wrdGuid:/, schema.update("wrdPerson", secondperson, { wrdGuid: "badbadvalue" }));
@@ -1385,7 +1388,7 @@ async function testTypeSync() { //this is WRDType::ImportEntities
   test.assert(result.unmatched.includes(threeId));
   test.assert(! await schema.getFields("testDomain_1", threeId, ["wrdId"], { allowMissing: true }));
 
-  // --- sync tests with wredPerson ---
+  // --- sync tests with wrdPerson ---
 
   const firstUnitId = await schema.search("whuserUnit", "wrdTag", "FIRSTUNIT");
   test.assert(firstUnitId);

@@ -368,7 +368,9 @@ export class WRDDBBaseCreationLimitDateValue<ModernSchema extends boolean> exten
     return (this.type.legacySchema ? val : val.toTemporalInstant()) as ModernSchema extends true ? Temporal.Instant : Date;
   }
 
-  validateInput(value: Date | null, checker: ValueQueryChecker, attrPath: string) {
+  validateInput(value: Date | Temporal.Instant | null, checker: ValueQueryChecker, attrPath: string) {
+    if (isTemporalInstant(value))
+      return value;
     if (value !== null && (!isDate(value) || isNaN(value.getTime())))
       throw new Error(`Invalid date value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     // FIXME: check temp mode
