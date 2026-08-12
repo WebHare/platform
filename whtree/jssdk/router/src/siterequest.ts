@@ -724,16 +724,19 @@ export async function createContentPageRequest(toRender: WHFSObject, options?: C
   return req;
 }
 
-//How well can we isolate widgets (PagePartRequest users) in practice? ideally we won't provide APIs that can cause 2 widgets to conflict with each other
-export type PagePartRequest = Pick<CPageRequest, "renderRTD" | "renderWidget" | "resolveLink" | "targetFolder" | "targetObject" | "targetSite" | "targetPath" | "siteLanguage" | "isLinkedContent" | "isEditorPreview" | "isPublisherPreview" | "webRequest" | "getInstance" | "timings" | "addStructuredData">; //TODO need something to determine emailwidgets. IsTargetEmail() ?
+/** The pagepart request is the part of the PageRequest API that's reasonable safe to use for widgets and RTDs */
+export type PagePartRequest = Pick<CPageRequest,
+  "renderRTD" | "renderWidget" | "resolveLink" |
+  "targetFolder" | "targetObject" | "targetSite" | "targetPath" | "siteLanguage" |
+  "isLinkedContent" | "isEditorPreview" | "isPublisherPreview" | "webRequest" | "getInstance" | "timings" | "addStructuredData" |
+  "getPlugin" | "setFrontendData" | "setPageBuilderData" | "insertAt" | "pageMetadata">; //TODO need something to determine emailwidgets. IsTargetEmail() ?
 
-type PageRequestBase = PagePartRequest & Pick<CPageRequest, "setFrontendData" | "setPageBuilderData" | "insertAt" | "pageMetadata" | "getPlugin">;
-
-export type ContentPageRequest = PageRequestBase & Pick<CPageRequest, "buildWebPage" | "getPageRenderer" | "initializePlugins" | "applyToCurrentContext">;
-// Plugin API is only visible during PageBuildRequest as we don't want to initialize them it during the page run itself. eg. might still redirect
-export type PageBuildRequest = PageRequestBase & Pick<CPageRequest, "render" | "content" | "getPageBuilderData">;
-
-export type PagePluginRequest = PageRequestBase & Pick<CPageRequest, "addPlugin">;
+/** The ContentPageRequest is offered to page renderers (onRenderContent, generally depends on the file type) */
+export type ContentPageRequest = PagePartRequest & Pick<CPageRequest, "buildWebPage" | "getPageRenderer" | "initializePlugins" | "applyToCurrentContext">;
+/** The PageBuildRequest is offered to the page builder (onRenderPage, replaces what HareScript called the 'webedsign') */
+export type PageBuildRequest = PagePartRequest & Pick<CPageRequest, "render" | "content" | "getPageBuilderData">;
+/** The PagePluginRequest is offered to plugins to integrate into a page */
+export type PagePluginRequest = PagePartRequest & Pick<CPageRequest, "addPlugin">;
 
 /** @deprecated SiteRequest will be removed after WH6 */
 export type SiteRequest = Pick<CPageRequest, "createComposer" | "contentObject" | "targetSite" | "targetObject" | "targetFolder" | "webRequest">;
