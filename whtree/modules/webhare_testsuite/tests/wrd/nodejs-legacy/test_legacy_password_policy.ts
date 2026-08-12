@@ -2,7 +2,7 @@ import { defaultDateTime, encodeHSON } from "@webhare/hscompat";
 import { generateRandomId } from "@webhare/std";
 import * as test from "@webhare/test";
 import { AuthenticationSettings, updateSchemaSettings } from "@webhare/wrd";
-import { checkAuthenticationSettings, checkPasswordCompliance, describePasswordChecks, getPasswordBreachCount, getPasswordMinValidFrom, parsePasswordChecks } from "@webhare/auth/src/passwords";
+import { checkPasswordCompliance, describePasswordChecks, getPasswordBreachCount, getPasswordMinValidFrom, parsePasswordChecks } from "@webhare/auth/src/passwords";
 import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
 import { beginWork, rollbackWork } from "@webhare/whdb";
 import { getUserValidationSettings } from "@webhare/auth/src/support";
@@ -89,28 +89,6 @@ async function testCheckPassword() {
   })));
 }
 
-function testCheckAuthenticationSettings() {
-  test.eq("", (checkAuthenticationSettings("maxage:P2D", AuthenticationSettings.fromHSON(encodeHSON({
-    version: 1,
-    passwords: [
-      {
-        validfrom: new Date(Date.now() + 5000 - 2 * 86400_000),
-        passwordhash: "PLAIN:secret"
-      }
-    ]
-  })))).message);
-
-  test.eq(/changed.*every.*2.*days/, (checkAuthenticationSettings("maxage:P2D", AuthenticationSettings.fromHSON(encodeHSON({
-    version: 1,
-    passwords: [
-      {
-        validfrom: new Date(Date.now() - 5000 - 2 * 86400_000),
-        passwordhash: "PLAIN:secret"
-      }
-    ]
-  })))).message);
-}
-
 async function testSettingOverrides() {
   await beginWork();
   await updateSchemaSettings(wrdTestschemaSchema, { passwordValidationChecks: "hibp" });
@@ -131,6 +109,5 @@ test.runTests([
   testGetPasswordMinValueFrom,
   testDescribePasswordChecks,
   testCheckPassword,
-  testCheckAuthenticationSettings,
   testSettingOverrides
 ]);

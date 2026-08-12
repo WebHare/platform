@@ -2,7 +2,7 @@ import { defaultDateTime, encodeHSON } from "@webhare/hscompat";
 import { generateRandomId } from "@webhare/std";
 import * as test from "@webhare/test";
 import { AuthenticationSettings, updateSchemaSettings, wrd } from "@webhare/wrd";
-import { checkAuthenticationSettings, checkPasswordCompliance, describePasswordChecks, getPasswordBreachCount, getPasswordMinValidFrom, parsePasswordChecks } from "@webhare/auth/src/passwords";
+import { checkPasswordCompliance, describePasswordChecks, getPasswordBreachCount, getPasswordMinValidFrom, parsePasswordChecks } from "@webhare/auth/src/passwords";
 import { beginWork, rollbackWork } from "@webhare/whdb";
 import { getUserValidationSettings } from "@webhare/auth/src/support";
 
@@ -88,28 +88,30 @@ async function testCheckPassword() {
       ]
     }))
   })));
-}
 
-function testCheckAuthenticationSettings() {
-  test.eq("", (checkAuthenticationSettings("maxage:P2D", AuthenticationSettings.fromHSON(encodeHSON({
-    version: 1,
-    passwords: [
-      {
-        validfrom: new Date(Date.now() + 5000 - 2 * 86400_000),
-        passwordhash: "PLAIN:secret"
-      }
-    ]
-  })))).message);
+  test.eq({ success: true }, await checkPasswordCompliance("maxage:P2D", "secret", {
+    isCurrentPassword: true, authenticationSettings: AuthenticationSettings.fromHSON(encodeHSON({
+      version: 1,
+      passwords: [
+        {
+          validfrom: new Date(Date.now() + 5000 - 2 * 86400_000),
+          passwordhash: "PLAIN:secret"
+        }
+      ]
+    }))
+  }));
 
-  test.eq(/changed.*every.*2.*days/, (checkAuthenticationSettings("maxage:P2D", AuthenticationSettings.fromHSON(encodeHSON({
-    version: 1,
-    passwords: [
-      {
-        validfrom: new Date(Date.now() - 5000 - 2 * 86400_000),
-        passwordhash: "PLAIN:secret"
-      }
-    ]
-  })))).message);
+  test.eqPartial({ success: false, message: /changed.*every.*2.*days/, failedChecks: ["maxage"] }, await checkPasswordCompliance("maxage:P2D", "secret", {
+    isCurrentPassword: true, authenticationSettings: AuthenticationSettings.fromHSON(encodeHSON({
+      version: 1,
+      passwords: [
+        {
+          validfrom: new Date(Date.now() - 5000 - 2 * 86400_000),
+          passwordhash: "PLAIN:secret"
+        }
+      ]
+    }))
+  }));
 }
 
 async function testSettingOverrides() {
@@ -132,6 +134,5 @@ test.runTests([
   testGetPasswordMinValueFrom,
   testDescribePasswordChecks,
   testCheckPassword,
-  testCheckAuthenticationSettings,
   testSettingOverrides
 ]);

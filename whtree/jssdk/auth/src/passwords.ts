@@ -230,52 +230,6 @@ function checkMaxAge(authenticationsettings: AuthenticationSettings, duration: s
   return lastchange && lastchange.epochMilliseconds >= cutoff.epochMilliseconds;
 }
 
-/** Checks if authentication settings comply with password checks
-    @param checks - String with password checks (eg "minlength:12 lowercase:8")
-    @param authenticationsettings - Current authentication settings
-    @returns Check result
-     return.success TRUE if password complies with all checks
-     return.message Set when message does not comply with the checks
-     return.failedchecks List of checks that failed. See [this](#ParsePasswordChecks.return.check) for the values.
-*/
-export function checkAuthenticationSettings(checks: string, authenticationsettings?: AuthenticationSettings) {
-  authenticationsettings ||= new AuthenticationSettings;
-  const failed = [];
-  for (const check of parsePasswordChecks(checks, { strict: true })) {
-    switch (check.check) {
-      case "maxage": {
-        if (!checkMaxAge(authenticationsettings, check.duration))
-          failed.push(check);
-        break;
-      }
-
-      case "require2fa": {
-        if (!authenticationsettings.hasTOTP())
-          failed.push(check);
-        break;
-      }
-    }
-  }
-
-  if (failed.length) {
-    const lines = [];
-    for (const check of failed) {
-      lines.push(`- ${getRequirementTid(check)}`);
-    }
-    const message = getTid("wrd:site.forms.authpages.passwordcheck.settingsfailure", lines.join("\n"));
-    return {
-      success: false,
-      message,
-      failedchecks: failed.map((check) => check.check)
-    };
-  }
-  return {
-    success: true,
-    message: "",
-    failedchecks: []
-  };
-}
-
 function getRequirementTid(check: { check: string; value: number; duration: string }, options?: { lang?: string }) {
   switch (check.check) {
     case "hibp":
