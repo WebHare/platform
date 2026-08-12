@@ -44,6 +44,25 @@ MACRO ClearUnifiedCache()
   TestEQ(STRING[], SELECT AS STRING ARRAY name FROM ReadDiskDirectory(cachedir, "*") WHERE name != "CACHEDIR.TAG");
 }
 
+RECORD FUNCTION FetchUCLink(STRING link, STRING expecttype) {
+  link := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), link);
+  STRING contenttype, cachecontrol;
+
+  WHILE(TRUE) {
+    TestEq(TRUE , testfw->browser->GotoWebPage(link));
+    contenttype := testfw->browser->contenttype;
+    cachecontrol := testfw->browser->GetResponseHeader("Cache-Control");
+    IF(contentType = "image/jpeg" AND contentType != expecttype AND cacheControl NOT LIKE "*immutable*") { //this was a fast result, wait for the final
+      Sleep(100);
+      CONTINUE;
+    }
+
+    BREAK;
+  }
+  TestEq(expecttype, contenttype);
+  RETURN CELL [ resource := testfw->browser->content, finalurl := link, cachecontrol, contenttype ];
+}
+
 MACRO ImgCacheTest()
 {
   // Verify AVIF and WEBP support in ScanBlob
@@ -185,8 +204,8 @@ MACRO ImgCacheTest()
 
   STRING homerlink_avif := GetCachedFSImageURL(baseurl, homer->id, [ method := "scale", setwidth:=25, setheight:=25, format := "image/avif"]);
   TestAssert(homerlink_avif != "");
-  TestEq(TRUE , testfw->browser->GotoWebPage(homerlink_avif));
-  TestEq("image/avif", testfw->browser->contenttype);
+  TestEqMembers([ contenttype := "image/jpeg" ], FetchUCLink(homerlink_avif, "image/jpeg"), "*", "First we see a JPEG");
+  TestEqMembers([ contenttype := "image/avif" ], FetchUCLink(homerlink_avif, "image/avif"), "*", "And then we see an avif");
 
   STRING homercroplink := GetCachedFSImageURL(baseurl, homer->id, [ method := "crop", setwidth:=25, setheight:=25, format := "image/png"]);
 
