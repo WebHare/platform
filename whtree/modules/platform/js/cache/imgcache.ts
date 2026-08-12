@@ -8,6 +8,7 @@ import { decodeBMP } from "@webhare/services/src/bmp-to-raw";
 import { explainImageProcessing, suggestImageFormat, type OutputFormatName, type PackableResizeMethod, type ResizeMethodName, type ResourceMetadata } from "@webhare/services/src/descriptor";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import { __getBlobDiskFilePath } from "@webhare/whdb/src/blobs";
+import { existsSync } from "fs";
 import { mkdir, open, readFile } from "fs/promises";
 import path from "path";
 
@@ -15,6 +16,8 @@ interface HSImgCacheRequest {
   pgblobid: string;
   sourcepath?: string;
   path?: string;
+  /** A fast request - generate JPEG at set quality and delay the real request for later */
+  fast?: boolean;
   mimetype: string;
   width: number;
   height: number;
@@ -99,6 +102,7 @@ export function getSharpResizeOptions(infile: Pick<ResourceMetadata, "width" | "
 }
 
 async function renderImageForCache(request: HSImgCacheRequest): Promise<Buffer> {
+  // console.error("Rendering image for cache:", request);
   const resource = {
     ...request,
     mediaType: request.mimetype,
@@ -172,7 +176,29 @@ export async function returnImageForCache(request: HSImgCacheRequest): Promise<s
 
 const workerPool = new WorkerPool("imgcache", 5, 100);
 
+/* This is the worker entrypoint for unifiedcachehost.whlib to request images. In imgcache-noworkers mode we run in the main thread */
 export async function __generateImageForCacheInternal(request: Required<HSImgCacheRequest>): Promise<void> {
+  console.log(request.path, request.fast, request.item.resizemethod.format);
+  if (existsSync(request.path)) //already generated
+    return;
+
+  if (request.fast) { //Rebuild to a JPEG request
+    const origrequest = structuredClone(request);
+    setTimeout(() => void __generateImageForCacheInternal({ ...origrequest, fast: false }), 1000); //schedule a rebuild to the proper format
+
+    request = {
+      ...request,
+      path: request.path.replace(/\.*(\.[^.]+)$/, ".jpg"),
+      item: {
+        ...request.item,
+        resizemethod: {
+          ...request.item.resizemethod,
+          format: "image/jpeg",
+          quality: 80 //This keeps MSE below 15 in the tests, 75 is already too low
+        }
+      }
+    };
+  }
   const result = await renderImageForCache(request);
   await mkdir(path.dirname(request.path), { recursive: true });
   await storeDiskFile(request.path, result, { overwrite: true });
@@ -182,6 +208,7 @@ let scheduledShutdown = false, service: WebHareService | undefined;
 const restartInterval = 15 * 60 * 1000; //restart every 15 minutes. when lowering this during tests, wait at least a second as it's important that we're alive long enough that unifiedcachehost.whlib's Connect - Sleep - Connect can't wind up in a second already shutting down imgcache
 
 class UnifiedCacheServer extends BackendServiceConnection {
+  /* This is the service entrypoint for unifiedcachehost.whlib to request images */
   async generateImageForCache(request: Required<HSImgCacheRequest>): Promise<void> {
     await ((async () => {
       if (!debugFlags["imgcache-noworkers"]) {

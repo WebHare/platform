@@ -398,14 +398,28 @@ async function testImgCacheTokens() {
   test.eqPartial({ item: { type: 1, id: 123, cc: 456, resizemethod: { method: 'fill', setwidth: 25, setheight: 25, quality: 85 } } }, await analyze(jpegJsTokExplicit85, '.jpg'));
 }
 
-async function fetchUCLink(url: string, expectType: string) {
-  const finalurl = new URL(url, backendConfig.backendURL).href;
+async function attemptFetch(finalurl: string, expectType: string) {
   const fetchResult = await fetch(finalurl);
   test.eq(200, fetchResult.status, `Failed to fetch ${finalurl}`);
-  test.eq(expectType, fetchResult.headers.get("content-type"));
+
+  const contentType = fetchResult.headers.get("content-type") || '';
+  const cacheControl = fetchResult.headers.get("cache-control") || '';
   const fetchBuffer = await fetchResult.arrayBuffer();
+
+  if (contentType === "image/jpeg" && contentType !== expectType && !cacheControl.includes("immutable"))
+    return null; //this was a fast result, wait for the final
+
+  return { contentType, cacheControl, fetchBuffer, fetchResult };
+}
+
+async function fetchUCLink(url: string, expectType: string) {
+  const finalurl = new URL(url, backendConfig.backendURL).href;
+
+  const { contentType, cacheControl, fetchBuffer } = await test.wait(() => attemptFetch(finalurl, expectType), { annotation: `Waiting for ${finalurl} to be available with content-type ${expectType}` });
+
+  test.eq(expectType, contentType);
   const fetchData = await ResourceDescriptor.from(Buffer.from(fetchBuffer), { getImageMetadata: true, getHash: true });
-  return { resource: fetchData, finalurl, fetchBuffer };
+  return { resource: fetchData, finalurl, fetchBuffer, cacheControl, contentType };
 }
 
 async function compareSharpImages(expect: Sharp | string, actual: Sharp, { minMSE = 0, maxMSE = 0 } = {}) {
@@ -473,8 +487,18 @@ async function testImgCache() {
   //convert to AVIF using imagecache
   const wrappedGoldfishAvif = goldfishpng.data.toResized({ method: "none", format: "image/avif" });
   test.eq(/\/goudvis\.avif$/, wrappedGoldfishAvif.link, "Should not contain 'png' in the name");
+  //however if we download it... we'll see a JPEG first!
+  const dlFishAvifFast = await fetchUCLink(wrappedGoldfishAvif.link, "image/jpeg");
+  await compareSharpImages(imgFishPng, await createSharpImage(dlFishAvifFast.fetchBuffer), { maxMSE: 15 }); //higher MSE for the quick JPEG
+  console.log(`${dlFishAvifFast.finalurl} (now an ${dlFishAvifFast.contentType})`);
+  test.eq("public, max-age=60", dlFishAvifFast.cacheControl);
+
+  //TODO test whether if-modified-since is properly handled by the Fast JPEG path
+
+  //this will trigger a process to eventually create an AVIF. fetchUCLink willl wait for that AVIF
   const dlFishAvif = await fetchUCLink(wrappedGoldfishAvif.link, "image/avif");
   await compareSharpImages(imgFishPng, await createSharpImage(dlFishAvif.fetchBuffer), { maxMSE: 0.20 });
+  test.eq("public, max-age=31536000, immutable", dlFishAvif.cacheControl);
 
   //verify compatibility setting does something
   const snowBeagleAvif10 = await fetchUCLink(snowbeagle.data.toResized({ method: "none", format: "image/avif", quality: 10 }).link, "image/avif");
