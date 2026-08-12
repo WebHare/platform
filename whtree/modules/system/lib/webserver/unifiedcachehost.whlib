@@ -35,8 +35,7 @@ LOADLIB "mod::system/lib/webserver/errors.whlib";
   /uc/f9a/application/zip/<filetoken><extension>
 */
 
-RECORD FUNCTION GetMimeType(STRING extension)
-{
+RECORD FUNCTION GetMimeType(STRING extension) {
   OBJECT trans := OpenPrimary();
   STRING mimetype := (SELECT AS STRING mimetypes.mimetype FROM system.mimetypes WHERE mimetypes.extension = Substring(VAR extension,1)) ?? "application/octet-stream";
   trans->Close();
@@ -76,29 +75,53 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase <
     RETURN res.data;
   }
 
+  RECORD FUNCTION TestDiskPath(STRING path, BOOLEAN fast) {
+    BLOB diskfile;
+    TRY
+    {
+      diskfile := GetDiskResource(path);
+      RECORD fileinfo := GetDiskFileProperties(path);
+
+      IF(this->trace)
+        Print(`Disk name: ${path}, size: ${Length(diskfile)} bytes, last modified: ${FormatHTTPDatetime(fileinfo.modified)}\n`);
+
+      RETURN CELL[ modified := fileinfo.modified
+                 , data := diskfile
+                 , path
+                 , fast
+                 ];
+    }
+    CATCH(OBJECT e)
+    {
+      IF(this->trace)
+        Print("Disk name: " || path || " not present: " || e->what || "\n");
+    }
+    RETURN DEFAULT RECORD;
+  }
+
   RECORD FUNCTION GetCacheRawData(RECORD data) {
     BOOLEAN skipcache := IsDebugTagEnabled("wst=platform:unifiedcache");
 
     //Get the path for this image
     STRING path := this->GetDiskPath(data);
+    STRING usepath := path;
     BLOB diskfile;
-    IF (NOT this->force AND NOT skipcache)
-    {
-      TRY
-      {
-        diskfile := GetDiskResource(path);
-        IF(this->trace)
-          Print("Disk name: " || path || " " || Length(diskfile) || " bytes\n");
+    BOOLEAN fast;
+    BOOLEAN tryfastpath := data.datatype = 1 AND data.item.resizemethod.format IN ["image/avif"];
+    RECORD cachedversion;
 
-        RECORD fileinfo := GetDiskFileProperties(path);
-        RETURN [ modified := fileinfo.modified
-               , data := diskfile
-               ];
-      }
-      CATCH(OBJECT e)
-      {
-        IF(this->trace)
-          Print("Disk name: " || path || " not present: " || e->what || "\n");
+    IF (NOT this->force AND NOT skipcache) {
+      cachedversion := this->TestDiskPath(path, FALSE);
+
+      IF(RecordExists(cachedversion))
+        RETURN cachedversion;
+
+      IF(tryfastpath) { //try a fast image if the proper image isn't ready yet
+        usepath := Left(path, Length(path) - Length(GetExtensionFromPath(path))) || ".jpg";
+        fast := TRUE;
+        cachedversion := this->TestDiskPath(usepath, fast);
+        IF(RecordExists(cachedversion))
+          RETURN cachedversion; //return that
       }
     }
 
@@ -116,16 +139,19 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase <
         DumpValue(dbdata, "tree");
 
       //If we get here, the url was validated and the item was not rejected
-      IF(data.datatype = 1 AND (data.item.resizemethod.format IN ["image/webp","image/avif"] OR dbdata.mimetype IN ["image/webp","image/avif"])) {
+      IF(tryfastpath OR (data.datatype = 1 AND (data.item.resizemethod.format IN ["image/webp","image/avif"] OR dbdata.mimetype IN ["image/webp","image/avif"]))) {
+        //Request needs to match HSImgCacheRequest
         RECORD req := CELL[ ...dbdata
               , DELETE data //don't transfer the raw blob, receiver can cheat and use the PGBLOBID
               , data.item
               , path
+               ,fast
               ];
         TRY {
           __OpenSynchronousWebHareService("platform:unifiedcache")->generateImageForCache(req);
         } CATCH(OBJECT e) {
           TRY {
+            //retry in case connection raced against a restarting unifiedcache service
             __OpenSynchronousWebHareService("platform:unifiedcache")->generateImageForCache(req);
             LogDebug("system:unifiedcache", [ retrysuccess := TRUE, exc1 := e->what ]);
           } CATCH(OBJECT f) {
@@ -149,14 +175,9 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase <
       lock->Release();
     }
 
-    DATETIME modified := GetDiskFileProperties(path).modified;
-
     IF(this->trace)
-      Print("Image is generated. Last modified: " || FormatHTTPDatetime(modified) || "\n");
-
-    RETURN CELL[ modified
-           , data := GetDiskResource(path)
-           ];
+      Print("Image is generated\n");
+    RETURN this->TestDiskPath(usepath, fast);
   }
 
   MACRO FailRequest(STRING why, BOOLEAN badurl)
@@ -193,7 +214,8 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase <
       IF(this->trace)
         DumpValue(img,'tree');
 
-      STRING mimetype := GetAdhocCached([ extension := analyzed.extension], PTR GetMimeType(analyzed.extension));
+      STRING extension := GetExtensionFromPath(img.path);
+      STRING mimetype := GetAdhocCached(CELL[ extension ], PTR GetMimeType(extension));
 
       AddHTTPHeader("Status", "200", FALSE);
       IF(this->trace)
@@ -202,7 +224,10 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase <
       }
       ELSE
       {
-        AddHTTPHeader("Cache-Control", "public, max-age=31536000, immutable", FALSE);
+        IF(img.fast)
+          AddHTTPHeader("Cache-Control", "public, max-age=60", FALSE);
+        ELSE
+          AddHTTPHeader("Cache-Control", "public, max-age=31536000, immutable", FALSE);
         AddHTTPHeader("Content-Type", mimetype, FALSE);
         AddHTTPHeader("Last-Modified", FormatHTTPDatetime(img.modified), FALSE);
         SendWebFile(img.data);
