@@ -29,6 +29,7 @@
             <column name="application_name" type="text" />
             <column name="pid" type="integer" width="14x" />
             <column name="backend_start" type="datetime" width="21x" precision="milliseconds" storeutc="true" />
+            <column name="xact_start" type="datetime" width="21x" precision="milliseconds" storeutc="true" />
             <column name="query_start" type="datetime" width="21x" precision="milliseconds" storeutc="true" />
             <column name="state" type="text" width="15x" />
             <column name="wait_event_type" type="text" width="15x" />
@@ -104,6 +105,7 @@
             <column name="application_name" type="text" tree="true" />
             <column name="pid" type="integer" width="14x" />
             <column name="backend_start" type="datetime" width="21x" precision="milliseconds" storeutc="true" />
+            <column name="xact_start" type="datetime" width="21x" precision="milliseconds" storeutc="true" />
             <column name="query_start" type="datetime" width="21x" precision="milliseconds" storeutc="true" />
             <column name="state" type="text" width="15x" />
             <column name="wait_event_type" type="text" width="15x" />
