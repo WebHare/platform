@@ -16,17 +16,6 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 
 PUBLIC CONSTANT STRING ARRAY workflow_controlled_fields := ["DATA", "TITLE", "DESCRIPTION", "KEYWORDS" ];
 
-CONSTANT STRING ARRAY eventnames := [ "recycled"   //0 whconstant_historytype_recycled
-                                    , "saved"      //1 whconstant_historytype_saved
-                                    , "abandoned-autosave" //2 whconstant_historytype_abandoned_autosave
-                                    , "abandoned-draft"    //3 whconstant_historytype_abandoned_draft
-                                    , "created"    //4 whconstant_historytype_created
-                                    , "approved"   //5 whconstant_historytype_approved
-                                    , "autosave"   //6 whconstant_historytype_autosave
-                                    , "import"     //7 whconstant_historytype_import
-                                    , "final"      //8 whconstant_historytype_final
-                                    ];
-
 RECORD FUNCTION StringVersionToParts(STRING stringversion)
 {
   STRING ARRAY toks := Tokenize(stringversion, '.');
@@ -103,7 +92,7 @@ PUBLIC RECORD ARRAY FUNCTION ListObjectHistory(INTEGER objid, RECORD options DEF
 
   RECORD ARRAY historyitems :=
      SELECT id
-          , type := type >= 0 AND type < Length(eventnames) ? eventnames[type] : "#" || type
+          , type := type >= 0 AND type < Length(whconstant_historytypes) ? whconstant_historytypes[type] : "#" || type
           , user
           , userdata := DecodeHSONOrJSONRecord(userdata)
           , when

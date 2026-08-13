@@ -1894,6 +1894,15 @@
           <text tid="changetype">Type</text>
           <text tid="comment">Comment</text>
           <text tid="dialogtitle">Versions of file '<param p="1"/>'</text>
+          <text tid="event-abandoned-autosave">Cancelled autosave</text>
+          <text tid="event-abandoned-draft">Cancelled draft</text>
+          <text tid="event-approved">Approved</text>
+          <text tid="event-autosave">Autosave</text>
+          <text tid="event-created">Created</text>
+          <text tid="event-final">Finalized</text>
+          <text tid="event-import">Import</text>
+          <text tid="event-recycled">Deleted</text>
+          <text tid="event-saved">Saved</text>
           <text tid="filename">Filename</text>
           <text tid="filterfrom">Last changed between</text>
           <text tid="filterto">and</text>

@@ -66,31 +66,31 @@
                 sortascending="false"
                 sortcolumn="when">
             <!-- -->
-            <column name="icon" type="icon" title="" />
+            <column name="historytype_icon" type="icon" hintname="historytype" title="" />
             <column name="when" type="datetime" width="18x" storeutc="true" />
             <column name="filename" type="text" />
             <column name="comment" type="text" />
             <column name="displayname" type="text" tid=".fullname" />
             <column name="versionnumber" type="text" width="8x" sortkeyname="versionsort" tid=".versionnumber" align="right" />
             <rowlayout name="singlerow">
-              <col coldef="icon" />
+              <col coldef="historytype_icon" />
               <col coldef="when" />
               <col coldef="displayname" />
               <col coldef="versionnumber" />
               <row>
-                <cell coldef="icon" />
+                <cell coldef="historytype_icon" />
                 <cell coldef="when" />
                 <cell coldef="displayname" />
                 <cell coldef="versionnumber" />
               </row>
             </rowlayout>
             <rowlayout name="tworows">
-              <col coldef="icon" combinewithnext="true" />
+              <col coldef="historytype_icon" combinewithnext="true" />
               <col coldef="when" />
               <col coldef="versionnumber" combinewithnext="true" />
               <col coldef="displayname" />
               <row>
-                <cell coldef="icon" rowspan="2" />
+                <cell coldef="historytype_icon" rowspan="2" />
                 <cell coldef="when" />
                 <cell coldef="displayname" />
                 <cell coldef="versionnumber" />

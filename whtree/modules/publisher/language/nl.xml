@@ -1892,6 +1892,15 @@
           <text tid="changetype">Type</text>
           <text tid="comment">Opmerking</text>
           <text tid="dialogtitle">Versies van bestand '<param p="1"/>'</text>
+          <text tid="event-abandoned-autosave">Autosave geannuleerd</text>
+          <text tid="event-abandoned-draft">Concept geannuleerd</text>
+          <text tid="event-approved">Goedgekeurd</text>
+          <text tid="event-autosave">Autosave</text>
+          <text tid="event-created">Aangemaakt</text>
+          <text tid="event-final">Afgerond</text>
+          <text tid="event-import">Import</text>
+          <text tid="event-recycled">Verwijderd</text>
+          <text tid="event-saved">Opgeslagen</text>
           <text tid="filename">Bestandsnaam</text>
           <text tid="filterfrom">Laatst gewijzigd tussen</text>
           <text tid="filterto">en</text>
