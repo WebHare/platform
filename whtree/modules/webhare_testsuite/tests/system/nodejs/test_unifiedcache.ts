@@ -415,11 +415,11 @@ async function attemptFetch(finalurl: string, expectType: string) {
 async function fetchUCLink(url: string, expectType: string) {
   const finalurl = new URL(url, backendConfig.backendURL).href;
 
-  const { contentType, cacheControl, fetchBuffer } = await test.wait(() => attemptFetch(finalurl, expectType), { annotation: `Waiting for ${finalurl} to be available with content-type ${expectType}` });
+  const { contentType, cacheControl, fetchBuffer, fetchResult } = await test.wait(() => attemptFetch(finalurl, expectType), { annotation: `Waiting for ${finalurl} to be available with content-type ${expectType}` });
 
   test.eq(expectType, contentType);
   const fetchData = await ResourceDescriptor.from(Buffer.from(fetchBuffer), { getImageMetadata: true, getHash: true });
-  return { resource: fetchData, finalurl, fetchBuffer, cacheControl, contentType };
+  return { resource: fetchData, finalurl, fetchBuffer, cacheControl, contentType, lastModified: fetchResult.headers.get("Last-Modified") };
 }
 
 async function compareSharpImages(expect: Sharp | string, actual: Sharp, { minMSE = 0, maxMSE = 0 } = {}) {
@@ -492,13 +492,20 @@ async function testImgCache() {
   await compareSharpImages(imgFishPng, await createSharpImage(dlFishAvifFast.fetchBuffer), { maxMSE: 15 }); //higher MSE for the quick JPEG
   console.log(`${dlFishAvifFast.finalurl} (now an ${dlFishAvifFast.contentType})`);
   test.eq("public, max-age=60", dlFishAvifFast.cacheControl);
+  test.assert(dlFishAvifFast.lastModified, "Expected Last-Modified header to be set for the fast JPEG result");
 
-  //TODO test whether if-modified-since is properly handled by the Fast JPEG path
+  //as fast JPEGs go through a dynamic path they need to implement 304 handling themselves. verify they did it right:
+  const dlFishAvifFastCheck304 = await fetch(dlFishAvifFast.finalurl, { headers: { "If-Modified-Since": dlFishAvifFast.lastModified! } });
+  test.eq(304, dlFishAvifFastCheck304.status, `Expected 304 Not Modified for ${dlFishAvifFast.finalurl} with If-Modified-Since: ${dlFishAvifFast.lastModified}`);
 
   //this will trigger a process to eventually create an AVIF. fetchUCLink willl wait for that AVIF
   const dlFishAvif = await fetchUCLink(wrappedGoldfishAvif.link, "image/avif");
   await compareSharpImages(imgFishPng, await createSharpImage(dlFishAvif.fetchBuffer), { maxMSE: 0.20 });
   test.eq("public, max-age=31536000, immutable", dlFishAvif.cacheControl);
+
+  //And verify that the AVIF also implements 304 handling correctly
+  const dlFishAvifCheck304 = await fetch(dlFishAvif.finalurl, { headers: { "If-Modified-Since": dlFishAvif.lastModified! } });
+  test.eq(304, dlFishAvifCheck304.status, `Expected 304 Not Modified for ${dlFishAvif.finalurl} with If-Modified-Since: ${dlFishAvif.lastModified}`);
 
   //verify compatibility setting does something
   const snowBeagleAvif10 = await fetchUCLink(snowbeagle.data.toResized({ method: "none", format: "image/avif", quality: 10 }).link, "image/avif");

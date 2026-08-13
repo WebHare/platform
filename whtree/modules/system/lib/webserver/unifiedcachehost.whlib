@@ -3,6 +3,7 @@
 
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::graphics/filters.whlib";
@@ -216,8 +217,9 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase <
 
       STRING extension := GetExtensionFromPath(img.path);
       STRING mimetype := GetAdhocCached(CELL[ extension ], PTR GetMimeType(extension));
-
-      AddHTTPHeader("Status", "200", FALSE);
+      DATETIME ims := MakeDateFromText(GetWebHeader("If-Modified-Since"));
+      BOOLEAN is_not_modified := ims != DEFAULT DATETIME AND GetRoundedDatetime(img.modified,1000) <= ims;
+      AddHTTPHeader("Status", is_not_modified ? "304" : "200", FALSE);
       IF(this->trace)
       {
         Print("Generated image of " || Length(img.data) || " bytes with mimetype " || mimetype || "\n");
