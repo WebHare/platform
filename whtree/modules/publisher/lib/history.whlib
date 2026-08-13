@@ -323,6 +323,11 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
 
     }
 
+    //Clear draft flag
+    UPDATE system.fs_objects
+        SET published := SetFlagsInPublished(published, PublishedFlag_HasPublicDraft, FALSE)
+      WHERE id = this->baseobject->id;
+
     this->EnsureMetadataUpToDate();
   }
 
