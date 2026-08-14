@@ -184,6 +184,11 @@ export function isHistoricWHFSSpace(path: string) {
   return false;
 }
 
+export function isRecycleBinWHFSPath(path: string) {
+  // Match glob path "/WEBHARE-PRIVATE/PLATFORM/WHFS/RECYCLEBINS/*/*";
+  return path.toUpperCase().startsWith("/WEBHARE-PRIVATE/PLATFORM/WHFS/RECYCLEBINS/") && path.indexOf("/", 43) !== -1;
+}
+
 export function getFSObjectData(rec: Pick<FsObjectRow, "id" | "name" | "creationdate" | "data" | "scandata" | "isfolder">): ResourceDescriptor | null {
   if (rec.isfolder || !rec.data)
     return null;

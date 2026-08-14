@@ -1,19 +1,32 @@
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { WorkerPool } from "@mod-system/js/internal/openapi/workerpool";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { createSharpImage, type SharpResizeOptions, type SharpAvifOptions, type SharpColor, type SharpExtendOptions, type SharpGifOptions, type SharpJpegOptions, type SharpPngOptions, type SharpRegion, type SharpWebpOptions, type Sharp } from "@webhare/deps";
-import { debugFlags } from "@webhare/env";
-import { BackendServiceConnection, runBackendService } from "@webhare/services";
-import type { WebHareService } from "@webhare/services";
+import { debugFlags } from "@webhare/env/src/envbackend";
+import { BackendServiceConnection, LocalCache, logDebug, logError, readLogLines, readRegistryKey, runBackendService, writeRegistryKey } from "@webhare/services";
+import type { ResizeMethod, WebHareService } from "@webhare/services";
 import { decodeBMP } from "@webhare/services/src/bmp-to-raw";
-import { explainImageProcessing, suggestImageFormat, type OutputFormatName, type PackableResizeMethod, type ResizeMethodName, type ResourceMetadata } from "@webhare/services/src/descriptor";
-import { storeDiskFile } from "@webhare/system-tools/src/fs";
-import { __getBlobDiskFilePath } from "@webhare/whdb/src/blobs";
+import { explainImageProcessing, isValidOutputFormat, suggestImageFormat, type OutputFormatName, type PackableResizeMethod, type ResizeMethodName, type ResourceMetadata } from "@webhare/services/src/descriptor";
+import { analyzeUnifiedURLToken, getDiskPath, lookupDataForUnifiedURL, unifiedCacheDataTypes, type AnalyzedToken } from "@webhare/services/src/unifiedcache";
+import { beginWork, commitWork, db } from "@webhare/whdb";
 import { existsSync } from "fs";
 import { mkdir, open, readFile } from "fs/promises";
-import path from "path";
+import { storeDiskFile } from "@webhare/system-tools";
+import path from "node:path";
+import { promises as fs } from "node:fs";
+import { __getBlobDatabaseId, __getBlobDiskFilePath } from "@webhare/whdb/src/blobs";
 
-interface HSImgCacheRequest {
+
+const workerPool = new WorkerPool("imgcache", 5, 100);
+
+let scheduledShutdown = false;
+let service: WebHareService | undefined;
+let controller: UnifiedCacheServerController | undefined;
+const restartInterval = 15 * 60 * 1000; //restart every 15 minutes. when lowering this during tests, wait at least a second as it's important that we're alive long enough that unifiedcachehost.whlib's Connect - Sleep - Connect can't wind up in a second already shutting down imgcache
+
+export interface HSImgCacheRequest {
   pgblobid: string;
+  targetmimetype: OutputFormatName;
   sourcepath?: string;
   path?: string;
   /** A fast request - generate JPEG at set quality and delay the real request for later */
@@ -24,10 +37,10 @@ interface HSImgCacheRequest {
   refpoint: { x: number; y: number } | null;
   item: {
     resizemethod: {
+      // format is omitted and ignored, because it is already specified in targetmimetype
       method: ResizeMethodName;
       setwidth: number;
       setheight: number;
-      format: OutputFormatName;
       bgcolor: number;
       noforce: boolean;
       fixorientation: boolean;
@@ -38,6 +51,109 @@ interface HSImgCacheRequest {
     };
   };
 }
+
+function transformResizeMethodToHS(method: Required<ResizeMethod>): HSImgCacheRequest["item"]["resizemethod"] {
+  return {
+    method: method.method,
+    setwidth: method.width,
+    setheight: method.height,
+    bgcolor: method.bgColor === "transparent" ? 0x00FFFFFF : method.bgColor,
+    noforce: method.noForce,
+    fixorientation: true,
+    grayscale: method.grayscale,
+    quality: method.quality,
+    hblur: method.blur,
+    vblur: method.blur
+  };
+}
+
+function transformResourceMetadataToHS(resource: ResourceMetadata) {
+  return {
+    mimetype: resource.mediaType,
+    refpoint: resource.refPoint,
+    width: resource.width || 0,
+    height: resource.height || 0,
+  };
+}
+
+async function testDiskPath(diskPath: string, fast: boolean, generated: boolean) {
+  console.log(`testing disk path ${diskPath} (fast: ${fast}, generated: ${generated})`);
+  try {
+    const statResult = await fs.stat(diskPath);
+    console.log(`- found`);
+    return {
+      modified: statResult.mtime.toTemporalInstant(),
+      path: diskPath,
+      fast,
+      generated
+    };
+  } catch (e) {
+    console.log(`- not found`);
+    return null;
+  }
+}
+
+export async function getRawCacheData(xdata: AnalyzedToken, targetmimetype: OutputFormatName, allowFast: boolean) {
+  const skipCache = debugFlags["wst=platform:unifiedcache"];
+
+  const diskPath = getDiskPath(xdata);
+  const item = xdata.item;
+
+  console.log(`getRawCacheData: diskPath=${diskPath}, type=${item.type}, id=${item.id}, cc=${item.cc}, md=${item.md}, ms=${item.ms}, imgdatalen=${item.imgdatalen}`);
+
+  if (item.type !== unifiedCacheDataTypes.Image) { // embed or file
+    if (!skipCache) {
+      const cachedVersion = await testDiskPath(diskPath, false, false);
+      if (cachedVersion)
+        return cachedVersion;
+    }
+    const dbData = await lookupDataForUnifiedURL(item);
+    const content = dbData.data;
+    await fs.mkdir(path.dirname(diskPath), { recursive: true });
+    await storeDiskFile(diskPath, content || "", { overwrite: true }); // store an empty file if no blob is available
+    return testDiskPath(diskPath, false, true);
+  }
+
+  const tryFastPath = allowFast && targetmimetype === "image/avif";
+  let usePath = diskPath;
+  let fast = false;
+
+  if (!skipCache) {
+    let cachedVersion = await testDiskPath(usePath, false, false);
+    if (cachedVersion)
+      return cachedVersion;
+    if (tryFastPath) {
+      usePath = diskPath.substring(0, diskPath.length - diskPath.lastIndexOf('.')) + ".jpg";
+      fast = true;
+      cachedVersion = await testDiskPath(usePath, true, false);
+      if (cachedVersion)
+        return cachedVersion;
+    }
+  }
+
+  const dbData = await lookupDataForUnifiedURL(item);
+  if (!dbData.data)
+    throw new Error("No data found for unified URL");
+
+  const pgblobid = __getBlobDatabaseId(dbData.data);
+  if (!pgblobid)
+    throw new Error("No database ID found for blob data");
+  const sourcepath = __getBlobDiskFilePath(pgblobid);
+
+  const req: Required<HSImgCacheRequest> = {
+    ...transformResourceMetadataToHS(dbData),
+    targetmimetype,
+    item: { resizemethod: transformResizeMethodToHS(item.resizeMethod) },
+    path: diskPath,
+    fast,
+    pgblobid,
+    sourcepath,
+  };
+
+  await __generateImageForCacheInternal(req);
+  return testDiskPath(usePath, fast, false);
+}
+
 
 export function getSharpResizeOptions(infile: Pick<ResourceMetadata, "width" | "height" | "refPoint" | "mediaType">, method: PackableResizeMethod) {
   // https://sharp.pixelplumbing.com/api-resize
@@ -113,7 +229,7 @@ async function renderImageForCache(request: HSImgCacheRequest): Promise<Buffer> 
     blur: Math.min(request.item.resizemethod.hblur, request.item.resizemethod.vblur),
     width: request.item.resizemethod.setwidth,
     height: request.item.resizemethod.setheight,
-    format: request.item.resizemethod.format,
+    format: request.targetmimetype,
     bgColor: request.item.resizemethod.bgcolor,
     noForce: request.item.resizemethod.noforce,
     grayscale: request.item.resizemethod.grayscale,
@@ -174,40 +290,210 @@ export async function returnImageForCache(request: HSImgCacheRequest): Promise<s
   return (await renderImageForCache(request)).toString("base64");
 }
 
-const workerPool = new WorkerPool("imgcache", 5, 100);
-
 /* This is the worker entrypoint for unifiedcachehost.whlib to request images. In imgcache-noworkers mode we run in the main thread */
 export async function __generateImageForCacheInternal(request: Required<HSImgCacheRequest>): Promise<void> {
-  console.log(request.path, request.fast, request.item.resizemethod.format);
+  console.log(request.path, request.fast, request.targetmimetype);
   if (existsSync(request.path)) //already generated
     return;
 
   if (request.fast) { //Rebuild to a JPEG request
-    const origrequest = structuredClone(request);
-    setTimeout(() => void __generateImageForCacheInternal({ ...origrequest, fast: false }), 1000); //schedule a rebuild to the proper format
+    //const origrequest = structuredClone(request);
+    //setTimeout(() => void __generateImageForCacheInternal({ ...origrequest, fast: false }), 1000); //schedule a rebuild to the proper format
 
     request = {
       ...request,
+      targetmimetype: "image/jpeg",
       path: request.path.replace(/\.*(\.[^.]+)$/, ".jpg"),
       item: {
         ...request.item,
         resizemethod: {
           ...request.item.resizemethod,
-          format: "image/jpeg",
           quality: 80 //This keeps MSE below 15 in the tests, 75 is already too low
         }
       }
     };
   }
+
   const result = await renderImageForCache(request);
   await mkdir(path.dirname(request.path), { recursive: true });
   await storeDiskFile(request.path, result, { overwrite: true });
+
+  logDebug("system:imgcache", { func: "__generateImageForCacheInternal", request });
 }
 
-let scheduledShutdown = false, service: WebHareService | undefined;
-const restartInterval = 15 * 60 * 1000; //restart every 15 minutes. when lowering this during tests, wait at least a second as it's important that we're alive long enough that unifiedcachehost.whlib's Connect - Sleep - Connect can't wind up in a second already shutting down imgcache
+function scheduleRestart() {
+  if (!scheduledShutdown && service) {
+    setTimeout(() => {
+      void (async () => {
+        // wait for running conversion processes to finish
+        await controller?.abort();
+        service?.close(); //close is sync, but the actual IPC to whmanager cannot be, so wait manually:
+        void bridge.ensureDataSent().then(() => {
+          console.log("Restarting imgcache");
+          process.exit(0);
+        });
+      })();
+    }, restartInterval);
+    scheduledShutdown = true;
+  }
+}
+
+async function getCachableMimeType(extension: string): Promise<{ value: string; masks: string[] }> {
+  return {
+    value: (await db<PlatformDB>()
+      .selectFrom("system.mimetypes")
+      .select("mimetype")
+      .where("extension", "=", extension.substring(1))
+      .executeTakeFirst()
+      .then(row => row?.mimetype)) ?? "application/octet-stream",
+    masks: [],
+  };
+}
+
+let mimeTypeCache: LocalCache<string> | undefined;
+
+export class UnifiedCacheServerController {
+  slowImageConverter: Promise<void>;
+  stopping: boolean = false;
+  wait = Promise.withResolvers<void>();
+  checkUntil: Temporal.Instant | null = null;
+  trace: boolean;
+
+  constructor(options?: { debug?: boolean }) {
+    this.trace = options?.debug ?? false;
+    this.slowImageConverter = this.handleSlowImages().catch(() => { });
+  }
+
+  async handleSlowImages(): Promise<void> {
+    while (!this.stopping) {
+      if (this.trace)
+        console.log("checking image queue log");
+      await bridge.flushLog("system:imagequeue");
+      const now = Temporal.Now.instant();
+
+      const checkpoint = await readRegistryKey("system:imagequeue.checkpoint");
+
+      const limit = now.subtract({ seconds: 1 });
+      const logLines = readLogLines<{ url: string }>("system:imagequeue", {
+        start: now.subtract({ hours: 24 }),
+        limit,
+        continueAfter: checkpoint ?? undefined,
+      });
+
+      let i = 0;
+      let lastId: string | null = null;
+      for await (const line of logLines) {
+        if (this.stopping)
+          break;
+        if (i === 0)
+          scheduleRestart();
+        ++i;
+
+        if (this.trace)
+          console.log(`processing entry ${i} @ ${line["@timestamp"].toString()}: ${line.url}`);
+
+        lastId = line["@id"];
+        try {
+          const url = new URL(line.url);
+          if (url.pathname.startsWith("/.wh/ea/uc/")) {
+            const tok = url.pathname.substring(11);
+            const dec = analyzeUnifiedURLToken(tok);
+            if (!dec) {
+              if (this.trace)
+                console.log(`ignoring invalid token ${tok}`);
+              continue;
+            }
+            if (this.trace)
+              console.log(`analyzed token:`, dec);
+
+            mimeTypeCache ??= new LocalCache<string>({ masks: ["system:mimetypes"] });
+            const mimetype = await mimeTypeCache.get(dec.extension, () => getCachableMimeType(dec.extension));
+            if (!isValidOutputFormat(mimetype)) {
+              if (this.trace)
+                console.log(`ignoring unsupported mimetype ${mimetype}`);
+              continue;
+            }
+
+            if (this.trace)
+              console.log(`starting processing`);
+            if (!debugFlags["imgcache-noworkers"]) {
+              await workerPool.runInWorker(async (worker) => {
+                return await worker.callRemote(`@mod-platform/js/cache/imgcache.ts#getRawCacheData`, dec, mimetype, false);
+              });
+            } else {
+              await getRawCacheData(dec, mimetype, false);
+            }
+            if (this.trace)
+              console.log(`done processing`);
+          } else
+            if (this.trace)
+              console.log(`ignoring non-unifiedcachehost url ${line.url}`);
+        } catch (e) {
+          logError(e as Error, {
+            data: {
+              source: "system:imagequeue",
+              url: line.url,
+            }
+          });
+          console.error("Error processing slow image queue log line:", { line, e });
+        }
+      }
+      if (lastId) {
+        await beginWork();
+        await writeRegistryKey("system:imagequeue.checkpoint", lastId);
+        await commitWork();
+      }
+
+      if (!i && !this.stopping) {
+        // no new images posted recently?
+        if (!this.checkUntil || Temporal.Instant.compare(limit, this.checkUntil) > 0) {
+          if (this.trace)
+            console.log(`was signalled until ${this.checkUntil?.toString() ?? "n/a"} (limit: ${limit.toString()}) - waiting for signal`);
+          await this.wait.promise;
+          this.wait = Promise.withResolvers<void>();
+        } else {
+          const before = Date.now();
+          if (this.trace)
+            console.log(`need to recheck until ${this.checkUntil.toString()}, waiting a bit`);
+          // wait a few seconds before reading the log again
+          const timer = setTimeout(() => this.wait.resolve(), 5_000);
+          void this.wait.promise.finally(() => clearTimeout(timer));
+          await this.wait.promise;
+          this.wait = Promise.withResolvers<void>();
+          if (this.trace)
+            console.log(`wait finished after ${Date.now() - before}ms`);
+        }
+      }
+    }
+  }
+
+  async abort() {
+    this.stopping = true;
+    this.wait.resolve();
+    await this.slowImageConverter.catch(() => { }); //ignore errors, we're shutting down
+  }
+
+  createClient() {
+    return new UnifiedCacheServer(this);
+  }
+
+  signalImagesQueued(intervalSecs: number) {
+    // the logreader reads until 1 second ago, so delay wakeup for a second
+    setTimeout(() => {
+      this.checkUntil = Temporal.Now.instant().add({ seconds: intervalSecs + 10 });
+      this.wait.resolve();
+    }, 1000);
+  }
+}
 
 class UnifiedCacheServer extends BackendServiceConnection {
+  #controller: UnifiedCacheServerController;
+
+  constructor(ctrlr: UnifiedCacheServerController) {
+    super();
+    this.#controller = ctrlr;
+  }
+
   /* This is the service entrypoint for unifiedcachehost.whlib to request images */
   async generateImageForCache(request: Required<HSImgCacheRequest>): Promise<void> {
     await ((async () => {
@@ -220,26 +506,19 @@ class UnifiedCacheServer extends BackendServiceConnection {
       }
     })());
 
-    if (!scheduledShutdown && service) {
-      setTimeout(() => {
-        service!.close(); //close is sync, but the actual IPC to whmanager cannot be, so wait manually:
-        void bridge.ensureDataSent().then(() => {
-          console.log("Restarting imgcache");
-          process.exit(0);
-        });
-      }, restartInterval);
-      scheduledShutdown = true;
-    }
+    scheduleRestart();
     return;
+  }
+
+  signalImagesQueued(intervalSecs: number) {
+    this.#controller.signalImagesQueued(intervalSecs);
   }
 }
 
-export async function getUnifiedCacheServer(): Promise<UnifiedCacheServer> {
-  return new UnifiedCacheServer;
-}
-
-export async function runUnifiedCacheService(): Promise<void> {
-  service = await runBackendService("platform:unifiedcache", getUnifiedCacheServer);
+export async function runUnifiedCacheService(options?: { debug?: boolean }): Promise<void> {
+  const newcontroller = new UnifiedCacheServerController(options);
+  service = await runBackendService("platform:unifiedcache", () => newcontroller.createClient());
+  controller = newcontroller;
 }
 
 export type { UnifiedCacheServer };

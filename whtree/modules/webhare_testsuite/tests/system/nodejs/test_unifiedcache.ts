@@ -2,7 +2,7 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { createWRDTestSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { loadlib } from "@webhare/harescript";
 import { backendConfig, ResourceDescriptor } from "@webhare/services";
-import { explainImageProcessing, getUCSubUrl, getUnifiedCC, packImageResizeMethod, type ResourceMetadata } from "@webhare/services/src/descriptor";
+import { explainImageProcessing, getUCSubUrl, getUnifiedCC, packImageResizeMethod, unpackImageResizeMethod, type ResourceMetadata } from "@webhare/services/src/descriptor";
 import { beginWork, commitWork } from "@webhare/whdb";
 import { openType } from "@webhare/whfs";
 import { getSharpResizeOptions } from "@mod-platform/js/cache/imgcache";
@@ -334,27 +334,37 @@ async function testResizeMethods() {
 }
 
 async function testImgMethodPacking() {
-  let finalmethod;
-  const unpack = loadlib("wh::graphics/filters.whlib").GfxUnpackImageResizeMethod;
+  let finalHsMethod, finalMethod;
+  const hsUnpack = loadlib("wh::graphics/filters.whlib").GfxUnpackImageResizeMethod;
 
-  finalmethod = await unpack(packImageResizeMethod({ method: "fitcanvas", width: 125, height: 131, format: "keep" }));
-  test.eq({ method: "fitcanvas", setwidth: 125, setheight: 131, format: "keep", bgcolor: 0x00FFFFFF, noforce: true, quality: 0, grayscale: false, fixorientation: true, hblur: 0, vblur: 0 }, finalmethod);
+  finalHsMethod = await hsUnpack(packImageResizeMethod({ method: "fitcanvas", width: 125, height: 131, format: "keep" }));
+  test.eq({ method: "fitcanvas", setwidth: 125, setheight: 131, format: "keep", bgcolor: 0x00FFFFFF, noforce: true, quality: 0, grayscale: false, fixorientation: true, hblur: 0, vblur: 0 }, finalHsMethod);
+  finalMethod = unpackImageResizeMethod(new Uint8Array(packImageResizeMethod({ method: "fitcanvas", width: 125, height: 131, format: "keep" })));
+  test.eq({ method: "fitcanvas", width: 125, height: 131, format: "keep", bgColor: "transparent", noForce: true, quality: 0, grayscale: false, blur: 0 }, finalMethod);
 
-  finalmethod = await unpack(packImageResizeMethod({ method: "none", format: "keep" }));
-  test.eq(true, finalmethod.fixorientation);
-  test.eq("keep", finalmethod.format);
+  finalHsMethod = await hsUnpack(packImageResizeMethod({ method: "none", format: "keep" }));
+  test.eq(true, finalHsMethod.fixorientation);
+  test.eq("keep", finalHsMethod.format);
+  finalMethod = unpackImageResizeMethod(new Uint8Array(packImageResizeMethod({ method: "none", format: "keep" })));
+  test.eq("keep", finalMethod?.format);
 
-  finalmethod = await unpack(packImageResizeMethod({ method: "none", format: "image/png" }));
-  test.eq(true, finalmethod.fixorientation);
-  test.eq("image/png", finalmethod.format);
+  finalHsMethod = await hsUnpack(packImageResizeMethod({ method: "none", format: "image/png" }));
+  test.eq(true, finalHsMethod.fixorientation);
+  test.eq("image/png", finalHsMethod.format);
+  finalMethod = unpackImageResizeMethod(new Uint8Array(packImageResizeMethod({ method: "none", format: "image/png" })));
+  test.eq("image/png", finalMethod?.format);
 
-  finalmethod = await unpack(packImageResizeMethod({ method: "none", format: "image/gif" }));
-  test.eq(true, finalmethod.fixorientation);
-  test.eq("image/gif", finalmethod.format);
+  finalHsMethod = await hsUnpack(packImageResizeMethod({ method: "none", format: "image/gif" }));
+  test.eq(true, finalHsMethod.fixorientation);
+  test.eq("image/gif", finalHsMethod.format);
+  finalMethod = unpackImageResizeMethod(new Uint8Array(packImageResizeMethod({ method: "none", format: "image/gif" })));
+  test.eq("image/gif", finalMethod?.format);
 
-  finalmethod = await unpack(packImageResizeMethod({ method: "none", blur: 4321, format: "keep" }));
-  test.eq(4321, finalmethod.hblur);
-  test.eq(4321, finalmethod.vblur);
+  finalHsMethod = await hsUnpack(packImageResizeMethod({ method: "none", blur: 4321, format: "keep" }));
+  test.eq(4321, finalHsMethod.hblur);
+  test.eq(4321, finalHsMethod.vblur);
+  finalMethod = unpackImageResizeMethod(new Uint8Array(packImageResizeMethod({ method: "none", blur: 4321, format: "keep" })));
+  test.eq(4321, finalMethod?.blur);
 }
 
 async function testImgCacheTokens() {
