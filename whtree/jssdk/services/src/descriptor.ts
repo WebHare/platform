@@ -47,6 +47,10 @@ export const PackMethods = {
 export const supportedBitmapImages = ["image/jpeg", "image/png", "image/webp", "image/avif"];
 export const outputFormats = ["keep", "image/jpeg", "image/gif", "image/png", "image/webp", "image/avif"] as const; //outputFormats mirrors graphics.whlib __packformats. Note that the ordering cannot change as this is directly mapped to an integer in the packed format
 
+export function isValidOutputFormat(format: string): format is typeof outputFormats[number] {
+  return outputFormats.includes(format as typeof outputFormats[number]);
+}
+
 const EmptyFileHash = "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU";
 const DefaultMediaType = "application/octet-stream";
 const BitmapImageTypes = ["image/jpeg", "image/gif", "image/png", "image/webp", "image/avif"];
@@ -757,7 +761,7 @@ export function packImageResizeMethod(resizemethod: PackableResizeMethod): Array
   if (havequality)
     method += 0x20; //Set quality flag
 
-  const dropbgcolor = validatedMethod.bgColor === 0x00FFFFFF;
+  const dropbgcolor = validatedMethod.bgColor === 0x00FFFFFF || validatedMethod.bgColor === "transparent";
   if (dropbgcolor)
     method += 0x80; //Set 'no bgcolor flag'
 
@@ -798,6 +802,80 @@ export function packImageResizeMethod(resizemethod: PackableResizeMethod): Array
   }
 
   return buffer.slice(0, ptr);
+}
+
+const packmethods = [
+  /*0*/"none",
+  /*1*/"fit",
+  /*2*/"scale",
+  /*3*/"fill",
+  /*4*/"", // scrapped
+  /*5*/"fitcanvas",
+  /*6*/"scalecanvas",
+] as const;
+
+export function unpackImageResizeMethod(packedMethod: Uint8Array): Required<ResizeMethod> | null {
+  let dataView = new DataView(packedMethod.buffer, packedMethod.byteOffset, packedMethod.byteLength);
+  let version = packedMethod[0];
+
+  let blur = 0;
+  if (version === 2) {
+    blur = dataView.getUint32(1, true);
+    packedMethod = packedMethod.subarray(5);
+    dataView = new DataView(packedMethod.buffer, packedMethod.byteOffset, packedMethod.byteLength);
+    version = packedMethod[0];
+  }
+
+  let method = packedMethod[1];
+
+  const dropbgcolor = Boolean(method & 0x80);
+  const noforce = Boolean(method & 0x40);
+  const havequality = Boolean(method & 0x20);
+  const grayscale = Boolean(method & 0x10);
+
+  method &= 0x0F;
+
+  if (version !== 1 || method < 0 || method >= packmethods.length)
+    return null;
+
+  // test for scrapped methods
+  const methodStr = packmethods[method];
+  if (!methodStr)
+    return null;
+
+  let idx = 2;
+  let setwidth = 0, setheight = 0, quality = 0, bgColor: number | "transparent" = "transparent";
+  if (method !== 0) {
+    setwidth = dataView.getUint16(idx, true);
+    setheight = dataView.getUint16(idx + 2, true);
+    idx += 4;
+  }
+  const format = packedMethod[idx++];
+  if (havequality)
+    quality = packedMethod[idx++];
+  if (!dropbgcolor) {
+    bgColor = dataView.getUint32(idx, true);
+    idx += 4;
+  }
+
+  if (dataView.byteLength < idx)
+    return null;
+
+  const packFormat = format & 0x7F;
+  if (packFormat < 0 || packFormat >= outputFormats.length)
+    return null;
+
+  return {
+    method: methodStr,
+    width: setwidth,
+    height: setheight,
+    format: outputFormats[packFormat],
+    bgColor,
+    noForce: noforce,
+    quality,
+    grayscale,
+    blur: Math.max((blur >> 15) & 0x7FFF, blur & 0x7FFF) // blur is stored as hblur and vblur, take the max
+  };
 }
 
 export function getUnifiedCC(date: ValidDateTimeSources) {
