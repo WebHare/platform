@@ -1,5 +1,5 @@
 import * as test from "@mod-system/js/wh/testframework";
-import { browser } from '@webhare/dompack';
+import { getBrowser } from '@webhare/dompack';
 import { parseUserAgent } from '@webhare/dompack/src/browser';
 
 test.runTests(
@@ -122,7 +122,7 @@ test.runTests(
       test.eq("android", useragent.platform);
       test.eq("mobile", useragent.device);
 
-      test.eq(browser, parseUserAgent(navigator.userAgent));
-      test.assert(Object.isFrozen(browser));
+      test.eq(getBrowser(), parseUserAgent(navigator.userAgent));
+      test.assert(Object.isFrozen(getBrowser()));
     }
   ]);

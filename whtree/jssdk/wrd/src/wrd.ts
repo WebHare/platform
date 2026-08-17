@@ -9,7 +9,7 @@ import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { broadcastOnCommit, db } from "@webhare/whdb";
 import type { WRDAttributeType, WRDMetaType, WRDInsertable, WRDUpdatable, AnySchemaType, SchemaTypeDefinitionModern } from "./types";
 import { encodeWRDGuid } from "./accessors";
-import { tagToJS } from "./wrdsupport";
+import { isValidWRDSchemaTag, tagToJS } from "./wrdsupport";
 import { wrdFinishHandler } from "./finishhandler";
 import { scheduleTask, scheduleTimedTask } from "@webhare/services";
 
@@ -80,13 +80,18 @@ export async function describeEntity(entityid: number): Promise<DescribedEntity 
   } : null;
 }
 
-/** Get a list of WRD schemas a user may schema-manage
+/** Get a list of WRD schemas
     @returns List of schemas
 */
-export async function listSchemas() {
+export async function listSchemas(options?: {
+  includeDeleted?: boolean;
+  includeInvalidTags?: boolean;
+}) {
   //TODO? user parameter to see from their view. but requires JS userrights api
   const dbschemas = await db<PlatformDB>().selectFrom("wrd.schemas").select(["id", "name", "title", "usermgmt"]).execute();
-  return dbschemas.filter(_ => !_.name.startsWith("$wrd$deleted"))
+  return dbschemas
+    .filter(_ => options?.includeDeleted || !_.name.startsWith("$wrd$deleted"))
+    .filter(_ => options?.includeInvalidTags || isValidWRDSchemaTag(_.name))
     .map(_ => ({ id: _.id, tag: _.name, title: _.title, userManagement: _.usermgmt }));
 }
 

@@ -30,7 +30,7 @@ runCli({
       main: async ({ opts, args }) => {
         const issues: Array<WRDIssue & { schema: string }> = [];
         const tofind = regExpFromWildcards(args.schemamask, { caseInsensitive: true });
-        const schemas = (await listSchemas()).filter(s => tofind.test(s.tag));
+        const schemas = (await listSchemas({ includeInvalidTags: true })).filter(s => tofind.test(s.tag));
         if (schemas.length === 0)
           throw new CLIRuntimeError(`No schemas found matching '${args.schemamask}'`);
 

@@ -233,7 +233,7 @@ export class ObjFrame extends ToddCompBase {
   _onKeyboard = (evt: KeyboardEvent) => {
     switch (evt.key) {
       case "Enter":
-        if (!evt[dompack.browser.platform === 'mac' ? 'metaKey' : 'ctrlKey']) { //No accelerator pressed
+        if (!evt[dompack.getBrowser().platform === 'mac' ? 'metaKey' : 'ctrlKey']) { //No accelerator pressed
           if ((evt.target as HTMLElement)?.matches?.("textarea") || (evt.target as HTMLElement)?.isContentEditable)
             return; //leave the 'Enter' key for the input component
         }

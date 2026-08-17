@@ -12,7 +12,7 @@ import { isValidWRDSchemaTag } from '@webhare/wrd/src/wrdsupport';
 import { isatty } from 'tty';
 
 async function checkWRD(options?: { metadataOnly?: boolean; verbose?: boolean }): Promise<CheckResult[]> {
-  const schemas = await listSchemas();
+  const schemas = await listSchemas({ includeInvalidTags: true });
   const issues: CheckResult[] = [];
   for (const schema of schemas.toSorted((a, b) => a.tag.localeCompare(b.tag))) {
     const localIssues: WRDIssue[] = [];

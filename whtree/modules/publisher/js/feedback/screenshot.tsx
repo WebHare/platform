@@ -104,10 +104,10 @@ export async function prepareFeedback(feedbackOptions?: FeedbackOptions): Promis
 
   //If you want to dump the sceenshot immediately when testing:
   //document.body.replaceChildren(<img src={screenshot.toDataURL()} />);
-
+  const browser = dompack.getBrowser();
   return {
-    browser: dompack.browser.triplet,
-    device: dompack.browser.device,
+    browser: browser.triplet,
+    device: browser.device,
     userAgent: window.navigator.userAgent,
     url: location.href,
     token: feedbackOptions?.token,
