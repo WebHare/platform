@@ -164,7 +164,7 @@ function testTypes() {
     whuser_disablereason?: string | undefined;
     whuser_hiddenannouncements?: Array<number | string> | number[] | undefined;
     whuser_lastlogin?: Date | Temporal.Instant | string | null | undefined;
-    wrdCreationDate?: Date | string | null | undefined;
+    wrdCreationDate?: Date | Temporal.Instant | string | null | undefined;
     wrdDateOfBirth?: Date | string | null | undefined;
     wrdDateOfDeath?: Date | string | null | undefined;
     wrdFirstName?: string | undefined;
@@ -175,7 +175,7 @@ function testTypes() {
     wrd_infix?: string | undefined;
     wrd_initials?: string | undefined;
     wrdLastName?: string | undefined;
-    wrdLimitDate?: Date | string | null | undefined;
+    wrdLimitDate?: Date | Temporal.Instant | string | null | undefined;
     wrdModificationDate?: Date | string | undefined;
     wrdTag?: string | undefined;
     wrdTitlesSuffix?: string | undefined;

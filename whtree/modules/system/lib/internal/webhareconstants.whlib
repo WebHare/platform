@@ -151,6 +151,18 @@ PUBLIC CONSTANT INTEGER whconstant_historytype_import := 7;
 /// fs_history.type final - generate when a version is finalized, ie applied to the original fsobject. it should be an x.0 version with a full snapshot
 PUBLIC CONSTANT INTEGER whconstant_historytype_final := 8;
 
+PUBLIC CONSTANT STRING ARRAY whconstant_historytypes :=
+  [ "recycled"   //0 whconstant_historytype_recycled
+  , "saved"      //1 whconstant_historytype_saved
+  , "abandoned-autosave" //2 whconstant_historytype_abandoned_autosave
+  , "abandoned-draft"    //3 whconstant_historytype_abandoned_draft
+  , "created"    //4 whconstant_historytype_created
+  , "approved"   //5 whconstant_historytype_approved
+  , "autosave"   //6 whconstant_historytype_autosave
+  , "import"     //7 whconstant_historytype_import
+  , "final"      //8 whconstant_historytype_final
+  ];
+
 /// publisher.schedule start publish/republish event
 PUBLIC CONSTANT INTEGER whconstant_publisherschedule_publish := 1;
 

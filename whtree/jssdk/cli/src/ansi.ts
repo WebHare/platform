@@ -83,6 +83,10 @@ const basicEscapeCodes = {
 
   "erasedisplay": "\x1b[2J",
   "clearscrollback": "\x1b[3J",
+
+  "eraseline": "\x1b[2K",
+  "eraseline-right": "\x1b[0K",
+  "eraseline-left": "\x1b[1K",
 } as const;
 
 
