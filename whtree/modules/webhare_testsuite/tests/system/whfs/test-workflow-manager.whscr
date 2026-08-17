@@ -571,7 +571,7 @@ MACRO DraftingTestWithCancel() {
   VerifyTSHistory(testfile->id);
 
   ///////////////////////////
-  // STORY: *abaondon* the draft
+  // STORY: *abandon* the draft
   testfw->BeginWork();
   workflowmgr->DiscardDraftAndAutosavedChanges();
   history := ListObjectHistory(testfile->id,[include_autosaves := TRUE]);
