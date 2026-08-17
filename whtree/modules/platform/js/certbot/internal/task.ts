@@ -105,7 +105,8 @@ export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<Certif
   const domains = taskdata.domains ?? [];
   const storedKeyPair = taskdata.certificateId ? await openStoredKeyPair(taskdata.certificateId) : null;
   if (storedKeyPair && taskdata.isRenewal) {
-    const checkResult = await storedKeyPair.shouldRenew(taskdata.staging);
+    //if we're actually renewing we should always ignore the retryRenewalAfter we stored during renewcertbot periodic check
+    const checkResult = await storedKeyPair.shouldRenewThisKey({ staging: taskdata.staging, ignoreRenewalAfter: true });
     if (!checkResult.shouldRenew) {
       let errorData: string | undefined = undefined;
       if (checkResult.validUntil)
