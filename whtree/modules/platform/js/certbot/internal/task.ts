@@ -21,7 +21,7 @@ import { getAllModuleYAMLs } from "@webhare/services/src/moduledefparser";
 import { addDuration, pick, throwError, toCamelCase, type ToSnakeCase } from "@webhare/std";
 import { listDirectory } from "@webhare/system-tools";
 import { beginWork, db, onFinishWork } from "@webhare/whdb";
-import { openFolder } from "@webhare/whfs";
+import { openFolder, whfsType } from "@webhare/whfs";
 import { stat, unlink } from "node:fs/promises";
 
 type StoredKeyPairProps = Awaited<ReturnType<typeof listStoredKeyPairs>>[0];
@@ -355,6 +355,9 @@ export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<Certif
     await certFile.update({ data: await ResourceDescriptor.from(certificate) });
     const certKeyPairFile = await certFolder.ensureFile("privatekey.pem", { type: "platform:filetypes.plaintext" });
     await certKeyPairFile.update({ data: await ResourceDescriptor.from(certKeyPair.privateKey) });
+
+    // Clear current renewalinfo, the certbot task will refresh this
+    await whfsType("platform:system.keystorefolder").set(certFolder.id, { renewalInfo: "", renewWindowStart: "", retryRenewalAfter: "" });
 
     // Store the account private key if new or updated
     const resource = await ResourceDescriptor.from(accountKeyPair.privateKey);
