@@ -47,6 +47,8 @@ PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
 
   //RECORD configdata;
 
+  RECORD historytypes;
+
   // ---------------------------------------------------------------------------
   //
   // Init
@@ -73,6 +75,20 @@ PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
 
     ^listener->masks := this->liveobject->GetEventMasks([ "object", "history" ]);
 
+    this->historytypes := [
+      recycled :=             [ title := this->GetTid(".event-recycled"), icon := ^versions->GetIcon("tollium:status/draft-edit") ],
+      saved :=                [ title := this->GetTid(".event-saved"), icon := ^versions->GetIcon("tollium:actions/save") ],
+      "abandoned-autosave" := [ title := this->GetTid(".event-abandoned-autosave"), icon := ^versions->GetIcon("tollium:actions/cancel") ],
+      "abandoned-draft" :=    [ title := this->GetTid(".event-abandoned-draft"), icon := ^versions->GetIcon("tollium:actions/cancel") ],
+      created :=              [ title := this->GetTid(".event-created"), icon := ^versions->GetIcon("tollium:status/new") ],
+      approved :=             [ title := this->GetTid(".event-approved"), icon := ^versions->GetIcon("tollium:status/checked") ],
+      autosave :=             [ title := this->GetTid(".event-autosave"), icon := ^versions->GetIcon("tollium:actions/save") ],
+      import :=               [ title := this->GetTid(".event-import"), icon := ^versions->GetIcon("tollium:status/new") ],
+      final :=                [ title := this->GetTid(".event-final"), icon := ^versions->GetIcon("tollium:status/checked") ],
+    ];
+    FOREVERY (STRING type FROM whconstant_historytypes)
+      IF(NOT CellExists(this->historytypes, type))
+        THROW NEW Exception("History types mismatch, missing: " || type);
 
     this->Refresh();
     ^versions->SetValueIfValid(data.id);
@@ -107,7 +123,8 @@ PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
 
     RECORD ARRAY rows :=
         SELECT rowkey :=          id
-             , icon :=            type = "approved" ? 2 : 9
+             , historytype_icon:= CellExists(this->historytypes, type) ? GetCell(this->historytypes, type).icon : 0
+             , historytype :=     CellExists(this->historytypes, type) ? GetCell(this->historytypes, type).title : type
              , when
              , filename :=        "n/a"
              , comment :=         "n/a"

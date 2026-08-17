@@ -342,7 +342,7 @@ MACRO DraftingTest() {
     , workflowtypes := ["webhare_testsuite:global.type_clone_ondraft"]
     ]);
     history :=ListObjectHistory(testfile->id,[include_autosaves := TRUE]);
-  dumpvalue(history,'boxed');
+
   TestEq([ on_draft_string := "jolly-good-autosave" ], OpenWHFSObject(history[2].snapshot)->GetInstanceData("webhare_testsuite:global.type_clone_ondraft"));
   TestEq([ on_draft_string := "yet-another-draft" ], OpenWHFSObject(history[3].snapshot)->GetInstanceData("webhare_testsuite:global.type_clone_ondraft"));
   TestEq([ on_draft_string := "yet-another-draft" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_ondraft"));
@@ -531,7 +531,60 @@ MACRO DraftingTest() {
 
   testfw->CommitWork();
   VerifyTSHistory(testfile->id);
+}
 
+MACRO DraftingTestWithCancel() {
+  testfw->BeginWork();
+  testfw->SetTestUser("marge");
+
+  OBJECT testfile := GetTestsuiteTempFolder()->CreateFile(
+    [ name := "withcancel"
+    , data := StringToBlob("I'm a jolly good file")
+    , typens := "http://www.webhare.net/xmlns/publisher/htmlfile"
+    ],[ createdby := testfw->GetUserObject("marge")
+       , instances := [[ whfstype := "webhare_testsuite:global.type_clone_ondraft", on_draft_string := "initial" ]]
+      ]
+    );
+
+  //Start editing this document. Create a private draft (autosave)
+  OBJECT workflowmgr := NEW WorkflowManager(testfile->id,
+    [ user := GetEffectiveUser(),
+      workflowtypes := ["webhare_testsuite:global.type_clone_ondraft"]
+    ]);
+
+  ///////////////////////////
+  // STORY: create two drafts
+
+  workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_ondraft", [ on_draft_string := "draft_0_1" ]);
+  workflowmgr->Save([ finalize := FALSE ]);
+  workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_ondraft", [ on_draft_string := "draft_0_2" ]);
+  workflowmgr->Save([ finalize := FALSE ]);
+
+  RECORD ARRAY history := ListObjectHistory(testfile->id,[include_autosaves := TRUE]);
+  TestEqMembers([ [ type := "created",  version := "0.1", user := testfw->GetUserAuthobjectId("marge"), name := "withcancel" ]
+                , [ type := "saved",    version := "0.2", user := testfw->GetUserAuthobjectId("marge"), name := "withcancel" ]
+                , [ type := "saved",    version := "0.3", user := testfw->GetUserAuthobjectId("marge"), name := "withcancel" ]
+                ], history, "*");
+  TestEq(TRUE, TestFlagFromPublished(OpenWHFSObject(testfile->id)->published, PublishedFlag_HasPublicDraft));
+
+  testfw->CommitWork();
+  VerifyTSHistory(testfile->id);
+
+  ///////////////////////////
+  // STORY: *abandon* the draft
+  testfw->BeginWork();
+  workflowmgr->DiscardDraftAndAutosavedChanges();
+  history := ListObjectHistory(testfile->id,[include_autosaves := TRUE]);
+  TestEqMembers([ [ type := "created",            version := "0.1", user := testfw->GetUserAuthobjectId("marge"), name := "withcancel" ]
+                , [ type := "saved",              version := "0.2", user := testfw->GetUserAuthobjectId("marge"), name := "withcancel" ]
+                , [ type := "saved",              version := "0.3", user := testfw->GetUserAuthobjectId("marge"), name := "withcancel" ]
+                , [ type := "abandoned-draft",    version := "",    user := testfw->GetUserAuthobjectId("marge"), name := "" ]
+                ], history, "*");
+  TestEq(FALSE, TestFlagFromPublished(OpenWHFSObject(testfile->id)->published, PublishedFlag_HasPublicDraft));
+  TestEq("initial", workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_ondraft").on_draft_string, "Discarding the draft should have reverted the workflow data to its original state");
+
+  testfw->CommitWork();
+  VerifyTSHistory(testfile->id);
 }
 
 ASYNC MACRO AutosaveClockTest() {
@@ -830,6 +883,7 @@ ASYNC MACRO ViewHistory() {
 
 RunTestframework([ PTR Prep
                  , PTR DraftingTest
+                 , PTR DraftingTestWithCancel
                  , PTR AutosaveClockTest
                  , PTR NamingTest
                  , PTR UnpublishedSavesTest
