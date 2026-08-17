@@ -92,11 +92,21 @@ function generate_config_file() {
     fi
  fi
 
+ mkdir -p "$WEBHARE_DATAROOT/etc/"
+ WEBHARE_CUSTOMCONFIG="$WEBHARE_DATAROOT/etc/postgresql-custom.conf"
+
+ if [ ! -f "$WEBHARE_CUSTOMCONFIG" ]; then
+   # Make sure something exists so you can modify settings without having to restart postgres (alas, max_connections is not one of those setings)
+   cat >> "$WEBHARE_CUSTOMCONFIG" << HERE
+# Place custom PostgreSQL configuration in this file
+# See https://www.postgresql.org/docs/current/runtime-config-connection.html (but be sure to select the proper version)
+
+# max_connections=1000
+HERE
+ fi
+
  echo "include '$WEBHARE_PGCONFIGFILE'"
-  # include_if_exists generates noise if the file doesn't exist
-  if [ -f "$WEBHARE_DATAROOT/etc/postgresql-custom.conf" ]; then
-    echo "include '$WEBHARE_DATAROOT/etc/postgresql-custom.conf'"
-  fi
+ echo "include '${WEBHARE_DATAROOT}etc/postgresql-custom.conf'"
 }
 
 function ensure_postgres_keys() {

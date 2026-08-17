@@ -419,6 +419,7 @@
       <text tid="cleanup-scheduled">Scheduled at <param p="1"/></text>
       <text tid="cleanupstatus">Status</text>
       <text tid="col">Column</text>
+      <text tid="connections">Connections</text>
       <text tid="debuginfo">Debug info</text>
       <text tid="filename">File name</text>
       <text tid="func">Function</text>
@@ -435,6 +436,7 @@
       <text tid="schedulecleanup">Schedule now</text>
       <text tid="settings">Settings</text>
       <text tid="state">State</text>
+      <text tid="status">Status</text>
       <text tid="surekillbackend">Are you sure you want to terminate this database backend process? The database connection (and with that probably also the script) connecting with this backend will be closed, and any uncommited data will be lost.</text>
       <text tid="tables">Affected tables</text>
       <text tid="trace">Stack trace</text>
@@ -445,6 +447,7 @@
       <text tid="unreferencedblobs">Unreferenced blobs</text>
       <text tid="unreferencedblobsheading">Unreferenced blobs</text>
       <text tid="unreferencednextremoval">Next possible removal</text>
+      <text tid="version">Version</text>
       <text tid="wait_event_type">Wait event type</text>
       <text tid="xact_start">Transaction start</text>
     </textgroup>

@@ -3,6 +3,14 @@ import { getConnection, query, type WHDBConnectionImpl } from "./impl";
 import { decodePostgreSQLWHLogInfo } from "./loginfo";
 import { escapePGIdentifier } from "./metadata";
 
+export async function getDatabaseStatus() {
+  const connections = (await query<{ count: number }>("SELECT COUNT(*) FROM pg_stat_activity")).rows[0].count;
+  const maxConnections = (await query<{ max_connections: number }>("SHOW max_connections")).rows[0].max_connections;
+  const version = await getCurrentPGVersion();
+
+  return { connections, maxConnections, version };
+}
+
 export async function getDatabaseMonitorInfo() {
   const translist = (await query<{
     pid: number;

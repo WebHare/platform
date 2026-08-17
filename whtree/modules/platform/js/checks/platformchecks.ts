@@ -1,7 +1,7 @@
 import { backendConfig, type CheckResult } from "@webhare/services";
 import { listDirectory } from "@webhare/system-tools";
 import { query } from "@webhare/whdb";
-import { getCurrentPGVersion, getDatabaseMonitorInfo } from "@webhare/whdb/src/management";
+import { getDatabaseMonitorInfo, getDatabaseStatus } from "@webhare/whdb/src/management";
 import { readPlatformConf } from "../configure/axioms";
 
 const warnStuckTransactionMinutes = 60;
@@ -29,16 +29,15 @@ async function checkPostgres(): Promise<CheckResult[]> {
     });
   }
 
-  const connections = (await query<{ count: number }>("SELECT COUNT(*) FROM pg_stat_activity")).rows[0].count;
-  const max_connections = (await query<{ max_connections: number }>("SHOW max_connections")).rows[0].max_connections;
-  if (connections >= max_connections / 2) {
+  const status = await getDatabaseStatus();
+  if (status.connections >= status.maxConnections / 2) {
     issues.push({
       type: "platform:checker.pg.toomanyconnections",
-      messageText: `PostgreSQL reports ${connections}/${max_connections} active connections, it might be running out of connections soon`,
+      messageText: `PostgreSQL reports ${status.connections}/${status.maxConnections} active connections, it might be running out of connections soon`,
     });
   }
 
-  const curVersion = (await getCurrentPGVersion()).major;
+  const curVersion = status.version.major;
   const expectVersion = parseInt((await readPlatformConf())["postgres_recommended_major"]);
   if (curVersion <= 13 && process.platform === "darwin") { //then we assume you're using brew which has hard EOLed PG13: ' postgresql@13 has been deprecated! It will be disabled on 2026-03-01.'
     issues.push({

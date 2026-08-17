@@ -229,6 +229,7 @@
       <text tid="cleanup-scheduled">Ingepland op <param p="1"/></text>
       <text tid="cleanupstatus">Status</text>
       <text tid="col">Column</text>
+      <text tid="connections">Verbindingen</text>
       <text tid="debuginfo">Debuginformatie</text>
       <text tid="filename">Bestandsnaam</text>
       <text tid="func">Functie</text>
@@ -245,6 +246,7 @@
       <text tid="schedulecleanup">Nu inplannen</text>
       <text tid="settings">Instellingen</text>
       <text tid="state">Status</text>
+      <text tid="status">Status</text>
       <text tid="surekillbackend">Weet u zeker dat u dit database backend proces wilt beëindigen? De databaseverbinding (en waarschijnlijk daarmee ook het script) die met dit backend proces verbindt zal worden afgesloten, en niet-gecomitte data zal verloren gaan.</text>
       <text tid="tables">Getroffen tabellen</text>
       <text tid="trace">Stack trace</text>
@@ -255,6 +257,7 @@
       <text tid="unreferencedblobs">Niet-gerefereerde blobs</text>
       <text tid="unreferencedblobsheading">Niet-gerefereerde blobs</text>
       <text tid="unreferencednextremoval">Volgende mogelijke verwijdering</text>
+      <text tid="version">Versie</text>
       <text tid="wait_event_type">Wachtevent-type</text>
       <text tid="xact_start">Transactiestart</text>
     </textgroup>
