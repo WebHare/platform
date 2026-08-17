@@ -354,7 +354,10 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase <
       }
       ELSE
       {
-        newmenuitem.__action->onexecute := newmenuitem.onexecute;
+        IF(newmenuitem.onwindowopen != DEFAULT MACRO PTR)
+          newmenuitem.__action->onwindowopen := newmenuitem.onwindowopen;
+        ELSE
+          newmenuitem.__action->onexecute := newmenuitem.onexecute;
       }
       items[#newmenuitem] := newmenuitem;
 
