@@ -16,8 +16,8 @@ type FunctionRef = string | {
 };
 
 // Closes the port when the AsyncWorker goes out of scope
-const portcloser = new FinalizationRegistry((port: TypedMessagePort<object, object>) => {
-  port.close();
+const portcloser = new FinalizationRegistry((port: WeakRef<TypedMessagePort<object, object>>) => {
+  port.deref()?.close();
 });
 
 type AsyncWorkerEvents = {
@@ -99,7 +99,7 @@ export class AsyncWorker extends EventSource<AsyncWorkerEvents> {
     });
     this.refs = new RefTracker(this.worker, { initialref: false });
     this.port.unref();
-    portcloser.register(this, this.port);
+    portcloser.register(this, new WeakRef(this.port));
     initializedWorker();
     const weakThis = new WeakRef(this);
     activeWorkers.add(weakThis);

@@ -384,7 +384,9 @@ export class HareScriptVM implements HSVM_HSVMSource {
         this.wasmmodule._ReleaseHSVM(this.hsvm);
         this.wasmmodule.prepareForReuse();
 
-        enginePool.push(this.wasmmodule);
+        // Limit the numbers of modules in the pool
+        if (enginePool.length < 16)
+          enginePool.push(this.wasmmodule);
 
         this._hsvm = null;
         this._wasmmodule = null;
