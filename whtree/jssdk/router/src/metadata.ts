@@ -1,7 +1,7 @@
 import type { ApplySetMetadata } from "@mod-platform/generated/schema/siteprofile";
-import { typedEntries } from "@webhare/std";
+import { typedEntries, appendToArray } from "@webhare/std";
 import type { DataLayerEntry } from "@webhare/frontend";
-import type { ListItem, Thing } from "schema-dts";
+import type { SchemaOrg } from "@webhare/deps";
 
 const INITIAL_ROBOTS_TAG = {
   noIndex: false,
@@ -25,7 +25,20 @@ export type OpenGraphMetadata = {
   video?: { url: string; type?: string; width?: number; height?: number };
 };
 
-export type StructuredData = Array<Exclude<Thing, string>>;
+export type StructuredDataItem = Exclude<SchemaOrg.Thing, string>;
+export type StructuredData = StructuredDataItem[];
+
+export type NormalizedFaqPage = SchemaOrg.FAQPage & { mainEntity: SchemaOrg.Question[] };
+
+function fixupFAQPage(item: StructuredDataItem): NormalizedFaqPage | null {
+  if (!("mainEntity" in item))
+    return null;
+
+  return {
+    ...structuredClone(item) as NormalizedFaqPage,
+    mainEntity: (Array.isArray(item.mainEntity) ? item.mainEntity : [item.mainEntity]) as unknown as SchemaOrg.Question[]
+  };
+}
 
 /** Manages page level metadata */
 export class PageMetadata {
@@ -82,14 +95,14 @@ export class PageMetadata {
   }
 
   /** Breadcrumb to the current page. Initialized using the targetPath by default, starts at site root and ends at the current targetObject */
-  get breadcrumb(): ListItem[] {
+  get breadcrumb(): SchemaOrg.ListItem[] {
     let crumb = this.structuredData.find(_ => _["@type"] === "BreadcrumbList");
     if (!crumb) {
       crumb = { "@type": "BreadcrumbList" };
       this.structuredData.push(crumb);
     }
     crumb.itemListElement ||= [];
-    return crumb.itemListElement as ListItem[];
+    return crumb.itemListElement as SchemaOrg.ListItem[];
   }
 
   /** Register a prefix on the <html> node
@@ -108,6 +121,37 @@ export class PageMetadata {
       throw new Error(`Prefix '${addPrefix}' already registered with namespace '${alreadyKnownNS}'`);
 
     this.#htmlPrefixes.set(addPrefix.toLowerCase(), [addPrefix, addNamespace]);
+  }
+
+  getFinalStructuredData() {
+    const items = [];
+    let faqPage: NormalizedFaqPage | null = null;
+    for (let item of this.structuredData) {
+      if (item["@type"] === "BreadcrumbList" && Array.isArray(item.itemListElement) && item.itemListElement.length === 0)
+        continue;
+
+      if (item["@type"] === "FAQPage") { //merge FAQPage entries together as one
+        const page = fixupFAQPage(item);
+        if (!page)
+          continue;
+
+        if (faqPage) {
+          //"Expression produces a union type that is too complex to represent.ts(2590)" - so let's keep TS' life easy
+          appendToArray(faqPage.mainEntity as unknown[], page.mainEntity as unknown[]);
+          continue;
+        }
+
+        faqPage = page;
+        item = page;
+      }
+
+      //Add the required @context we didn't ask our users to add
+      items.push({
+        "@context": "https://schema.org",
+        ...item
+      });
+    }
+    return items;
   }
 }
 

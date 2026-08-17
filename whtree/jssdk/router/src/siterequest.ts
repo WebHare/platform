@@ -19,7 +19,7 @@ import { getWHFSObjRef } from "@webhare/whfs/src/support";
 import { isPromise, stringify, throwError, toCLocaleLowercase } from "@webhare/std";
 import { type LegacyResponseInsertable, type ResponseInsertable, type ResponseInsertPoints, type SiteResponse, SiteResponseSettings } from "./sitereponse";
 import { renderRTD } from "@webhare/services/src/richdocument-rendering";
-import { PageMetadata, getOpenGraphData } from "./metadata";
+import { PageMetadata, getOpenGraphData, type StructuredDataItem } from "./metadata";
 import { dbLoc } from "@webhare/services/src/symbols";
 import type { WebHareDBLocation } from "@webhare/services/src/descriptor";
 import { debugFlags, dtapStage, setAssetBase } from "@webhare/env";
@@ -389,6 +389,11 @@ export class CPageRequest {
     return (request: ContentPageRequest) => request.buildWebPage(litty``);
   }
 
+  /** Add a structured data item to the page metadata. This API is the only supported way for widgets to supply structured data */
+  addStructuredData(item: StructuredDataItem) {
+    this.pageMetadata.structuredData.push(item);
+  }
+
   /** Initialize plugins */
   async initializePlugins() {
     if (this.didInitializePlugins)
@@ -535,17 +540,8 @@ export class CPageRequest {
     return '';
   }
 
-  private getFinalStructuredData() {
-    return this.pageMetadata.structuredData.filter(
-      item => item["@type"] !== "BreadcrumbList" || (Array.isArray(item.itemListElement) && item.itemListElement.length > 0) //don't print empty breadcrumbs, useless and fails google's webmaster console
-    ).map(item => ({
-      "@context": "https://schema.org",
-      ...item
-    }));
-  }
-
   private async renderBodyFinale(): Promise<Litty> {
-    const schemaOrgItems = this.getFinalStructuredData();
+    const schemaOrgItems = this.#pageMetadata.getFinalStructuredData();
     // IF (IsRequest() AND IsWHDebugOptionSet("win"))
     //   PrintInvokedWitties();
     //used by dev plugins to ensure they really run last and can catch any resources loaded by body-bottom
@@ -728,14 +724,19 @@ export async function createContentPageRequest(toRender: WHFSObject, options?: C
   return req;
 }
 
-//How well can we isolate widgets (PagePartRequest users) in practice? ideally we won't provide APIs that can cause 2 widgets to conflict with each other
-export type PagePartRequest = Pick<CPageRequest, "renderRTD" | "renderWidget" | "resolveLink" | "targetFolder" | "targetObject" | "targetSite" | "targetPath" | "siteLanguage" | "isLinkedContent" | "isEditorPreview" | "isPublisherPreview">; //TODO need something to determine emailwidgets. IsTargetEmail() ?
-type PageRequestBase = PagePartRequest & Pick<CPageRequest, "setFrontendData" | "setPageBuilderData" | "insertAt" | "webRequest" | "getInstance" | "pageMetadata" | "timings">;
-export type ContentPageRequest = PageRequestBase & Pick<CPageRequest, "buildWebPage" | "getPageRenderer" | "getPlugin" | "initializePlugins" | "applyToCurrentContext">;
-// Plugin API is only visible during PageBuildRequest as we don't want to initialize them it during the page run itself. eg. might still redirect
-export type PageBuildRequest = PageRequestBase & Pick<CPageRequest, "render" | "getPlugin" | "content" | "getPageBuilderData">;
+/** The pagepart request is the part of the PageRequest API that's reasonable safe to use for widgets and RTDs */
+export type PagePartRequest = Pick<CPageRequest,
+  "renderRTD" | "renderWidget" | "resolveLink" |
+  "targetFolder" | "targetObject" | "targetSite" | "targetPath" | "siteLanguage" |
+  "isLinkedContent" | "isEditorPreview" | "isPublisherPreview" | "webRequest" | "getInstance" | "timings" | "addStructuredData" |
+  "getPlugin" | "setFrontendData" | "setPageBuilderData" | "insertAt" | "pageMetadata">; //TODO need something to determine emailwidgets. IsTargetEmail() ?
 
-export type PagePluginRequest = PageRequestBase & Pick<CPageRequest, "getPlugin" | "addPlugin">;
+/** The ContentPageRequest is offered to page renderers (onRenderContent, generally depends on the file type) */
+export type ContentPageRequest = PagePartRequest & Pick<CPageRequest, "buildWebPage" | "getPageRenderer" | "initializePlugins" | "applyToCurrentContext">;
+/** The PageBuildRequest is offered to the page builder (onRenderPage, replaces what HareScript called the 'webdesign') */
+export type PageBuildRequest = PagePartRequest & Pick<CPageRequest, "render" | "content" | "getPageBuilderData">;
+/** The PagePluginRequest is offered to plugins to integrate into a page */
+export type PagePluginRequest = PagePartRequest & Pick<CPageRequest, "addPlugin">;
 
 /** @deprecated SiteRequest will be removed after WH6 */
 export type SiteRequest = Pick<CPageRequest, "createComposer" | "contentObject" | "targetSite" | "targetObject" | "targetFolder" | "webRequest">;

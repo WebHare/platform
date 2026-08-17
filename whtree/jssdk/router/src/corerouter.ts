@@ -14,6 +14,8 @@ import { runHareScriptPage } from "./hswebdesigndriver";
 import { whfsType } from "@webhare/whfs";
 import { Timings, asServerTimingHeader } from "@mod-platform/js/logging/timings";
 import { getCodeContext } from "@webhare/services/src/codecontexts";
+import type { InstanceData, WHFSTypeName, WHFSTypes } from "@webhare/whfs/src/contenttypes";
+import type { PageMetadata, StructuredDataItem } from "./metadata";
 
 export async function lookupPublishedTarget(url: string, options?: whfs.LookupURLOptions) {
   const lookupresult = await whfs.lookupURL(new URL(url), options);
@@ -192,6 +194,10 @@ export async function renderTSWidgetHS(context: {
       pagereq ??= await createContentPageRequest(targetObject);
       return pagereq.resolveLink(link);
     },
+    getInstance: async function <const Type extends keyof WHFSTypes | string & {}>(getType: string extends Type ? Type : WHFSTypeName, options?: { source?: "target" | "content" }): Promise<[Type] extends [WHFSTypeName] ? WHFSTypes[Type]["GetFormat"] : InstanceData> {
+      return whfsType(getType).get(targetObject.id);
+    },
+    webRequest: null,
     targetObject: targetObject,
     targetFolder: targetObject.isFolder ? targetObject : await whfs.openFolder(context.targetfolder),
     targetSite: await whfs.openSite(context.targetsite) as PagePartRequest["targetSite"],
@@ -200,6 +206,15 @@ export async function renderTSWidgetHS(context: {
     siteLanguage: context.sitelanguage,
     isEditorPreview: context.iseditorpreview,
     isPublisherPreview: context.ispublisherpreview,
+    getPlugin: () => { return null; },
+
+    //ignoring structured data, the infrastructure is not there in a HS webdesign
+    addStructuredData(item: StructuredDataItem) { },
+    //other calls we'll specifically abort for now as your TS widget is really too integrated with TS webdesigns then.
+    setFrontendData: () => { throw new Error(`setFrontendData is not supported for TS widgets rendered in HS webdesigns`); },
+    setPageBuilderData: () => { throw new Error(`setPageBuilderData is not supported for TS widgets rendered in HS webdesigns`); },
+    insertAt: () => { throw new Error(`insertAt is not supported for TS widgets rendered in HS webdesigns`); },
+    get pageMetadata(): PageMetadata { throw new Error(`pageMetadata is not supported for TS widgets rendered in HS webdesigns`); },
   };
 
   const result = await renderFunction(pagePartRequest, instance);

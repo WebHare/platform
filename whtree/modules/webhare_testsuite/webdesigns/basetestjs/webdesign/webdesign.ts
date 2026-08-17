@@ -49,7 +49,7 @@ export async function baseTestJSPageBuilder(req: PageBuildRequest): Promise<WebR
 
   //Test schema.org data with the example from https://developers.google.com/search/docs/appearance/structured-data/faqpage
   if (req.targetObject.whfsPath.endsWith("/StaticPage")) {
-    const FAQPage: SchemaOrg.FAQPage = {
+    req.addStructuredData({
       "@type": "FAQPage",
       "mainEntity": [
         {
@@ -59,18 +59,23 @@ export async function baseTestJSPageBuilder(req: PageBuildRequest): Promise<WebR
             "@type": "Answer",
             "text": "<p>We provide an official service to search through available apprenticeships. To get started, create an account here, specify the desired region, and your preferences. You will be able to search through all officially registered open apprenticeships.</p>"
           }
-        }, {
-          "@type": "Question",
-          "name": "Whom to contact?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "You can contact the apprenticeship office through our official phone hotline above, or with the web-form below. We generally respond to written requests within 7-10 days."
-          }
         }
       ]
-    };
-    req.pageMetadata.structuredData.push(FAQPage);
+    } satisfies SchemaOrg.FAQPage);
+
+    req.addStructuredData({
+      "@type": "FAQPage",
+      "mainEntity": {
+        "@type": "Question",
+        "name": "Whom to contact?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "You can contact the apprenticeship office through our official phone hotline above, or with the web-form below. We generally respond to written requests within 7-10 days."
+        }
+      }
+    });
   }
+
   req.pageMetadata.htmlDataSet.test = "test";
   req.pageMetadata.htmlDataSet.otherField = "";
   req.pageMetadata.dataLayer.push({ datalayerpush: 430043004300 });
