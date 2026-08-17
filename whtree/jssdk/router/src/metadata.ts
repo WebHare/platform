@@ -136,7 +136,7 @@ export class PageMetadata {
           continue;
 
         if (faqPage) {
-          //"Expression produces a union type that is too complex to represent.ts(2590)" - so let's keep TS' live easy
+          //"Expression produces a union type that is too complex to represent.ts(2590)" - so let's keep TS' life easy
           appendToArray(faqPage.mainEntity as unknown[], page.mainEntity as unknown[]);
           continue;
         }

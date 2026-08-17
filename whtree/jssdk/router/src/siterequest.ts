@@ -733,7 +733,7 @@ export type PagePartRequest = Pick<CPageRequest,
 
 /** The ContentPageRequest is offered to page renderers (onRenderContent, generally depends on the file type) */
 export type ContentPageRequest = PagePartRequest & Pick<CPageRequest, "buildWebPage" | "getPageRenderer" | "initializePlugins" | "applyToCurrentContext">;
-/** The PageBuildRequest is offered to the page builder (onRenderPage, replaces what HareScript called the 'webedsign') */
+/** The PageBuildRequest is offered to the page builder (onRenderPage, replaces what HareScript called the 'webdesign') */
 export type PageBuildRequest = PagePartRequest & Pick<CPageRequest, "render" | "content" | "getPageBuilderData">;
 /** The PagePluginRequest is offered to plugins to integrate into a page */
 export type PagePluginRequest = PagePartRequest & Pick<CPageRequest, "addPlugin">;
