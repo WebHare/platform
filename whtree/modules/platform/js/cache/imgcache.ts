@@ -3,7 +3,7 @@ import { WorkerPool } from "@mod-system/js/internal/openapi/workerpool";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { createSharpImage, type SharpResizeOptions, type SharpAvifOptions, type SharpColor, type SharpExtendOptions, type SharpGifOptions, type SharpJpegOptions, type SharpPngOptions, type SharpRegion, type SharpWebpOptions, type Sharp } from "@webhare/deps";
 import { debugFlags } from "@webhare/env/src/envbackend";
-import { BackendServiceConnection, LocalCache, logDebug, logError, readLogLines, readRegistryKey, runBackendService, writeRegistryKey } from "@webhare/services";
+import { BackendServiceConnection, LocalCache, logError, readLogLines, readRegistryKey, runBackendService, writeRegistryKey } from "@webhare/services";
 import type { ResizeMethod, WebHareService } from "@webhare/services";
 import { decodeBMP } from "@webhare/services/src/bmp-to-raw";
 import { explainImageProcessing, isValidOutputFormat, suggestImageFormat, type OutputFormatName, type PackableResizeMethod, type ResizeMethodName, type ResourceMetadata } from "@webhare/services/src/descriptor";
@@ -317,8 +317,6 @@ export async function __generateImageForCacheInternal(request: Required<HSImgCac
   const result = await renderImageForCache(request);
   await mkdir(path.dirname(request.path), { recursive: true });
   await storeDiskFile(request.path, result, { overwrite: true });
-
-  logDebug("system:imgcache", { func: "__generateImageForCacheInternal", request });
 }
 
 function scheduleRestart() {
