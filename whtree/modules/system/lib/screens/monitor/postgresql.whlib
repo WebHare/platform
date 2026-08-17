@@ -218,6 +218,10 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLSettings EXTEND DashboardPanelBase <
   UPDATE PUBLIC MACRO RefreshDashboardPanel() {
     ^readonly->value := IsDebugTagEnabled("db-readonly");
     ^logstacktraces->value := IsDebugTagEnabled("pg-logstacktraces");
+
+    RECORD status := CallJS( [ camelcase := TRUE ], "@webhare/whdb/src/management.ts#getDatabaseStatus");
+    ^connections->value := `${status.connections} / ${status.max_connections}`;
+    ^version->value := `PostgreSQL v${status.version.major}.${status.version.minor}`;
   }
 
   MACRO GotBlobManifestChange(STRING event, RECORD data)

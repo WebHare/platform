@@ -92,7 +92,6 @@ function generate_config_file() {
     fi
  fi
 
-set -x
  mkdir -p "$WEBHARE_DATAROOT/etc/"
  WEBHARE_CUSTOMCONFIG="$WEBHARE_DATAROOT/etc/postgresql-custom.conf"
 

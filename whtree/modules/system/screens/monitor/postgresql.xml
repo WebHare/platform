@@ -171,8 +171,13 @@
     <body height="1pr" spacers="none">
       <panel spacers="all">
         <heading tid="~settings" />
-        <checkbox name="readonly" enabled="false" labeltid=".readonly" title="" />
-        <checkbox name="logstacktraces" labeltid=".logstacktraces" onchange="GotLogStackTracesChange" title="" />
+        <lines layout="left">
+          <checkbox name="readonly" enabled="false" labeltid=".readonly" title="" />
+          <checkbox name="logstacktraces" labeltid=".logstacktraces" onchange="GotLogStackTracesChange" title="" />
+        </lines>
+        <heading tid=".status" />
+        <text name="version" />
+        <text name="connections" />
       </panel>
     </body>
   </screen>
