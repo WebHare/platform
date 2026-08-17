@@ -77,10 +77,10 @@ function transformResourceMetadataToHS(resource: ResourceMetadata) {
 }
 
 async function testDiskPath(diskPath: string, fast: boolean, generated: boolean) {
-  console.log(`testing disk path ${diskPath} (fast: ${fast}, generated: ${generated})`);
+  // console.log(`testing disk path ${diskPath} (fast: ${fast}, generated: ${generated})`);
   try {
     const statResult = await fs.stat(diskPath);
-    console.log(`- found`);
+    // console.log(`- found`);
     return {
       modified: statResult.mtime.toTemporalInstant(),
       path: diskPath,
@@ -88,7 +88,7 @@ async function testDiskPath(diskPath: string, fast: boolean, generated: boolean)
       generated
     };
   } catch (e) {
-    console.log(`- not found`);
+    // console.log(`- not found`);
     return null;
   }
 }
@@ -99,7 +99,7 @@ export async function getRawCacheData(xdata: AnalyzedToken, targetmimetype: Outp
   const diskPath = getDiskPath(xdata);
   const item = xdata.item;
 
-  console.log(`getRawCacheData: diskPath=${diskPath}, type=${item.type}, id=${item.id}, cc=${item.cc}, md=${item.md}, ms=${item.ms}, imgdatalen=${item.imgdatalen}`);
+  // console.log(`getRawCacheData: diskPath=${diskPath}, type=${item.type}, id=${item.id}, cc=${item.cc}, md=${item.md}, ms=${item.ms}, imgdatalen=${item.imgdatalen}`);
 
   if (item.type !== unifiedCacheDataTypes.Image) { // embed or file
     if (!skipCache) {
@@ -292,7 +292,7 @@ export async function returnImageForCache(request: HSImgCacheRequest): Promise<s
 
 /* This is the worker entrypoint for unifiedcachehost.whlib to request images. In imgcache-noworkers mode we run in the main thread */
 export async function __generateImageForCacheInternal(request: Required<HSImgCacheRequest>): Promise<void> {
-  console.log(request.path, request.fast, request.targetmimetype);
+  // console.log(request.path, request.fast, request.targetmimetype);
   if (existsSync(request.path)) //already generated
     return;
 
