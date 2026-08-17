@@ -2,7 +2,7 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { createWRDTestSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { loadlib } from "@webhare/harescript";
 import { backendConfig, ResourceDescriptor } from "@webhare/services";
-import { explainImageProcessing, getUCSubUrl, getUnifiedCC, packImageResizeMethod, type ResourceMetadata } from "@webhare/services/src/descriptor";
+import { explainImageProcessing, getUCSubUrl, getUnifiedCC, packImageResizeMethod, unpackImageResizeMethod, type ResourceMetadata } from "@webhare/services/src/descriptor";
 import { beginWork, commitWork } from "@webhare/whdb";
 import { openType } from "@webhare/whfs";
 import { getSharpResizeOptions } from "@mod-platform/js/cache/imgcache";
@@ -334,27 +334,37 @@ async function testResizeMethods() {
 }
 
 async function testImgMethodPacking() {
-  let finalmethod;
-  const unpack = loadlib("wh::graphics/filters.whlib").GfxUnpackImageResizeMethod;
+  let finalHsMethod, finalMethod;
+  const hsUnpack = loadlib("wh::graphics/filters.whlib").GfxUnpackImageResizeMethod;
 
-  finalmethod = await unpack(packImageResizeMethod({ method: "fitcanvas", width: 125, height: 131, format: "keep" }));
-  test.eq({ method: "fitcanvas", setwidth: 125, setheight: 131, format: "keep", bgcolor: 0x00FFFFFF, noforce: true, quality: 0, grayscale: false, fixorientation: true, hblur: 0, vblur: 0 }, finalmethod);
+  finalHsMethod = await hsUnpack(packImageResizeMethod({ method: "fitcanvas", width: 125, height: 131, format: "keep" }));
+  test.eq({ method: "fitcanvas", setwidth: 125, setheight: 131, format: "keep", bgcolor: 0x00FFFFFF, noforce: true, quality: 0, grayscale: false, fixorientation: true, hblur: 0, vblur: 0 }, finalHsMethod);
+  finalMethod = unpackImageResizeMethod(new Uint8Array(packImageResizeMethod({ method: "fitcanvas", width: 125, height: 131, format: "keep" })));
+  test.eq({ method: "fitcanvas", width: 125, height: 131, format: "keep", bgColor: "transparent", noForce: true, quality: 0, grayscale: false, blur: 0 }, finalMethod);
 
-  finalmethod = await unpack(packImageResizeMethod({ method: "none", format: "keep" }));
-  test.eq(true, finalmethod.fixorientation);
-  test.eq("keep", finalmethod.format);
+  finalHsMethod = await hsUnpack(packImageResizeMethod({ method: "none", format: "keep" }));
+  test.eq(true, finalHsMethod.fixorientation);
+  test.eq("keep", finalHsMethod.format);
+  finalMethod = unpackImageResizeMethod(new Uint8Array(packImageResizeMethod({ method: "none", format: "keep" })));
+  test.eq("keep", finalMethod?.format);
 
-  finalmethod = await unpack(packImageResizeMethod({ method: "none", format: "image/png" }));
-  test.eq(true, finalmethod.fixorientation);
-  test.eq("image/png", finalmethod.format);
+  finalHsMethod = await hsUnpack(packImageResizeMethod({ method: "none", format: "image/png" }));
+  test.eq(true, finalHsMethod.fixorientation);
+  test.eq("image/png", finalHsMethod.format);
+  finalMethod = unpackImageResizeMethod(new Uint8Array(packImageResizeMethod({ method: "none", format: "image/png" })));
+  test.eq("image/png", finalMethod?.format);
 
-  finalmethod = await unpack(packImageResizeMethod({ method: "none", format: "image/gif" }));
-  test.eq(true, finalmethod.fixorientation);
-  test.eq("image/gif", finalmethod.format);
+  finalHsMethod = await hsUnpack(packImageResizeMethod({ method: "none", format: "image/gif" }));
+  test.eq(true, finalHsMethod.fixorientation);
+  test.eq("image/gif", finalHsMethod.format);
+  finalMethod = unpackImageResizeMethod(new Uint8Array(packImageResizeMethod({ method: "none", format: "image/gif" })));
+  test.eq("image/gif", finalMethod?.format);
 
-  finalmethod = await unpack(packImageResizeMethod({ method: "none", blur: 4321, format: "keep" }));
-  test.eq(4321, finalmethod.hblur);
-  test.eq(4321, finalmethod.vblur);
+  finalHsMethod = await hsUnpack(packImageResizeMethod({ method: "none", blur: 4321, format: "keep" }));
+  test.eq(4321, finalHsMethod.hblur);
+  test.eq(4321, finalHsMethod.vblur);
+  finalMethod = unpackImageResizeMethod(new Uint8Array(packImageResizeMethod({ method: "none", blur: 4321, format: "keep" })));
+  test.eq(4321, finalMethod?.blur);
 }
 
 async function testImgCacheTokens() {
@@ -398,14 +408,28 @@ async function testImgCacheTokens() {
   test.eqPartial({ item: { type: 1, id: 123, cc: 456, resizemethod: { method: 'fill', setwidth: 25, setheight: 25, quality: 85 } } }, await analyze(jpegJsTokExplicit85, '.jpg'));
 }
 
-async function fetchUCLink(url: string, expectType: string) {
-  const finalurl = new URL(url, backendConfig.backendURL).href;
+async function attemptFetch(finalurl: string, expectType: string) {
   const fetchResult = await fetch(finalurl);
   test.eq(200, fetchResult.status, `Failed to fetch ${finalurl}`);
-  test.eq(expectType, fetchResult.headers.get("content-type"));
+
+  const contentType = fetchResult.headers.get("content-type") || '';
+  const cacheControl = fetchResult.headers.get("cache-control") || '';
   const fetchBuffer = await fetchResult.arrayBuffer();
+
+  if (contentType === "image/jpeg" && contentType !== expectType && !cacheControl.includes("immutable"))
+    return null; //this was a fast result, wait for the final
+
+  return { contentType, cacheControl, fetchBuffer, fetchResult };
+}
+
+async function fetchUCLink(url: string, expectType: string) {
+  const finalurl = new URL(url, backendConfig.backendURL).href;
+
+  const { contentType, cacheControl, fetchBuffer, fetchResult } = await test.wait(() => attemptFetch(finalurl, expectType), { annotation: `Waiting for ${finalurl} to be available with content-type ${expectType}` });
+
+  test.eq(expectType, contentType);
   const fetchData = await ResourceDescriptor.from(Buffer.from(fetchBuffer), { getImageMetadata: true, getHash: true });
-  return { resource: fetchData, finalurl, fetchBuffer };
+  return { resource: fetchData, finalurl, fetchBuffer, cacheControl, contentType, lastModified: fetchResult.headers.get("Last-Modified") };
 }
 
 async function compareSharpImages(expect: Sharp | string, actual: Sharp, { minMSE = 0, maxMSE = 0 } = {}) {
@@ -473,8 +497,25 @@ async function testImgCache() {
   //convert to AVIF using imagecache
   const wrappedGoldfishAvif = goldfishpng.data.toResized({ method: "none", format: "image/avif" });
   test.eq(/\/goudvis\.avif$/, wrappedGoldfishAvif.link, "Should not contain 'png' in the name");
+  //however if we download it... we'll see a JPEG first!
+  const dlFishAvifFast = await fetchUCLink(wrappedGoldfishAvif.link, "image/jpeg");
+  await compareSharpImages(imgFishPng, await createSharpImage(dlFishAvifFast.fetchBuffer), { maxMSE: 15 }); //higher MSE for the quick JPEG
+  console.log(`${dlFishAvifFast.finalurl} (now an ${dlFishAvifFast.contentType})`);
+  test.eq("public, max-age=60", dlFishAvifFast.cacheControl);
+  test.assert(dlFishAvifFast.lastModified, "Expected Last-Modified header to be set for the fast JPEG result");
+
+  //as fast JPEGs go through a dynamic path they need to implement 304 handling themselves. verify they did it right:
+  const dlFishAvifFastCheck304 = await fetch(dlFishAvifFast.finalurl, { headers: { "If-Modified-Since": dlFishAvifFast.lastModified! } });
+  test.eq(304, dlFishAvifFastCheck304.status, `Expected 304 Not Modified for ${dlFishAvifFast.finalurl} with If-Modified-Since: ${dlFishAvifFast.lastModified}`);
+
+  //this will trigger a process to eventually create an AVIF. fetchUCLink willl wait for that AVIF
   const dlFishAvif = await fetchUCLink(wrappedGoldfishAvif.link, "image/avif");
   await compareSharpImages(imgFishPng, await createSharpImage(dlFishAvif.fetchBuffer), { maxMSE: 0.20 });
+  test.eq("public, max-age=31536000, immutable", dlFishAvif.cacheControl);
+
+  //And verify that the AVIF also implements 304 handling correctly
+  const dlFishAvifCheck304 = await fetch(dlFishAvif.finalurl, { headers: { "If-Modified-Since": dlFishAvif.lastModified! } });
+  test.eq(304, dlFishAvifCheck304.status, `Expected 304 Not Modified for ${dlFishAvif.finalurl} with If-Modified-Since: ${dlFishAvif.lastModified}`);
 
   //verify compatibility setting does something
   const snowBeagleAvif10 = await fetchUCLink(snowbeagle.data.toResized({ method: "none", format: "image/avif", quality: 10 }).link, "image/avif");

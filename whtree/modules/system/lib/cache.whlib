@@ -98,6 +98,7 @@ PUBLIC RECORD FUNCTION GetCachedDataFromURL(STRING url, RECORD options DEFAULTST
           STRING jsresulttxt :=
                   CallJS("@mod-platform/js/cache/imgcache.ts#returnImageForCache",
                   CELL[ ...info
+                      , targetmimetype := mimetype //FIXME this will be pretty slow if the targetmimetype is avif.
                       , DELETE data //don't transfer the raw blob, receiver can cheat and use the PGBLOBID
                       , analyzed.item
                       ]);

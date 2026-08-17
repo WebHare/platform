@@ -3,12 +3,16 @@
 
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::graphics/filters.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/services.whlib";
 LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
+LOADLIB "mod::system/lib/internal/cluster/logwriter.whlib";
 LOADLIB "mod::system/lib/internal/webserver/errorhandler.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/webserver/errors.whlib";
@@ -35,13 +39,16 @@ LOADLIB "mod::system/lib/webserver/errors.whlib";
   /uc/f9a/application/zip/<filetoken><extension>
 */
 
-RECORD FUNCTION GetMimeType(STRING extension)
-{
+CONSTANT INTEGER signal_imagequeue_interval_secs := 60;
+CONSTANT INTEGER remember_urls_secs := 10 * 60; // 10 minutes
+
+RECORD FUNCTION GetMimeType(STRING extension) {
   OBJECT trans := OpenPrimary();
   STRING mimetype := (SELECT AS STRING mimetypes.mimetype FROM system.mimetypes WHERE mimetypes.extension = Substring(VAR extension,1)) ?? "application/octet-stream";
   trans->Close();
   RETURN [ value := mimetype
-         , ttl := 5 * 60 * 1000 //ADDME flush on mimetype table change
+         , masks := [ "system:mimetypes" ]
+         , ttl := 24 * 60 * 60 * 1000
          ];
 }
 
@@ -76,56 +83,82 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase <
     RETURN res.data;
   }
 
-  RECORD FUNCTION GetCacheRawData(RECORD data) {
+  RECORD FUNCTION TestDiskPath(STRING path, BOOLEAN fast, BOOLEAN generated) {
+    TRY
+    {
+      BLOB diskfile := GetDiskResource(path);
+      RECORD fileinfo := GetDiskFileProperties(path);
+
+      IF(this->trace)
+        Print(`Disk name: ${path}, size: ${Length(diskfile)} bytes, last modified: ${FormatHTTPDatetime(fileinfo.modified)}\n`);
+
+      RETURN CELL[ modified := fileinfo.modified
+                 , data := diskfile
+                 , path
+                 , fast
+                 , generated
+                 ];
+    }
+    CATCH(OBJECT e)
+    {
+      IF(this->trace)
+        Print("Disk name: " || path || " not present: " || e->what || "\n");
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION GetCacheRawData(RECORD data, STRING targetmimetype, BOOLEAN allowfast) {
     BOOLEAN skipcache := IsDebugTagEnabled("wst=platform:unifiedcache");
+
 
     //Get the path for this image
     STRING path := this->GetDiskPath(data);
+    STRING usepath := path;
     BLOB diskfile;
-    IF (NOT this->force AND NOT skipcache)
-    {
-      TRY
-      {
-        diskfile := GetDiskResource(path);
-        IF(this->trace)
-          Print("Disk name: " || path || " " || Length(diskfile) || " bytes\n");
+    BOOLEAN fast;
+    BOOLEAN tryfastpath := allowfast AND data.datatype = 1 AND targetmimetype IN ["image/avif"];
+    RECORD cachedversion;
 
-        RECORD fileinfo := GetDiskFileProperties(path);
-        RETURN [ modified := fileinfo.modified
-               , data := diskfile
-               ];
-      }
-      CATCH(OBJECT e)
-      {
-        IF(this->trace)
-          Print("Disk name: " || path || " not present: " || e->what || "\n");
+    IF (NOT this->force AND NOT skipcache) {
+      cachedversion := this->TestDiskPath(path, FALSE, FALSE);
+
+      IF(RecordExists(cachedversion))
+        RETURN cachedversion;
+
+      IF(tryfastpath) { //try a fast image if the proper image isn't ready yet
+        usepath := Left(path, Length(path) - Length(GetExtensionFromPath(path))) || ".jpg";
+        fast := TRUE;
+        cachedversion := this->TestDiskPath(usepath, fast, FALSE);
+        IF(RecordExists(cachedversion))
+          RETURN cachedversion; //return that
       }
     }
 
-    /* Need to create it. To prevent peaks, create at most 4 images at a time. TODO It would be even better if we could terminate
-       and delay the request for a 100ms or so, or just 503 if load gets real high.. Local locks are faster and safe as we atomically
-       overwrite the end result file anyway. Worst case we spent a bit of unneeded work regenerating an image another webserver was */
-    INTEGER imagebucket := GetByteValue(GetMD5Hash(path)) % 4;
-    OBJECT lock := OpenLocalLockManager()->LockLocalMutex("system:unifedcachehost_" || imagebucket);
+    /* Convert max 4 images concurrently */
+    OBJECT lock := OpenLocalLockManager()->LockLocalSemaphore("system:unifiedcachehost", 4);
 
-    //TODO we might not need to do temporary files ourselves. StoreDiskFile's overwrite mode does an atomic replace by default
-    INTEGER imghandle;
     TRY {
       RECORD dbdata := LookupDataForUnifiedURL(data.item);
       IF (this->trace)
-        DumpValue(dbdata, "tree");
+        DumpValue(CELL[ dbdata, fast ], [ format := "tree", name := "Database data" ]);
 
       //If we get here, the url was validated and the item was not rejected
-      IF(data.datatype = 1 AND (data.item.resizemethod.format IN ["image/webp","image/avif"] OR dbdata.mimetype IN ["image/webp","image/avif"])) {
-        RECORD req := CELL[ ...dbdata
-              , DELETE data //don't transfer the raw blob, receiver can cheat and use the PGBLOBID
-              , data.item
-              , path
-              ];
+      IF(tryfastpath OR (data.datatype = 1 AND (targetmimetype IN ["image/webp","image/avif"] OR dbdata.mimetype IN ["image/webp","image/avif"]))) {
+        //Request needs to match HSImgCacheRequest
+        RECORD req := CELL[
+          ...dbdata,
+          targetmimetype,
+          DELETE data, //don't transfer the raw blob, receiver can cheat and use the PGBLOBID
+          data.item,
+          path,
+          fast,
+        ];
+
         TRY {
           __OpenSynchronousWebHareService("platform:unifiedcache")->generateImageForCache(req);
         } CATCH(OBJECT e) {
           TRY {
+            //retry in case connection raced against a restarting unifiedcache service
             __OpenSynchronousWebHareService("platform:unifiedcache")->generateImageForCache(req);
             LogDebug("system:unifiedcache", [ retrysuccess := TRUE, exc1 := e->what ]);
           } CATCH(OBJECT f) {
@@ -149,14 +182,9 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase <
       lock->Release();
     }
 
-    DATETIME modified := GetDiskFileProperties(path).modified;
-
     IF(this->trace)
-      Print("Image is generated. Last modified: " || FormatHTTPDatetime(modified) || "\n");
-
-    RETURN CELL[ modified
-           , data := GetDiskResource(path)
-           ];
+      Print("Image is generated\n");
+    RETURN this->TestDiskPath(usepath, fast, TRUE);
   }
 
   MACRO FailRequest(STRING why, BOOLEAN badurl)
@@ -169,6 +197,57 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase <
     IF(badurl)
       AddHTTPHeader("Cache-Control", "public, max-age=86400", FALSE); //not immutable, give us a chance to fix eg broken encryption secret
     AbortWithHTTPError(404, why);
+  }
+
+  MACRO QueueImage(RECORD img) {
+    /* When a fast image is found, queue it for conversion to the proper format.
+       - duplicate logging and signalling is not a problem, but we try to avoid it for efficiency - so no locking needed
+       - seen urls are remembered in blocks of `remember_urls_secs` seconds, to reduce duplicate logging
+       - force logging for newly generated images, in case the cache was cleared
+       - signal once `remember_urls_secs` seconds to avoid signalling overhead (the conversion process
+         will check repeatedly in the waiting period)
+       - use adhoccache raw operations for data store
+    */
+
+    // Remember logged urls in periods of remember_urls_secs
+    DATETIME now := GetCurrentDateTime();
+    DATETIME period := GetRoundedDateTime(now, remember_urls_secs * 1000);
+    RECORD admin := (LookupAdhocCached(CELL[ "ratelimit_imagequeue" ]) ?? [
+      value := CELL[ period, urls := STRING[], lastsignal := DEFAULT DATETIME ]
+    ]).value;
+    IF (admin.period != period) {
+      admin.period := period;
+      admin.urls := STRING[];
+    }
+
+    // Skip if already logged in this block of 10 minutes
+    STRING url := GetRequestUrl();
+    RECORD pos := LowerBound(admin.urls, url);
+    BOOLEAN should_log;
+    IF (NOT pos.found) {
+      IF (this->trace)
+        PRINT(`Image is a temporary, logging URL to imagequeue\n`);
+      INSERT url INTO admin.urls AT pos.position;
+      should_log := TRUE;
+    } ELSE IF (img.generated) {
+      // Url was already logged in this period, but regenerated - probably the cache was cleared. Trigger regen.
+      IF (this->trace)
+        PRINT(`Image is a newly generated temporary but already logged in this period - logging again (maybe cache was cleared)\n`);
+      should_log := TRUE;
+    } ELSE IF (this->trace)
+      PRINT(`Temporary image URL was already logged in this period (ends at ${FormatISO8601DateTime(AddTimeToDate(remember_urls_secs * 1000, period))}), not logging again\n`);
+
+    IF (should_log) {
+      LogToJSONLog("system:imagequeue", CELL[ url ]);
+      // Always signal for new images (processing was slow anyway)
+      IF (img.generated OR admin.lastsignal < AddTimeToDate(-signal_imagequeue_interval_secs * 1000, now)) {
+        IF (this->trace)
+          PRINT(`Signalling imagequeue handler\n`);
+        admin.lastsignal := now;
+        __OpenSynchronousWebHareService("platform:unifiedcache")->signalImagesQueued(signal_imagequeue_interval_secs);
+      }
+      StoreAdhocCached(CELL[ "ratelimit_imagequeue" ], CELL[ value := admin, ttl := remember_urls_secs * 1000 ]);
+    }
   }
 
   PUBLIC MACRO HandleRequest()
@@ -187,25 +266,42 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase <
         this->FailRequest("Could not parse urltoken", TRUE);
 
       IF(this->trace)
-        DumpValue(analyzed,'tree');
+        DumpValue(analyzed, CELL[ name := "Analyzed token", format := "tree" ]);
 
-      RECORD img := this->GetCacheRawData(analyzed);
+      // Get the desired mimetype
+      STRING mimetype := GetAdhocCached(CELL[ analyzed.extension ], PTR GetMimeType(analyzed.extension));
+
+      RECORD img := this->GetCacheRawData(analyzed, mimetype, TRUE);
       IF(this->trace)
-        DumpValue(img,'tree');
+        DumpValue(img, [ name := "Cached raw data", format := "tree" ]);
 
-      STRING mimetype := GetAdhocCached([ extension := analyzed.extension], PTR GetMimeType(analyzed.extension));
+      IF (img.fast)
+        this->QueueImage(img);
 
-      AddHTTPHeader("Status", "200", FALSE);
       IF(this->trace)
       {
-        Print("Generated image of " || Length(img.data) || " bytes with mimetype " || mimetype || "\n");
+        Print(`Found ${img.fast ? "temporary " : ""}image of ` || Length(img.data) || " bytes with mimetype " || (img.fast ? "image/jpeg" : mimetype) || "\n");
+        AddHTTPHeader("Status", "200", FALSE);
       }
       ELSE
       {
-        AddHTTPHeader("Cache-Control", "public, max-age=31536000, immutable", FALSE);
-        AddHTTPHeader("Content-Type", mimetype, FALSE);
+        DATETIME ims := MakeDateFromText(GetWebHeader("If-Modified-Since"));
+        BOOLEAN is_not_modified := ims != DEFAULT DATETIME AND GetRoundedDatetime(img.modified,1000) <= ims;
+        AddHTTPHeader("Status", is_not_modified ? "304" : "200", FALSE);
+
+        IF(img.fast) {
+          AddHTTPHeader("Cache-Control", "public, max-age=60", FALSE);
+          AddHTTPHeader("Content-Type", "image/jpeg", FALSE);
+        } ELSE {
+          AddHTTPHeader("Cache-Control", "public, max-age=31536000, immutable", FALSE);
+          AddHTTPHeader("Content-Type", mimetype, FALSE);
+        }
         AddHTTPHeader("Last-Modified", FormatHTTPDatetime(img.modified), FALSE);
-        SendWebFile(img.data);
+
+        IF (is_not_modified)
+          SendWebFile(DEFAULT BLOB);
+        ELSE
+          SendWebFile(img.data);
       }
     }
     CATCH(OBJECT e)

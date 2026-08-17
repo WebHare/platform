@@ -1491,6 +1491,9 @@ Add the name of the type of data (for example "headerimages") or the purpose it 
           <string name="allowfullnamemasks" description="Semicolon-separated list of fullname masks for test persons" />
         </node>
       </node>
+      <node name="imagequeue">
+        <string name="checkpoint" description="Current imagequeue checkpoint" />
+      </node>
     </node>
     <obsoletenode name="sysmgmt" />
     <obsoletenode name="development" />
@@ -1581,6 +1584,7 @@ Add the name of the type of data (for example "headerimages") or the purpose it 
     <log name="notice" filename="notice" timestamps="false" />
     <log name="accounting" filename="accounting" timestamps="false" />
     <log name="apicalls" filename="apicalls" timestamps="false" />
+    <log name="imagequeue" filename="imagequeue" timestamps="false" />
   </logging>
 
   <development>

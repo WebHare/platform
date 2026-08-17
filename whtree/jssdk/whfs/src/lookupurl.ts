@@ -7,7 +7,7 @@ import { selectFSHighestParent, selectFSLink, selectSitesWebRoot } from "@webhar
 import { isPublish, PublishedFlag_StripExtension, testFlagFromPublished } from "./support";
 import { parse } from "path";
 import { whfsType } from "./contenttypes";
-import { getUCPacketHash } from "@webhare/services/src/descriptor";
+import { analyzeUnifiedURLToken } from "@webhare/services/src/unifiedcache";
 
 declare module "@webhare/services" {
   interface ServerEncryptionScopes {
@@ -42,68 +42,6 @@ export type LookupURLResult = {
   /** Any additional path, query string and/or hash appended to the URL */
   append: string | null;
 };
-
-function getUnifiedURLTokenParts(token: string) {
-  let datatype = 0;
-  let extension = '';
-  let filename = '';
-  let urlpart = '';
-
-  const qpos = token.indexOf('?');
-  if (qpos >= 0)
-    token = token.substring(0, qpos);
-
-  let datatoken = '';
-  urlpart = token;
-
-  if (token.startsWith("i")) {
-    datatype = 1;
-  } else if (token.startsWith("f")) {
-    datatype = 2;
-  }
-
-  if (datatype > 0) {
-    // <i|f><token>/<filename><.extension>
-    const slashpos = token.indexOf("/");
-    datatoken = token.substring(1, slashpos);
-
-    // Get extension from end of url part
-    const extensionstart = token.lastIndexOf('.');
-    if (extensionstart > slashpos) {
-      extension = token.substring(extensionstart);
-      token = token.substring(0, extensionstart);
-    }
-
-    // Get filename, and ignore slashes
-    filename = decodeURIComponent(token.substring(slashpos + 1).split('/')[0] + extension); // ignore multiple slashes
-
-    // Build a canonical url-part
-    urlpart = token[0] + datatoken + "/" + filename;
-  }
-  return { datatoken, datatype, extension, filename, urlpart };
-}
-
-function analyzeUnifiedURLToken(token: string) {
-  const data = getUnifiedURLTokenParts(token);
-  if (!data.datatoken)
-    return null;
-
-  const tohash = Buffer.from(data.datatoken, 'hex').subarray(4);
-  const expectedhash = getUCPacketHash(tohash, data.extension);
-  if (expectedhash !== data.datatoken.substring(0, 8))
-    return null;
-
-  return decodeUnifiedData(tohash);
-}
-
-function decodeUnifiedData(imgtok: Uint8Array) {
-
-  //TODO we have much more to decode than type + id.. See also getUCSubUrl
-  const view = new DataView(imgtok.buffer, imgtok.byteOffset, imgtok.byteLength);
-  if (view.getUint8(0) !== 1) //version 1
-    return null;
-  return { type: view.getUint8(1), id: view.getUint32(2, true) }; //type + id
-}
 
 export function getLongestValidDecodedString(url: string): string | null {
   let decoded: string | null = null;
@@ -208,7 +146,7 @@ export async function lookupURL(url: URL, options?: LookupURLOptions): Promise<L
 
   if (url.pathname.startsWith("/.wh/ea/uc/")) {
     const tok = url.pathname.substring(11);
-    const dec = analyzeUnifiedURLToken(tok);
+    const dec = analyzeUnifiedURLToken(tok)?.item;
     let objinfo;
 
     if (dec?.type === 2) { //WHFS Setting id
