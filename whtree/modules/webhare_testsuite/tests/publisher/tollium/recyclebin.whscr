@@ -103,7 +103,7 @@ OBJECT ASYNC FUNCTION TestRecycleBin()
   topscreen->frame->focused := TT("filelist");
   TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name="recycleme";
   AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
-  TestEq(TRUE, TT("notpublished")->visible);
+  TestEq(FALSE, TTIsVisible("notpublished")); //it's an unknown file type - and those are publishable...
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   //Test that we can't access ojects outside this site
@@ -141,6 +141,11 @@ OBJECT ASYNC FUNCTION TestRecycleBin()
 
   //What if we restore the recycledsubfile? it should fail as its target folder is gone
   TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name="recycledsubfile";
+
+  //Check its properties. we regressed here due to getApplyTesterForObject accessing a deleted folder
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Properties"));
+  TestEq("recycledsubfile", TT("name")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTEScape);
 
   AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("restore"), [ messagemask := "*original location*deleted*" ]);
 
