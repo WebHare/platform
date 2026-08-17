@@ -1,4 +1,4 @@
-import { frontendConfig, setupFormAnalytics, setupWebHareSSOTrigger, setupWRDAuth } from "@webhare/frontend";
+import { getSiteRoot, setupFormAnalytics, setupWebHareSSOTrigger, setupWRDAuth } from "@webhare/frontend";
 import { isHTMLElement, register } from "@webhare/dompack";
 import "@webhare/frontend/styling/reset.css";
 import "@webhare/tollium-iframe-api/styling/tollium.css";
@@ -30,7 +30,7 @@ if (document.documentElement.classList.contains('wh-shell')) {
     // Open external links in new window
     if (isHTMLElement(event.target) && event.target.nodeName === "A") {
       const href = (event.target as HTMLAnchorElement).href;
-      if (!href.startsWith(frontendConfig.siteroot)) {
+      if (!href.startsWith(getSiteRoot())) {
         window.open(href, "_blank", "noopener noreferrer");
         event.preventDefault();
       }

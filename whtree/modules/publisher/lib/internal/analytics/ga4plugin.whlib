@@ -10,11 +10,10 @@ PUBLIC STATIC OBJECTTYPE GoogleAnalytics4Plugin EXTEND WebDesignPluginBase
   OBJECT webdesign;
   STRING __account;
   STRING __integration;
-  BOOLEAN __anonymizeip;
+  PUBLIC BOOLEAN anonymizeip;
 
   PUBLIC PROPERTY account(__account, SetAccount);
   PUBLIC PROPERTY integration(__integration, SetIntegration);
-  PUBLIC PROPERTY anonymizeip(__anonymizeip, SetAnonymizeIP);
 
   UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
   {
@@ -36,7 +35,6 @@ PUBLIC STATIC OBJECTTYPE GoogleAnalytics4Plugin EXTEND WebDesignPluginBase
 
     this->__account := config.account;
     this->__integration := config.integration;
-    this->__anonymizeip := config.anonymizeip;
   }
 
   //UPDATE PUBLIC MACRO DatalayerPush(RECORD instruction)
@@ -73,10 +71,8 @@ PUBLIC STATIC OBJECTTYPE GoogleAnalytics4Plugin EXTEND WebDesignPluginBase
       config := [ a := this->__account ];
       IF(this->__integration = "manual")
         INSERT CELL m := 1 INTO config;
-      IF(NOT this->__anonymizeip)
-        INSERT CELL ip := 1 INTO config;
     }
-    this->webdesign->SetJSPluginConfig("ga4", config);
+    this->webdesign->SetJSPluginConfig("platform:ga4", config);
   }
   MACRO SetAccount(STRING newaccount)
   {
@@ -94,15 +90,6 @@ PUBLIC STATIC OBJECTTYPE GoogleAnalytics4Plugin EXTEND WebDesignPluginBase
     this->__integration := newintegration;
     this->SetupPluginConfig();
   }
-  MACRO SetAnonymizeIP(BOOLEAN newanoymizeip)
-  {
-    IF(this->webdesign->startedrendering)
-      THROW NEW Exception("The GA4 integration cannot be modified when the page has started rendering - update should have been done in the prepare phase");
-
-    this->__anonymizeip := newanoymizeip;
-    this->SetupPluginConfig();
-  }
-
   UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
   {
     this->SetupPluginConfig();
@@ -119,10 +106,9 @@ PUBLIC STATIC OBJECTTYPE GoogleAnalytics4Plugin EXTEND WebDesignPluginBase
     IF(this->__account = "" OR this->__integration != "inpage" OR webdesign->ispreviewpage)
       RETURN;
 
-    RECORD settings := [ anonymize_ip := this->__anonymizeip ];
     BOOLEAN compact := webdesign->wittyencoding LIKE "*-NI";
     //Both tags want the ID... my guess the first one is just for measure noscript hits
     Print(`${compact?"":"\n"}<script async src="https://www.googletagmanager.com/gtag/js?id=${EncodeURL(this->__account)}"></script>`
-          || `${compact?"":"\n"}<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js', new Date());gtag('config', '${EncodeJava(this->__account)}', ${EncodeJSON(settings)});</script>${compact?"":"\n"}`);
+          || `${compact?"":"\n"}<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js', new Date());gtag('config', '${EncodeJava(this->__account)}', {anonymize_ip:true});</script>${compact?"":"\n"}`);
   }
 >;

@@ -8,7 +8,7 @@ import * as pwadb from '@mod-publisher/js/pwa/internal/pwadb';
 // when developing, to explicitly recompile our package: wh assetpack compile publisher:pwaserviceworker
 import { generateRandomId, throwError } from "@webhare/std";
 import type { IDBPDatabase } from 'idb';
-import type { WHConfigScriptData } from '@webhare/frontend/src/init';
+import type { WHConfigSerializedData } from '@webhare/frontend/src/init';
 
 export type PWACheckVersionResponse = {
   needsupdate: boolean;
@@ -121,10 +121,10 @@ async function setSwStoreValue(key: string, value: unknown) {
   }
 }
 
-function getWHConfig(pagetext: string): WHConfigScriptData {
+function getWHConfig(pagetext: string): WHConfigSerializedData {
   //extract and parse the wh-config tag. don't expect quotes to be there, they may be minified away
   const extractWHConfig = pagetext.match(/<script type="?application\/json"? id="?wh-config"?>([\s\S]*?)<\/script>/);
-  return JSON.parse(extractWHConfig?.[1] ?? '{}') as WHConfigScriptData;
+  return JSON.parse(extractWHConfig?.[1] ?? '{}') as WHConfigSerializedData;
 }
 
 function getPWASettings(pagetext: string): PublishedPWASSettings {

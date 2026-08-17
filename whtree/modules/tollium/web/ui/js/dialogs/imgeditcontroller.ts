@@ -1,7 +1,6 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import * as whintegration from '@mod-system/js/wh/integration';
 import { getTid } from "@webhare/gettid";
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 import type { ObjFrame } from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
@@ -13,6 +12,7 @@ import "../../components/imageeditor/imageeditor.lang.json";
 import type { ImageSurfaceSettings } from "../../components/imageeditor/surface";
 import type { ToolbarPanel } from '../../components/toolbar/toolbars';
 import type { UIBusyLock } from '@webhare/dompack';
+import { checkeredBackground } from "../support";
 
 export { type RefPoint } from "../../components/imageeditor";
 
@@ -259,7 +259,7 @@ class ImgeditDialogController {
       getBusyLock: () => this.dialog!.lockScreen(),
       setStatus: this._setStatus.bind(this),
       setModalLayerOpacity: this._setModalLayerOpacity.bind(this),
-      editorBackground: "#ffffff url(" + whintegration.config.obj.checkered_background + ") top left"
+      editorBackground: `#ffffff url(${checkeredBackground}) top left`
     };
 
     this.editor = new ImageEditor(container, options);

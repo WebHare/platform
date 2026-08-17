@@ -262,7 +262,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase <
       , profiling        := this->profiling
       , memoryprofiling  := this->memoryprofiling
       , frontendid       := this->frontendid
-      , checkered_background := checkered_background
       , jsversion        := this->jsversion
       ];
 

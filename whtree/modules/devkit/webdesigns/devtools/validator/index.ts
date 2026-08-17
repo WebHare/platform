@@ -90,8 +90,8 @@ export function scanCommonErrors() {
     const whconfig = JSON.parse(whconfigel.textContent!);
     if (whconfig["socialite:gtm"] && !window.dataLayer)
       errorOnce("datalayer", "<gtm> plugin has been configured for assetpacks or selfhosting, but @mod-publisher/js/analytics/gtm is not loaded");
-    if (whconfig["ga4"] && !("gtag" in window))
-      errorOnce("ga4", "<googleanalytics4> plugin has been configured but @mod-publisher/js/analytics/ga4 is not loaded");
+    if (whconfig["platform:ga4"] && !("gtag" in window))
+      errorOnce("platform:ga4", "<googleanalytics4> plugin has been configured but @mod-publisher/js/analytics/ga4 is not loaded");
   }
 
   scanPlugins();

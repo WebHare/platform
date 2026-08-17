@@ -6,13 +6,13 @@ import type { Document } from "@xmldom/xmldom";
 import { createContentPageRequest, type CPageRequest } from "@webhare/router/src/siterequest";
 import { IncomingWebRequest } from "@webhare/router/src/request";
 import { elements, parseDocAsXML, xmlToJS } from "@mod-system/js/internal/generation/xmlhelpers";
-import type { WHConfigScriptData } from "@webhare/frontend/src/init";
+import type { WHConfigSerializedData } from "@webhare/frontend/src/init";
 import { attempt, throwError } from "@webhare/std";
 import { decodeHSONorJSONRecord } from "@webhare/hscompat";
 import type { PageMetadata } from "@webhare/router/src/metadata";
 import { CodeContext } from "@webhare/services/src/codecontexts";
 
-export function getWHConfig(parseddoc: Document): WHConfigScriptData {
+export function getWHConfig(parseddoc: Document): WHConfigSerializedData {
   const config = parseddoc.getElementById("wh-config");
   if (!config)
     throw new Error("No wh-config element found");

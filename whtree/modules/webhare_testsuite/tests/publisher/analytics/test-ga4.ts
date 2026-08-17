@@ -160,21 +160,4 @@ test.runTests(
       checkForGTM({ remote: false, snippet: false });
       checkForAnonymizeIp(true);
     },
-
-    "Test not anonymous",
-    async function () {
-      await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?gtmplugin_integration=none&ga4_anonymizeip=false');
-      await test.wait(() => getAnalyticsHits(/.*/).length > 0);
-      checkForGTM({ remote: false, snippet: false });
-      checkForAnonymizeIp(false);
-
-      // test.eq(undefined, test.getWin().gtm_consent);
-      // checkForGTM({remote:1});
-
-      //Check datalayerpush
-      // test.eq("dynamicpage", Array.from(test.getWin().dataLayer).filter(node => node.val === "HiThere")[0].filename);
-    }
-
-
-
   ]);
