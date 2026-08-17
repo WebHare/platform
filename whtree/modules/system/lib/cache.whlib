@@ -83,14 +83,18 @@ PUBLIC RECORD FUNCTION GetCachedDataFromURL(STRING url, RECORD options DEFAULTST
       BLOB content := info.data;
       IF (analyzed.datatype=1)
       {
-        IF(options.mailsafe AND analyzed.item.resizemethod.format IN ["image/avif","image/webp"])
-        {
-          //reset back to original format (jpeg or png)
-          analyzed.item.resizemethod.format := info.mimetype;
-          analyzed.extension := info.extension;
+        STRING outformat := analyzed.item.resizemethod.format;
+        IF(outformat = "keep")
+          outformat := info.mimetype;
+
+        IF(options.mailsafe AND outformat IN ["image/avif","image/webp"]) {
+          //reset to jpeg/gif or png
+          analyzed.item.resizemethod.format := info.mimetype IN [ "image/png", "image/gif" ] ? info.mimetype : "image/jpeg";
+          mimetype := analyzed.item.resizemethod.format;
+        } ELSE {
+          mimetype := GetImageMimetype(analyzed.extension);
         }
 
-        mimetype := GetImageMimetype(analyzed.extension);
         IF(IsWasm() OR mimetype IN ["image/webp","image/avif"] OR info.mimetype IN ["image/webp","image/avif"])
         {
           IF(GetBlobDiskPath(info.data) = "")
