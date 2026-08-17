@@ -11,7 +11,7 @@ class TestJSApp
   }
   continueApp(callback)
   {
-    var topscreen = this.app.createNewScreenObject('jsapptop','frame',$tollium.componentsToMessages(
+    const topscreen = this.app.createNewScreenObject('jsapptop','frame',$tollium.componentsToMessages(
       { frame:       { bodynode: 'body', specials: ['popupaction','remoteaction'], allowresize: true } //ADDME can't we remove the requirement for 'actions' (perhaps just move them to the end of the visibility order?)
       , body:        { type: 'panel', lines: [{ title: 'Hello, World', items: [{item:"popup"},{item:"remote"}] }]
                      }
@@ -32,7 +32,7 @@ class TestJSApp
     callback();
 
     //launch a popup
-    var popupwindow = this.app.createScreen(
+    const popupwindow = this.app.createScreen(
       { frame:       { bodynode: 'body' }
       , body:        { type: 'panel', lines: [{title: 'You opened a popup'}] }
       });
@@ -51,10 +51,10 @@ class TestJSApp
   executeRemote(data, callback)
   {
     //launch an application to host the remote process, but do not register it as a tab
-    var app = $shell.startBackendApplication('webhare_testsuite:runscreen(tests/basecomponents.windowtest)', this.app);
+    const app = $shell.startBackendApplication('webhare_testsuite:runscreen(tests/basecomponents.windowtest)', this.app);
     app.getLoadPromise().then(this.gotRemoteApp.bind(this,callback));
   }
-  gotRemoteApp( finalcallback, event)
+  gotRemoteApp( finalcallback)
   {
     //this.app.runAppAsForeignScreen(event.target);
     finalcallback();

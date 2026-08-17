@@ -70,15 +70,6 @@ DATETIME FUNCTION GetMaxModificationDate(STRING path)
   RETURN SELECT AS DATETIME MAX(modified) FROM items;
 }
 
-RECORD FUNCTION GetCacheableUIFilesKey()
-{
-  STRING basedir := GetModuleInstallationRoot("tollium");
-  DATETIME maxdate := GetMaxModificationDate(basedir || "web/ui");
-  RETURN [ ttl := 60 * 60 * 1000
-         , value := FormatDatetime("%Y%m%d%H%M", maxdate)
-         ];
-}
-
 PUBLIC RECORD FUNCTION GetCacheableApplicationPortalConfigForApplyTester(OBJECT applytester)
 {
   RECORD config := CELL
@@ -216,7 +207,6 @@ PUBLIC RECORD FUNCTION GetApplicationPortalConfig(INTEGER fileid)
 
 PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase <
   PUBLIC STRING title;
-  PUBLIC STRING toddroot;
   //Root for assets that should remain as static as possible, even without allow jscache
   PUBLIC STRING toddstaticroot;
   PUBLIC RECORD appserviceparams;
@@ -255,8 +245,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase <
   RECORD FUNCTION GetRunData()
   {
     RECORD config := CELL
-      [ toddroot         := this->toddroot
-      , toddservice      := "/wh_services/tollium/todd"
+      [ toddservice      := "/wh_services/tollium/todd"
       , appserviceparams := this->appserviceparams
       , shortunknowntids := IsWHDebugOptionSet('sut')
       , profiling        := this->profiling
@@ -266,8 +255,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase <
       ];
 
     RECORD data :=
-      [ toddroot         := this->toddroot
-      , title            := this->title
+      [ title            := this->title
       , tolliumconfig    := EncodeJSON(config)
       , config := config
 
@@ -421,10 +409,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase <
 
     this->appserviceparams.overridetoken := GetWebVariable('overridetoken');
     this->appserviceparams.openas := GetWebVariable("openas");
-
-    STRING filekey := GetAdhocCached([type := "uifileskey"], PTR GetCacheableUIFilesKey());
-    this->toddstaticroot := "/.tollium/ui/!" || filekey || "/";
-    this->toddroot := this->toddstaticroot;
 
     this->rundata := this->GetRunData();
     this->webdesign->jsobjconfig := this->rundata.config;

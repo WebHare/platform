@@ -4,6 +4,8 @@ import { debugFlags } from "@webhare/env";
 import { createClient } from "@webhare/jsonrpc-client";
 import { throwError } from "@webhare/std";
 import * as dompack from "dompack";
+//@ts-expect-error TS doesn't understand this import, esbuild does
+import brokenIcon from '../web/ui/img/broken.svg';
 
 declare global {
   interface HTMLImageElement { //FIXME clean up, don't extend global interfaces as it'll leak through everywhere
@@ -160,7 +162,7 @@ async function loadImages() {
 
       // If no src was returned, the image is broken
       if (!cached.result)
-        cached.result = "/.tollium/ui/img/broken.svg";
+        cached.result = brokenIcon as string;
 
       // Store the loaded image
       applyLoadedResult(cached);

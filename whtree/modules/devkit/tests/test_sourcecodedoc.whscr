@@ -65,7 +65,7 @@ MACRO TestGroups()
       , "mod::publisher/tolliumapps/formedit/formcomponent.whlib"
       , "mod::system/data/wrdschemas/usermgmt.wrdschema.xml"
       , "mod::system/whres/xml/catalog.xml"
-      , "mod::tollium/web/ui/comm.whsock"
+      , "mod::platform/web/wh-common/tollium/comm.whsock"
       , "mod::devkit/tests/test_sourcecodedoc.whscr"
       , "wh::datetime.whlib"
       , "wh::internal/any.whlib"

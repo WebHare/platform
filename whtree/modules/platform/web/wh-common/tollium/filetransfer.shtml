@@ -1,5 +1,6 @@
 ﻿<?wh
-
+/* we are hosted as /.wh/common/tollium/filetransfer.shtml
+*/
 LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::system/lib/webserver.whlib";
