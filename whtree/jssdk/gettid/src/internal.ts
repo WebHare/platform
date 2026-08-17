@@ -2,11 +2,12 @@ import { decodeString, encodeString } from '@webhare/std';
 import type { CompiledLanguageFile, GetTidHooks, LanguagePart, LanguageText, RecursiveLanguageTexts, TidAllowedHTMLTags, TidParam } from './types';
 import { getGetTidHooks } from './hooks';
 import { debugFlags, dtapStage } from '@webhare/env';
+import { getLang } from '@webhare/dompack/src/tree';
 
 
 
 let hooks: GetTidHooks | undefined;
-let browserSetLanguage = ("document" in globalThis && document?.documentElement?.lang?.substring(0, 2).toLowerCase()) || "";
+let browserSetLanguage = getLang().language;
 const defaultLanguage = "en";
 
 function ensureHooks(): GetTidHooks {
