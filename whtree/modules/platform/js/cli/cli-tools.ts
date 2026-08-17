@@ -1,4 +1,4 @@
-import { enumOption } from "@webhare/cli";
+import { ansiCmd, enumOption } from "@webhare/cli";
 import { openFileOrFolder, type WHFSObject } from "@webhare/whfs";
 import { kill } from "node:process";
 import { createInterface } from "node:readline";
@@ -12,6 +12,17 @@ export const commonFlags = {
 export const commonOptions = {
   resources: { resources: { description: "Export resources for fetch (default) or inline as base64", type: enumOption(["fetch", "base64"]), default: "fetch" } }
 } as const;
+
+/** Write a line of text, up to the terminal width.
+ * @param text Text to write (truncated if needed)
+ * @param suffix Either \r (stay on this line) or \n (next line)
+ */
+export function writeClamped(text: string, suffix: "\r" | "\n") {
+  const columns = process.stdout.columns ?? 80;
+  const maxChars = Math.max(0, columns - Array.from(suffix).length);
+  const clamped = Array.from(text).slice(0, maxChars).join("");
+  process.stdout.write(`${clamped}${ansiCmd("eraseline-right")}${suffix}`);
+}
 
 export function prompt(question: string): Promise<string> {
   process.stdin.setEncoding("utf8"); //and I guess we can just leave it at that?  can't restore original encoding anyway
