@@ -137,10 +137,11 @@ class StoredKeyPair {
     this.keyFolder = keyFolder;
   }
 
-  async shouldRenew(staging?: boolean): Promise<{ shouldRenew: boolean; validUntil?: Temporal.Instant; retryAfter?: Temporal.Instant | null }> {
+  async shouldRenewThisKey(options?: { staging?: boolean; ignoreRenewalAfter?: boolean }): Promise<{ shouldRenew: boolean; validUntil?: Temporal.Instant; retryAfter?: Temporal.Instant | null }> {
     // Check if we have a renewalInfo url, so we can use ARI to check if we have to renew yet
     const data = await whfsType("platform:system.keystorefolder").get(this.id);
-    if (data.retryRenewalAfter) {
+
+    if (!options?.ignoreRenewalAfter && data.retryRenewalAfter) {
       const retryAfter = Temporal.Instant.from(data.retryRenewalAfter);
       if (Temporal.Instant.compare(retryAfter, Temporal.Now.instant()) > 0)
         return { shouldRenew: false, retryAfter };
@@ -148,7 +149,7 @@ class StoredKeyPair {
     let renewalInfo = data.renewalInfo;
     if (!renewalInfo) {
       // Retrieve the renewalInfo url from the provider and store it
-      const { directory } = await getProviderForDomains(await this.getDNSNames(), staging);
+      const { directory } = await getProviderForDomains(await this.getDNSNames(), options?.staging);
       if (directory) {
         // Retrieve the provider directory for the renewalInfo url
         const result = await fetch(directory);

@@ -10,6 +10,7 @@ runCli({
     force: { default: false, description: "force a certificate update, even if it's not yet up for renewal" },
     debug: "Debug output",
     "dry-run": "Perform a dry run without scheduling tasks",
+    "ignore-renewal-after": "Ignore the retryRenewalAfter stored during check, and always check if the certificate should be renewed",
   },
   main: async ({ opts: options }) => {
     const debug = options.debug || options.dryRun;
@@ -40,7 +41,7 @@ runCli({
 
       // Should this certificate be renewed?
       const storedKeyPair = await openStoredKeyPair(cert.id);
-      const checkResult = await storedKeyPair.shouldRenew(options.staging);
+      const checkResult = await storedKeyPair.shouldRenewThisKey({ staging: options.staging, ignoreRenewalAfter: options.ignoreRenewalAfter });
       if (!checkResult.shouldRenew) {
         if (debug) {
           if (checkResult.retryAfter)
