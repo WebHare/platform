@@ -4,11 +4,13 @@ import { type ConfigurableSubsystem, configurableSubsystems, type ApplyConfigura
 import { logValidationMessagesToConsole } from '@mod-platform/js/devsupport/messages';
 import { runCli } from "@webhare/cli";
 import { CLISyntaxError } from '@webhare/cli/src/run';
+import { applyConfiguration } from '@webhare/services/src/applyconfig';
 
 runCli({
   flags: {
     "v,verbose": { description: "Verbose mode" },
     "show-unchanged": { description: "Show unchanged files" },
+    "use-service": { description: "Use the configuration service, don't apply directly" },
     "f,force": { description: "Force updates even if no changes detected" },
     "nodb": { description: "Do not access the database" },
     "offline": { description: "Do not block the apply backend service (dangerous if WebHare is running!)" },
@@ -36,7 +38,7 @@ runCli({
     if (opts.modules)
       toApply.modules = opts.modules.split(',');
 
-    const result = await executeApply(toApply);
+    const result = await (opts.useService ? applyConfiguration(toApply) : executeApply(toApply));
     logValidationMessagesToConsole(result.messages.filter(_ => _.type === "error")); //hints are for checkmodule and warnings don't require immediate resolution, they're generally future-version deprecations
     return result.messages.some(_ => _.type === "error") ? 1 : 0;
   }
