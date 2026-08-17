@@ -21,6 +21,9 @@ import { getHSTypeName, getTypedArray, HareScriptType } from "@webhare/hscompat/
 
 export type { HSVM_VariableId, HSVM_VariableType }; //prevent others from reaching into harescript-interface
 
+/** Maximum number of closed HS WASM engines to keep around for re-use */
+const maxKeepEngines = 16;
+
 export interface StartupOptions {
   /// Script to run. If not specified an eventloop is started
   script?: string;
@@ -385,7 +388,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
         this.wasmmodule.prepareForReuse();
 
         // Limit the numbers of modules in the pool
-        if (enginePool.length < 16)
+        if (enginePool.length < maxKeepEngines)
           enginePool.push(this.wasmmodule);
 
         this._hsvm = null;
