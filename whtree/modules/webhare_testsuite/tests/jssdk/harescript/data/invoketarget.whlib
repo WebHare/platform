@@ -1,11 +1,6 @@
 <?wh
 
 LOADLIB "wh::ipc.whlib";
-LOADLIB "wh::internal/testfuncs.whlib";
-LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::promise.whlib";
-LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::webhare_testsuite/lib/database.whlib";
 
 PUBLIC MACRO CreateAndLeakJob() {
   RECORD rec := CreateJob("mod::webhare_testsuite/tests/jssdk/harescript/data/job.whscr");
@@ -15,4 +10,9 @@ PUBLIC MACRO CreateAndLeakJob() {
 
 PUBLIC MACRO Crash() {
   ABORT("jscall aborted");
+}
+
+PUBLIC MACRO LockUnlockMutex() {
+  OBJECT lock := OpenLocalLockManager()->LockLocalMutex("testlock");
+  lock->Close();
 }

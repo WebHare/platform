@@ -183,8 +183,8 @@ export class LocalServiceHandlerBase {
 }
 
 // Closes the port when the LocalServiceProxy goes out of scope
-const portcloser = new FinalizationRegistry((port: TypedMessagePort<object, object>) => {
-  port.close();
+const portcloser = new FinalizationRegistry((port: WeakRef<TypedMessagePort<object, object>>) => {
+  port.deref()?.close();
 });
 
 export class LocalServiceProxy<T extends object> implements ProxyHandler<T> {
@@ -219,7 +219,7 @@ export class LocalServiceProxy<T extends object> implements ProxyHandler<T> {
     });
     // unref the port so it doesn't keep the event loop alive. Do this after adding the message listener, that one will ref() the port
     this.port.unref();
-    portcloser.register(this, this.port);
+    portcloser.register(this, new WeakRef(this.port));
   }
 
   get(target: object, prop: string, receiver: unknown) {
