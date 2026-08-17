@@ -26,7 +26,7 @@ runCli({
   subCommands: {
     "resize": {
       flags: {
-        "ignore-errors": { description: "Ignore errors in source image" }
+        "unsafe": { description: "Ignore errors in source image (unsafe with untrusted input)" }
       },
       options: {
         method: { description: "The method to use for resizing the image", default: "none", type: enumOption(Object.keys(PackMethods)) },
@@ -46,7 +46,7 @@ runCli({
           format: outputFormat,
           width: opts.width,
           height: opts.height
-        }, { ignoreErrors: opts.ignoreErrors });
+        }, { unsafe: opts.unsafe });
         if (!result)
           throw new CLIRuntimeError(`Nothing to do given these resize instructions`);
 

@@ -1,16 +1,15 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { WorkerPool } from "@mod-system/js/internal/openapi/workerpool";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
-import { createSharpImage, type SharpResizeOptions, type SharpAvifOptions, type SharpColor, type SharpExtendOptions, type SharpGifOptions, type SharpJpegOptions, type SharpPngOptions, type SharpRegion, type SharpWebpOptions, type Sharp } from "@webhare/deps";
+import type { SharpResizeOptions, SharpAvifOptions, SharpColor, SharpExtendOptions, SharpGifOptions, SharpJpegOptions, SharpPngOptions, SharpRegion, SharpWebpOptions, Sharp } from "@webhare/deps";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { BackendServiceConnection, LocalCache, logError, readLogLines, readRegistryKey, runBackendService, writeRegistryKey } from "@webhare/services";
 import type { ResizeMethod, WebHareService } from "@webhare/services";
-import { decodeBMP } from "@webhare/services/src/bmp-to-raw";
-import { explainImageProcessing, isValidOutputFormat, suggestImageFormat, type OutputFormatName, type PackableResizeMethod, type ResizeMethodName, type ResourceMetadata } from "@webhare/services/src/descriptor";
+import { createSharpImageFromBlob, explainImageProcessing, isValidOutputFormat, suggestImageFormat, type OutputFormatName, type PackableResizeMethod, type ResizeMethodName, type ResourceMetadata } from "@webhare/services/src/descriptor";
 import { analyzeUnifiedURLToken, getDiskPath, lookupDataForUnifiedURL, unifiedCacheDataTypes, type AnalyzedToken } from "@webhare/services/src/unifiedcache";
 import { beginWork, commitWork, db } from "@webhare/whdb";
 import { existsSync } from "fs";
-import { mkdir, open, readFile } from "fs/promises";
+import { mkdir, readFile } from "fs/promises";
 import { storeDiskFile } from "@webhare/system-tools";
 import path from "node:path";
 import { promises as fs } from "node:fs";
@@ -242,28 +241,12 @@ async function renderImageForCache(request: HSImgCacheRequest): Promise<Buffer> 
   return img ? await img.toBuffer() : await readFile(sourceimage); //TODO avoid copying. consider hardlink or reflink?
 }
 
-export async function resizeImage(resource: Pick<ResourceMetadata, "width" | "height" | "refPoint" | "mediaType">, sourceimage: string, method: PackableResizeMethod, options?: { ignoreErrors?: boolean }): Promise<Sharp | null> {
+export async function resizeImage(resource: Pick<ResourceMetadata, "width" | "height" | "refPoint" | "mediaType">, sourceimage: string, method: PackableResizeMethod, options?: { unsafe?: boolean }): Promise<Sharp | null> {
   const resizeOptions = getSharpResizeOptions(resource, method);
   if (!resizeOptions)
     return null;
 
-  let img: Sharp | undefined;
-  if (resource.mediaType === "image/x-bmp") {
-    const header = new Uint8Array(2);
-    const fd = await open(sourceimage, 'r');
-    await fd.read(header, 0, 2, 0);
-    await fd.close();
-
-    if (header[0] === 0x42 && header[1] === 0x4D) { //'B' 'M' - Bitmap
-      const decodedBMP = decodeBMP(await readFile(sourceimage));
-      img = await createSharpImage(decodedBMP.data, { raw: { width: decodedBMP.width, height: decodedBMP.height, channels: 4 } });
-    }
-    //else: assume it's not a bitmap, just try normal sharp path (what we did before WH6)
-  }
-
-  if (!img)
-    img = await createSharpImage(sourceimage, { failOn: options?.ignoreErrors ? "none" : "warning" });
-
+  const img = await createSharpImageFromBlob(sourceimage, { mediaType: resource.mediaType, unsafe: options?.unsafe });
   const { extract, extend, resize, format, formatOptions } = resizeOptions;
 
   img.rotate(); //Fix rotation/mirroring
