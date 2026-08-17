@@ -79,10 +79,10 @@ function transformResourceMetadataToHS(resource: ResourceMetadata) {
 async function testDiskPath(diskPath: string, fast: boolean, generated: boolean) {
   // console.log(`testing disk path ${diskPath} (fast: ${fast}, generated: ${generated})`);
   try {
-    const statResult = await fs.stat(diskPath);
+    await fs.stat(diskPath);
     // console.log(`- found`);
     return {
-      modified: statResult.mtime.toTemporalInstant(),
+      // modified: statResult.mtime.toTemporalInstant(),
       path: diskPath,
       fast,
       generated
