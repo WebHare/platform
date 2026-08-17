@@ -1,3 +1,4 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
   <test script="test_loadlib_jobleak.ts" />
+  <test script="test_leaks.ts" />
 </group>
