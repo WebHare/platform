@@ -113,7 +113,6 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase <
 
     //Get the path for this image
     STRING path := this->GetDiskPath(data);
-    STRING usepath := path;
     BLOB diskfile;
     BOOLEAN fast;
     BOOLEAN tryfastpath := allowfast AND data.datatype = 1 AND targetmimetype IN ["image/avif"];
@@ -126,17 +125,20 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase <
         RETURN cachedversion;
 
       IF(tryfastpath) { //try a fast image if the proper image isn't ready yet
-        usepath := Left(path, Length(path) - Length(GetExtensionFromPath(path))) || ".jpg";
-        fast := TRUE;
-        cachedversion := this->TestDiskPath(usepath, fast, FALSE);
-        IF(RecordExists(cachedversion))
-          RETURN cachedversion; //return that
+        STRING trypath;
+        FOREVERY(STRING ext FROM [ ".jpg", ".png"]) {
+          trypath := Left(path, Length(path) - Length(GetExtensionFromPath(path))) || ext;
+          fast := TRUE;
+          cachedversion := this->TestDiskPath(trypath, fast, FALSE);
+          IF(RecordExists(cachedversion))
+            RETURN cachedversion; //return that
+        }
       }
     }
 
     /* Convert max 4 images concurrently */
     OBJECT lock := OpenLocalLockManager()->LockLocalSemaphore("system:unifiedcachehost", 4);
-
+    STRING usepath := path;
     TRY {
       RECORD dbdata := LookupDataForUnifiedURL(data.item);
       IF (this->trace)
@@ -154,18 +156,21 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase <
           fast,
         ];
 
+        RECORD result;
         TRY {
-          __OpenSynchronousWebHareService("platform:unifiedcache")->generateImageForCache(req);
+          result := __OpenSynchronousWebHareService("platform:unifiedcache")->generateImageForCache(req);
         } CATCH(OBJECT e) {
           TRY {
             //retry in case connection raced against a restarting unifiedcache service
-            __OpenSynchronousWebHareService("platform:unifiedcache")->generateImageForCache(req);
+            result := __OpenSynchronousWebHareService("platform:unifiedcache")->generateImageForCache(req);
             LogDebug("system:unifiedcache", [ retrysuccess := TRUE, exc1 := e->what ]);
           } CATCH(OBJECT f) {
             LogDebug("system:unifiedcache", [ retrysuccess := FALSE, exc1 := e->what, exc2 := f->what ]);
             THROW f;
           }
         }
+
+        usepath := result.path;
       }
       ELSE
       {
@@ -278,9 +283,12 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase <
       IF (img.fast)
         this->QueueImage(img);
 
+      STRING newextension := GetExtensionFromPath(img.path);
+      mimetype := GetAdhocCached(CELL[ newextension ], PTR GetMimeType(newextension));
+
       IF(this->trace)
       {
-        Print(`Found ${img.fast ? "temporary " : ""}image of ` || Length(img.data) || " bytes with mimetype " || (img.fast ? "image/jpeg" : mimetype) || "\n");
+        Print(`Found ${img.fast ? "temporary " : ""}image of ` || Length(img.data) || " bytes with mimetype " || mimetype || "\n");
         AddHTTPHeader("Status", "200", FALSE);
       }
       ELSE
@@ -291,11 +299,10 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase <
 
         IF(img.fast) {
           AddHTTPHeader("Cache-Control", "public, max-age=60", FALSE);
-          AddHTTPHeader("Content-Type", "image/jpeg", FALSE);
         } ELSE {
           AddHTTPHeader("Cache-Control", "public, max-age=31536000, immutable", FALSE);
-          AddHTTPHeader("Content-Type", mimetype, FALSE);
         }
+        AddHTTPHeader("Content-Type", mimetype, FALSE);
         AddHTTPHeader("Last-Modified", FormatHTTPDatetime(img.modified), FALSE);
 
         IF (is_not_modified)

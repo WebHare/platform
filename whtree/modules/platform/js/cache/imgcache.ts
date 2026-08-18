@@ -5,7 +5,7 @@ import type { SharpResizeOptions, SharpAvifOptions, SharpColor, SharpExtendOptio
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { BackendServiceConnection, LocalCache, logError, readLogLines, readRegistryKey, runBackendService, writeRegistryKey } from "@webhare/services";
 import type { ResizeMethod, WebHareService } from "@webhare/services";
-import { createSharpImageFromBlob, explainImageProcessing, isValidOutputFormat, suggestImageFormat, type OutputFormatName, type PackableResizeMethod, type ResizeMethodName, type ResourceMetadata } from "@webhare/services/src/descriptor";
+import { createSharpImageFromBlob, explainImageProcessing, isValidOutputFormat, mimeToExt, suggestImageFormat, type OutputFormatName, type PackableResizeMethod, type ResizeMethodName, type ResourceMetadata } from "@webhare/services/src/descriptor";
 import { analyzeUnifiedURLToken, getDiskPath, lookupDataForUnifiedURL, unifiedCacheDataTypes, type AnalyzedToken } from "@webhare/services/src/unifiedcache";
 import { beginWork, commitWork, db } from "@webhare/whdb";
 import { existsSync } from "fs";
@@ -50,6 +50,11 @@ export interface HSImgCacheRequest {
     };
   };
 }
+
+export type HSImgCacheResponse = {
+  path: string;
+  mimetype: string;
+};
 
 function transformResizeMethodToHS(method: Required<ResizeMethod>): HSImgCacheRequest["item"]["resizemethod"] {
   return {
@@ -122,11 +127,13 @@ export async function getRawCacheData(xdata: AnalyzedToken, targetmimetype: Outp
     if (cachedVersion)
       return cachedVersion;
     if (tryFastPath) {
-      usePath = diskPath.substring(0, diskPath.length - diskPath.lastIndexOf('.')) + ".jpg";
-      fast = true;
-      cachedVersion = await testDiskPath(usePath, true, false);
-      if (cachedVersion)
-        return cachedVersion;
+      for (const ext of [".jpg", ".png"]) {
+        usePath = diskPath.substring(0, diskPath.length - diskPath.lastIndexOf('.')) + ext;
+        fast = true;
+        cachedVersion = await testDiskPath(usePath, true, false);
+        if (cachedVersion)
+          return cachedVersion;
+      }
     }
   }
 
@@ -274,19 +281,21 @@ export async function returnImageForCache(request: HSImgCacheRequest): Promise<s
 }
 
 /* This is the worker entrypoint for unifiedcachehost.whlib to request images. In imgcache-noworkers mode we run in the main thread */
-export async function __generateImageForCacheInternal(request: Required<HSImgCacheRequest>): Promise<void> {
+export async function __generateImageForCacheInternal(request: Required<HSImgCacheRequest>): Promise<HSImgCacheResponse> {
   // console.log(request.path, request.fast, request.targetmimetype);
+  let mimetype: OutputFormatName = await getMimeTypeForExtension(path.extname(request.path)) as OutputFormatName;
   if (existsSync(request.path)) //already generated
-    return;
+    return { path: request.path, mimetype };
 
-  if (request.fast) { //Rebuild to a JPEG request
-    //const origrequest = structuredClone(request);
-    //setTimeout(() => void __generateImageForCacheInternal({ ...origrequest, fast: false }), 1000); //schedule a rebuild to the proper format
+  if (request.fast) { //Rebuild to a JPEG/PNG request first
+    //TODO better lossless determination:
+    mimetype = ["image/gif", "image/x-bmp", "image/png"].includes(request.mimetype) ? "image/png" : "image/jpeg";
+    const outputPath = request.path.replace(/\.*(\.[^.]+)$/, mimeToExt[mimetype]);
 
     request = {
       ...request,
-      targetmimetype: "image/jpeg",
-      path: request.path.replace(/\.*(\.[^.]+)$/, ".jpg"),
+      targetmimetype: mimetype,
+      path: outputPath,
       item: {
         ...request.item,
         resizemethod: {
@@ -300,6 +309,7 @@ export async function __generateImageForCacheInternal(request: Required<HSImgCac
   const result = await renderImageForCache(request);
   await mkdir(path.dirname(request.path), { recursive: true });
   await storeDiskFile(request.path, result, { overwrite: true });
+  return { path: request.path, mimetype };
 }
 
 function scheduleRestart() {
@@ -332,6 +342,11 @@ async function getCachableMimeType(extension: string): Promise<{ value: string; 
 }
 
 let mimeTypeCache: LocalCache<string> | undefined;
+
+async function getMimeTypeForExtension(extension: string): Promise<string> {
+  mimeTypeCache ??= new LocalCache<string>({ masks: ["system:mimetypes"] });
+  return await mimeTypeCache.get(extension, () => getCachableMimeType(extension));
+}
 
 export class UnifiedCacheServerController {
   slowImageConverter: Promise<void>;
@@ -387,8 +402,7 @@ export class UnifiedCacheServerController {
             if (this.trace)
               console.log(`analyzed token:`, dec);
 
-            mimeTypeCache ??= new LocalCache<string>({ masks: ["system:mimetypes"] });
-            const mimetype = await mimeTypeCache.get(dec.extension, () => getCachableMimeType(dec.extension));
+            const mimetype = await getMimeTypeForExtension(dec.extension);
             if (!isValidOutputFormat(mimetype)) {
               if (this.trace)
                 console.log(`ignoring unsupported mimetype ${mimetype}`);
@@ -476,11 +490,11 @@ class UnifiedCacheServer extends BackendServiceConnection {
   }
 
   /* This is the service entrypoint for unifiedcachehost.whlib to request images */
-  async generateImageForCache(request: Required<HSImgCacheRequest>): Promise<void> {
-    await ((async () => {
+  async generateImageForCache(request: Required<HSImgCacheRequest>): Promise<HSImgCacheResponse> {
+    const retval = await ((async () => {
       if (!debugFlags["imgcache-noworkers"]) {
         return workerPool.runInWorker((worker) => {
-          return worker.callRemote(`@mod-platform/js/cache/imgcache.ts#__generateImageForCacheInternal`, request);
+          return worker.callRemote<HSImgCacheResponse>(`@mod-platform/js/cache/imgcache.ts#__generateImageForCacheInternal`, request);
         });
       } else {
         return __generateImageForCacheInternal(request);
@@ -488,7 +502,7 @@ class UnifiedCacheServer extends BackendServiceConnection {
     })());
 
     scheduleRestart();
-    return;
+    return retval;
   }
 
   signalImagesQueued(intervalSecs: number) {

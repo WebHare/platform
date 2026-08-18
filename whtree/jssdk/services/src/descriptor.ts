@@ -236,7 +236,7 @@ export type ResourceSource = Partial<ResourceSourceMetadata> & {
 
 export type ResourceMetadataInit = Partial<ResourceMetadata> & Pick<ResourceMetadata, "mediaType">;
 
-const mimeToExt: Record<string, string> = {
+export const mimeToExt: Record<string, string> = {
   "image/tiff": ".tif",
   "image/x-bmp": ".bmp",
   "image/gif": ".gif",

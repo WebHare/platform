@@ -1,0 +1,8 @@
+type: platform:filetypes.image
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: Round icon with transparency
+      order: 7
+      keywords: ""
+      publish: true
