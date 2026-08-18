@@ -106,7 +106,7 @@ async function testListObjects() {
 
   //List by type
   const folderImages = await (await whfs.openFolder(photoalbum[0].id)).list([], { types: ["platform:filetypes.image"] });
-  test.eq(["goudvis.png", "homersbrain.bmp", "landscape_5.jpg", "portrait_4.jpg", "snowbeagle.avif", "snowbeagle.jpg", "snowbeagle.webp"], folderImages.map(_ => _.name).toSorted());
+  test.eq(["goudvis.png", "homersbrain.bmp", "landscape_5.jpg", "portrait_4.jpg", "snowbeagle.avif", "snowbeagle.jpg", "snowbeagle.webp", "transparency.png"], folderImages.map(_ => _.name).toSorted());
 
   const unknownFiles = await testpagesfolder.list([], { types: ["platform:filetypes.unknown"] });
   test.eq(["unknownfile"], unknownFiles.map(_ => _.name).toSorted());
@@ -116,7 +116,7 @@ async function testListObjects() {
 
   //List by type recursive. Needs to be smart enough to descend into folders that don't match its type
   const siteImages = await testsitejs.listRecursive(["data"], { maxDepth: 2, types: ["platform:filetypes.image"] });
-  test.eq(["goudvis.png", "homersbrain.bmp", "imgeditfile.jpeg", "landscape_5.jpg", "portrait_4.jpg", "rangetestfile.jpeg", "snowbeagle.avif", "snowbeagle.jpg", "snowbeagle.webp"], siteImages.map(_ => _.name).toSorted());
+  test.eq(["goudvis.png", "homersbrain.bmp", "imgeditfile.jpeg", "landscape_5.jpg", "portrait_4.jpg", "rangetestfile.jpeg", "snowbeagle.avif", "snowbeagle.jpg", "snowbeagle.webp", "transparency.png"], siteImages.map(_ => _.name).toSorted());
   const siteImmageGoudvis = siteImages.find(_ => _.name === "goudvis.png");
   test.eq(75125, siteImmageGoudvis?.data?.file.size);
   test.eq(test.wellKnownHashes.goudvisPNG, siteImmageGoudvis?.data?.hash);

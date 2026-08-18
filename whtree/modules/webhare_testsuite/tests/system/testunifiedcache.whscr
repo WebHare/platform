@@ -52,7 +52,7 @@ RECORD FUNCTION FetchUCLink(STRING link, STRING expecttype) {
     TestEq(TRUE , testfw->browser->GotoWebPage(link));
     contenttype := testfw->browser->contenttype;
     cachecontrol := testfw->browser->GetResponseHeader("Cache-Control");
-    IF(contentType = "image/jpeg" AND contentType != expecttype AND cacheControl NOT LIKE "*immutable*") { //this was a fast result, wait for the final
+    IF(contenttype IN ["image/jpeg","image/png"] AND contenttype != expecttype AND cachecontrol NOT LIKE "*immutable*") { //this was a fast result, wait for the final
       Sleep(100);
       CONTINUE;
     }
@@ -203,7 +203,7 @@ MACRO ImgCacheTest() {
 
   STRING homerlink_avif := GetCachedFSImageURL(baseurl, homer->id, [ method := "scale", setwidth:=25, setheight:=25, format := "image/avif"]);
   TestAssert(homerlink_avif != "");
-  TestEqMembers([ contenttype := "image/jpeg" ], FetchUCLink(homerlink_avif, "image/jpeg"), "*", "First we see a JPEG");
+  TestEqMembers([ contenttype := "image/png" ], FetchUCLink(homerlink_avif, "image/png"), "*", "First we see a PNG");
   TestEqMembers([ contenttype := "image/avif" ], FetchUCLink(homerlink_avif, "image/avif"), "*", "And then we see an avif");
 
   STRING homercroplink := GetCachedFSImageURL(baseurl, homer->id, [ method := "crop", setwidth:=25, setheight:=25, format := "image/png"]);
