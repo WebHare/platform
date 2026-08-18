@@ -106,26 +106,23 @@ export function analyzeUnifiedURLToken(token: string): AnalyzedToken | null {
   if (!item)
     return null;
 
-  if (data.datatype !== item.type)
-    return null;
-
   return { ...data, item };
 }
 
 type DecodedUnifiedData = {
-  type: number;
+  type: unifiedCacheSourceTypes;
   id: number;
   cc: number;
   md: number;
   ms: number;
-  imgdatalen: number;
-} & ({ type: 1; resizeMethod: Required<ResizeMethod> } | { type: 2 | 3 | 4; resizeMethod?: never });
+  resizeMethod?: Required<ResizeMethod>;
+};
 
 function decodeUnifiedData(imgtok: Uint8Array): DecodedUnifiedData | null {
   const view = new DataView(imgtok.buffer, imgtok.byteOffset, imgtok.byteLength);
   if (view.getUint8(0) !== 1 || view.byteLength < 19) //version 1
     return null;
-  const type = view.getUint8(1) as 1 | 2 | 3 | 4;
+  const type = view.getUint8(1) as unifiedCacheSourceTypes;
   const imgDataLen = view.getUint8(18);
   if (imgtok.byteLength < 19 + imgDataLen)
     return null;
@@ -142,11 +139,10 @@ function decodeUnifiedData(imgtok: Uint8Array): DecodedUnifiedData | null {
     resizeMethod = unpackImageResizeMethod(new Uint8Array(imgtok.buffer, imgtok.byteOffset + 19, imgdatalen));
     if (!resizeMethod)
       return null;
-    if (type !== 1)
-      return null;
+
     return { type, ...baseRec, resizeMethod };
-  } else if (type === 1)
-    return null;
+  }
+
   return {
     type,
     ...baseRec,
@@ -213,7 +209,7 @@ export async function lookupDataForUnifiedURL(blobinfo: DecodedUnifiedData): Pro
         type: blobinfo.type,
         data: await db<PlatformDB>()
           .selectFrom("wrd.entity_settings")
-          .innerJoin("wrd.entities", "entity", "wrd.entity_settings.id")
+          .innerJoin("wrd.entities", "wrd.entities.id", "wrd.entity_settings.entity")
           .select(["rawdata as metadata", "blobdata as data", "creationdate", "limitdate"])
           .where("wrd.entity_settings.id", "=", blobinfo.id)
           .executeTakeFirst()

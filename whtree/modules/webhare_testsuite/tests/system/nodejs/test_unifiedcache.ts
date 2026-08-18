@@ -637,12 +637,20 @@ async function testWRDImgCache() {
 
   const wrappedGoldfish = await schema.getFields("wrdPerson", personid, ["testImage"]);
   test.assert(wrappedGoldfish);
+  const imgFishPng = await createSharpImage(await wrappedGoldfish.testImage?.file.arrayBuffer());
+
   const fetchedGoldFishLink = wrappedGoldfish.testImage!.toResized({ method: "none", format: "keep" }).link;
   test.eq(/goudvis\.png$/, fetchedGoldFishLink);
   const fetchedGoldFish = await fetchUCLink(fetchedGoldFishLink, "image/png");
   test.eq(fetchedGoldFishLink, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(wrappedGoldfish.testImage, { method: "none", fixorientation: true, format: "keep" })).link);
   const fetchedGoldFishDirect = await fetchUCLink(wrappedGoldfish.testImage!.toLink(), "image/png");
   test.eq(fetchedGoldFish.resource.hash, fetchedGoldFishDirect.resource.hash);
+
+  const fetchedGoldFishAVIFLink = wrappedGoldfish.testImage!.toResized({ method: "none", format: "image/avif" }).link;
+  const fetchedGoldFishAVIFFast = await fetchUCLink(fetchedGoldFishAVIFLink, "image/png");
+  await compareSharpImages(imgFishPng, await createSharpImage(fetchedGoldFishAVIFFast.fetchBuffer));
+  const fetchedGoldFishAVIF = await fetchUCLink(fetchedGoldFishAVIFLink, "image/avif");
+  await compareSharpImages(imgFishPng, await createSharpImage(fetchedGoldFishAVIF.fetchBuffer));
 }
 
 
