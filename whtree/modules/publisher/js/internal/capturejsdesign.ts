@@ -3,6 +3,7 @@ import * as whfs from "@webhare/whfs";
 import type { WebResponseInfo } from "@mod-system/js/internal/types";
 import { IncomingWebRequest } from "@webhare/router/src/request";
 import { CodeContext } from "@webhare/services/src/codecontexts";
+import type { ContentPageRequestWithRenderer } from "@webhare/router/src/siterequest";
 
 
 export async function captureJSPage(obj: number, usecontent?: number): Promise<WebResponseInfo> {
@@ -12,7 +13,7 @@ export async function captureJSPage(obj: number, usecontent?: number): Promise<W
     const targetdoc = await whfs.openFile(obj);
     const webRequest = new IncomingWebRequest(targetdoc.link || "https://www.example.net/");
     const sitereq = await createContentPageRequest(targetdoc, { webRequest });
-    const builder = await sitereq.getPageRenderer();
+    const builder = await (sitereq as ContentPageRequestWithRenderer).getPageRenderer();
     if (!builder)
       throw new Error(`This target does not require a JS renderer`); //can't fallback to HS webserver or we'd risk an infinite loop
 

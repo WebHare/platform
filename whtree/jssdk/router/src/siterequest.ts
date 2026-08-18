@@ -349,7 +349,7 @@ export class CPageRequest {
   }
 
   /** Load the function that can actually generate pages for us */
-  async getPageRenderer(): Promise<ContentBuilderFunction> {
+  async getPageRenderer(): Promise<ContentBuilderFunction> { //TODO should we keep this as a separate API - why not just invoke the rendere rdirectly, as all callers do thaat anyway
     //TODO rename 'renderer:' to 'buildPage:' ?  rename ContentBuilderFunction although I see what it's doing there?
     if (this._renderinfo?.onRenderContent) { //JS renderer is always preferred
       const renderer: ContentBuilderFunction = await importJSFunction<ContentBuilderFunction>(this._renderinfo.onRenderContent);
@@ -731,7 +731,10 @@ export type PagePartRequest = Pick<CPageRequest,
   "getPlugin" | "setFrontendData" | "setPageBuilderData" | "insertAt" | "pageMetadata">; //TODO need something to determine emailwidgets. IsTargetEmail() ?
 
 /** The ContentPageRequest is offered to page renderers (onRenderContent, generally depends on the file type) */
-export type ContentPageRequest = PagePartRequest & Pick<CPageRequest, "buildWebPage" | "getPageRenderer" | "initializePlugins" | "applyToCurrentContext">;
+export type ContentPageRequest = PagePartRequest & Pick<CPageRequest, "buildWebPage" | "initializePlugins" | "applyToCurrentContext">;
+
+export type ContentPageRequestWithRenderer = ContentPageRequest & Pick<CPageRequest, "getPageRenderer">; //not sure if getPageRenderer will remain as a separate API
+
 /** The PageBuildRequest is offered to the page builder (onRenderPage, replaces what HareScript called the 'webdesign') */
 export type PageBuildRequest = PagePartRequest & Pick<CPageRequest, "render" | "content" | "getPageBuilderData">;
 /** The PagePluginRequest is offered to plugins to integrate into a page */

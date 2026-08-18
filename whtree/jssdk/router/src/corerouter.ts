@@ -1,7 +1,7 @@
 import * as whfs from "@webhare/whfs";
 import { type ContentBuilderFunction, type WebRequest, type WebResponse, createWebResponse } from "./router";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
-import { createContentPageRequest, buildTargetPath, type PagePartRequest, type WidgetBuilderFunction, type ContentPageRequest } from "./siterequest";
+import { createContentPageRequest, buildTargetPath, type PagePartRequest, type WidgetBuilderFunction, type ContentPageRequest, type ContentPageRequestWithRenderer } from "./siterequest";
 import * as undici from "undici";
 import { importJSFunction, type Instance, type IntExtLink, type RichTextDocument } from "@webhare/services";
 import { whconstant_webserver_hstrustedportoffset } from "@mod-system/js/internal/webhareconstants";
@@ -147,7 +147,7 @@ export async function executeContentPageRequestHS(targetId: number, options?: {
     return resp.asWebResponseInfo();
   }
 
-  const renderer = await whfsreq.getPageRenderer();
+  const renderer = await (whfsreq as ContentPageRequestWithRenderer).getPageRenderer();
   prepRenderTimer.stop();
 
   using pageRenderTimer = timings.startTimer("pageRender");
