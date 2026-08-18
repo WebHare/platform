@@ -1,14 +1,11 @@
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
+import * as test from '@webhare/test-frontend';
 
-import { getPxlLogLines } from '@webhare/test-frontend';
-import * as test from '@mod-system/js/wh/testframework';
-
-let setupdata;
+let setupdata: { url: string };
 const rand = Math.floor(100000000 * Math.random());
 const testemail = rand + '-testformfile-online+jstest@beta.webhare.net';
 const testemail2 = rand + '-testformfile2-online+jstest@beta.webhare.net';
-let editlink;
-let testemail_guid;
+let editlink = "";
+let testemail_guid = "";
 
 test.runTests(
   [
@@ -19,7 +16,7 @@ test.runTests(
     async function () {
       await test.load(setupdata.url + "?error=formunavailable");
 
-      const content = test.qS('#content');
+      const content = test.qR('#content');
       test.eq("The form is currently unavailable", content.textContent.trim(), "Cannot find default form unavailable text");
     },
 
@@ -36,18 +33,18 @@ test.runTests(
       test.eq(1, test.qSA('[name="tscustom.sub"]').length, "There should be just one tscustom.sub!");
       test.fill(test.qSA('input[type=text]')[0], 'Joe');
       test.fill(test.qSA('input[type=email]')[0], testemail);
-      test.fill(test.qS('[name="tscustom.sub"]'), 'filledsub');
-      test.fill(test.qS('[name="textarea"]'), 'TextAreaVulling');
+      test.fill(test.qR('[name="tscustom.sub"]'), 'filledsub');
+      test.fill(test.qR('[name="textarea"]'), 'TextAreaVulling');
       test.click(test.qSA('[type=submit]')[0]);
       await test.waitForUI();
 
-      test.assert(test.hasFocus(test.qS('#webtoolform-tscustom-1')), "custom field's first element should be focused");
-      test.eq("Kies de 2e optie. Sub: filledsub", test.qS('[data-wh-form-group-for="tscustom"] .wh-form__error').textContent);
-      test.click(test.qS('#webtoolform-tscustom-2'));
+      test.assert(test.hasFocus(test.qR('#webtoolform-tscustom-1')), "custom field's first element should be focused");
+      test.eq("Kies de 2e optie. Sub: filledsub", test.qR('[data-wh-form-group-for="tscustom"] .wh-form__error').textContent);
+      test.click(test.qR('#webtoolform-tscustom-2'));
       test.click(test.qSA('[type=submit]')[0]);
       await test.waitForUI();
 
-      const events = (await getPxlLogLines()).filter(l => l.event === "platform:form_submitted");
+      const events = (await test.getPxlLogLines()).filter(l => l.event === "platform:form_submitted");
       test.eq(1, events.length, "Should be one submission");
       test.eq("custom form 2", events[0].mod_platform.formmeta_id, "by default we'll just see the 'webtoolform' name");
     },
@@ -58,9 +55,11 @@ test.runTests(
       test.assert(!test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
 
       // Check if the first name is merged into the thankyou text
-      test.eq(/Joe/, test.qS('[data-wh-form-group-for="thankyou"]').textContent);
+      test.eq(/Joe/, test.qR('[data-wh-form-group-for="thankyou"]').textContent);
 
-      testemail_guid = test.qS('form[data-wh-form-resultguid]').dataset.whFormResultguid;
+      const resultguid = test.qR('form[data-wh-form-resultguid]').dataset.whFormResultguid;
+      test.assert(resultguid, "Expected form result guid after submit");
+      testemail_guid = resultguid;
       const formresult = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#GetWebtoolFormResult', testemail_guid, { which: "custom2" });
       test.eq('tollium:tilde.firstname', formresult.fields[0].title);
       test.eq(':Email', formresult.fields[1].title); //':' as its not a tid but just a plain untranslated field
@@ -97,10 +96,10 @@ test.runTests(
 
       test.eq('Joe', namefield.value);
       test.eq(testemail, emailfield.value);
-      test.assert(!test.qS('[name="tscustom"][value="val1"]').checked);
-      test.assert(test.qS('[name="tscustom"][value="val2"]').checked);
-      test.eq('filledsub', test.qS('[name="tscustom.sub"]').value);
-      test.eq('TextAreaVulling', test.qS('[name="textarea"]').value);
+      test.assert(!test.qR<HTMLInputElement>('[name="tscustom"][value="val1"]').checked);
+      test.assert(test.qR<HTMLInputElement>('[name="tscustom"][value="val2"]').checked);
+      test.eq('filledsub', test.qR<HTMLInputElement>('[name="tscustom.sub"]').value);
+      test.eq('TextAreaVulling', test.qR<HTMLTextAreaElement>('[name="textarea"]').value);
 
       namefield.value = 'Jim';
 
@@ -111,7 +110,7 @@ test.runTests(
       test.click(test.qSA('[type=submit]')[0]);
       await test.waitForUI();
 
-      test.eq(testemail_guid, test.qS('form[data-wh-form-resultguid]').dataset.whFormResultguid);
+      test.eq(testemail_guid, test.qR('form[data-wh-form-resultguid]').dataset.whFormResultguid);
       const formresult = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#GetWebtoolFormResult', testemail_guid, { which: "custom2" });
       test.eq(1, formresult.numresults);
       test.eq('Jim', formresult.response.firstname);
@@ -127,11 +126,11 @@ test.runTests(
       namefield.value = "Timmy";
       emailfield.value = testemail;
 
-      test.click(test.qS('#webtoolform-tscustom-2'));
+      test.click(test.qR('#webtoolform-tscustom-2'));
       test.click(test.qSA('[type=submit]')[0]);
       await test.waitForUI();
 
-      test.eq(testemail_guid, test.qS('form[data-wh-form-resultguid]').dataset.whFormResultguid);
+      test.eq(testemail_guid, test.qR('form[data-wh-form-resultguid]').dataset.whFormResultguid);
 
       const formresult = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#GetWebtoolFormResult', testemail_guid, { which: "custom2" });
       test.eq(1, formresult.numresults);
