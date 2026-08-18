@@ -151,7 +151,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->RestoreFormState();
     this->cansaveformstate := TRUE;
 
-    this->frame->flags.have_catalog := IsModuleInstalled("dev");
+    this->frame->flags.have_catalog := IsModuleInstalled("devkit");
 
     // Check if we must immediately connect to a job
     IF (RecordExists(data.message))

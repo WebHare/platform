@@ -606,7 +606,7 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
         , server := GetWebhareVersionNumber()
         ];
 
-    this->QueueOutboundMessage("InitializeWithAssetpack", CELL[ assetpack, initdata, devmode := IsModuleInstalled("dev"), finaljsconfig ]);
+    this->QueueOutboundMessage("InitializeWithAssetpack", CELL[ assetpack, initdata, devmode := IsModuleInstalled("devkit"), finaljsconfig ]);
   }
 
   /** Update the initial data without reloading the assetpack */
