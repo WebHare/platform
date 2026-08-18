@@ -35,7 +35,14 @@ test.runTests(
       test.fill(test.qSA('input[type=email]')[0], testemail);
       test.fill(test.qR('[name="tscustom.sub"]'), 'filledsub');
       test.fill(test.qR('[name="textarea"]'), 'TextAreaVulling');
+
+      test.prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg']);
+      const imgCompRoot = test.qR('wh-imgedit').shadowRoot!;
+      test.qR(imgCompRoot, '.image--placeholder').click();
+      await test.waitForUI();
+
       test.click(test.qSA('[type=submit]')[0]);
+      await test.waitForUI();
       await test.waitForUI();
 
       test.assert(test.hasFocus(test.qR('#webtoolform-tscustom-1')), "custom field's first element should be focused");
@@ -100,6 +107,9 @@ test.runTests(
       test.assert(test.qR<HTMLInputElement>('[name="tscustom"][value="val2"]').checked);
       test.eq('filledsub', test.qR<HTMLInputElement>('[name="tscustom.sub"]').value);
       test.eq('TextAreaVulling', test.qR<HTMLTextAreaElement>('[name="textarea"]').value);
+
+      const imgCompRoot = test.qR('wh-imgedit').shadowRoot!;
+      test.eq(450, test.qR<HTMLImageElement>(imgCompRoot, 'img').naturalWidth, "ensure the image is loaded");
 
       namefield.value = 'Jim';
 
