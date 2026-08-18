@@ -119,16 +119,15 @@ export async function getRawCacheData(xdata: AnalyzedToken, targetmimetype: Outp
   }
 
   const tryFastPath = allowFast && targetmimetype === "image/avif";
-  let usePath = diskPath;
   let fast = false;
 
   if (!skipCache) {
-    let cachedVersion = await testDiskPath(usePath, false, false);
+    let cachedVersion = await testDiskPath(diskPath, false, false);
     if (cachedVersion)
       return cachedVersion;
     if (tryFastPath) {
       for (const ext of [".jpg", ".png"]) {
-        usePath = diskPath.substring(0, diskPath.length - diskPath.lastIndexOf('.')) + ext;
+        const usePath = diskPath.substring(0, diskPath.length - diskPath.lastIndexOf('.')) + ext;
         fast = true;
         cachedVersion = await testDiskPath(usePath, true, false);
         if (cachedVersion)
@@ -159,8 +158,8 @@ export async function getRawCacheData(xdata: AnalyzedToken, targetmimetype: Outp
     sourcepath,
   };
 
-  await __generateImageForCacheInternal(req);
-  return testDiskPath(usePath, fast, false);
+  const resp = await __generateImageForCacheInternal(req);
+  return testDiskPath(resp.path, fast, false);
 }
 
 
