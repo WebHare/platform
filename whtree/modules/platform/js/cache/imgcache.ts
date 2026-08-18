@@ -146,6 +146,9 @@ export async function getRawCacheData(xdata: AnalyzedToken, targetmimetype: Outp
     throw new Error("No database ID found for blob data");
   const sourcepath = __getBlobDiskFilePath(pgblobid);
 
+  if (!item.resizeMethod)
+    throw new Error("No resize method found for unified URL");
+
   const req: Required<HSImgCacheRequest> = {
     ...transformResourceMetadataToHS(dbData),
     targetmimetype,
