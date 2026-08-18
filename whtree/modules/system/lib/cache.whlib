@@ -7,9 +7,12 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internal/graphics.whlib";
+LOADLIB "wh::internet/fetch.whlib";
+LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::graphics/filters.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/whlibs/dbase/postgresql.whlib";
@@ -67,65 +70,45 @@ PUBLIC STRING FUNCTION GetCachedFSSettingFileURL(STRING baseurl, INTEGER64 fsset
     @cell(string) return.mimetype
     @cell(string) return.filename
 */
-PUBLIC RECORD FUNCTION GetCachedDataFromURL(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
+PUBLIC RECORD FUNCTION GetCachedDataFromURL(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD) {
   options := ValidateOptions(CELL[ mailsafe := FALSE ], options);
   url := Tokenize(url, "?")[0];
 
   STRING tok := GetUCTokenFromURL(url);
-  IF(tok != "")
-  {
-    RECORD analyzed := AnalyzeUnifiedURLToken(tok);
-    IF(RecordExists(analyzed))
-    {
-      STRING mimetype;
-      RECORD info := LookupDataForUnifiedURL(analyzed.item);
-      BLOB content := info.data;
-      IF (analyzed.datatype=1)
-      {
-        STRING outformat := analyzed.item.resizemethod.format;
-        IF(outformat = "keep")
-          outformat := info.mimetype;
+  IF(tok = "")
+    RETURN DEFAULT RECORD;
 
-        IF(options.mailsafe AND outformat IN ["image/avif","image/webp"]) {
-          //reset to jpeg/gif or png
-          analyzed.item.resizemethod.format := info.mimetype IN [ "image/png", "image/gif" ] ? info.mimetype : "image/jpeg";
-          mimetype := analyzed.item.resizemethod.format;
-        } ELSE {
-          mimetype := GetImageMimetype(analyzed.extension);
-        }
+  RECORD analyzed := AnalyzeUnifiedURLToken(tok);
+  IF(NOT RecordExists(analyzed))
+    RETURN DEFAULT RECORD;
 
-        IF(IsWasm() OR mimetype IN ["image/webp","image/avif"] OR info.mimetype IN ["image/webp","image/avif"])
-        {
-          IF(GetBlobDiskPath(info.data) = "")
-            THROW NEW Exception("Blob data is not yet stored on disk, cannot process image");
-          STRING jsresulttxt :=
-                  CallJS("@mod-platform/js/cache/imgcache.ts#returnImageForCache",
-                  CELL[ ...info
-                      , targetmimetype := mimetype //FIXME this will be pretty slow if the targetmimetype is avif.
-                      , DELETE data //don't transfer the raw blob, receiver can cheat and use the PGBLOBID
-                      , analyzed.item
-                      ]);
-          content := StringToBlob(DecodeBase64(jsresulttxt));
-        }
-        ELSE
-        {
-          content := __ProcessImage(info, analyzed.item);
-        }
+  IF(options.mailsafe) { // analyze the URL and rewrite if needed to a 'safe' resize method
+    STRING mimetype;
+    RECORD info := LookupDataForUnifiedURL(analyzed.item);
+    BLOB content := info.data;
+    IF (analyzed.datatype = 1) {
+      STRING outformat := analyzed.item.resizemethod.format;
+      IF(outformat = "keep")
+        outformat := info.mimetype;
 
+      IF(options.mailsafe AND outformat IN ["image/avif","image/webp"]) {
+        //reset to jpeg/gif or png. TODO Ideally base this on a deep lossy/lossless detection but that needs to live in TS, not duplicated to HS. or can we share imagecache's fast logic (URL parameter or encoded in token) and have it not bother with avif at all ?
+        analyzed.item.resizemethod.format := info.mimetype IN [ "image/png", "image/gif" ] ? info.mimetype : "image/jpeg";
+        analyzed.item.resizemethod.quality := 80; //follows __generateImageForCacheInternal although there's no real reason we need to match that
+        analyzed.filename := Left(analyzed.filename, Length(analyzed.filename) - Length(GetExtensionFromPath(analyzed.filename))) || GetExtensionForMimeType(analyzed.item.resizemethod.format) ;
+        url := GetCachedImageLink(info, analyzed.item.resizemethod);
       }
-      ELSE
-      {
-        mimetype := SELECT AS STRING mimetypes.mimetype FROM system.mimetypes WHERE mimetypes.extension = analyzed.extension;
-      }
-
-      RETURN [ data := content
-             , mimetype := mimetype
-             , filename := analyzed.filename
-             ];
     }
   }
-  RETURN DEFAULT RECORD;
+
+  OBJECT target := FetchSync(ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), url));
+  IF(NOT target->ok)
+    THROW NEW Exception(`Failed to fetch cached data from URL '${url}': ${target->status} ${target->statusmessage} - ensure that any data referenced by this email has been committed`);
+
+  RETURN CELL [ data := target->AsBlob()
+              , mimetype := target->headers->Get("Content-Type")
+              , filename := analyzed.filename
+              ];
 }
 
 /** @topic wrd/api

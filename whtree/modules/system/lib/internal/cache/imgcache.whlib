@@ -33,6 +33,7 @@ BOOLEAN got_defaultformat;
 
 PUBLIC STRING imgcache_globalbaseurl; //set by eg webdesign to enforce CDN preferences
 CONSTANT STRING u1packet := "type:C,id:L,cc:L,md:L,ms:L,imgdatalen:C";
+CONSTANT STRING ARRAY blobsources := ["o","s","w","r"];
 
 BOOLEAN FUNCTION IsImageRefpointRelevant(RECORD resizemethod)
 {
@@ -411,10 +412,11 @@ PUBLIC RECORD FUNCTION LookupDataForUnifiedURL(RECORD blobinfo)
 
     STRING sourcepath := GetBlobDiskPath(lookupresult.data);
     STRING pgblobid := __GetPostgreSQLBlobRegistrationId(GetPrimary()->id, lookupresult.data) ;
+    STRING __blobsource := blobsources[blobinfo.type - 1] || blobinfo.id;
     IF(lookupresult.metadata = "") //it's missing ? preconversion fs_objects...
-      RETURN CELL[ ...WrapBlob(lookupresult.data, ""), pgblobid, sourcepath ];
+      RETURN CELL[ ...WrapBlob(lookupresult.data, ""), pgblobid, sourcepath, __blobsource ];
     ELSE
-      RETURN CELL[ ...SplitBlobSetting(lookupresult.metadata, lookupresult.data, lookupresult.fs_object), pgblobid, sourcepath ];
+      RETURN CELL[ ...SplitBlobSetting(lookupresult.metadata, lookupresult.data, lookupresult.fs_object), pgblobid, sourcepath, __blobsource ];
   }
   FINALLY
   {
@@ -652,8 +654,8 @@ PUBLIC RECORD FUNCTION ExportTSDescriptor(RECORD wrappedblob) {
 
   STRING type := Left(wrappedblob.__blobsource,1);
   INTEGER64 id := ToInteger64(Substring(wrappedblob.__blobsource, 1), 0);
-  INTEGER source := SearchElement(["o","s","w","r"], type) + 1;
-  IF(source <= 0 OR source > 4)
+  INTEGER source := SearchElement(blobsources, type) + 1;
+  IF(source <= 0 OR source > Length(blobsources))
     THROW NEW Exception("Unrecognized blob source type");
 
   RECORD objinfo := GetObjInfo(source, id);

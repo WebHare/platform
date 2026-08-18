@@ -383,7 +383,7 @@ export class UnifiedCacheServerController {
       for await (const line of logLines) {
         if (this.stopping)
           break;
-        if (i === 0)
+        if (i === 0) //after the first image request, we'll schedule a restart in advance (usually 15 minutes, restartInterval)
           scheduleRestart();
         ++i;
 
