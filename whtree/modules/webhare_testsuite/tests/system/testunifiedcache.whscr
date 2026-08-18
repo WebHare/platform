@@ -246,11 +246,8 @@ MACRO ImgCacheTest() {
   TestEq("image/png", testfw->browser->contenttype);
   link_grayscalehomer := grayhomerlink;
 
-  //Make sure it was actually grayscaled
-  OBJECT returned_grayhomer := CreateCanvasFromBlob(testfw->browser->content);
-  OBJECT reference_grayhomer := CreateCanvasFromBlob(toupload2);
-  reference_grayhomer->Grayscale();
-  TestEq(0f, reference_grayhomer->CompareWithCanvas(returned_grayhomer));
+  //Make sure it was actually grayscaled. As drawlib's grayscale doesn't match sharp's grayscale, we'll use an explicit reference image
+  testfw->CompareWithImage(testfw->browser->content, Resolve("testdata/reference-homer-grayscale.png"), [ maxmse := 0 ]);
 
   //Test accessing homer through GetCachedFileLink
   homerlink := GetCachedFileLink(homer->GetWrapped());
