@@ -99,3 +99,7 @@ PUBLIC OBJECTTYPE DynamicPageOverride EXTEND WebPageBase <
     RETURN PTR Print(`<div id="dynamicpage_override">This is DynamicPageOverride with echo=${EncodeHTML(GetWebVariable("echo"))}</div>`);
   }
 >;
+
+PUBLIC OBJECT FUNCTION JSRenderedHSRouter(OBJECT webdesign, RECORD info) {
+  RETURN NEW SimpleWebPage(PTR Print(`<p>JSRenderedHSRouter: ${EncodeJSON(info)}</p>`));
+}
