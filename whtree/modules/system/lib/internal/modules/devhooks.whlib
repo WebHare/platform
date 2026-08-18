@@ -4,7 +4,7 @@
 */
 
 LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/services.whlib";
 
 
 PUBLIC MACRO LaunchLanguageFileEditor(OBJECT parent, STRING modulename)
@@ -12,16 +12,19 @@ PUBLIC MACRO LaunchLanguageFileEditor(OBJECT parent, STRING modulename)
   parent->contexts->controller->SendApplicationMessage("devkit:langedit", [ module := modulename ], DEFAULT RECORD, TRUE);
 }
 
-PUBLIC BOOLEAN FUNCTION CanOpenInEditor(OBJECT parent)
-{
-  RETURN IsModuleVersionMatch("dev", ">= 1.1.0"); //TODO or probe the dev module?
+PUBLIC BOOLEAN FUNCTION CanOpenInEditor(OBJECT parent) {
+  RETURN IsModuleInstalled("devkit");
 }
 
-PUBLIC MACRO LaunchOpenInEditor(OBJECT parent, STRING resourcepath, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
+PUBLIC MACRO LaunchOpenInEditor(OBJECT parent, STRING resourcepath, RECORD options DEFAULTSTO DEFAULT RECORD) {
   options := ValidateOptions([ line := 1
                              , col := 1
-                             , closewindow := FALSE //a 'hack' used by the the error page
                              ], options);
-  RunModuleHookTarget("system:devtools_openreveal", CELL[ contexts := ObjectExists(parent) ? parent->contexts : DEFAULT OBJECT, resourcepath, options.col, options.line, options.closewindow, openineditor := TRUE ]);
+
+  IF(IsModuleInstalled("devkit")) {
+    OBJECT lspclient := WaitForPromise(OpenWebHareService("devkit:lspservice"));
+    STRING ARRAY toks := Tokenize(resourcepath, "#");
+    //Must match type ShowResourceParams
+    lspclient->ShowResource(CELL[ resource := toks[0], ...options, symbol := Length(toks) >= 2 ? toks[1] : "" ]);
+  }
 }

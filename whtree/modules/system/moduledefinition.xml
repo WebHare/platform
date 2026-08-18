@@ -1500,7 +1500,6 @@ Add the name of the type of data (for example "headerimages") or the purpose it 
   </registry>
 
   <hooking>
-    <target name="devtools_openreveal" />
     <target name="moduleconfig_afterconnectchange" />
     <target name="librarysystem" />
   </hooking>
