@@ -9,6 +9,8 @@ type ShowResourceParams = {
   line?: number;
   /// Column number to move the cursor to
   col?: number;
+  /// Symbol to show (TODO: not implemented on the extension side yet)
+  symbol?: string;
 };
 
 /** Describes HareScript-based services */

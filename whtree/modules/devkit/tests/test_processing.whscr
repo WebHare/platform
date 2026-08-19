@@ -19,7 +19,7 @@ OBJECT source;
 MACRO TestPrep()
 {
   fs := NEW DevFileSystem;
-  source := NEW SourceIndex(["dev"], fs);
+  source := NEW SourceIndex(["devkit"], fs);
 }
 
 ASYNC MACRO TestProcessing()

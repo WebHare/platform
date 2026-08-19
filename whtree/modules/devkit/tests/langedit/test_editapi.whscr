@@ -2,7 +2,7 @@
 /* module-creating tests separated here for speed
 
    when developing you can still run it even faster using
-   wh run mod::dev/tests/langedit/test_editapi.whscr retest
+   wh run mod::devkit/tests/langedit/test_editapi.whscr retest
 */
 
 LOADLIB "wh::files.whlib";
