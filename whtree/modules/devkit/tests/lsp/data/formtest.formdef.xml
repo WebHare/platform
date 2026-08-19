@@ -1,0 +1,8 @@
+<formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms"
+                 xmlns:wt="http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents"
+                 gid="site">
+
+  <form name="coretest" gid=".coretest" jshandler="coretest" objectname="formtest.whlib#CoreTestForm">
+  </form>
+
+</formdefinitions>

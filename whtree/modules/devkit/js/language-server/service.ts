@@ -33,7 +33,7 @@ export async function didChangeContent(e: TextDocumentChangeEvent<TextDocument>)
   await processor.update(e.document.uri);
 }
 
-export async function definitionRequest(e: TextDocumentPositionParams): Promise<Definition> {
+export async function definitionRequest(e: TextDocumentPositionParams): Promise<Definition | null> {
   return getDefinitions(documents, e);
 }
 

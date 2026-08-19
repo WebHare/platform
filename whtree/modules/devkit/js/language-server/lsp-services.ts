@@ -1,5 +1,5 @@
 import { loadlib } from "@webhare/harescript";
-import { backendConfig, toResourcePath } from "@webhare/services";
+import { backendConfig, isAbsoluteResource, toFSPath, toResourcePath } from "@webhare/services";
 import { mapHareScriptPath } from "@webhare/harescript/src/wasm-support";
 import {
   type CodeAction,
@@ -13,6 +13,7 @@ import { URI } from "vscode-uri";
 import type { DocumentsLike, TextDocumentLike } from "./types";
 import type { StackTraceResponse } from "@webhare/lsp-types";
 import { rewriteResource } from "../validation/rewrite";
+import { readFileSync } from "node:fs";
 
 export const hs_warningcode_unusedloadlib = 29;
 
@@ -34,19 +35,91 @@ export function uriToResourcePath(uri: string): string | undefined {
   return toResourcePath(path, { allowUnmatched: true }) || `direct::${path}`;
 }
 
-function getKeywordAt(docs: DocumentsLike, where: TextDocumentPositionParams): string {
-  const line = docs.get(where.textDocument.uri)?.getText({ start: { line: where.position.line, character: 0 }, end: { line: where.position.line, character: Infinity } });
-  //simple token splitter
-  const tokens = line?.split(/([^a-zA-Z0-9_]+)/);
-  if (!tokens)
-    return '';
+function getKeywordOrTextAt(docs: DocumentsLike, where: TextDocumentPositionParams): string {
+  const doc = docs.get(where.textDocument.uri);
+  const line = doc?.getText({ start: { line: where.position.line, character: 0 }, end: { line: where.position.line, character: Infinity } });
+  if (!line)
+    return "";
 
-  let pos = where.position.character;
-  while (pos > 0 && tokens.length && pos > tokens[0].length) {
-    pos -= tokens[0].length;
-    tokens.shift();
+  interface Segment {
+    start: number;
+    end: number;
+    isString: boolean;
+    text: string;
   }
-  return tokens[0] || '';
+
+  // Split this one line into string and non-string segments.
+  const segments: Segment[] = [];
+  let i = 0;
+  while (i < line.length) {
+    const ch = line[i];
+    if (ch === "'" || ch === '"' || ch === "`") {
+      const quote = ch;
+      const start = i;
+      i++;
+      while (i < line.length) {
+        if (line[i] === "\\" && i + 1 < line.length) {
+          i += 2;
+          continue;
+        }
+        if (line[i] === quote) {
+          i++;
+          break;
+        }
+        i++;
+      }
+      segments.push({ start, end: i, isString: true, text: line.slice(start, i) });
+    } else {
+      const start = i;
+      while (i < line.length && line[i] !== "'" && line[i] !== '"' && line[i] !== "`")
+        i++;
+      segments.push({ start, end: i, isString: false, text: line.slice(start, i) });
+    }
+  }
+
+  if (doc?.uri.endsWith(".yml") || doc?.uri.endsWith(".yaml")) {
+    //Heuristic - detect selecting "property: value" and return the full value
+    const asPropValueLine = line.match(/^\s*([a-zA-Z0-9_]+)\s*:\s*(.*)$/);
+    if (asPropValueLine) {
+      const prop = asPropValueLine[1];
+      const value = asPropValueLine[2];
+      const propStart = line.indexOf(prop);
+      const valueStart = line.indexOf(value, propStart + prop.length);
+      if (where.position.character >= valueStart && where.position.character <= valueStart + value.length) {
+        return value;
+      }
+    }
+  }
+
+  // console.log(segments);
+
+  let cursor = where.position.character;
+  if (cursor < 0)
+    cursor = 0;
+  if (cursor > line.length)
+    cursor = line.length;
+
+  let segment = segments.find(_ => cursor >= _.start && cursor < _.end);
+  if (!segment && cursor === line.length)
+    segment = segments[segments.length - 1];
+
+  if (!segment)
+    return "";
+
+  if (segment.isString)
+    return segment.text.substring(1, segment.text.length - 1); //strip quotes (TODO decode backslasehs, eg JSON.parse?)
+
+  const localPos = cursor - segment.start;
+  const tokenmatcher = /[a-zA-Z0-9_]+/g;
+  let match: RegExpExecArray | null;
+  while ((match = tokenmatcher.exec(segment.text)) !== null) {
+    const start = match.index;
+    const end = start + match[0].length;
+    if ((localPos >= start && localPos < end) || localPos === end)
+      return match[0];
+  }
+
+  return "";
 }
 
 async function doSymbolSearch(keyword: string): Promise<{
@@ -71,9 +144,37 @@ async function doSymbolSearch(keyword: string): Promise<{
   return result;
 }
 
-export async function getDefinitions(docs: DocumentsLike, e: TextDocumentPositionParams): Promise<Definition> {
-  const keyword = getKeywordAt(docs, e);
+export async function getDefinitions(docs: DocumentsLike, e: TextDocumentPositionParams): Promise<Definition | null> {
+  const keyword = getKeywordOrTextAt(docs, e);
   console.log("Got definitionRequest for", keyword);
+
+  //Does this look like a resource path?
+  if (keyword.includes('.ts') || keyword.includes('.tsx') || keyword.includes('.whlib')) {
+    const [, file, symbol] = keyword.match(/^([^#]+)(?:[#](.*))?$/) || [];
+    const finallocation = new URL(isAbsoluteResource(file) ? `file://${toFSPath(file)}` : file, e.textDocument.uri);
+    // console.log(`Resolving ${file} relative to ${e.textDocument.uri}, final ${finallocation}`);
+
+    try {
+      const text = readFileSync(finallocation.pathname, 'utf8');
+      // Search for where symbolText is defined in the file
+      // Example regex matching: class SymbolName or const SymbolName
+      // const regex = new RegExp(`\\b(class| function|const| let |var| interface | type) \\s + ${ symbolText } \\b`);
+      const regex = new RegExp(`\\b${symbol}\\b`, 'i');
+      const match = regex.exec(text);
+
+      if (match) {
+        // Convert character index to line and character position
+        //const targetPosition = tsDocument.positionAt(match.index);
+        const lineNumber = text.slice(0, match.index).split('\n').length - 1;
+        const colNumber = match.index - text.lastIndexOf('\n', match.index) - 1;
+        const targetPosition = { line: lineNumber, character: colNumber };
+        return { uri: "file://" + finallocation.pathname, range: { start: targetPosition, end: { line: targetPosition.line, character: targetPosition.character + match[0].length - 1 } } };
+      }
+      return { uri: "file://" + finallocation.pathname, range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } } };
+    } catch (exc) {
+      console.log(`Failed to find symbol in ${finallocation.pathname}`, exc);
+    }
+  }
 
   const result = await doSymbolSearch(keyword);
   const locations: Location[] = [];
@@ -88,11 +189,11 @@ export async function getDefinitions(docs: DocumentsLike, e: TextDocumentPositio
       });
     } catch (ignore) { /*ignore - this is generally about invalid resource paths */ }
   }
-  return locations.length === 1 ? locations[0] : locations;
+  return locations.length ? locations.length === 1 ? locations[0] : locations : null;
 }
 
 export async function getHover(docs: DocumentsLike, e: TextDocumentPositionParams, acceptMarkdown: boolean): Promise<Hover | null> {
-  const keyword = getKeywordAt(docs, e);
+  const keyword = getKeywordOrTextAt(docs, e);
   console.log("Got hover for", keyword);
 
   const result = await doSymbolSearch(keyword);
