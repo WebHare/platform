@@ -100,6 +100,25 @@ PUBLIC OBJECTTYPE DynamicPageOverride EXTEND WebPageBase <
   }
 >;
 
+OBJECTTYPE VerifyWebPage EXTEND WebPageBase <
+  RECORD info;
+
+  MACRO NEW(RECORD info) {
+    this->info := info;
+  }
+
+  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody() {
+    //verify we actually have a webdesign
+    this->info := CELL[
+      ...this->info,
+      targetobject := this->webdesign->targetobject->whfspath,
+      this->absolutebaseurl,
+      this->subpath
+    ];
+    RETURN PTR Print(`<p>JSRenderedHSRouter: ${EncodeJSON(this->info)}</p>`);
+  }
+>;
+
 PUBLIC OBJECT FUNCTION JSRenderedHSRouter(OBJECT webdesign, RECORD info) {
-  RETURN NEW SimpleWebPage(PTR Print(`<p>JSRenderedHSRouter: ${EncodeJSON(info)}</p>`));
+  RETURN NEW VerifyWebPage(info);
 }

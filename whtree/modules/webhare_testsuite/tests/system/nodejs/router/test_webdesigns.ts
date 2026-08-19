@@ -153,13 +153,29 @@ async function testDynamicPage() {
       const dynamicPage = await whfs.openFile("site::webhare_testsuite.testsite/TestPages/dynamicpage-override-js");
       const fetchResult = await fetch(dynamicPage.link + "?echo=12378&hsroute=1");
       const response = parseResponse(await fetchResult.text());
-      test.eqPartial([{ tag: "p", textContent: 'JSRenderedHSRouter: {"hsroute":42}' }], response.contentElements, fetchResult.url);
+      test.eqPartial([{ tag: "p", textContent: /JSRenderedHSRouter: {.*}/ }], response.contentElements, fetchResult.url);
+
+      const content = JSON.parse((response.contentElements[0] as { textContent: string }).textContent!.substr(20));
+      test.eqPartial({
+        absolutebaseurl: /webhare_testsuite.testsite\/TestPages\/dynamicpage-override-js\/$/,
+        hsroute: 1,
+        subpath: "",
+        targetobject: "/webhare-tests/webhare_testsuite.testsite/TestPages/dynamicpage-override-js"
+      }, content, fetchResult.url);
     }
     { //JS site
       const dynamicPage = await whfs.openFile("site::webhare_testsuite.testsitejs/TestPages/dynamicpage-override-js");
-      const fetchResult = await fetch(dynamicPage.link + "?echo=12379&hsroute=1");
+      const fetchResult = await fetch(dynamicPage.link + "?echo=12379&hsroute=17");
       const response = parseResponse(await fetchResult.text());
-      test.eqPartial([{ tag: "p", textContent: 'JSRenderedHSRouter: {"hsroute":42}' }], response.contentElements, fetchResult.url);
+      test.eqPartial([{ tag: "p", textContent: /JSRenderedHSRouter: {.*}/ }], response.contentElements, fetchResult.url);
+
+      const content = JSON.parse((response.contentElements[0] as { textContent: string }).textContent!.substr(20));
+      test.eqPartial({
+        absolutebaseurl: /webhare_testsuite.testsitejs\/TestPages\/dynamicpage-override-js\/$/,
+        hsroute: 17,
+        subpath: "",
+        targetobject: "/webhare-tests/webhare_testsuite.testsitejs/TestPages/dynamicpage-override-js"
+      }, content, fetchResult.url);
     }
   }
 

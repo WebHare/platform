@@ -3,7 +3,6 @@ import type { ContentPageRequest, WebResponse } from "@webhare/router";
 import { litty } from "@webhare/litty";
 import { db } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { runHareScriptPage } from "@webhare/router/src/hswebdesigndriver";
 
 export async function renderJSPage(request: ContentPageRequest): Promise<WebResponse> {
   return await request.buildWebPage(litty`<p id="gettidtest">${getTid("webhare_testsuite:test.testencoding")}</p>`);
@@ -15,7 +14,7 @@ export async function renderDynamicPage(request: ContentPageRequest): Promise<We
 
   const url = new URL(request.webRequest.url);
   if (url.searchParams.get("hsroute"))
-    return runHareScriptPage(request, { pageRouter: { funcname: "mod::webhare_testsuite/webdesigns/basetest/pages/basetestpages.whlib#JSRenderedHSRouter", funcarg: { hsroute: 42 } } });
+    return request.renderUsingHareScriptRouter("mod::webhare_testsuite/webdesigns/basetest/pages/basetestpages.whlib#JSRenderedHSRouter", { hsroute: parseInt(url.searchParams.get("hsroute")!) });
 
   return await request.buildWebPage(litty`<p>renderDynamicPage(echo = ${url.searchParams.get("echo") || ''})</p>`);
 }
