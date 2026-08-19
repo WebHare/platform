@@ -349,7 +349,7 @@ export class CPageRequest {
   }
 
   /** Load the function that can actually generate pages for us */
-  async getPageRenderer(): Promise<ContentBuilderFunction> { //TODO should we keep this as a separate API - why not just invoke the rendere rdirectly, as all callers do thaat anyway
+  async getPageRenderer(): Promise<ContentBuilderFunction> { //TODO should we keep this as a separate API - why not just invoke the renderer directly, as all callers do that anyway
     //TODO rename 'renderer:' to 'buildPage:' ?  rename ContentBuilderFunction although I see what it's doing there?
     if (this._renderinfo?.onRenderContent) { //JS renderer is always preferred
       const renderer: ContentBuilderFunction = await importJSFunction<ContentBuilderFunction>(this._renderinfo.onRenderContent);
