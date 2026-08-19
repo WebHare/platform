@@ -1,21 +1,7 @@
 import * as path from "path";
 import { spawn } from "child_process";
 
-import {
-  CancellationToken,
-  commands,
-  workspace,
-  ConfigurationChangeEvent,
-  ExtensionContext,
-  languages,
-  window,
-  TextDocument,
-  lm,
-  McpStdioServerDefinition,
-  type Disposable as VSCodeDisposable,
-  LanguageModelToolResult,
-  LanguageModelTextPart
-} from "vscode";
+import * as vscode from "vscode";
 
 import {
   LanguageClientOptions,
@@ -31,14 +17,14 @@ import { runScript } from './tasks';
 import { existsSync } from "fs";
 
 let usingRunKitPath: string | null = null;
-let currentMcpServer: VSCodeDisposable | null = null;
+let currentMcpServer: vscode.Disposable | null = null;
 
-async function runWebHareToolInline(token: CancellationToken, args: string[]) {
+async function runWebHareToolInline(token: vscode.CancellationToken, args: string[]) {
   const command = usingRunKitPath ?? "wh";
   const commandArgs = usingRunKitPath ? ["wh", ...args] : args;
-  const cwd = workspace.workspaceFolders?.[0]?.uri.fsPath;
+  const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
-  return await new Promise<LanguageModelToolResult>((resolve) => {
+  return await new Promise<vscode.LanguageModelToolResult>((resolve) => {
     const child = spawn(command, commandArgs, {
       cwd,
       env: process.env
@@ -52,7 +38,7 @@ async function runWebHareToolInline(token: CancellationToken, args: string[]) {
       if (settled)
         return;
       settled = true;
-      resolve(new LanguageModelToolResult([new LanguageModelTextPart(message)]));
+      resolve(new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(message)]));
     };
 
     const cancellationListener = token.onCancellationRequested(() => {
@@ -91,17 +77,17 @@ async function runWebHareToolInline(token: CancellationToken, args: string[]) {
   });
 }
 
-function fixDocFormat(d: TextDocument) {
+function fixDocFormat(d: vscode.TextDocument) {
   if (d.languageId == "xml") {
     const prolog = d.getText().substring(0, 200);
     if (prolog.match(/<screens /)) {
-      languages.setTextDocumentLanguage(d, "webhare-screens-xml");
+      vscode.languages.setTextDocumentLanguage(d, "webhare-screens-xml");
     }
   }
 }
 
 function getRunKitPath() {
-  let runkitPath: string | null = workspace.getConfiguration("webhare").get("runkitPath") || null;
+  let runkitPath: string | null = vscode.workspace.getConfiguration("webhare").get("runkitPath") || null;
   if (!runkitPath) {
     const tryLocations = [
       process.env.WHRUNKIT_HOME,
@@ -133,51 +119,51 @@ function checkRunkitPath() {
     startClient(serverOptions, clientOptions);
 
     // And the MCP server
-    currentMcpServer = lm.registerMcpServerDefinitionProvider('webhare-devkit-mcp', {
+    currentMcpServer = vscode.lm.registerMcpServerDefinitionProvider('webhare-devkit-mcp', {
       provideMcpServerDefinitions() {
-        return [new McpStdioServerDefinition("WebHare Devkit MCP Server", usingRunKitPath!, ["wh", "devkit:mcp-server"])];
+        return [new vscode.McpStdioServerDefinition("WebHare Devkit MCP Server", usingRunKitPath!, ["wh", "devkit:mcp-server"])];
       }
     });
   }
 }
 
-export function activate(context: ExtensionContext) {
+export function activate(context: vscode.ExtensionContext) {
   checkRunkitPath();
 
   activateXML(context);
   activateYAML(context);
 
   // Scan all open editors. We're activated by XML docs being open so we need to catch up on alreay open editors
-  workspace.textDocuments.forEach(fixDocFormat);
+  vscode.workspace.textDocuments.forEach(fixDocFormat);
 
   // And from now on fix the format on all future opened docs
-  workspace.onDidOpenTextDocument(fixDocFormat);
+  vscode.workspace.onDidOpenTextDocument(fixDocFormat);
 
   // Register commands
-  context.subscriptions.push(commands.registerCommand("webhare.getStackTrace", getStackTraceHandler));
-  context.subscriptions.push(commands.registerCommand("webhare.showStackTrace", showLastStackTraceHandler));
-  context.subscriptions.push(commands.registerCommand("webhare.getLastStackTraces", getLastStackTracesHandler));
-  context.subscriptions.push(commands.registerCommand("webhare.copyResourcePath", copyResourcePath));
-  context.subscriptions.push(commands.registerCommand("webhare.run", runScript));
+  context.subscriptions.push(vscode.commands.registerCommand("webhare.getStackTrace", getStackTraceHandler));
+  context.subscriptions.push(vscode.commands.registerCommand("webhare.showStackTrace", showLastStackTraceHandler));
+  context.subscriptions.push(vscode.commands.registerCommand("webhare.getLastStackTraces", getLastStackTracesHandler));
+  context.subscriptions.push(vscode.commands.registerCommand("webhare.copyResourcePath", copyResourcePath));
+  context.subscriptions.push(vscode.commands.registerCommand("webhare.run", runScript));
 
   // Listen for configuration changes
-  context.subscriptions.push(workspace.onDidChangeConfiguration(didChangeConfiguration));
+  context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(didChangeConfiguration));
 
   // Setup our tools
-  lm.registerTool<{}>('webhare_getcontext', {
+  vscode.lm.registerTool<{}>('webhare_getcontext', {
     async invoke(options, token) {
       let context = `
 			- Use the 'webhare_validate' tool to validate WebHare files and the 'webhare_checkmodule' tool to check modules.
 			- Use the 'webhare_runtest' tool to verify changes. This project uses a custom test setup, do not use tsc or npm test
       - Never suggest 'tsc' or 'npm test'.`;
 
-      const activeDoc = window.activeTextEditor?.document;
+      const activeDoc = vscode.window.activeTextEditor?.document;
       const lookup = activeDoc?.uri ? getModuleAndPath(activeDoc.uri) : null;
       if (lookup) {
         context += `- The current file is in WebHare module '${lookup.module}'.`;
       }
 
-      return new LanguageModelToolResult([new LanguageModelTextPart(context)]);
+      return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(context)]);
     }
   });
   /* TODO webhare_validate doesn't do TSlinting yet and adding it there is extremely slow -
@@ -185,26 +171,26 @@ export function activate(context: ExtensionContext) {
 
           So I told the skill to use get_errors but that one's not robust yet either (perhaps
           due to lag before problems actually arrive?) */
-  lm.registerTool<{ file: string }>('webhare_validate', {
+  vscode.lm.registerTool<{ file: string }>('webhare_validate', {
     async invoke(options, token) {
       if (!options.input.file)
-        return new LanguageModelToolResult([new LanguageModelTextPart("No file specified")]);
+        return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart("No file specified")]);
 
       return runWebHareToolInline(token, ["validate", "--", options.input.file]);
     }
   });
-  lm.registerTool<{ file: string }>('webhare_runtest', {
+  vscode.lm.registerTool<{ file: string }>('webhare_runtest', {
     async invoke(options, token) {
       if (!options.input.file)
-        return new LanguageModelToolResult([new LanguageModelTextPart("No test file specified")]);
+        return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart("No test file specified")]);
 
       return runWebHareToolInline(token, ["runtest", "--", options.input.file]);
     }
   });
-  lm.registerTool<{ module: string }>('webhare_checkmodule', {
+  vscode.lm.registerTool<{ module: string }>('webhare_checkmodule', {
     async invoke(options, token) {
       if (!options.input.module)
-        return new LanguageModelToolResult([new LanguageModelTextPart("No module specified")]);
+        return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart("No module specified")]);
 
       return runWebHareToolInline(token, ["checkmodule", "--", options.input.module]);
     }
@@ -272,8 +258,8 @@ function getServerClientOptions() {
       { scheme: "file", language: "witty-template" }
     ],
     synchronize: {
-      // Notify the server about file changes to '.clientrc files contained in the workspace
-      fileEvents: workspace.createFileSystemWatcher("**/.clientrc")
+      // Notify the server about file changes to '.clientrc' files contained in the workspace
+      fileEvents: vscode.workspace.createFileSystemWatcher("**/.clientrc")
     },
     outputChannelName: "WebHare Language Server"
   };
@@ -281,7 +267,7 @@ function getServerClientOptions() {
   return { serverOptions, clientOptions };
 }
 
-function didChangeConfiguration(event: ConfigurationChangeEvent) {
+function didChangeConfiguration(event: vscode.ConfigurationChangeEvent) {
   if (event.affectsConfiguration("webhare"))
     checkRunkitPath();
 }
