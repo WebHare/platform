@@ -4,7 +4,7 @@ import { loadlib } from "@webhare/harescript";
 import { backendConfig, ResourceDescriptor } from "@webhare/services";
 import { explainImageProcessing, getUCSubUrl, getUnifiedCC, packImageResizeMethod, unpackImageResizeMethod, type ResourceMetadata } from "@webhare/services/src/descriptor";
 import { beginWork, commitWork } from "@webhare/whdb";
-import { openType } from "@webhare/whfs";
+import { openType, whfsType } from "@webhare/whfs";
 import { getSharpResizeOptions } from "@mod-platform/js/cache/imgcache";
 import { createSharpImage, type Sharp } from "@webhare/deps/src/deps";
 import { promises as fs } from "node:fs";
@@ -627,6 +627,19 @@ async function testFileCache() {
   test.eq("application/octet-stream", extensionlesslink_fetched.headers.get("content-type"));
 }
 
+async function testWHFSSettingsImgCache() {
+  const whfsImageGoldFish = (await whfsType("http://www.webhare.net/xmlns/beta/test").get((await test.getTestSiteJS()).id)).arraytest[0].blobcell;
+  test.assert(whfsImageGoldFish);
+
+  const imgFishPng = await createSharpImage(await whfsImageGoldFish.file.arrayBuffer());
+
+  const fetchedGoldFishAVIFLink = whfsImageGoldFish.toResized({ method: "none", format: "image/avif" }).link;
+  const fetchedGoldFishAVIFFast = await fetchUCLink(fetchedGoldFishAVIFLink, "image/jpeg");
+  await compareSharpImages(imgFishPng, await createSharpImage(fetchedGoldFishAVIFFast.fetchBuffer));
+  const fetchedGoldFishAVIF = await fetchUCLink(fetchedGoldFishAVIFLink, "image/avif");
+  await compareSharpImages(imgFishPng, await createSharpImage(fetchedGoldFishAVIF.fetchBuffer));
+}
+
 async function testWRDImgCache() {
   const schema = await createWRDTestSchema();
   const fish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true }); //FIXME WRD should auto-complete metadata itself
@@ -662,5 +675,6 @@ test.runTests([
   testImgCacheTokens,
   testImgCache,
   testFileCache,
+  testWHFSSettingsImgCache,
   testWRDImgCache
 ]);

@@ -196,10 +196,10 @@ export async function lookupDataForUnifiedURL(blobinfo: DecodedUnifiedData): Pro
         type: blobinfo.type,
         data: await db<PlatformDB>()
           .selectFrom("system.fs_settings")
-          .innerJoin("system.fs_instances", "fs_instance", "system.fs_instances.id")
-          .innerJoin("system.fs_objects", "fs_object", "system.fs_objects.id")
+          .innerJoin("system.fs_instances", "system.fs_settings.fs_instance", "system.fs_instances.id")
+          .innerJoin("system.fs_objects", "system.fs_instances.fs_object", "system.fs_objects.id")
           .where("system.fs_settings.id", "=", blobinfo.id)
-          .select(["setting as metadata", "blobdata as data", "fs_object", "creationdate"])
+          .select(["setting as metadata", "blobdata as data", "system.fs_instances.fs_object", "system.fs_objects.creationdate"])
           .select(selectFSWHFSPath("system.fs_objects").as("whfspath"))
           .executeTakeFirst()
       };
