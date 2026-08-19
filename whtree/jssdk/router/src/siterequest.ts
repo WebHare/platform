@@ -739,7 +739,7 @@ export type PagePartRequest = Pick<CPageRequest,
   "getPlugin" | "setFrontendData" | "setPageBuilderData" | "insertAt" | "pageMetadata">; //TODO need something to determine emailwidgets. IsTargetEmail() ?
 
 /** The ContentPageRequest is offered to page renderers (onRenderContent, generally depends on the file type) */
-export type ContentPageRequest = PagePartRequest & Pick<CPageRequest, "buildWebPage" | "initializePlugins" | "applyToCurrentContext">;
+export type ContentPageRequest = PagePartRequest & Pick<CPageRequest, "buildWebPage" | "initializePlugins" | "applyToCurrentContext" | "renderUsingHareScriptRouter">;
 
 export type ContentPageRequestWithRenderer = ContentPageRequest & Pick<CPageRequest, "getPageRenderer">; //not sure if getPageRenderer will remain as a separate API
 
