@@ -702,6 +702,10 @@ export async function wait<T>(waitfor: (() => T | Promise<T>) | Promise<T>, opti
   let didWarnWait = false;
   const informWaitTimeout = setTimeout(() => {
     console.warn(`wait() has been waiting for ${warnTimeout / 1000} seconds`);
+    const annotation = (typeof options?.annotation === "function" ? options?.annotation() : options?.annotation) || "";
+    if (annotation)
+      console.warn("Annotation:", annotation);
+
     console.warn(waitStack);
     didWarnWait = true;
   }, warnTimeout);
