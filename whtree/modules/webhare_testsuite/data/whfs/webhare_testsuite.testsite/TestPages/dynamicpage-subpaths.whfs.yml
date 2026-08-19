@@ -1,0 +1,6 @@
+# Export of file "/TestPages/dynamicpage-js" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:20.087Z
+type: webhare_testsuite:base_test.subpaths_page
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      publish: true

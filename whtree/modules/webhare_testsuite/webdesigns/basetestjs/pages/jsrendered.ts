@@ -14,7 +14,10 @@ export async function renderDynamicPage(request: ContentPageRequest): Promise<We
 
   const url = new URL(request.webRequest.url);
   if (url.searchParams.get("hsroute"))
-    return request.renderUsingHareScriptRouter("mod::webhare_testsuite/webdesigns/basetest/pages/basetestpages.whlib#JSRenderedHSRouter", { hsroute: parseInt(url.searchParams.get("hsroute")!) });
+    if (url.searchParams.get("use") === "object")
+      return request.renderUsingHareScriptRouter("mod::webhare_testsuite/webdesigns/basetest/pages/basetestpages.whlib#PublicVerifyWebPage", { hsroute: parseInt(url.searchParams.get("hsroute")!) });
+    else
+      return request.renderUsingHareScriptRouter("mod::webhare_testsuite/webdesigns/basetest/pages/basetestpages.whlib#JSRenderedHSRouter", { hsroute: parseInt(url.searchParams.get("hsroute")!) });
 
   return await request.buildWebPage(litty`<p>renderDynamicPage(echo = ${url.searchParams.get("echo") || ''})</p>`);
 }

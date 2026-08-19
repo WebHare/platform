@@ -119,6 +119,12 @@ OBJECTTYPE VerifyWebPage EXTEND WebPageBase <
   }
 >;
 
+PUBLIC OBJECTTYPE PublicVerifyWebPage EXTEND VerifyWebPage <
+  MACRO NEW(RECORD info): VerifyWebPage(CELL[...info, route := "PublicVerifyWebpage" ] ) {
+  }
+>;
+
+
 PUBLIC OBJECT FUNCTION JSRenderedHSRouter(OBJECT webdesign, RECORD info) {
-  RETURN NEW VerifyWebPage(info);
+  RETURN NEW VerifyWebPage(CELL[...info, route := "JSRenderedHSRouter" ]);
 }

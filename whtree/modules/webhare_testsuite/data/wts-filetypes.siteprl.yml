@@ -20,6 +20,14 @@ types:
     dynamicExecution:
       onRenderContent: mod::webhare_testsuite/webdesigns/basetestjs/pages/jsrendered.ts#renderDynamicPage
 
+  base_test.subpaths_page:
+    metaType: page
+    captureSubPaths: true
+    workflow: false
+    title: WTS JS subpaths page
+    dynamicExecution:
+      onRenderContent: mod::webhare_testsuite/webdesigns/basetestjs/pages/jsrendered.ts#renderDynamicPage
+
   base_test.metadata:
     metaType: page
     workflow: false

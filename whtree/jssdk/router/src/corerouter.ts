@@ -208,6 +208,10 @@ export async function renderTSWidgetHS(context: {
     isPublisherPreview: context.ispublisherpreview,
     getPlugin: () => { return null; },
 
+    //would HS embedded TS widgets be complex enough to need these? stub them for now
+    pageRoot: "",
+    pageSubPath: "",
+
     //ignoring structured data, the infrastructure is not there in a HS webdesign
     addStructuredData(item: StructuredDataItem) { },
     //other calls we'll specifically abort for now as your TS widget is really too integrated with TS webdesigns then.
