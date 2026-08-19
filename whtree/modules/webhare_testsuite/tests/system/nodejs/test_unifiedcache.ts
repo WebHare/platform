@@ -416,7 +416,7 @@ async function attemptFetch(finalurl: string, expectType: string) {
   const cacheControl = fetchResult.headers.get("cache-control") || '';
   const fetchBuffer = await fetchResult.arrayBuffer();
 
-  if (contentType === "image/jpeg" && contentType !== expectType && !cacheControl.includes("immutable"))
+  if (["image/jpeg", "image/png"].includes(contentType) && contentType !== expectType && !cacheControl.includes("immutable"))
     return null; //this was a fast result, wait for the final
 
   return { contentType, cacheControl, fetchBuffer, fetchResult };
@@ -464,7 +464,8 @@ async function testImgCache() {
   const snowbeagleAvifFile = await testsitejs.openFile("photoalbum/snowbeagle.avif");
   const snowBeagleWebpFile = await testsitejs.openFile("photoalbum/snowbeagle.webp");
   const goldfishpng = await testsitejs.openFile("photoalbum/goudvis.png");
-  test.assert(snowbeagle.data && snowbeagleAvifFile.data && snowBeagleWebpFile.data && goldfishpng.data);
+  const transparentPngFile = await testsitejs.openFile("photoalbum/transparency.png");
+  test.assert(snowbeagle.data && snowbeagleAvifFile.data && snowBeagleWebpFile.data && goldfishpng.data && transparentPngFile.data);
   const snowbeaglewithrefpoint = snowbeagle.data;
   snowbeaglewithrefpoint.refPoint = { x: 107, y: 142 }; // Set refPoint in horizontal 1/4 and vertical middle of the image
   const wrappedBeagle = snowbeaglewithrefpoint.toResized({ method: "none", format: "keep" });
@@ -475,8 +476,9 @@ async function testImgCache() {
   test.eq(284, wrappedBeagle.height);
   const dlSnowBeagle = await fetchUCLink(wrappedBeagle.link, "image/jpeg");
   const snowBeagleJpeg = await createSharpImage(dlSnowBeagle.fetchBuffer);
-  const snowBeagleAvif = await createSharpImage(await snowbeagleAvifFile.data.resource.arrayBuffer());
-  const snowBeagleWebp = await createSharpImage(await snowBeagleWebpFile.data.resource.arrayBuffer());
+  const snowBeagleAvif = await createSharpImage(await snowbeagleAvifFile.data.file.arrayBuffer());
+  const snowBeagleWebp = await createSharpImage(await snowBeagleWebpFile.data.file.arrayBuffer());
+  const transparentPng = await createSharpImage(await transparentPngFile.data.file.arrayBuffer());
 
   const wrappedGoldfishPng = goldfishpng.data.toResized({ method: "none", format: "keep" });
   const dlFishPng = await fetchUCLink(wrappedGoldfishPng.link, "image/png");
@@ -497,9 +499,9 @@ async function testImgCache() {
   //convert to AVIF using imagecache
   const wrappedGoldfishAvif = goldfishpng.data.toResized({ method: "none", format: "image/avif" });
   test.eq(/\/goudvis\.avif$/, wrappedGoldfishAvif.link, "Should not contain 'png' in the name");
-  //however if we download it... we'll see a JPEG first!
-  const dlFishAvifFast = await fetchUCLink(wrappedGoldfishAvif.link, "image/jpeg");
-  await compareSharpImages(imgFishPng, await createSharpImage(dlFishAvifFast.fetchBuffer), { maxMSE: 15 }); //higher MSE for the quick JPEG
+
+  //however if we download it... we'll see a PNG first!
+  const dlFishAvifFast = await fetchUCLink(wrappedGoldfishAvif.link, "image/png");
   console.log(`${dlFishAvifFast.finalurl} (now an ${dlFishAvifFast.contentType})`);
   test.eq("public, max-age=60", dlFishAvifFast.cacheControl);
   test.assert(dlFishAvifFast.lastModified, "Expected Last-Modified header to be set for the fast JPEG result");
@@ -517,10 +519,24 @@ async function testImgCache() {
   const dlFishAvifCheck304 = await fetch(dlFishAvif.finalurl, { headers: { "If-Modified-Since": dlFishAvif.lastModified! } });
   test.eq(304, dlFishAvifCheck304.status, `Expected 304 Not Modified for ${dlFishAvif.finalurl} with If-Modified-Since: ${dlFishAvif.lastModified}`);
 
+  //Test with a transparent image
+  const wrappedTransparentAvif = transparentPngFile.data.toResized({ method: "none", format: "image/avif" });
+  const dlTransparentAvif_Fast = await fetchUCLink(wrappedTransparentAvif.link, "image/png");
+  await compareSharpImages(transparentPng, await createSharpImage(dlTransparentAvif_Fast.fetchBuffer));
+  const dlTransparentAvif = await fetchUCLink(wrappedTransparentAvif.link, "image/avif");
+  await compareSharpImages(transparentPng, await createSharpImage(dlTransparentAvif.fetchBuffer));
+
   //verify compatibility setting does something
+  const snowBeagleAvif10_JPEG = await fetchUCLink(snowbeagle.data.toResized({ method: "none", format: "image/avif", quality: 10 }).link, "image/jpeg");
+  await compareSharpImages(snowBeagleJpeg, await createSharpImage(snowBeagleAvif10_JPEG.fetchBuffer), { maxMSE: 0.5 });
+
   const snowBeagleAvif10 = await fetchUCLink(snowbeagle.data.toResized({ method: "none", format: "image/avif", quality: 10 }).link, "image/avif");
-  const snowBeagleAvif90 = await fetchUCLink(snowbeagle.data.toResized({ method: "none", format: "image/avif", quality: 90 }).link, "image/avif");
   await compareSharpImages(snowBeagleJpeg, await createSharpImage(snowBeagleAvif10.fetchBuffer), { minMSE: 10, maxMSE: 80 });
+
+  const snowBeagleAvif90Fast = await fetchUCLink(snowbeagle.data.toResized({ method: "none", format: "image/avif", quality: 90 }).link, "image/jpeg");
+  await compareSharpImages(snowBeagleJpeg, await createSharpImage(snowBeagleAvif90Fast.fetchBuffer), { maxMSE: 15 }); //higher MSE for the quick JPEG
+
+  const snowBeagleAvif90 = await fetchUCLink(snowbeagle.data.toResized({ method: "none", format: "image/avif", quality: 90 }).link, "image/avif");
   await compareSharpImages(snowBeagleJpeg, await createSharpImage(snowBeagleAvif90.fetchBuffer), { minMSE: 0.1, maxMSE: 3 });
 
   //cross avif->webp and webp->avif
@@ -621,12 +637,20 @@ async function testWRDImgCache() {
 
   const wrappedGoldfish = await schema.getFields("wrdPerson", personid, ["testImage"]);
   test.assert(wrappedGoldfish);
+  const imgFishPng = await createSharpImage(await wrappedGoldfish.testImage?.file.arrayBuffer());
+
   const fetchedGoldFishLink = wrappedGoldfish.testImage!.toResized({ method: "none", format: "keep" }).link;
   test.eq(/goudvis\.png$/, fetchedGoldFishLink);
   const fetchedGoldFish = await fetchUCLink(fetchedGoldFishLink, "image/png");
   test.eq(fetchedGoldFishLink, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(wrappedGoldfish.testImage, { method: "none", fixorientation: true, format: "keep" })).link);
   const fetchedGoldFishDirect = await fetchUCLink(wrappedGoldfish.testImage!.toLink(), "image/png");
   test.eq(fetchedGoldFish.resource.hash, fetchedGoldFishDirect.resource.hash);
+
+  const fetchedGoldFishAVIFLink = wrappedGoldfish.testImage!.toResized({ method: "none", format: "image/avif" }).link;
+  const fetchedGoldFishAVIFFast = await fetchUCLink(fetchedGoldFishAVIFLink, "image/png");
+  await compareSharpImages(imgFishPng, await createSharpImage(fetchedGoldFishAVIFFast.fetchBuffer));
+  const fetchedGoldFishAVIF = await fetchUCLink(fetchedGoldFishAVIFLink, "image/avif");
+  await compareSharpImages(imgFishPng, await createSharpImage(fetchedGoldFishAVIF.fetchBuffer));
 }
 
 

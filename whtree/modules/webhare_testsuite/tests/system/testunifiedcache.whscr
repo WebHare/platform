@@ -52,7 +52,7 @@ RECORD FUNCTION FetchUCLink(STRING link, STRING expecttype) {
     TestEq(TRUE , testfw->browser->GotoWebPage(link));
     contenttype := testfw->browser->contenttype;
     cachecontrol := testfw->browser->GetResponseHeader("Cache-Control");
-    IF(contentType = "image/jpeg" AND contentType != expecttype AND cacheControl NOT LIKE "*immutable*") { //this was a fast result, wait for the final
+    IF(contenttype IN ["image/jpeg","image/png"] AND contenttype != expecttype AND cachecontrol NOT LIKE "*immutable*") { //this was a fast result, wait for the final
       Sleep(100);
       CONTINUE;
     }
@@ -63,8 +63,7 @@ RECORD FUNCTION FetchUCLink(STRING link, STRING expecttype) {
   RETURN CELL [ resource := testfw->browser->content, finalurl := link, cachecontrol, contenttype ];
 }
 
-MACRO ImgCacheTest()
-{
+MACRO ImgCacheTest() {
   // Verify AVIF and WEBP support in ScanBlob
   TesteqMembers([width := 428, height:= 284, extension := ".jpg", mimetype := "image/jpeg"], ScanBlob(GetWebhareResource("mod::system/web/tests/snowbeagle.jpg")),'*');
   TesteqMembers([width := 428, height:= 284, extension := ".webp", mimetype := "image/webp"], ScanBlob(GetWebhareResource("mod::system/web/tests/snowbeagle.webp")),'*');
@@ -204,7 +203,7 @@ MACRO ImgCacheTest()
 
   STRING homerlink_avif := GetCachedFSImageURL(baseurl, homer->id, [ method := "scale", setwidth:=25, setheight:=25, format := "image/avif"]);
   TestAssert(homerlink_avif != "");
-  TestEqMembers([ contenttype := "image/jpeg" ], FetchUCLink(homerlink_avif, "image/jpeg"), "*", "First we see a JPEG");
+  TestEqMembers([ contenttype := "image/png" ], FetchUCLink(homerlink_avif, "image/png"), "*", "First we see a PNG");
   TestEqMembers([ contenttype := "image/avif" ], FetchUCLink(homerlink_avif, "image/avif"), "*", "And then we see an avif");
 
   STRING homercroplink := GetCachedFSImageURL(baseurl, homer->id, [ method := "crop", setwidth:=25, setheight:=25, format := "image/png"]);
@@ -274,18 +273,32 @@ MACRO ImgCacheTest()
   //TestEq(FALSE, cacheddata.filename LIKE "*/*", `Filename ${cacheddata.filename} may not contain slashes`);
   TestEq(25, Max[]([ INTEGER(ScanBlob(cacheddata.data).height), ScanBlob(cacheddata.data).width ]), "GetCachedDataFromURL for FSImages did not resize");
 
+  cacheddata := GetCachedDataFromURL(smallgrayhomerlink, [ mailsafe := TRUE ]);
+  TestEq("image/png", cacheddata.mimetype);
+  TestEq(25, Max[]([ INTEGER(ScanBlob(cacheddata.data).height), ScanBlob(cacheddata.data).width ]), "GetCachedDataFromURL for FSImages did not resize");
+
   // Ensure we can parse image/webp links, even if won't convert them in HS
   STRING smallgrayhomerlink_webp := GetCachedFSImageURL(baseurl, homer->id, [ method := "scale", setwidth:=25, setheight:=25, grayscale := TRUE, format := "image/webp" ]);
   cacheddata := GetCachedDataFromURL(smallgrayhomerlink_webp);
   TestEq("image/webp", cacheddata.mimetype);
   TestEq(25, Max[]([ INTEGER(ScanBlob(cacheddata.data).height), ScanBlob(cacheddata.data).width ]), "GetCachedDataFromURL for FSImages did not resize");
 
+  cacheddata := GetCachedDataFromURL(smallgrayhomerlink_webp, [ mailsafe := TRUE ]);
+  TestEq("image/jpeg", cacheddata.mimetype);
+  TestEq(25, Max[]([ INTEGER(ScanBlob(cacheddata.data).height), ScanBlob(cacheddata.data).width ]), "GetCachedDataFromURL for FSImages did not resize");
+
   // Test converting a WEBP using GetCachedDataFromURL back to JPEG
   OBJECT snowbeagle_webp := OpenTestsuiteJSSite()->OpenByPath("photoalbum/snowbeagle.webp");
-  STRING snowbeagle_webp_link := GetCachedFSImageURL(baseurl, snowbeagle_webp->id, [ method := "scale", setwidth:=25, setheight:=25, grayscale := TRUE, format := "image/jpeg" ]);
-  cacheddata := GetCachedDataFromURL(snowbeagle_webp_link);
+  STRING snowbeagle_webp_link_as_jpeg := GetCachedFSImageURL(baseurl, snowbeagle_webp->id, [ method := "scale", setwidth:=25, setheight:=25, grayscale := TRUE, format := "image/jpeg" ]);
+  cacheddata := GetCachedDataFromURL(snowbeagle_webp_link_as_jpeg);
   TestEq("image/jpeg", cacheddata.mimetype);
   TestEq(25, Max[]([ INTEGER(ScanBlob(cacheddata.data).height), ScanBlob(cacheddata.data).width ]), "GetCachedDataFromURL for FSImages did not resize (using TS)");
+
+  // Verify AVIF mailsafe conversions
+  OBJECT snowbeagle_avif := OpenTestsuiteJSSite()->OpenByPath("photoalbum/snowbeagle.avif");
+  STRING snowbeagle_avif_link := GetCachedFSImageURL(baseurl, snowbeagle_avif->id, [ method := "scale", setwidth:=50, setheight:=50 ]);
+  cacheddata := GetCachedDataFromURL(snowbeagle_avif_link, [ mailsafe := TRUE ]);
+  TestEq("image/jpeg", cacheddata.mimetype);
 
   testfw->CommitWork();
 }

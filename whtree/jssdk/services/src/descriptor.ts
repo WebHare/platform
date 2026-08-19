@@ -20,6 +20,7 @@ import { decryptForThisServer, encryptForThisServer } from "./secrets";
 import { SetDataError } from "./codec-support";
 import { isHistoricWHFSSpace } from "@webhare/whfs/src/support";
 import { getAssetBase } from "@webhare/env";
+import { open, readFile, stat } from "node:fs/promises";
 
 declare module "@webhare/services" {
   interface ServerEncryptionScopes {
@@ -235,7 +236,7 @@ export type ResourceSource = Partial<ResourceSourceMetadata> & {
 
 export type ResourceMetadataInit = Partial<ResourceMetadata> & Pick<ResourceMetadata, "mediaType">;
 
-const mimeToExt: Record<string, string> = {
+export const mimeToExt: Record<string, string> = {
   "image/tiff": ".tif",
   "image/x-bmp": ".bmp",
   "image/gif": ".gif",
@@ -428,6 +429,41 @@ export function importIntExtLink(value: IntExtLink | null | ExportedIntExtLink, 
   return unmapExternalWHFSRef(value.internalLink, options).then(id => id ? new IntExtLink(id, { append: value.append }) : null);
 }
 
+export async function createRawBufferFromBMP(image: Blob | string) {
+  if (typeof image === "string") { //a disk path
+    const header = new Uint8Array(2);
+    const fd = await open(image, 'r');
+    await fd.read(header, 0, 2, 0);
+    await fd.close();
+    if (header[0] === 0x42 && header[1] === 0x4D) //'B' 'M' - Bitmap
+      return decodeBMP(await readFile(image));
+  } else {
+    const data = await image.arrayBuffer();
+    const header = new Uint8Array(data.slice(0, 2));
+    if (header[0] === 0x42 && header[1] === 0x4D) //'B' 'M' - Bitmap
+      return decodeBMP(Buffer.from(data)); //TODO avoid copy?
+  }
+  return null;
+}
+
+export async function createSharpImageFromBlob(image: Blob | string, options?: { unsafe?: boolean; mediaType?: string }) {
+  if (!options?.unsafe) { //validate input size
+    const fileSize = typeof image === "string" ? (await stat(image)).size : image.size;
+    if (fileSize >= MaxImageScanSize && !options?.unsafe)
+      throw new Error(`Image size of ${fileSize} bytes exceeds maximum imsage size ${MaxImageScanSize} bytes.`);
+  }
+
+  if ((!options?.mediaType?.startsWith("image/") || options?.mediaType === "image/x-bmp")) { //we only check for a BMP if the image type doesn't show it being pointless
+    const decodedBMP = await createRawBufferFromBMP(image);
+    if (decodedBMP)
+      return await createSharpImage(decodedBMP.data, { raw: { width: decodedBMP.width, height: decodedBMP.height, channels: 4 }, failOn: options?.unsafe ? "none" : "warning" });
+  }
+
+  /* Ignore broken images eg https://github.com/lovell/sharp/issues/1578 - 'Set this flag to false if you'd rather apply a "best effort" to decode images, even if the data is corrupt or invalid. (optional, default true)'
+      as we will often be dealing with images from external sources where we generally can't go back and ask for new images, or sensibly deal/report this type of failure? */
+  return await createSharpImage(typeof image === "string" ? image : await image.bytes(), { failOn: options?.unsafe ? "none" : "warning" });
+}
+
 export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean): Promise<Partial<ResourceMetadata>> {
   if (image.size >= MaxImageScanSize)
     return {}; //too large to scan
@@ -444,20 +480,7 @@ export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean
 
   let metadata, stats;
   try {
-    let img;
-
-    const data = await image.arrayBuffer();
-    const header = new Uint8Array(data.slice(0, 2));
-
-    if (header[0] === 0x42 && header[1] === 0x4D) { //'B' 'M'
-      const decodedBMP = decodeBMP(Buffer.from(data)); //TODO avoid copy?
-      img = await createSharpImage(decodedBMP.data, { raw: { width: decodedBMP.width, height: decodedBMP.height, channels: 4 } });
-    } else {
-      /* Ignore broken images eg https://github.com/lovell/sharp/issues/1578 - 'Set this flag to false if you'd rather apply a "best effort" to decode images, even if the data is corrupt or invalid. (optional, default true)'
-         as we will often be dealing with images from external sources where we generally can't go back and ask for new images, or sensibly deal/report this type of failure? */
-      img = await createSharpImage(data, { failOn: "none" });
-    }
-
+    const img = await createSharpImageFromBlob(image);
     metadata = await img.metadata();
     stats = getDominantColor ? await img.stats() : undefined;
   } catch (e) {
