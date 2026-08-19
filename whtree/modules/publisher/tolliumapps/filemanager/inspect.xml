@@ -31,6 +31,7 @@
       <action name="openineditor" tid="~openineditor">
         <enableon source="applies" min="1" max="1" onexecute="doopenineditor" />
       </action>
+      <action name="open_rendercontent_ineditor" tid="~openineditor" onexecute="doOpenRenderContentInEditor" />
     </actions>
 
     <menus>
@@ -47,6 +48,7 @@
 
     <compositions>
       <record name="fsobjecttypesettings" />
+      <record name="inspect_object_result" />
       <eventlistener masks="publisher:internal.siteprofiles.memberschanged" onevent="onrefresh" />
     </compositions>
 
@@ -99,6 +101,10 @@
           <textedit name="dynamicexecution_startmacro" width="1pr" enabled="false" visible="false" />
           <textedit name="dynamicexecution_webpageobjectname" width="1pr" enabled="false" visible="false" />
           <text name="dynamicexecution_cached" visible="false" />
+          <line>
+            <textedit composition="inspect_object_result" cellname="on_render_content" name="on_render_content" title="onRenderContent" width="1pr" enabled="false" />
+            <button action="open_rendercontent_ineditor" />
+          </line>
         </tab>
         <tab name="references">
           <list name="refs" height="1pr" emptytid=".noreferences" openaction="jumptoreference" selectmode="single">

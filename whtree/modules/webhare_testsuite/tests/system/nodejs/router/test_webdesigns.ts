@@ -147,6 +147,22 @@ async function testDynamicPage() {
     }
   }
 
+  //Verify TestPages/dynamicpage-override-js/ can jump into a HS router
+  {
+    { //HS site
+      const dynamicPage = await whfs.openFile("site::webhare_testsuite.testsite/TestPages/dynamicpage-override-js");
+      const fetchResult = await fetch(dynamicPage.link + "?echo=12378&hsroute=1");
+      const response = parseResponse(await fetchResult.text());
+      test.eqPartial([{ tag: "p", textContent: 'JSRenderedHSRouter: {"hsroute":42}' }], response.contentElements, fetchResult.url);
+    }
+    { //JS site
+      const dynamicPage = await whfs.openFile("site::webhare_testsuite.testsitejs/TestPages/dynamicpage-override-js");
+      const fetchResult = await fetch(dynamicPage.link + "?echo=12379&hsroute=1");
+      const response = parseResponse(await fetchResult.text());
+      test.eqPartial([{ tag: "p", textContent: 'JSRenderedHSRouter: {"hsroute":42}' }], response.contentElements, fetchResult.url);
+    }
+  }
+
   //Verify TestPages/dynamicpage-override-hs/ is indeed being handled by its new handler (but still a HS one)
   {
     { //HS site
