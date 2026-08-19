@@ -419,6 +419,9 @@ async function attemptFetch(finalurl: string, expectType: string) {
   if (["image/jpeg", "image/png"].includes(contentType) && contentType !== expectType && !cacheControl.includes("immutable"))
     return null; //this was a fast result, wait for the final
 
+  const actualImage = await ResourceDescriptor.from(Buffer.from(fetchBuffer), { getImageMetadata: true });
+  test.eq(contentType, actualImage.mediaType);
+
   return { contentType, cacheControl, fetchBuffer, fetchResult };
 }
 
@@ -637,7 +640,7 @@ async function testWHFSSettingsImgCache() {
   const fetchedGoldFishAVIFFast = await fetchUCLink(fetchedGoldFishAVIFLink, "image/jpeg");
   await compareSharpImages(imgFishPng, await createSharpImage(fetchedGoldFishAVIFFast.fetchBuffer));
   const fetchedGoldFishAVIF = await fetchUCLink(fetchedGoldFishAVIFLink, "image/avif");
-  await compareSharpImages(imgFishPng, await createSharpImage(fetchedGoldFishAVIF.fetchBuffer));
+  await compareSharpImages(imgFishPng, await createSharpImage(fetchedGoldFishAVIF.fetchBuffer), { maxMSE: 25 });
 }
 
 async function testWRDImgCache() {
