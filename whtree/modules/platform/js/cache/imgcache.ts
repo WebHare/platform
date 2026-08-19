@@ -105,7 +105,7 @@ export async function getRawCacheData(xdata: AnalyzedToken, targetmimetype: Outp
 
   // console.log(`getRawCacheData: diskPath=${diskPath}, type=${item.type}, id=${item.id}, cc=${item.cc}, md=${item.md}, ms=${item.ms}, imgdatalen=${item.imgdatalen}`);
 
-  if (item.type !== unifiedCacheDataTypes.Image) { // embed or file
+  if (xdata.datatype !== unifiedCacheDataTypes.Image) {
     if (!skipCache) {
       const cachedVersion = await testDiskPath(diskPath, false, false);
       if (cachedVersion)
