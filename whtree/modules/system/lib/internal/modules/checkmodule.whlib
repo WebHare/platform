@@ -113,6 +113,7 @@ OBJECTTYPE CheckerObject <
                                      , hidehints := FALSE
                                      , checktypescript := TRUE
                                      , onlypaths := STRING[]
+                                     , fix := FALSE
                                      ], options);
 
     IF(this->options.filemask = "")
@@ -197,7 +198,7 @@ OBJECTTYPE CheckerObject <
       IF(this->options.debug)
         Print(`${modname} - running ESLint on ${Length(eslintfiles)} files\n`);
 
-      RECORD ARRAY messages := RunESLint(eslintfiles).messages;
+      RECORD ARRAY messages := RunESLint(eslintfiles, CELL[ this->options.fix ]).messages;
       messages := ApplyIgnoreMessages(messages, validationoptions);
       this->AddTypedIssues(messages);
     }

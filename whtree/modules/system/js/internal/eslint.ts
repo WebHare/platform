@@ -5,6 +5,7 @@ import { whconstant_builtinmodules } from "./webhareconstants";
 import { appendToArray } from "@webhare/std";
 import { readFileSync } from "node:fs";
 import type { ValidationMessageWithType } from "@mod-platform/js/devsupport/validation";
+import { storeDiskFile } from "@webhare/system-tools/src/fs";
 
 export type ESLintResult = {
   messages: ValidationMessageWithType[];
@@ -57,11 +58,16 @@ export async function handleLintingCommand(resources: Array<{
     const eslint = new ESLint(eslintoptions);
     for (const entry of entries) {
       const diskpath = entry.resourcepath.startsWith('direct::') ? entry.resourcepath.substring(8) : toFSPath(entry.resourcepath);
-      const entryResults = await eslint.lintText(entry.contents ?? readFileSync(diskpath, 'utf8'), { filePath: diskpath });
+      const diskdata = typeof entry.contents === "string" ? undefined : readFileSync(diskpath, 'utf8');
+      const entryResults = await eslint.lintText(entry.contents ?? diskdata ?? "", { filePath: diskpath });
       if (entryResults.length) {
         if (typeof entryResults[0].output === "string") {
           retval.fixes.push({ resourcename: entry.resourcepath, output: entryResults[0].output });
         }
+
+        // When fixing is enabled, write the fixed content to disk if it differs from the original content
+        if (eslintoptions.fix && diskdata !== undefined && entryResults[0].output && entryResults[0].output !== entry.contents)
+          await storeDiskFile(diskpath, entryResults[0].output, { overwrite: true });
 
         appendToArray(retval.messages, entryResults[0].messages.map((message): ValidationMessageWithType => ({
           line: message.line || 1,

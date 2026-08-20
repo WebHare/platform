@@ -19,6 +19,7 @@ RECORD args := ParseArguments(GetConsoleArguments(),
                               , [ name := "onlytids", type := "switch" ]
                               , [ name := "sync", type := "switch" ]
                               , [ name := "async", type := "switch" ]
+                              , [ name := "fix", type := "switch" ]
                               , [ name := "filemask", type := "stringopt" ]
                               , [ name := "onlypaths", type := "stringopt" ]
                               , [ name := "modules", type := "paramlist", required := TRUE ]
@@ -118,6 +119,7 @@ FOREVERY(STRING modname FROM checklist)
               , checktypescript := checktypescript AND NOT args.nochecktypescript
               , args.hidehints
               , onlypaths
+              , args.fix
               ];
 
   OBJECT promise;
