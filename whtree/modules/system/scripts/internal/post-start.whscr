@@ -1,9 +1,6 @@
 ﻿<?wh
 
-LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::float.whlib";
-LOADLIB "wh::os.whlib";
-LOADLIB "wh::util/algorithms.whlib";
+ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -14,7 +11,6 @@ LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/internal/restart_reset.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/backend/backendsite.whlib";
-LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/modules/migrations.whlib";
 LOADLIB  "mod::wrd/lib/internal/metadata/applyupdates.whlib";
 
@@ -94,11 +90,8 @@ MACRO RunPostStartRunOnceScripts()
 }
 
 debug := IsDebugTagEnabled("startup");
-DATETIME start := GetCurrentDatetime();
-BOOLEAN isfirststart := NOT RecordExists(PollWHServiceState("poststartdone"));
 
 IF (IsDatabaseWritable()) {
-  LogDebug("system:poststart", "Database is writable, start preparing");
   trans := OpenPrimary();
 
   //initialize non-core modules
@@ -126,44 +119,4 @@ IF (IsDatabaseWritable()) {
 
   LogDebug("system:poststart", "Start RunPostStartRunOnceScripts");
   RunPostStartRunOnceScripts();
-
-  IF(GetEnvironmentVariable("WEBHARE_POSTSTARTSCRIPT") != "")
-  {
-    LogDebug("system:poststart", "Start post-startscript: " || GetEnvironmentVariable("WEBHARE_POSTSTARTSCRIPT"));
-    OBJECT proc := CreateProcess(GetEnvironmentVariable("WEBHARE_POSTSTARTSCRIPT"), STRING[],
-      [ take_input := FALSE
-      , take_output := FALSE
-      , take_errors := FALSE
-      ]);
-
-    proc->share_stdout := TRUE;
-    proc->share_stderr := TRUE;
-    proc->Start();
-
-    OBJECT itr := MakeProcessAsyncIterator(proc);
-    INTEGER exitcode;
-    WHILE (TRUE)
-    {
-      RECORD rec := WaitForPromise(itr->Next());
-      IF (rec.done)
-        BREAK;
-      IF (rec.value.type = "close")
-        exitcode := rec.value.exitcode;
-    }
-    proc->Close();
-    IF(exitcode != 0)
-    {
-      PrintTo(2, "Startup script failed with exitcode #" || exitcode || "\n");
-      SetConsoleExitCode(1);
-    }
-  }
-
-  IF(isfirststart) {
-    FLOAT startuptime := GetDatetimeDifference(GetWebHareStartupTime(), GetCurrentDateTime()).msecs / 1000f;
-    LogDebug("system:poststart", CELL[ state := "finished", startuptime ]);
-    Print(`All post start tasks completed, ${formatFloat(startuptime,3)} seconds from launch\n`);
-  }
 }
-
-IF(isfirststart)
-  SetWHServiceState("poststartdone");

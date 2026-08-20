@@ -80,7 +80,7 @@ async function startupHS() {
   }
 
   const vm = await runScript("mod::system/scripts/internal/webhareservice-startup.whscr");
-  setScopedResource(HSVMSymbol, vm); //ensure any loadlib stays in the srcipt's context
+  setScopedResource(HSVMSymbol, vm); //ensure any calljs->loadlib executed during webhareservice-startup stays in the script's context
   await vm.done;
 
   const returncode = vm.vm?.deref()?.exitCode ?? 254;

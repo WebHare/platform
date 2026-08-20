@@ -2,6 +2,7 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 
@@ -13,6 +14,9 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 RECORD FUNCTION LaunchScriptWithRun(STRING scriptname, STRING ARRAY args)
 {
+  IF(IsWasm())
+    RETURN CallJS("mod::system/js/harescript/processmgmt.ts#launchScriptWithRun", scriptname, args);
+
   TRY
   {
     OBJECT process := CreateProcess(`${GetWebHareConfiguration().installationroot}/bin/wh`,
