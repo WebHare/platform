@@ -4,6 +4,8 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::javascript.whlib";
+LOADLIB "wh::internet/fetch.whlib";
+LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/otp.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -871,7 +873,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
     //Delete session in database, Cleanup idtoken. TODO use doLogout to improve code sharing?
     IF(RecordExists(this->wrdauthjs)) {
       CallJS("@mod-platform/js/auth/harescript.ts#closeFrontendLogin", this->wrdschema->tag, this->wrdauthjs.idtoken, GetClientRemoteIP(), GetWebHeader("User-Agent"));
-      __WHS_CloseWebSession(this->wrdauthjs.sessionid, "wrd:authlogin");
+      FetchSync(ResolveToAbsoluteURL(GetRequestURL(), "/.wh/common/authpages/closesession.shtml?sessionid=" || EncodeURL(this->wrdauthjs.sessionid)));
     }
 
     //Clear the cookies
