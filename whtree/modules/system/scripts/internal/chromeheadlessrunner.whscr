@@ -48,7 +48,7 @@ INTEGER max_starting_wait := 5 * 60 * 1000; // max wait for chrome startup
 INTEGER max_session_length := 15 * 60 * 1000;
 INTEGER max_idle_time := 60 * 1000;
 
-BOOLEAN debug := GetEnvironmentVariable("WEBHARE_DEBUGCHROME") != "";
+BOOLEAN debug := GetEnvironmentVariable("WEBHARE_DEBUGCHROME") != "" OR GetEnvironmentVariable("WEBHARE_DEBUG_SERVICE") != "";
 BOOLEAN noheadless;
 STRING chromebinary;
 
