@@ -2,72 +2,15 @@ import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { getDefinitions, getCodeActions, doExecuteCommand, doReformat, getHover, doStackTraceRequest } from "@mod-devkit/js/language-server/lsp-services";
 import type { Range } from "vscode-languageserver-textdocument";
 import * as test from "@webhare/test";
-import { emplace, generateRandomId, sleep } from "@webhare/std";
+import { generateRandomId, sleep } from "@webhare/std";
 import { logError, toFSPath } from "@webhare/services";
 import { URI } from "vscode-uri";
 import { readFileSync } from "node:fs";
-import type { DocumentsLike, TextDocumentLike } from "@mod-devkit/js/language-server/types";
-import { DiagnosticsProcessor, getDiagnostics } from "@mod-devkit/js/language-server/lsp-validation";
-import type { Diagnostic, MarkupContent } from "vscode-languageserver";
+import { getDiagnostics } from "@mod-devkit/js/language-server/lsp-validation";
+import type { MarkupContent } from "vscode-languageserver";
 import type { StackTraceResponse } from "@webhare/lsp-types";
 import { loadlib } from "@webhare/harescript";
-
-function getTextAtRange(content: string, range: Range) {
-  const lines = content.split('\n').slice(range.start.line, range.end.line + 1);
-  //'end' first otherwise we move the text pointed to by end
-  lines[lines.length - 1] = lines[lines.length - 1].slice(0, range.end.character + 1);
-  lines[0] = lines[0].slice(range.start.character);
-  return lines.join('\n');
-
-}
-
-class MockTextDocument implements TextDocumentLike {
-  content = "";
-  readonly uri: string;
-  readonly languageId: string;
-
-  constructor(uri: string, languageId: string) {
-    this.uri = uri;
-    this.languageId = languageId;
-  }
-
-  getText(range?: Range): string {
-    if (!range)
-      return this.content;
-    return getTextAtRange(this.content, range);
-  }
-}
-
-class MockDocuments implements DocumentsLike, AsyncDisposable {
-  store = new Map<string, MockTextDocument>;
-  diagnostics = new Map<string, Diagnostic[]>();
-  diagprocessor = new DiagnosticsProcessor(this, (uri, diagnostics) => this.updateDiagnostics(uri, diagnostics));
-
-  get(uri: string): MockTextDocument | undefined {
-    return this.store.get(uri);
-  }
-  async setDoc(uri: string, content: string) {
-    const langid = uri.endsWith(".whlib") ? "harescript"
-      : uri.match(/\/screens\/.*\.xml$/) ? "webhare-screens-xml"
-        : "plaintext";
-
-    const doc = emplace(this.store, uri, { insert: () => new MockTextDocument(uri, langid) });
-    doc.content = content;
-
-    await this.diagprocessor.update(uri);
-  }
-  updateDiagnostics(uri: string, diagnostics: Diagnostic[]) {
-    this.diagnostics.set(uri, diagnostics);
-  }
-  async waitSettled() {
-    //TODO don't poll, just properly integrate with the diagprocessor
-    await test.wait(() => !this.diagprocessor.isProcessing());
-  }
-
-  async [Symbol.asyncDispose]() {
-    await this.waitSettled();
-  }
-}
+import { getTextAtLocation, getTextAtRange, MockDocuments } from "./lib/lsp-mocks";
 
 async function testDiagnostics() {
   await using docs = new MockDocuments;
@@ -117,7 +60,7 @@ async function testSymbolLookupAndHover() {
     const defs = await getDefinitions(docs, {
       textDocument: { uri: testfileurl }, position: { line: 1, character: 6 }
     });
-    test.assert(!Array.isArray(defs)); //should only return the exact match
+    test.assert(defs && !Array.isArray(defs)); //should only return the exact match
     test.eqPartial({ uri: totest.match }, defs);
 
     //verify location
@@ -130,6 +73,37 @@ async function testSymbolLookupAndHover() {
 
     test.eq(totest.matchHover, (hover?.contents as MarkupContent).value);
   }
+}
+
+async function testDefinitionLookupXML() {
+  await using docs = new MockDocuments;
+  await docs.addResource(
+    "mod::devkit/tests/lsp/data/formtest.formdef.xml",
+  );
+
+  /// We want to hover over '../basetestjs/pages/jsrendered.ts#renderDynamicPage'
+  const defPos = docs.get(0)?.getPositionFor('objectname="formtest.whlib#CoreTestForm"', { goRight: 16 });
+  test.assert(defPos, "Could not find position for definition lookup in YML test");
+
+  const def = await getDefinitions(docs, defPos);
+  test.assert(def && !Array.isArray(def) && def.uri, "Expected a single definition result");
+  console.log(def);
+  test.eq("CoreTestForm", getTextAtLocation(def));
+}
+
+async function testDefinitionLookupYML() {
+  await using docs = new MockDocuments;
+  await docs.addResource(
+    "mod::platform/data/siteprofiles/types.siteprl.yml",
+  );
+
+  /// We want to hover over '../basetestjs/pages/jsrendered.ts#renderDynamicPage'
+  const defPos = docs.get(0)?.getPositionFor('mod::platform/js/pagebuilders/richdocument.ts#renderRTD', { goRight: 5 });
+  test.assert(defPos, "Could not find position for definition lookup in YML test");
+
+  const def = await getDefinitions(docs, defPos);
+  test.assert(def && !Array.isArray(def), "Expected a single definition result");
+  test.eq("renderRTD", getTextAtLocation(def));
 }
 
 async function testFormatting() {
@@ -239,6 +213,8 @@ async function testStackTrace() {
 test.runTests([
   testDiagnostics,
   testSymbolLookupAndHover,
+  testDefinitionLookupXML,
+  testDefinitionLookupYML,
   testFormatting,
   testSourceFixing,
   testStackTrace,
