@@ -6,13 +6,13 @@
 	"publisher": "webhare",
 	"icon": "images/webhare.png",
 	"license": "MIT",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"repository": {
 		"type": "git",
 		"url": "https://gitlab.com/webhare/platform"
 	},
 	"engines": {
-		"vscode": "^1.120.0"
+		"vscode": "^1.134.0"
 	},
 	"activationEvents": [
 		"onStartupFinished",
@@ -343,13 +343,12 @@
 		"test": "sh ./scripts/run-extension-tests.sh"
 	},
 	"dependencies": {
-		"@webhare/lsp-types": "file:../../whtree/jssdk/lsp-types",
-		"vscode-languageclient": "^10.0.0",
+		"vscode-languageclient": "^10.1.0",
 		"vscode-languageserver-types": "^3.18.0"
 	},
 	"devDependencies": {
-		"@types/node": "^25.9.2",
-		"@types/vscode": "^1.120.0",
+		"@types/node": "^26.2.0",
+		"@types/vscode": "^1.134.0",
 		"@vscode/vsce": "^3.9.2"
 	}
 }
