@@ -111,7 +111,7 @@ export function setupRequestFromResult(contReq: ContentPageRequest, result: RunP
 export async function runHareScriptPage(contReq: ContentPageRequest, how:
   { dynamicExecution: CSPDynamicExecution } |
   { hsPageObjectType: string } |
-  { pageRouter: { funcname: string; funcarg: unknown } }): Promise<WebResponse> {
+  { pageRouter: { funcname: string; args: unknown[] } }): Promise<WebResponse> {
   let result: RunPageResult;
   if ("dynamicExecution" in how || "pageRouter" in how) {
     if (!contReq.webRequest)

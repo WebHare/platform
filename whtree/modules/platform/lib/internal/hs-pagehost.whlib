@@ -158,10 +158,8 @@ PUBLIC RECORD FUNCTION RunDynamicHarescriptPage(RECORD webclientinfo, RECORD how
       INSERT CELL pagefolder := GetDirectoryFromPath(Tokenize(dynamicexecution.webpageobjectname,'#')[0]) INTO __pageinfo;
       pageobject := MakeObject(dynamicexecution.webpageobjectname);
     }
-  ELSE IF(CellExists(pagerouter, 'funcarg'))
-    pageobject := MakeFunctionPtr(pagerouter.funcname)(webdesign, pagerouter.funcarg);
   ELSE
-    pageobject := MakeFunctionPtr(pagerouter.funcname)(webdesign);
+    pageobject := CallAnyPtrVA(MakeFunctionPtr(pagerouter.funcname), VARIANT[webdesign, ...pagerouter.args]);
 
   RECORD result := RunInstantiatedDynHSPage(webdesign, pageobject);;
   result.headers := sendhttpheaders;

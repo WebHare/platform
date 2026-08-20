@@ -620,8 +620,8 @@ export class CPageRequest {
    * @param routerFunction - The name of the HareScript function to invoke as the router. Should take a webdesign as parameter and optionally a second parameter for the routerArg
    * @param routerArg - Optional argument to pass to the router function
    */
-  async renderUsingHareScriptRouter(routerFunction: string, routerArg?: unknown): Promise<WebResponse> {
-    return runHareScriptPage(this, { pageRouter: { funcname: routerFunction, funcarg: routerArg } });
+  async renderUsingHareScriptRouter(routerFunction: string, ...args: unknown[]): Promise<WebResponse> {
+    return runHareScriptPage(this, { pageRouter: { funcname: routerFunction, args } });
   }
 
   /** Get a plugin by its API type
