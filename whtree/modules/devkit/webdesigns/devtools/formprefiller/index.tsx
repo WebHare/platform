@@ -73,12 +73,16 @@ class Prefiller {
     this.recordPrefill("last");
   }
 
-  recordPrefill(name: string) {
+  recordPrefill(name: string, options?: { includeSensitiveFields: boolean }) {
     const fields: Record<string, string | string[]> = {};
 
     for (let i = 0; i < this.form.elements.length; ++i) {
       const el = this.form.elements[i];
       if (!dompack.isFormControl(el) || !el.name)
+        continue;
+
+      //don't store passwords in the autosaved 'last' slot
+      if (!options?.includeSensitiveFields && el.type?.toLowerCase() === "password")
         continue;
 
       if (el.type === 'radio' || el.type === 'checkbox') {
@@ -109,7 +113,7 @@ class Prefiller {
         this.prefillselect.selectedIndex = 0;
         return;
       }
-      this.recordPrefill(name);
+      this.recordPrefill(name, { includeSensitiveFields: true });
       this.lastselection = name;
     } else if (sel.dataset.type === "reset") {
       this.form.reset();
