@@ -195,12 +195,13 @@ async function testDynamicPage() {
     test.eq(2, fetchResult.responsetext.split("<html").length, "Response should not contain nested html tags");
   }
 
-  { //Verify the dynrouter works
+  { //Verify the dynrouter works. dynrouter = mod::webhare_testsuite/lib/publisher/testsitedesign.whlib#TestRouter
     const finalurl = (await getTestSiteJS()).webRoot + "testpages/dynrouter/?test=sendwebfile";
     console.log("dynrouter test URL:", finalurl);
     const fetchResult = await fetch(finalurl);
     test.eq("text/plain", fetchResult.headers.get("Content-Type"));
     test.eq("A web file -\u0000- with a null", await fetchResult.text());
+    test.eq([/^cookie1=eins/, /^cookie2=zwei/], fetchResult.headers.getSetCookie());
   }
 
   { //Verify HS RunPageWithContents in a TS design

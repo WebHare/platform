@@ -129,7 +129,7 @@ export async function runHareScriptPage(contReq: ContentPageRequest, how:
     try {
       const contentObject = (contReq as CPageRequest)["_contentObject"];
       result = await loadlib("mod::platform/lib/internal/hs-pagehost.whlib").RunDynamicHarescriptPage(webClientInfo, how, contReq.targetObject.id, contentObject.id);
-    } catch (e) {
+    } catch (e) { //SendWebFile/Redirect also use exceptions to escape their current stack frames
       const tv = (await getCodeContextHSVM())?._getHSVM().terminationValue as {
         data: WebHareBlob;
         sendhttpheaders: Array<{
@@ -164,7 +164,7 @@ export async function runHareScriptPage(contReq: ContentPageRequest, how:
 
   for (const header of result.headers)
     if (header.header.toLowerCase() !== "status") //handled by statusCode above
-      response.headers.set(header.header, header.data);
+      response.headers[header.always_add ? "append" : "set"](header.header, header.data);
 
   return response;
 }

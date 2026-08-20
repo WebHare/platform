@@ -222,6 +222,8 @@ PUBLIC OBJECT FUNCTION TestRouter(OBJECT webdesign) {
   SWITCH(GetWebVariable("test")) {
     CASE "sendwebfile" {
       AddHTTPHeader("Content-Type","text/plain",FALSE);
+      UpdateWebCookie("cookie1","eins");
+      UpdateWebCookie("cookie2","zwei");
       SendWebFile(StringToBlob("A web file -\0- with a null"));
     }
   }
