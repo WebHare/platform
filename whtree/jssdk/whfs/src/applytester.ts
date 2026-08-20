@@ -170,7 +170,7 @@ async function getHistoricBaseInfo(obj: WHFSObject): Promise<BaseInfo> {
   currentname = recycleinfo[0].currentname;
 
   //TODO chase parents that are already deleted/historic
-  const origparent = await openFolder(origparentid!);
+  const origparent = await openFolder(origparentid!, { allowHistoric: true });
   return getBaseInfoForMockedApplyCheck(origparent, obj.isFolder, obj.type, currentname);
 }
 
