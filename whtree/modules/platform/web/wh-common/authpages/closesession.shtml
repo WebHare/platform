@@ -1,6 +1,6 @@
 <?wh
 /* An endpoint for external scripts (incuding WASM hosted webpages) to invoke __WHS_CloseWebSession which is only available in a shtml context
-   avialable as /.wh/common/authpages/closesession.shtml
+   available as /.wh/common/authpages/closesession.shtml
 */
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
