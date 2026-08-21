@@ -1,6 +1,6 @@
 managedServices:
   poststart:
-    script: mod::system/scripts/internal/post-start.whscr
+    script: mod::system/scripts/internal/post-start.ts
     run: at-post-start
   update-proxies:
     script: mod::system/scripts/tasks/update_proxies.whscr

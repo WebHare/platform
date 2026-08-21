@@ -59,7 +59,7 @@ export function encryptForThisServer<S extends string>(scope: keyof ServerEncryp
     @param options - Options for decryption
     @param options.nullIfInvalid - If true, return null if the data is invalid (instead of throwing an error)
 */
-export function decryptForThisServer<S extends string>(scope: keyof ServerEncryptionScopes | S, text: string, options: { nullIfInvalid: true }): (S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown) | null;
+export function decryptForThisServer<S extends string>(scope: keyof ServerEncryptionScopes | S, text: string, options: { nullIfInvalid: true } & AlgorithmOptions): (S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown) | null;
 export function decryptForThisServer<S extends string>(scope: keyof ServerEncryptionScopes | S, text: string, options?: { nullIfInvalid?: boolean } & AlgorithmOptions): S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown;
 
 export function decryptForThisServer<S extends string>(scope: keyof ServerEncryptionScopes | S, text: string, options?: { nullIfInvalid?: boolean } & AlgorithmOptions): (S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown) | null {
@@ -71,14 +71,20 @@ export function decryptForThisServer<S extends string>(scope: keyof ServerEncryp
     else
       throw new Error("Invalid encrypted data");
 
-  const key = getKeyForScope(scope, options);
-  const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'));
-  decipher.setAuthTag(Buffer.from(authTag, 'base64url'));
-  let str = decipher.update(enc, 'base64url', 'utf8');
-  str += decipher.final('utf8');
+  try {
+    const key = getKeyForScope(scope, options);
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'));
+    decipher.setAuthTag(Buffer.from(authTag, 'base64url'));
+    let str = decipher.update(enc, 'base64url', 'utf8');
+    str += decipher.final('utf8');
 
-  //HareScript EncryptForThisServer will always generate HSON so its 'default usage' remains 100% HS compatible. (TODO not sure if it useful to give it a 'typed json' option?)
-  return str.startsWith("hson:") ? decodeHSON(str) as RetVal : parseTyped(str);
+    //HareScript EncryptForThisServer will always generate HSON so its 'default usage' remains 100% HS compatible. (TODO not sure if it useful to give it a 'typed json' option?)
+    return str.startsWith("hson:") ? decodeHSON(str) as RetVal : parseTyped(str);
+  } catch (err) {
+    if (options?.nullIfInvalid)
+      return null;
+    throw err;
+  }
 }
 
 //Create a signature for this server
