@@ -40,6 +40,14 @@ PUBLIC RECORD FUNCTION __SplitBaseAndSubUrl(STRING requesturl, STRING urlpath)
   // Fastpath when the request urlpath equals the file urlpath
   // not lowercasing here to let tests force slow path
   RECORD unpacked := UnpackURL(requesturl);
+  IF(unpacked.urlpath LIKE ".publisher/preview/*/*") {
+    STRING previewprefix := Substring(unpacked.urlpath, 0, SearchSubstring(unpacked.urlpath, "/", 20) + 1);
+    STRING absolutebaseurl := unpacked.origin || "/" || previewprefix;
+    STRING subpath := Substring(unpacked.urlpath, Length(previewprefix)); //note: HS did not decodeurl this, so keeping it that way
+
+    RETURN CELL[ absolutebaseurl, subpath, append ];
+  }
+
   IF (unpacked.urlpath = urlpath)
   {
     RETURN CELL

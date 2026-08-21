@@ -153,13 +153,29 @@ async function testDynamicPage() {
       const dynamicPage = await whfs.openFile("site::webhare_testsuite.testsite/TestPages/dynamicpage-override-js");
       const fetchResult = await fetch(dynamicPage.link + "?echo=12378&hsroute=1");
       const response = parseResponse(await fetchResult.text());
-      test.eqPartial([{ tag: "p", textContent: 'JSRenderedHSRouter: {"hsroute":42}' }], response.contentElements, fetchResult.url);
+      test.eqPartial([{ tag: "p", textContent: /JSRenderedHSRouter: {.*}/ }], response.contentElements, fetchResult.url);
+
+      const content = JSON.parse((response.contentElements[0] as { textContent: string }).textContent!.substr(20));
+      test.eqPartial({
+        absolutebaseurl: /webhare_testsuite.testsite\/TestPages\/dynamicpage-override-js\/$/,
+        hsroute: 1,
+        subpath: "",
+        targetobject: "/webhare-tests/webhare_testsuite.testsite/TestPages/dynamicpage-override-js"
+      }, content, fetchResult.url);
     }
     { //JS site
       const dynamicPage = await whfs.openFile("site::webhare_testsuite.testsitejs/TestPages/dynamicpage-override-js");
-      const fetchResult = await fetch(dynamicPage.link + "?echo=12379&hsroute=1");
+      const fetchResult = await fetch(dynamicPage.link + "?echo=12379&hsroute=17");
       const response = parseResponse(await fetchResult.text());
-      test.eqPartial([{ tag: "p", textContent: 'JSRenderedHSRouter: {"hsroute":42}' }], response.contentElements, fetchResult.url);
+      test.eqPartial([{ tag: "p", textContent: /JSRenderedHSRouter: {.*}/ }], response.contentElements, fetchResult.url);
+
+      const content = JSON.parse((response.contentElements[0] as { textContent: string }).textContent!.substr(20));
+      test.eqPartial({
+        absolutebaseurl: /webhare_testsuite.testsitejs\/TestPages\/dynamicpage-override-js\/$/,
+        hsroute: 17,
+        subpath: "",
+        targetobject: "/webhare-tests/webhare_testsuite.testsitejs/TestPages/dynamicpage-override-js"
+      }, content, fetchResult.url);
     }
   }
 
@@ -268,6 +284,65 @@ async function testPageResponsePlainPages() {
     const contentdiv = doc.getElementById("content");
     test.eq('', contentdiv?.textContent?.trim()); //TODO once we minify should be able to do this without trim ?
   }
+}
+
+async function testPageResponseCaptureSubPages() {
+  const dynamicPage = await whfs.openFile("site::webhare_testsuite.testsitejs/TestPages/dynamicpage-subpaths");
+  const fetchResult = await fetch(dynamicPage.link + "sub%2Bpath/2/3?echo=12379&hsroute=1");
+  const response = parseResponse(await fetchResult.text());
+  test.eq(dynamicPage.link, response.doc.documentElement?.getAttribute("data-wts-page-root"));
+  test.eq("sub+path/2/3", response.doc.documentElement?.getAttribute("data-wts-page-sub-path"));
+
+  test.eqPartial([{ tag: "p", textContent: /JSRenderedHSRouter: {.*}/ }], response.contentElements, fetchResult.url);
+
+  test.eqPartial({
+    absolutebaseurl: /webhare_testsuite.testsitejs\/TestPages\/dynamicpage-subpaths\/$/,
+    hsroute: 1,
+    subpath: "sub%2Bpath/2/3", //HS does *not* decode the subpath
+    targetobject: "/webhare-tests/webhare_testsuite.testsitejs/TestPages/dynamicpage-subpaths"
+  }, JSON.parse((response.contentElements[0] as { textContent: string }).textContent!.substring(20)), fetchResult.url);
+
+  const rootPagePreview = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/dynamicpage-subpaths", { hsroute: "2" });
+  const rootPagePreviewURL = new URL(rootPagePreview.url);
+  test.eq(rootPagePreviewURL.origin + rootPagePreviewURL.pathname, rootPagePreview.doc.documentElement?.getAttribute("data-wts-page-root"));
+  test.eq("", rootPagePreview.doc.documentElement?.getAttribute("data-wts-page-sub-path"));
+
+  test.eqPartial([{ tag: "p", textContent: /JSRenderedHSRouter: {.*}/ }], rootPagePreview.contentElements, rootPagePreview.url);
+  test.eqPartial({
+    absolutebaseurl: rootPagePreviewURL.origin + rootPagePreviewURL.pathname,
+    hsroute: 2,
+    subpath: "",
+    targetobject: "/webhare-tests/webhare_testsuite.testsitejs/TestPages/dynamicpage-subpaths"
+  }, JSON.parse((rootPagePreview.contentElements[0] as { textContent: string }).textContent!.substring(20)), rootPagePreview.url);
+
+  const subPagePreview = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/dynamicpage-subpaths", { hsroute: "3" }, "s-u-b-p-a-t-h/%2b/1/5");
+  const subPagePreviewURL = new URL(subPagePreview.url);
+  const subPageExpectPageRoot = subPagePreviewURL.origin + subPagePreviewURL.pathname.split('s-u-b-p-a-t-h')[0];
+  test.eq(subPageExpectPageRoot, subPagePreview.doc.documentElement?.getAttribute("data-wts-page-root"));
+  test.eq("s-u-b-p-a-t-h/+/1/5", subPagePreview.doc.documentElement?.getAttribute("data-wts-page-sub-path"));
+
+  test.eqPartial([{ tag: "p", textContent: /JSRenderedHSRouter: {.*}/ }], subPagePreview.contentElements, subPagePreview.url);
+  test.eqPartial({
+    absolutebaseurl: subPageExpectPageRoot,
+    hsroute: 3,
+    subpath: "s-u-b-p-a-t-h/%2b/1/5", //HS does *not* decode the subpath
+    targetobject: "/webhare-tests/webhare_testsuite.testsitejs/TestPages/dynamicpage-subpaths"
+  }, JSON.parse((subPagePreview.contentElements[0] as { textContent: string }).textContent!.substring(20)), subPagePreview.url);
+
+  //Go straight to the page object, not the router
+  const pageObjectPreview = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/dynamicpage-subpaths", { hsroute: "2", "use": "object" });
+  const pageObjectPreviewURL = new URL(pageObjectPreview.url);
+  test.eq(pageObjectPreviewURL.origin + pageObjectPreviewURL.pathname, pageObjectPreview.doc.documentElement?.getAttribute("data-wts-page-root"));
+  test.eq("", pageObjectPreview.doc.documentElement?.getAttribute("data-wts-page-sub-path"));
+
+  test.eqPartial([{ tag: "p", textContent: /JSRenderedHSRouter: {.*}/ }], pageObjectPreview.contentElements, pageObjectPreview.url);
+  test.eqPartial({
+    absolutebaseurl: pageObjectPreviewURL.origin + pageObjectPreviewURL.pathname,
+    hsroute: 2,
+    subpath: "",
+    targetobject: "/webhare-tests/webhare_testsuite.testsitejs/TestPages/dynamicpage-subpaths",
+    route: "PublicVerifyWebpage"
+  }, JSON.parse((pageObjectPreview.contentElements[0] as { textContent: string }).textContent!.substring(20)), pageObjectPreview.url);
 }
 
 async function testPageResponseJSRTD() {
@@ -602,6 +677,7 @@ test.runTests([
   testPageResponseApplies,
   testPageResponseMarkdown,
   testPageResponsePlainPages,
+  testPageResponseCaptureSubPages,
   testPageResponseJSRTD,
   testPublishedJSSite,
   testCaptureJSRendered,

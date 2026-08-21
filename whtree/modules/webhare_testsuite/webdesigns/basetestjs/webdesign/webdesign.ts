@@ -78,6 +78,8 @@ export async function baseTestJSPageBuilder(req: PageBuildRequest): Promise<WebR
 
   req.pageMetadata.htmlDataSet.test = "test";
   req.pageMetadata.htmlDataSet.otherField = "";
+  req.pageMetadata.htmlDataSet.wtsPageRoot = req.pageRoot;
+  req.pageMetadata.htmlDataSet.wtsPageSubPath = req.pageSubPath;
   req.pageMetadata.dataLayer.push({ datalayerpush: 430043004300 });
 
   const bobimage = await req.targetSite.openFile("bob.jpg", { allowMissing: true });

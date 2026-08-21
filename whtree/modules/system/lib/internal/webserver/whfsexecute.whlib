@@ -144,9 +144,8 @@ PUBLIC MACRO DoWHFSExecute(INTEGER fileid, RECORD rec, RECORD options DEFAULTSTO
 
 
 PUBLIC MACRO RunDynamicPageInWebdesign(STRING funcname, STRING webdesignurl, RECORD options) {
-  IF(IsWasm()) {
-    abort(funcname);
-  }
+  IF(IsWasm())
+    THROW NEW Exception(`RunDynamicPageInWebdesign is only available to the native HareScript engines and is intended to be used in .shtml files`);
 
   TRY {
     OBJECT webdesign := GetWebDesignForURL(webdesignurl);
@@ -158,7 +157,7 @@ PUBLIC MACRO RunDynamicPageInWebdesign(STRING funcname, STRING webdesignurl, REC
   } CATCH(OBJECT<RequiresJSRouterException> e) {
     DATETIME start := GetCurrentDatetime();
 
-    RECORD response := CallJS([ service := "platform:webjs"] , "@webhare/router/src/corerouter.ts#executeSHTMLRequestHS", EncodeWebRequestForJS(), webdesignurl, funcname, options);
+    RECORD response := CallJS([ service := "platform:webjs"] , "@webhare/router/src/corerouter.ts#executeSHTMLRequestHS", EncodeWebRequestForJS(), webdesignurl, funcname, VARIANT[options]);
     response.headers := UpdateHeaders(start, response.headers);
     ExecuteWebResponse(response);
   }

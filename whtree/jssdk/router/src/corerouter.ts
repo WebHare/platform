@@ -108,7 +108,7 @@ export async function coreWebHareRouter(port: WebServerPort, webRequest: WebRequ
   return await renderer(whfsreq);
 }
 
-export async function executeSHTMLRequestHS(webreq: WebRequestInfo, webdesignurl: string, funcname: string, funcarg: unknown) {
+export async function executeSHTMLRequestHS(webreq: WebRequestInfo, webdesignurl: string, funcname: string, args: unknown[]) {
   const webRequest = await newWebRequestFromInfo(webreq);
   getCodeContext().applyDebugSettings(webRequest.getDebugSettings());
   const lookupresult = await whfs.lookupURL(new URL(webdesignurl), { clientWebServer: webRequest.clientWebServer });
@@ -117,7 +117,7 @@ export async function executeSHTMLRequestHS(webreq: WebRequestInfo, webdesignurl
 
   const targetObject = await whfs.openFileOrFolder(lookupresult.file ?? lookupresult.folder);
   const whfsreq = await createContentPageRequest(targetObject, { webRequest });
-  return (await runHareScriptPage(whfsreq, { pageRouter: { funcname, funcarg } })).asWebResponseInfo();
+  return (await runHareScriptPage(whfsreq, { pageRouter: { funcname, args } })).asWebResponseInfo();
 }
 
 /** Invoked by HareScript's whfsexecute (dynamic) or publishwebdesign (static) to render a page */
@@ -207,6 +207,10 @@ export async function renderTSWidgetHS(context: {
     isEditorPreview: context.iseditorpreview,
     isPublisherPreview: context.ispublisherpreview,
     getPlugin: () => { return null; },
+
+    //would HS embedded TS widgets be complex enough to need these? stub them for now
+    pageRoot: "",
+    pageSubPath: "",
 
     //ignoring structured data, the infrastructure is not there in a HS webdesign
     addStructuredData(item: StructuredDataItem) { },

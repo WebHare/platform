@@ -74,15 +74,15 @@ export async function fetchAsDoc(whfspath: string, urlVars: Record<string, strin
 }
 
 /** Fetch the preview for a file */
-export async function fetchPreviewAsDoc(toPreview: string | number, urlVars: Record<string, string> = {}) {
+export async function fetchPreviewAsDoc(toPreview: string | number, urlVars: Record<string, string> = {}, urlAppend = "") {
   const whfsobj = await whfs.openFile(toPreview, { allowHistoric: true });
-  const link = new URL(await whfsobj.getPreviewLink());
+  const link = new URL(await whfsobj.getPreviewLink() + urlAppend);
   for (const [key, value] of Object.entries(urlVars))
     link.searchParams.set(key, value);
 
   console.log(`Fetching preview link for ${toPreview}: ${link}`);
   const fetchResult = await fetch(link);
-  test.assert(fetchResult.ok, `Failed to fetch preview link: ${fetchResult.status} ${fetchResult.statusText}`);
+  test.assert(fetchResult.ok, `Failed to fetch preview link: ${fetchResult.status} ${fetchResult.statusText}, link: ${link}`);
 
   return { ...parseResponse(await fetchResult.text()), headers: fetchResult.headers, url: link.toString(), id: whfsobj.id };
 }

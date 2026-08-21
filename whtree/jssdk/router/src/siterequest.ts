@@ -129,6 +129,11 @@ export class CPageRequest {
   /** The navigation path entries from the site root to the current targetObject */
   targetPath: Array<TargetPathEntry> = [];
 
+  /** The root URL of the currently requested page. Usually targetObject.link but not for eg. previews. Ends with a slash */
+  readonly pageRoot: string;
+  /** The subpath, URL decoded. Contains any filename/folder that was appended to the page name, eg for pages with captureSubPaths */
+  readonly pageSubPath: string;
+
   //createContentPageRequest will invoke _prepareResponse immediately to set these:
 
   /** Apply tester for the target object. Not exposed through official interfaces as applyteser itself is still an internal object */
@@ -175,6 +180,30 @@ export class CPageRequest {
       obj: {},
       dtapStage: dtapStage,
     };
+
+
+    if (!this.targetObject.sitePath)
+      throw new Error(`Target object ${this.targetObject.name} has no sitePath, cannot create a ContentPageRequest`);
+
+    //TODO should preview handling be in preview.shtml or at least in one of our callers, passing pageRoot/pagSubPath as options?
+    const url = this.#webRequest?.url ? new URL(this.#webRequest.url) : null;
+    if (url?.pathname?.startsWith('/.publisher/preview/')) {
+      this.pageRoot = url.origin + url.pathname.substring(0, url.pathname.indexOf('/', 22) + 1);
+    } else {
+      let objectRoot = this.targetSite.webRoot + encodeURI(this.targetObject.sitePath.slice(1));
+      if (!objectRoot.endsWith('/'))
+        objectRoot += '/';
+
+      if (url) {
+        //FIXME should we still consider ! URL parts ?
+        //We'll copy the right number of path entries so we can follow slightly off path in the URL
+        this.pageRoot = url.origin + url.pathname.split('/').slice(0, new URL(objectRoot).pathname.split('/').length - 1).join('/') + '/';
+      } else { //static request
+        this.pageRoot = objectRoot;
+      }
+    }
+
+    this.pageSubPath = this.#webRequest?.url?.startsWith(this.pageRoot) ? decodeURIComponent(new URL(this.#webRequest.url).pathname.substr(new URL(this.pageRoot).pathname.length)) : "";
   }
 
   async _preparePageRequestBase() {
@@ -617,11 +646,11 @@ export class CPageRequest {
   }
 
   /** Render a page using a HareScript router
-   * @param routerFunction - The name of the HareScript function to invoke as the router. Should take a webdesign as parameter and optionally a second parameter for the routerArg
-   * @param routerArg - Optional argument to pass to the router function
+   * @param routerFunction - The name of the HareScript router function or page object to invoke.
+   * @param routerArg - Optional argument to pass to the router function or page object
    */
-  async renderUsingHareScriptRouter(routerFunction: string, routerArg?: unknown): Promise<WebResponse> {
-    return runHareScriptPage(this, { pageRouter: { funcname: routerFunction, funcarg: routerArg } });
+  async renderUsingHareScriptRouter(routerFunction: string, ...args: unknown[]): Promise<WebResponse> {
+    return runHareScriptPage(this, { pageRouter: { funcname: routerFunction, args } });
   }
 
   /** Get a plugin by its API type
@@ -733,13 +762,13 @@ export async function createContentPageRequest(toRender: WHFSObject, options?: C
 
 /** The pagepart request is the part of the PageRequest API that's reasonable safe to use for widgets and RTDs */
 export type PagePartRequest = Pick<CPageRequest,
-  "renderRTD" | "renderWidget" | "resolveLink" |
+  "renderRTD" | "renderWidget" | "resolveLink" | "pageRoot" | "pageSubPath" |
   "targetFolder" | "targetObject" | "targetSite" | "targetPath" | "siteLanguage" |
   "isLinkedContent" | "isEditorPreview" | "isPublisherPreview" | "webRequest" | "getInstance" | "timings" | "addStructuredData" |
   "getPlugin" | "setFrontendData" | "setPageBuilderData" | "insertAt" | "pageMetadata">; //TODO need something to determine emailwidgets. IsTargetEmail() ?
 
 /** The ContentPageRequest is offered to page renderers (onRenderContent, generally depends on the file type) */
-export type ContentPageRequest = PagePartRequest & Pick<CPageRequest, "buildWebPage" | "initializePlugins" | "applyToCurrentContext">;
+export type ContentPageRequest = PagePartRequest & Pick<CPageRequest, "buildWebPage" | "initializePlugins" | "applyToCurrentContext" | "renderUsingHareScriptRouter">;
 
 export type ContentPageRequestWithRenderer = ContentPageRequest & Pick<CPageRequest, "getPageRenderer">; //not sure if getPageRenderer will remain as a separate API
 

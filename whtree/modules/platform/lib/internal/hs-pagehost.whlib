@@ -141,25 +141,45 @@ PUBLIC RECORD FUNCTION RunDynamicHarescriptPage(RECORD webclientinfo, RECORD how
   IF(RecordExists(dynamicexecution)) {
     IF(dynamicexecution.startmacro != "")
       ABORT('implement startmacro ' || dynamicexecution.startmacro); //is this still used and relevant for new TS designs?
-
-    STRING objurlpath := UnpackURL(webdesign->targetapplytester->__Deprecated_GetObjInfo().obj.url).urlpath;
-    __pageinfo := CELL[
-      ...__SplitBaseAndSubUrl(GetClientRequestURL(), objurlpath),
-      webdesign
-    ];
   }
+
+  STRING objurlpath := UnpackURL(webdesign->targetapplytester->__Deprecated_GetObjInfo().obj.url).urlpath;
+  __pageinfo := CELL[
+    ...__SplitBaseAndSubUrl(GetClientRequestURL(), objurlpath),
+    webdesign
+    ];
 
   //NOTE: Any use of SendWebFile (and Redirect) by the code below will trigger a terminateHSVM EM_Syscall - which will abort the VM and be handled directly in hswebdesigndriver.ts
   OBJECT pageobject;
-  IF(RecordExists(dynamicexecution))
+  IF(RecordExists(dynamicexecution)) {
     IF(dynamicexecution.routerfunction != "")
       pageobject := MakeFunctionPtr(dynamicexecution.routerfunction)(webdesign);
     ELSE {
       INSERT CELL pagefolder := GetDirectoryFromPath(Tokenize(dynamicexecution.webpageobjectname,'#')[0]) INTO __pageinfo;
       pageobject := MakeObject(dynamicexecution.webpageobjectname);
     }
-  ELSE
-    pageobject := MakeFunctionPtr(pagerouter.funcname)(webdesign, pagerouter.funcarg);
+  } ELSE {
+    //We'll be following the pagerouter which may either point o an actual pagerouter or a page object (to make renderUsingHareScriptRouter more versatile without adding another entry point to HS)
+    TRY {
+       pageobject := CallAnyPtrVA(MakeFunctionPtr(pagerouter.funcname), VARIANT[webdesign, ...pagerouter.args]);
+    } CATCH(OBJECT e) {
+      IF(e->what NOT LIKE "Function*was not found*")
+        THROW e;
+
+      //try as object. repeating the pagefolder insert from above
+      STRING script := Tokenize(pagerouter.funcname,'#')[0];
+      INSERT CELL pagefolder := GetDirectoryFromPath(script) INTO __pageinfo;
+      TRY {
+        pageobject := CallAnyPtrVA(PTR MakeObject, VARIANT[pagerouter.funcname, ...pagerouter.args]);
+      } CATCH(OBJECT f) {
+        IF(f->what NOT LIKE "There was no public objecttype*" )
+          THROW f;
+
+        STRING symbol := Substring(pagerouter.funcname, Length(script)+1);
+        THROW NEW Exception(`No public objecttype or function named '${symbol}' found in library ${script}`);
+      }
+    }
+  }
 
   RECORD result := RunInstantiatedDynHSPage(webdesign, pageobject);;
   result.headers := sendhttpheaders;
