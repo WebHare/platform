@@ -31,6 +31,8 @@ async function testCryptForServer() {
   test.eq(/^[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$/, roundtrip1);
   test.eq("Hello, world!", decryptForThisServer("webhare_testsuite:string", roundtrip1));
   test.throws(/unable to authenticate/, () => decryptForThisServer("webhare_testsuite:otherscope", roundtrip1), "invalid scope should fail decryption");
+  test.eq(null, decryptForThisServer("webhare_testsuite:otherscope", roundtrip1, { nullIfInvalid: true }), "invalid scope should return null when nullIfInvalid is enabled");
+  test.eq(null, decryptForThisServer("webhare_testsuite:string", "invalid-token", { nullIfInvalid: true }), "malformed encrypted data should return null when nullIfInvalid is enabled");
 
   //Test compatibility with Legacy HareScript
   test.eq("Hello, world!", await loadlib("mod::system/lib/services.whlib").DecryptForThisServer("webhare_testsuite:string", roundtrip1));
@@ -82,6 +84,7 @@ async function testCryptForServer() {
   test.eq(/^[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$/, roundtripCK);
   test.throws(/unable to authenticate/, () => decryptForThisServer("webhare_testsuite:string", roundtripCK), "should not be able to decrypt with default secret");
   test.throws(/unable to authenticate/, () => decryptForThisServer("webhare_testsuite:string", roundtripCK, { secret: customSecret + "1" }), "should not be able to decrypt with wrong secret");
+  test.eq(null, decryptForThisServer("webhare_testsuite:string", roundtripCK, { secret: customSecret + "1", nullIfInvalid: true }), "wrong secret should return null when nullIfInvalid is enabled");
   test.eq("Hello, world!", decryptForThisServer("webhare_testsuite:string", roundtripCK, { secret: customSecret }));
 }
 
