@@ -141,11 +141,7 @@ class StoredKeyPair {
     // Check if we have a renewalInfo url, so we can use ARI to check if we have to renew yet
     const data = await whfsType("platform:system.keystorefolder").get(this.id);
 
-    if (!options?.ignoreRenewalAfter && data.retryRenewalAfter) {
-      const retryAfter = Temporal.Instant.from(data.retryRenewalAfter);
-      if (Temporal.Instant.compare(retryAfter, Temporal.Now.instant()) > 0)
-        return { shouldRenew: false, retryAfter };
-    }
+    // Retrieve the renewal info url, if we don't have one yet
     let renewalInfo = data.renewalInfo;
     if (!renewalInfo) {
       // Retrieve the renewalInfo url from the provider and store it
@@ -170,31 +166,45 @@ class StoredKeyPair {
         }
       }
     }
-    if (renewalInfo) {
+    // Retrieve the renew window if we have a renewal info url, and either don't have a renew window or the renew information
+    // may be out of date
+    let retryAfter = data.retryRenewalAfter ? Temporal.Instant.from(data.retryRenewalAfter) : null;
+    if (renewalInfo
+      && (!data.renewWindowStart
+        || !data.renewWindowEnd
+        || options?.ignoreRenewalAfter
+        || (retryAfter && Temporal.Instant.compare(retryAfter, Temporal.Now.instant()) <= 0))) {
       // We have a renewalInfo url, do an ARI check
       // https://letsencrypt.org/2024/04/25/guide-to-integrating-ari-into-existing-acme-clients
       const result = await fetch(renewalInfo);
       if (result.ok) {
         // If we receive a Retry-After header, store it
         const retryAfterSeconds = parseInt(result.headers.get("retry-after") ?? "") || 0;
-        const retryAfter = retryAfterSeconds ? (Temporal.Now.instant().add({ seconds: retryAfterSeconds })) : null;
-        await whfsType("platform:system.keystorefolder").set(this.id, { retryRenewalAfter: retryAfter?.toString() });
-        // Read the renewal info and check if we should renew
+        retryAfter = retryAfterSeconds ? (Temporal.Now.instant().add({ seconds: retryAfterSeconds })) : null;
+        data.retryRenewalAfter = retryAfter?.toString() ?? "";
+        // Read the renewal info
         const info = await result.json() as { suggestedWindow?: { start: string; end: string }; explanationUrl?: string };
         if (info.suggestedWindow) {
-          const windowStart = Temporal.Instant.from(info.suggestedWindow.start);
-          const windowEnd = Temporal.Instant.from(info.suggestedWindow.end);
-          await whfsType("platform:system.keystorefolder").set(this.id, { renewWindowStart: windowStart.toString() });
-          return {
-            shouldRenew: shouldRenew(windowStart, windowEnd),
-            validUntil: windowStart,
-            retryAfter,
-          };
+          data.renewWindowStart = info.suggestedWindow.start;
+          data.renewWindowEnd = info.suggestedWindow.end;
         }
       }
       //FIXME: Should we re-retrieve the renewalInfo url if the renewal call failed as it might have changed?
+      // Store the updated data
+      await whfsType("platform:system.keystorefolder").set(this.id, data);
+    }
+    // If we have a renew window, use it to check if the certificate should be renewed
+    if (data.renewWindowStart && data.renewWindowEnd) {
+      const windowStart = Temporal.Instant.from(data.renewWindowStart);
+      const windowEnd = Temporal.Instant.from(data.renewWindowEnd);
+      return {
+        shouldRenew: shouldRenew(windowStart, windowEnd),
+        validUntil: windowStart,
+        retryAfter,
+      };
     }
 
+    // If ARI is not available, use the certificate's valid from and to dates
     const validFrom = await this.getValidFrom();
     const validUntil = await this.getValidTo();
 
