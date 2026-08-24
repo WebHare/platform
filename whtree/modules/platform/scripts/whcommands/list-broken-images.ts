@@ -7,7 +7,7 @@ import { storeDiskFile } from "@webhare/system-tools";
 import { whconstant_whfsid_private, whconstant_whfsid_private_platform } from "@mod-system/js/internal/webhareconstants";
 import { writeClamped } from "@mod-platform/js/cli/cli-tools";
 import { createSharpImageFromBlob } from "@webhare/services/src/descriptor";
-import type { ListFSResult } from "@webhare/whfs/src/list";
+import type { WHFSListResult } from "@webhare/whfs/src/list";
 
 interface BrokenEntry {
   fsobject: number;
@@ -102,7 +102,7 @@ runCli({
     }
 
     if (!opts.skipFiles) {
-      const images: ListFSResult<"data" | "whfsPath" | "parent">[] = [];
+      const images: WHFSListResult<"data" | "whfsPath" | "parent">[] = [];
       //gather folders inside this startingpoint
       for (const start of startingPoints) {
         const startFolder = await openFileOrFolder(start, { allowMissing: true, allowHistoric: true });

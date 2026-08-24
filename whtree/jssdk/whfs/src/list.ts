@@ -140,9 +140,9 @@ export interface ListFSRecursiveOptions extends ListFSOptions {
   maxDepth?: number;
 }
 
-export type ListFSResult<K extends keyof ListableFsObjectRow> = Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder">;
+export type WHFSListResult<K extends keyof ListableFsObjectRow> = Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder">;
 
-export type ListFSRecursiveResult<K extends keyof ListableFsObjectRow> = Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder" | "parent"> & {
+export type WHFSRecursiveListResult<K extends keyof ListableFsObjectRow> = Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder" | "parent"> & {
   /** Path starting from the base of the request, eg. "file" or "folder/file" */
   path: string;
 };
@@ -201,7 +201,7 @@ export class ListingContext<K extends keyof ListableFsObjectRow = never> {
     this.prepped = true;
   }
 
-  async list(parents: Array<number | null> | "*"): Promise<Array<ListFSResult<K>>> {
+  async list(parents: Array<number | null> | "*"): Promise<Array<WHFSListResult<K>>> {
     if (!this.prepped)
       await this.prep();
 
@@ -279,10 +279,10 @@ export class ListingContext<K extends keyof ListableFsObjectRow = never> {
   }
 }
 
-export async function listRecursive<K extends keyof ListableFsObjectRow = never>(start: number, keys?: K[], options?: ListFSRecursiveOptions): Promise<Array<ListFSRecursiveResult<K>>> {
+export async function listRecursive<K extends keyof ListableFsObjectRow = never>(start: number, keys?: K[], options?: ListFSRecursiveOptions): Promise<Array<WHFSRecursiveListResult<K>>> {
   let workList: Array<number | null> = [start];
 
-  const rows: ListFSRecursiveResult<K>[] = [];
+  const rows: WHFSRecursiveListResult<K>[] = [];
   const getKeys: Array<K | "parent"> = [...keys || []];
   if (!getKeys.includes("parent"))
     getKeys.push("parent");
@@ -317,7 +317,7 @@ export async function listRecursive<K extends keyof ListableFsObjectRow = never>
   return rows;
 }
 
-export async function listWHFSObjects<K extends keyof ListableFsObjectRow = never>(keys?: K[], options?: ListFSGlobalOptions): Promise<Array<ListFSResult<K>>> {
+export async function listWHFSObjects<K extends keyof ListableFsObjectRow = never>(keys?: K[], options?: ListFSGlobalOptions): Promise<Array<WHFSListResult<K>>> {
   const ctx = new ListingContext(keys, options);
   if (options?.parent !== undefined)
     return await ctx.list(Array.isArray(options.parent) ? options.parent : [options.parent]);
