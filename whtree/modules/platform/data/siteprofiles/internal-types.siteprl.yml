@@ -18,7 +18,10 @@ types:
       # The start of the certificate renewal window (ISO string)
       renewWindowStart:
         type: string
-      # Retry renewal after this date/time (ISO string)
+      # The end of the certificate renewal window (ISO string)
+      renewWindowEnd:
+        type: string
+      # (Re)retrieve renewal info after this date/time (ISO string)
       retryRenewalAfter:
         type: string
 
