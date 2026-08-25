@@ -15,6 +15,12 @@ export const generatorTypes = ["config", "extracts", "whfs", "wrd", "openapi", "
 export type GeneratorType = typeof generatorTypes[number];
 export { type IfWebHare };
 
+//Take title/tid or <field>/<field>Tid
+type TidElementsForAttr<AttrName extends string> = AttrName extends "title"
+  ? { title?: string; tid?: string }
+  : { [K in `${AttrName}Tid`]?: string } & { [K in `${AttrName}`]?: string };
+
+
 export interface FileToUpdate {
   path: string;
   module: string; //'platform' for builtin modules
@@ -30,10 +36,28 @@ export interface LoadedModuleDefs {
   modYml: ModDefYML | null;
 }
 
-export interface GenerateContext {
+export class GenerateContext {
   verbose: boolean;
   moduledefs: LoadedModuleDefs[];
   versionInfo: WebHareVersionInfo;
+
+  constructor(moduledefs: LoadedModuleDefs[], verbose: boolean) {
+    this.verbose = verbose;
+    this.moduledefs = moduledefs;
+    this.versionInfo = getMyApplicabilityInfo({ unsafeEnv: true });
+  }
+
+  parseYMLTid<AttrName extends string>(mod: LoadedModuleDefs, el: TidElementsForAttr<AttrName>, attrname: AttrName) {
+    if ((el as Record<string, string | undefined>)[attrname])
+      return ((el as Record<string, string>)[attrname]);
+
+    //TODO have modYmls use TrackedYAML so we can trace exact line locations
+    const tid = ((el as Record<string, string | undefined>)[attrname === "title" ? "tid" : `${attrname}Tid`]);
+    if (tid)
+      return tid.includes(':') ? tid : `${mod.name}:${tid}`;
+
+    return '';
+  }
 }
 
 interface WebHareVersionInfo {
