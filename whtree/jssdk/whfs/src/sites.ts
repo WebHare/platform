@@ -4,7 +4,7 @@ import { type WHFSFile, type WHFSFolder, __openWHFSObj, type OpenWHFSObjectOptio
 import { excludeKeys, formatPathOrId } from "./support";
 import { openType, whfsType, type TypedInstanceData } from "./contenttypes";
 import { selectSitesWebRoot } from "@webhare/whdb/src/functions";
-import { ListingContext, listRecursive, type ListableFsObjectRow, type ListFSOptions, type ListFSRecursiveOptions, type ListFSRecursiveResult, type ListFSResult } from "./list";
+import { ListingContext, listRecursive, type ListableFsObjectRow, type ListFSOptions, type ListFSRecursiveOptions, type WHFSRecursiveListResult, type WHFSListResult } from "./list";
 
 // Adds the custom generated columns
 export interface SiteRow extends Selectable<PlatformDB, "system.sites"> {
@@ -99,12 +99,12 @@ export class Site {
     return __openWHFSObj(this.id, path, false, options?.allowMissing ?? false, `in site '${this.name}'`, options?.allowHistoric ?? false, false);
   }
 
-  list<K extends keyof ListableFsObjectRow = never>(keys?: K[], options?: ListFSOptions): Promise<Array<ListFSResult<K>>> {
+  list<K extends keyof ListableFsObjectRow = never>(keys?: K[], options?: ListFSOptions): Promise<Array<WHFSListResult<K>>> {
     const ctx = new ListingContext(keys, options);
     return ctx.list([this.id]);
   }
 
-  listRecursive<K extends keyof ListableFsObjectRow = never>(keys?: K[], options?: ListFSRecursiveOptions): Promise<Array<ListFSRecursiveResult<K>>> {
+  listRecursive<K extends keyof ListableFsObjectRow = never>(keys?: K[], options?: ListFSRecursiveOptions): Promise<Array<WHFSRecursiveListResult<K>>> {
     return listRecursive(this.id, keys, options);
   }
 

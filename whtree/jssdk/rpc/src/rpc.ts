@@ -235,8 +235,9 @@ class RPCClient {
       body: stringify(params, { typed: true }),
     };
 
-    if (typeof location !== "undefined")
-      callurl.searchParams.set("pathname", location.pathname);
+    const pathName = typeof location !== "undefined" ? location.pathname : new URL(this.options.baseUrl || getBaseURL()).pathname;
+    if (pathName !== '/')
+      callurl.searchParams.set("pathname", pathName);
 
     if (this.debug) {
       requestStack = parseTrace(new Error);
@@ -305,7 +306,8 @@ export type GetRPCClientInterface<Service extends (keyof KnownRPCServices) | obj
 /** Create a WebHare RPC client
   @param service - URL (https://<ORIGIN>/.wh/rpc/module/service/) or service name (module:service) to invoke
 */
-export function rpc<Service extends keyof KnownRPCServices>(service: Service extends keyof KnownRPCServices ? Service : string, options?: RPCClientOptions): GetRPCClientInterface<Service>;
+export function rpc<Service extends keyof KnownRPCServices>(service: Service, options?: RPCClientOptions): GetRPCClientInterface<Service>;
+export function rpc<Service extends keyof KnownRPCServices>(service: string, options?: RPCClientOptions): GetRPCClientInterface<Service>;
 export function rpc<Service extends object>(service: Service extends keyof KnownRPCServices ? Service : string, options?: RPCClientOptions): GetRPCClientInterface<Service>;
 
 export function rpc<Service extends keyof KnownRPCServices | object>(service: Service extends keyof KnownRPCServices ? Service : string, options?: RPCClientOptions): GetRPCClientInterface<Service> {
