@@ -1,19 +1,20 @@
 import { HTTPErrorCode, type WebHareRouter, type WebRequest, type WebResponse, createJSONResponse } from "@webhare/router";
-import { lookupPublishedTarget } from "@webhare/router/src/corerouter";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 //TOOD make this a public export somewhere? but should it include wrdOrg and wrdPerson though
 import type { Platform_BasewrdschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { WRDSchema } from "@webhare/wrd";
 import { getSchemaSettings } from "@webhare/wrd/src/settings";
 import type { IdTokenSigningAlgValuesSupported, OpenIdConfiguration } from "@webhare/auth/src/types";
+import { lookupURL, openFileOrFolder } from "@webhare/whfs";
 
 //wellKnownRouter implements .well-known/openid-configuration
 export async function wellKnownRouter(req: WebRequest): Promise<WebResponse> {
-  const target = await lookupPublishedTarget(req.url.toString()); //TODO can't we use 'obj' directly instead of going through a URL lookup?
-  if (!target?.targetObject)
-    throw new Error(`Unable to trace rqeuest back to a target`);
+  const target = await lookupURL(new URL(req.url));
+  const targetObj = target.file || target.folder;
+  if (!targetObj)
+    throw new Error(`Unable to trace request back to a target`);
 
-  const tester = await getApplyTesterForObject(target.targetObject);
+  const tester = await getApplyTesterForObject(await openFileOrFolder(targetObj));
   const wrdSchemaTag = (await tester.getWRDAuth())?.wrdSchema;
   if (!wrdSchemaTag)
     return createJSONResponse(HTTPErrorCode.NotFound, { error: `No WRD schema defined for this location` });
