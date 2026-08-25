@@ -1,17 +1,20 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import * as utilerror from '@mod-system/js/wh/errorreporting';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
-import { registerJSApp } from "../application";
+import { registerJSApp, type FrontendEmbeddedApplication } from "../application";
 import "../../common.lang.json";
 import { getTid } from "@webhare/gettid";
+import { setupOauthRequestHandler } from "./oauth-support";
+import type { ObjFrame } from "@mod-tollium/webdesigns/webinterface/components";
+import { navigateTo } from "@webhare/env/src/navigation";
 
 class OauthApp {
+  oauthHandler;
+  app;
+  topscreen: ObjFrame | null = null;
 
-  constructor(appinterface, callback) {
-    this.oauth_redirect = null;
+  constructor(appinterface: FrontendEmbeddedApplication, callback: () => void) {
+    this.oauthHandler = setupOauthRequestHandler(appinterface.shell.tolliumservice, location.href);
     this.app = appinterface;
     this.app.promiseComponentTypes(['panel', 'button', 'action', 'textedit', 'table']).then(this._setupScreen.bind(this)).then(callback).catch(utilerror.reportException); //If catch fails, use _catch
     this.app.updateApplicationProperties({ title: getTid("tollium:shell.oauth.apptitle"), appicon: 'tollium:objects/webhare' });
@@ -21,36 +24,20 @@ class OauthApp {
       @param text Text to show
       @param callback Callback to call when the messagebox is closed by the user
   */
-  async _showError(text) {
+  async _showError(text: string) {
     await runSimpleScreen(this.app,
       {
         title: getTid("tollium:shell.oauth.errortitle"),
         text: text,
         buttons: [{ name: "close", title: getTid("~close") }]
       });
-    this.app.terminateApplication();
+    void this.app.terminateApplication();
   }
 
   _setupScreen() {
-    const url = new URL(location.href);
-
-    this.oauth_clientid = url.searchParams.get("oauth_clientid");
-    this.oauth_redirect = url.searchParams.get("oauth_redirect");
-    this.scopes = url.searchParams.get("scopes")?.split(",").filter(function (scope) { return scope; }) ?? ["system:sysop"];
-
-    let error = "";
-
-    if (this.oauth_clientid === "")
-      error = getTid("tollium:shell.oauth.messages.missing_client");
-    //  else if (!scopes.length || scopes.some(scope => scope !== "webhare") || !scopes.includes("webhare"))
-    //    error = getTid("tollium:shell.oauth.messages.missing_scopes"); //FIXME future versions should *only* accept scope 'webhare' for this oauth flow
-    else if (this.oauth_redirect === "")
-      error = getTid("tollium:shell.oauth.messages.missing_redirect");
-    else if (this.oauth_redirect.indexOf(this.oauth_clientid))
-      error = getTid("tollium:shell.oauth.messages.invalid_redirect");
-
-    if (error)
-      return this._showError(error);
+    if ("error" in this.oauthHandler) {
+      return this._showError(this.oauthHandler.error);
+    }
 
     const screencomponents =
     {
@@ -129,7 +116,7 @@ class OauthApp {
 
       question_text: { type: "text", title: "", value: getTid("tollium:shell.oauth.question"), wordwrap: true, width: "1pr", minwidth: "70x" },
 
-      clientid: { type: "text", title: "", value: this.oauth_clientid },
+      clientid: { type: "text", title: "", value: this.oauthHandler.oauth_clientid },
 
       submitbutton: { type: "button", title: getTid("~yes"), action: "submitaction" },
 
@@ -143,37 +130,26 @@ class OauthApp {
     this.topscreen = this.app.createNewScreenObject('loginapp', 'frame', $todd.componentsToMessages(screencomponents));
   }
 
-  async _createAccessToken(component, rule, callback) {
+  async _createAccessToken(component: unknown, rule: unknown, callback: () => void) {
+    if ("error" in this.oauthHandler)
+      throw new Error("Oauth handler is in error state: " + this.oauthHandler.error);
+
     try {
-      const options =
-      {
-        type: "getoauthtoken",
-        scopes: this.scopes,
-        client: this.oauth_clientid
-      };
-
-      const result = await $shell.tolliumservice.executeAction(options);
-
-      const url = new URL(this.oauth_redirect);
-      url.searchParams.set("responsetype", "token");
-      url.searchParams.set("token", result.token);
-      url.searchParams.set("scopes", result.scopes.join(","));
-      url.searchParams.set("serverversion", result.serverversion);
-      url.searchParams.set("expires", result.expires);
-      location.href = url.toString();
+      navigateTo(await this.oauthHandler.approve());
     } catch (e) {
       if (e instanceof Error)
-        utilerror.reportException(e);
+        await utilerror.reportException(e);
 
-      this._showError(getTid("tollium:shell.oauth.messages.unknownerror"));
+      await this._showError(getTid("tollium:shell.oauth.messages.unknownerror"));
       callback();
     }
   }
 
-  _sendCancel(component, rule, callback) {
-    const url = new URL(this.oauth_redirect);
-    url.searchParams.set("responsetype", "cancel");
-    location.href = url.toString();
+  async _sendCancel(component: unknown, rule: unknown, callback: () => void) {
+    if ("error" in this.oauthHandler)
+      throw new Error("Oauth handler is in error state: " + this.oauthHandler.error);
+
+    navigateTo(await this.oauthHandler.cancel());
     callback();
   }
 }
