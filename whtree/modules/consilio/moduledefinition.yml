@@ -1,0 +1,5 @@
+notifications:
+  notifications.catalog_uptodate:
+    tid: module.notifications.catalog_uptodate
+    descriptionTid: module.notifications.catalog_uptodate-desc
+    defaultEnabled: true

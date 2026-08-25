@@ -1,52 +1,15 @@
 ﻿<?wh
+
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 
-LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::tollium/lib/internal/towl.whlib" EXPORT TowlPriorityVeryLow
                                                    , TowlPriorityLow
                                                    , TowlPriorityNormal
                                                    , TowlPriorityHigh
                                                    , TowlPriorityVeryHigh;
 
-INTEGER64 idcounter;
-// Generate an ID (which is unique if there are no two processes that, within the same millisecond, generate an id using the
-// same idcounter value and the same random value)
-STRING FUNCTION GenerateID()
-{
-  idcounter := idcounter + 1;
-  RETURN ToLowercase(Right("0000000" || ToString(GetMsecondCount(GetCurrentDateTime()), 16), 8) ||
-                     Right("000000000000" || ToString(idcounter, 36), 13) ||
-                     Right("00" || Random(0,999), 3));
-}
-
-/** @short Get information about a notification with the given name
-    @param name The notification name
-    @return The notification information, or a default record if the notification is unknown
-    @cell(string) return.name Notification name, also used in combination with module name as notification title tid
-    @cell(string) return.module Module responsible for this notification
-    @cell(string) return.descriptiontid tid to use as notification description
-    @cell(boolean) return.defaultenabled If the notification should be shown if never shown before
-*/
-RECORD FUNCTION ResolveTowlNotification(STRING name)
-{
-  // name should have the form "module:name"
-  STRING ARRAY parts := Tokenize(name, ":");
-  IF (Length(parts) != 2)
-    RETURN DEFAULT RECORD;
-
-  // Get the module information from the resource manager
-  RECORD module := SELECT portal
-                     FROM GetWebHareModules()
-                    WHERE COLUMN name = parts[0];
-  IF (NOT RecordExists(module) OR NOT RecordExists(module.portal))
-    RETURN DEFAULT RECORD;
-
-  // Get the notification information
-  RETURN SELECT *
-              , module := parts[0]
-           FROM module.portal.notifications
-          WHERE COLUMN name = parts[1];
-}
 
 /** @short Show a notification
     @long This function shows the notification with the given name. The notification must be registered by a module before
@@ -73,10 +36,10 @@ RECORD FUNCTION ResolveTowlNotification(STRING name)
           arguments to the TolliumControllerBase::SendApplicationMessage function.
     @cell(string) options.tag If set and not empty, replace existing notification with this tag
 */
-PUBLIC STRING FUNCTION ShowTowlNotification(STRING name, RECORD receivers, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
+PUBLIC STRING FUNCTION ShowTowlNotification(STRING name, RECORD receivers, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  RECORD ARRAY notifications := __GetExtractedConfig("tollium").notifications;
   // Find the notification
-  RECORD notification := ResolveTowlNotification(name);
+  RECORD notification := SELECT * FROM notifications WHERE notifications.name = VAR name;
   IF (NOT RecordExists(notification))
     THROW NEW Exception("Could not find notification '" || name || "'");
 
@@ -135,7 +98,7 @@ PUBLIC STRING FUNCTION ShowTowlNotification(STRING name, RECORD receivers, RECOR
   }
 
   //ADDME: Add icons to native notifications? What other options are there (i.e. in Chrome with their own notification center?)
-  RECORD event := [ id := CellExists(options, "TAG") ? EncodeJava(name) || "\t" || EncodeJava(options.tag) : GenerateID()
+  RECORD event := [ id := CellExists(options, "TAG") ? EncodeJava(name) || "\t" || EncodeJava(options.tag) : GenerateUFS128BitId()
                   , type := "tollium:towl.event"
                   , descriptiontid := descriptiontid
                   , descriptionparams := descriptionparams

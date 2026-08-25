@@ -17,58 +17,6 @@ LOADLIB  "mod::wrd/lib/internal/metadata/applyupdates.whlib";
 BOOLEAN debug;
 OBJECT trans;
 
-MACRO UpdateModuleNotifications()
-{
-  trans->BeginWork();
-
-  // Create a list of registered notifications
-  RECORD ARRAY notifications;
-  FOREVERY (RECORD mod FROM GetWebHareModules())
-    IF (RecordExists(mod.portal))
-      notifications := notifications CONCAT SELECT *
-                                                 , module := (SELECT AS INTEGER id
-                                                                FROM system.modules
-                                                               WHERE name = mod.name)
-                                              FROM mod.portal.notifications;
-
-  // Check if current notifications are still registered
-  FOREVERY (RECORD cur_ntf FROM SELECT * FROM system.towl_notifications)
-  {
-    RECORD new_ntf := SELECT *
-                           , idx := #notifications
-                        FROM notifications
-                       WHERE notifications.module = cur_ntf.module
-                             AND notifications.name = cur_ntf.name;
-
-    IF (RecordExists(new_ntf))
-    {
-      // Update current notification
-      UPDATE system.towl_notifications
-         SET descriptiontid := new_ntf.description
-           , defaultenabled := new_ntf.defaultenabled
-       WHERE id = cur_ntf.id;
-
-      // Don't need to add this, it already exists
-      DELETE FROM notifications AT new_ntf.idx;
-    }
-    ELSE
-    {
-      // Current notification no longer registered, delete it
-      DELETE FROM system.towl_notifications
-             WHERE id = cur_ntf.id;
-    }
-  }
-
-  // Add all new notifications that don't exist yet
-  FOREVERY (RECORD new_ntf FROM notifications)
-  {
-    INSERT INTO system.towl_notifications(module, name, descriptiontid, defaultenabled)
-           VALUES(new_ntf.module, new_ntf.name, new_ntf.description, new_ntf.defaultenabled);
-  }
-
-  trans->CommitWork();
-}
-
 MACRO HandleRunonceOutput(RECORD module, RECORD ro_result)
 {
   FOREVERY(STRING msg FROM ro_result.messages)
@@ -113,9 +61,6 @@ IF (IsDatabaseWritable()) {
   // Rebuild various webhare pregenerated files so they are available before poststart completes
   LogDebug("system:poststart", "Start ApplyWebHareConfiguration");
   ApplyWebHareConfiguration([ subsystems := [ "config" ], source := "post-start" ]);
-
-  LogDebug("system:poststart", "Start UpdateModuleNotifications");
-  UpdateModuleNotifications();
 
   LogDebug("system:poststart", "Start RunPostStartRunOnceScripts");
   RunPostStartRunOnceScripts();

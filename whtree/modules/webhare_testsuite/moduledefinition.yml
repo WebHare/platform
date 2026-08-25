@@ -163,3 +163,9 @@ formDefinitions:
 addToAssetPacks:
   - assetPack: basetest
     entryPoint: webdesigns/basetest/js/addtopack
+
+notifications:
+  eventservertest:
+    tid: module.eventservertest
+    descriptionTid: module.eventservertest-desc
+    defaultEnabled: true

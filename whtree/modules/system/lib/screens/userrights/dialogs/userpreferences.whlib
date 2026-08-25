@@ -6,6 +6,7 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/backend/apps.whlib";
 
 LOADLIB "mod::tollium/lib/dialogs.whlib";
@@ -300,8 +301,7 @@ PUBLIC STATIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC OBJECTTYPE NotificationSettings EXTEND TolliumScreenBase
-<
+PUBLIC OBJECTTYPE NotificationSettings EXTEND TolliumScreenBase <
   BOOLEAN embedded;
   OBJECT towlservice;
 
@@ -429,15 +429,10 @@ PUBLIC OBJECTTYPE NotificationSettings EXTEND TolliumScreenBase
     RETURN "";
   }
 
-  MACRO RefreshNotificationsList()
-  {
-    RECORD ARRAY notifications := SELECT towl_notifications.*
-                                       , modulename := modules.name
-                                    FROM system.towl_notifications
-                                       , system.modules
-                                   WHERE towl_notifications.module = modules.id;
+  MACRO RefreshNotificationsList() {
+    RECORD ARRAY notifications := __GetExtractedConfig("tollium").notifications;
     notifications := SELECT *
-                          , userpriority := this->towlservice->GetNotificationPriority(this->contexts->user, modulename || ":" || name)
+                          , userpriority := this->towlservice->GetNotificationPriority(this->contexts->user, name)
                        FROM notifications;
     notifications := SELECT *
                           , statustext := this->GetNotificationStatusText(userpriority)
@@ -445,10 +440,10 @@ PUBLIC OBJECTTYPE NotificationSettings EXTEND TolliumScreenBase
                        FROM notifications
                       WHERE userpriority > -4;
 
-    this->notifications->rows := SELECT rowkey := id
-                                      , name := modulename || ":" || name
-                                      , title := GetTid(modulename || ":" || name)
-                                      , module := modulename
+    ^notifications->rows :=      SELECT rowkey := name
+                                      , name
+                                      , module := Tokenize(name,':')[0]
+                                      , title := GetTid(title)
                                       , status := statustext
                                       , statusicon := this->notifications->GetIcon(statusicon)
                                       , userpriority

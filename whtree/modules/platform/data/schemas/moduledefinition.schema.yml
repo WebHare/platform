@@ -674,3 +674,24 @@ $defs:
   Notifications:
     type: object
     description: Declare notifications for this module
+    additionalProperties: false
+    patternProperties:
+      "^[a-z_][-.a-z0-9_]*$": # Notification name
+        type: object
+        additionalProperties: false
+        properties:
+          title:
+            type: string
+            description: "Title for this notification"
+          tid:
+            type: string
+            description: "TID of the title for this notification"
+          description:
+            type: string
+            description: "Description for this notification"
+          descriptionTid:
+            type: string
+            description: "TID of the description for this notification"
+          defaultEnabled:
+            type: boolean
+            description: "Whether this notification is enabled by default"
