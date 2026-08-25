@@ -332,13 +332,15 @@ export class HareScriptVM implements HSVM_HSVMSource {
       console.trace();
     }
 
-    await this.loadScript(script);
-    const myweakref = new WeakRef(this);
-    const vmlist = ensureScopedResource<HSVMList>(hsvmlistsymbol, () => new Set<WeakRef<HareScriptVM>>());
-    vmlist.add(myweakref);
-
     let exception: unknown | null = null;
+    let myweakref;
+    let vmlist;
     try {
+      await this.loadScript(script);
+      myweakref = new WeakRef(this);
+      vmlist = ensureScopedResource<HSVMList>(hsvmlistsymbol, () => new Set<WeakRef<HareScriptVM>>());
+      vmlist.add(myweakref);
+
       if (debugFlags.vmlifecycle)
         console.log(`[${this.currentgroup}] Execute script`);
       // Run the script in a new runContext
@@ -355,7 +357,8 @@ export class HareScriptVM implements HSVM_HSVMSource {
       if (this.onScriptDone)
         await this.onScriptDone(exception instanceof Error ? exception : null);
 
-      vmlist.delete(myweakref); //remove from active list, prevent any more incoming calls from eg commitWork handlers
+      if (myweakref)
+        vmlist?.delete(myweakref); //remove from active list, prevent any more incoming calls from eg commitWork handlers
 
       try {
         //TODO Might want to already release some resources when the main script is done ?

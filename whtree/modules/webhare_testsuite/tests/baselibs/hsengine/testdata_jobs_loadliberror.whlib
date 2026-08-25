@@ -1,0 +1,5 @@
+<?wh
+
+LOADLIB "mod::nosuchmodule/lib/nosuchfile.whlib";
+
+Print("41??\n");

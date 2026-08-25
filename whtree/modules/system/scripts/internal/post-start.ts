@@ -64,7 +64,7 @@ runCli({
       logDebug("system:poststart", { state: "finished", isFirstPostStart, startuptime: elapsed });
 
       if (isFirstPostStart)
-        console.log(`All post start tasks completed, ${elapsed.toFixed(3)} seconds from launch`);
+        console.log(`All post start tasks completed, ${(elapsed / 1000).toFixed(3)} seconds from launch`);
     }
 
     // Update startup state info

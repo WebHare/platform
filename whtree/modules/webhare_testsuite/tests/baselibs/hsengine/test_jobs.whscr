@@ -101,6 +101,22 @@ MACRO BaseTest()
   CloseTest("TestJobs: Base");
 }
 
+MACRO TestLoadlibError() {
+  RECORD res := CreateJob("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_jobs_loadliberror.whlib");
+  RECORD ARRAY errors := res.errors;
+
+  IF(Length(res.errors) = 0) { //Under native HS jobs failing loadlib terminate immediately
+    OBJECT job := res.job;
+
+    job->Start();
+    TestEQ(TRUE, job->Wait(AddTimeToDate(3000, GetCurrentDateTime())), "Job should have terminated in reasonable time");
+    TestEq(-1, job->GetConsoleExitCode()); //it crashed
+    errors := job->GetERrors();
+    job->Close();
+  }
+  TestEqMembers([ message := "Cannot find library 'mod::nosuchmodule/lib/nosuchfile.whlib'."], errors[0], "*");
+}
+
 MACRO TestIPCLinkGoneAfterCrash()
 {
   OpenTest("TestJobs: IPCLinkGoneAfterCrash");
@@ -254,6 +270,7 @@ MACRO TestErrorHandling()
 }
 
 BaseTest();
+TestLoadlibError();
 TestIPCLinkGoneAfterCrash();
 TestOverrideExecuteLibrary();
 TestInterrupt();
