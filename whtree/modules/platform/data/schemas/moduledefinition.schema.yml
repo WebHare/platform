@@ -57,6 +57,13 @@ properties:
   formDefinitions:
     description: Form definition files (used in OpenForm calls)
     $ref: "#/$defs/FormDefinitions"
+  tasks:
+    description: Tasks
+    $ref: "#/$defs/Tasks"
+  notifications:
+    description: Notifications
+    $ref: "#/$defs/Notifications"
+
 
 $defs:
   # Server DTAP stages
@@ -529,3 +536,11 @@ $defs:
     patternProperties:
       "^[a-z_][-a-z0-9_]*$": # Form definition name
         type: string
+
+  Tasks:
+    type: object
+    description: Declare managed tasks
+
+  Notifications:
+    type: object
+    description: Declare notifications for this module
