@@ -111,7 +111,7 @@ IF(NOT args.local)
 
   PRINT(`Connecting to peer '${peer.serverurl}'\n`);
 
-  RECORD connectinfo := OpenUserWebHarePeer(user, peer.serverurl, [ scopes := [ "wrd:read" ], validuntil := AddTimeToDate(2*60*60*1000, GetCurrentDateTime()) ]);
+  RECORD connectinfo := OpenUserWebHarePeer(user, peer.serverurl, [ scopes := [ "platform:wrd.export" ], validuntil := AddTimeToDate(2*60*60*1000, GetCurrentDateTime()) ]);
   IF (connectinfo.status != "ok")
     TerminateScriptWithError(`Not connected to peer '${peer.serverurl}', please connect in the 'Modules and Configuration' application (${connectinfo.status})`);
 

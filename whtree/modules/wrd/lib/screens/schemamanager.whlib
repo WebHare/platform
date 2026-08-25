@@ -379,7 +379,7 @@ PUBLIC STATIC OBJECTTYPE SynchronizeSchema EXTEND TolliumScreenBase
     RECORD syncoptions := this->RunScreen("exchange.xml#syncoptions", [ type := "import" ]);
     IF (RecordExists(syncoptions))
     {
-      OBJECT peer := OpenWebHarePeer(this, tosync.peer, [ scopes := [ "wrd:read" ] ]);
+      OBJECT peer := OpenWebHarePeer(this, tosync.peer, [ scopes := [ "platform:wrd.export" ] ]);
       IF (NOT ObjectExists(peer))
         RETURN;
 
