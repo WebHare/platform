@@ -29,8 +29,7 @@ PUBLIC RECORD FUNCTION GetWebHareConnectability(STRING url, STRING currenttoken)
   }
 }
 
-INTEGER FUNCTION StoreToken(OBJECT wrdentity, STRING url, RECORD tokenmsg)
-{
+INTEGER FUNCTION StoreToken(OBJECT wrdentity, STRING url, RECORD tokenmsg) {
   GetPrimary()->BeginWork([mutex := "system:remoteservertoken-" || wrdentity->id]);
 
   RECORD currenttoken := [ scopes :=   tokenmsg.scopes
@@ -46,18 +45,22 @@ INTEGER FUNCTION StoreToken(OBJECT wrdentity, STRING url, RECORD tokenmsg)
                                                         ]
                                            ]);
 
-  IF(RecordExists(peer))
+  INTEGER peerid;
+  IF(RecordExists(peer)) {
     peerservertype->UpdateEntity(peer.wrd_id, CELL[ currenttoken, lastuse := GetCurrentDatetime() ]);
-  ELSE
-    peerservertype->CreateEntity(CELL[ currenttoken
+    peerid := peer.wrd_id;
+  } ELSE {
+    peerid := peerservertype->CreateEntity(
+                                 CELL[ currenttoken
                                      , lastuse := GetCurrentDatetime()
                                      , wrd_leftentity := wrdentity->id
                                      , serverurl := url
                                      , wrd_title := UnpackURL(url).host
-                                     ]);
+                                     ])->id;
+  }
 
   GetPrimary()->CommitWork();
-  RETURN 0;
+  RETURN peerid;
 }
 
 STATIC OBJECTTYPE TokenPromise
@@ -90,8 +93,8 @@ STATIC OBJECTTYPE TokenPromise
       UnregisterCallback(this->callback);
     this->callback := 0;
 
-    RunInSeparatePrimary(PTR StoreToken(this->wrdentity, this->url, msg));
-    this->resolve(msg.token);
+    INTEGER peerid := RunInSeparatePrimary(PTR StoreToken(this->wrdentity, this->url, msg));
+    this->resolve(CELL[ peerid, msg.token ]);
   }
   MACRO GotTimeout()
   {
