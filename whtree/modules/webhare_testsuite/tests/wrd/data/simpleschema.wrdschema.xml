@@ -1,0 +1,9 @@
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+
+  <object tag="wrd_person">
+    <attributes>
+      <email tag="wrd_contact_email"  title="Email address" unique="1" />
+    </attributes>
+  </object>
+
+</schemadefinition>

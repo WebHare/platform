@@ -62,7 +62,7 @@ PUBLIC MACRO SetupTheWRDTestSchema(OBJECT schemaobj, RECORD options DEFAULTSTO D
   TestEq(TRUE, persontype->GetAttribute("TESTINTEXTLINK").checklinks); //should default to 'true'
   TestEq(FALSE, persontype->GetAttribute("TESTINTEXTLINK_NOCHECK").checklinks); //explict false
 
-  AddPaymentToTestWRDSchema(PickCells(options, ["keephistorydays" ]));
+  AddPaymentToTestWRDSchema(schemaobj, PickCells(options, ["keephistorydays" ]));
 
   RECORD personbase;
   IF(RecordExists(persontype->GetAttribute("WRDAUTH_ACCOUNT_STATUS")))

@@ -1,0 +1,71 @@
+<?wh
+
+/* FIXME implement this test as soon as we use WH API for peering */
+
+LOADLIB "wh::javascript.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+
+OBJECT announcemententity;
+
+ASYNC MACRO TestWRDSync() {
+  testfw->BeginWork();
+  OBJECT wrdschema1 := CreateWRDSchema("webhare_testsuite:schema1", [ initialize := TRUE
+                                                                    , schemaresource := "mod::webhare_testsuite/tests/wrd/data/simpleschema.wrdschema.xml"
+                                                                    ]);
+  OBJECT wrdschema2 := CreateWRDSchema("webhare_testsuite:schema2", [ initialize := TRUE
+                                                                    , schemaresource := "mod::webhare_testsuite/tests/wrd/data/simpleschema.wrdschema.xml"
+                                                                    ]);
+  SetupTheWRDTestSchema(wrdschema2);
+
+  //we'll be pulling from schema2
+  testfw->GetUserObject("marge")->UpdateGrant("grant", "wrd:read", wrdschema2->id, testfw->GetUserObject("marge"), [ allowselfassignment := TRUE ]);
+  testfw->GetUserObject("marge")->UpdateGrant("grant", "wrd:metadata", wrdschema1->id, testfw->GetUserObject("marge"), [ allowselfassignment := TRUE ]);
+
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+2, PTR TTLaunchApp("wrd:browser"));
+  TTFillByTitle("schemas", wrdschema1->tag);
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Synchronize"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Select")); //this opens list of webhares
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Add")); //this opens 'add server'
+  TT(":Server URL")->value := GetTestTolliumPortalURL();
+
+  RECORD connect := ExecuteWindowOpenAction(TT("connect"));
+  OBJECT authscreen := topscreen;
+  CallJS("mod::webhare_testsuite/tests/wrd/browser/lib/testsupport.ts#runOauthFlow", testfw->GetUserLogin("marge"), testfw->GetUserPassword("marge"), connect.url);
+  Print("waiting for auth screen to close\n");
+  // WHILE(authscreen->tolliumresult = "")
+  //   Sleep(100);
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR); //"Add server" screen closes
+  Print("auth screen has closed\n");
+  TestEq("WebHare servers", topscreen->frame->title); // and not: auth expired - which sometimes happens?
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Connect")); //this closes list of webhares, new peer should be selected
+
+  /* TODO not able to test the rest of this process. it turns out we can't continue building this test as old style peering APIs
+     do not support testportals at all
+
+  TT("remotewrdschema")->value := "webhare_testsuite:schema2";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK")); //this closes the Add sync source.
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Synchronize")); //open synchronize
+  TT("synctype")->value := "alldata";
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":OK")); //starts synchronize progress window
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR); //and it goes
+  AWAIT ExpectAndAnswerMessageBox("OK", DEFAULT MACRO PTR, [ messagemask := "*Synchronization has completed*"]);
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR); //and the sync dialog itself goes too
+
+//TODO study sync result
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //close wrd browser
+  */
+}
+
+RunTestFramework([ PTR TestWRDSync
+                 ], [ testusers := [[ login := "marge" ]]]);

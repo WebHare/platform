@@ -1,7 +1,8 @@
-<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="import-persons.xlsx">
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="import-persons.xlsx lib">
   <test script="testschemamgmt.whscr" />
   <test script="testappbase.whscr" />
   <test script="testapptypes.whscr" />
   <test script="testappbrowse.whscr" />
   <test script="testquerybuilder.whscr" />
+  <test script="testappsync.whscr" xfail="true"/>
 </group>
