@@ -195,9 +195,10 @@ export async function getModulePaymentProviders(context: GenerateContext, module
       continue;
     if (mod.modYml?.paymentProviders) {
       for (const [tag, def] of Object.entries(mod.modYml.paymentProviders)) {
+        const providerName = `${mod.name}:${tag}`;
         providers.push({
-          tag: `${mod.name}:${tag}`,
-          title: def.title ? `:${def.title}` : `:${mod.name}:${tag}`,
+          tag: providerName,
+          title: context.parseYMLTid(mod, def, "title") || `:${providerName}`,
           driver: resolveResource(`mod::${mod.name}/moduledefinition.yml`, def.driver),
           configExtensions: resolveResource(`mod::${mod.name}/moduledefinition.yml`, def.configExtensions || ''),
           paymentInfoScreen: resolveResource(`mod::${mod.name}/moduledefinition.yml`, def.paymentInfoScreen || '')

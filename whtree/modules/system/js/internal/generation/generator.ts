@@ -22,7 +22,7 @@ import { listAllModuleTableDefs } from "@mod-system/js/internal/generation/gen_w
 import { listAllModuleWRDDefs } from "@mod-system/js/internal/generation/gen_wrd";
 import { listAllModuleOpenAPIDefs } from "@mod-system/js/internal/generation/gen_openapi";
 import { backendConfig, broadcast, importJSFunction, toFSPath } from "@webhare/services";
-import { appliesToModule, getGeneratedFilePath, getMyApplicabilityInfo, type FileToUpdate, type GenerateContext, type GeneratorType, type LoadedModuleDefs } from "./shared";
+import { appliesToModule, GenerateContext, getGeneratedFilePath, type FileToUpdate, type GeneratorType, type LoadedModuleDefs } from "./shared";
 import { readFile } from "fs/promises";
 import { join } from "node:path";
 import { deleteRecursive, storeDiskFile } from "@webhare/system-tools/src/fs";
@@ -113,11 +113,7 @@ export async function buildGeneratorContext(modules: string[] | null, verbose: b
       .map(([key, value]) => loadModuleDefs(key, value))
   );
 
-  return {
-    moduledefs,
-    verbose,
-    versionInfo: getMyApplicabilityInfo({ unsafeEnv: true })
-  };
+  return new GenerateContext(moduledefs, verbose);
 }
 
 async function generateFiles(filelist: FileToUpdate[], context: GenerateContext, options: { dryRun?: boolean; verbose?: boolean; nodb?: boolean; showUnchanged?: boolean; modules?: string[] } = {}) {

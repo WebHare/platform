@@ -298,15 +298,6 @@ PUBLIC SCHEMA
     > fs_history
 
   , TABLE
-    < INTEGER "id" NULL := 0
-    , INTEGER "module" NULL := 0
-    , STRING "name"
-    , STRING "descriptiontid"
-    , BOOLEAN "defaultenabled"
-    ; KEY id
-    > towl_notifications
-
-  , TABLE
     < INTEGER id NULL := 0
     , INTEGER owner NULL := 0
     , STRING pathhash __ATTRIBUTES__(BINARY)

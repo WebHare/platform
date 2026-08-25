@@ -651,7 +651,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase <
       , contentproviders     := DEFAULT RECORD ARRAY // Consilio: content providers
 
       , portal               := [ applications := DEFAULT RECORD ARRAY
-                                , notifications := DEFAULT RECORD ARRAY
                                 ]
       , fs_objecteditors    := DEFAULT RECORD ARRAY
 
@@ -911,16 +910,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase <
                 INSERT app INTO this->moduledef.portal.applications AT END;
                 FOREVERY(STRING err FROM app.errors)
                   this->AddError(subchild, err);
-              }
-              CASE "notification"
-              {
-                RECORD notification :=
-                  [ name           := subchild->GetAttribute("name")
-                  , title          := this->ParseXMLTidTitle(subchild, "title", subchildgid)
-                  , description    := this->ParseXMLTidTitle(subchild, "description", subchildgid)
-                  , defaultenabled := ParseXSBoolean(subchild->GetAttribute("defaultenabled"))
-                  ];
-                INSERT notification INTO this->moduledef.portal.notifications AT END;
               }
             }
           }

@@ -156,7 +156,7 @@ export async function generateWebDesigns(context: GenerateContext): Promise<stri
       const siteProfile = webDesign.siteProfile ? webDesign.isTemplate ? webDesign.siteProfile : resolveResource(mod.resourceBase, webDesign.siteProfile) : '';
       webDesigns.set(designName, {
         name: designName,
-        title: webDesign.tid ?? (webDesign.title ? ":" + webDesign.title : ''),
+        title: context.parseYMLTid(mod, webDesign, "title") || `:${designName}`,
         siteProfiles: siteProfile ? [siteProfile] : [],
         isHidden: webDesign.isHidden || false,
         isTemplate: webDesign.isTemplate || false,
@@ -168,9 +168,10 @@ export async function generateWebDesigns(context: GenerateContext): Promise<stri
       if (featuredef.ifWebHare && !matchesThisServer(featuredef.ifWebHare))
         continue;
 
+      const featureName = `${mod.name}:${featurename}`;
       extract.webFeatures.push({
-        name: `${mod.name}:${featurename}`,
-        title: featuredef.tid ?? (featuredef.title ? ":" + featuredef.title : ''),
+        name: featureName,
+        title: context.parseYMLTid(mod, featuredef, "title") || `:${featureName}`,
         hidden: featuredef.hidden || false,
         siteProfile: featuredef.siteProfile ? resolveResource(mod.resourceBase, featuredef.siteProfile) : '',
         webDesignMasks: featuredef.webDesignMasks || []

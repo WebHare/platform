@@ -3,3 +3,23 @@ wrdSchemas:
     schema: data/wrdschemas/config.wrdschema.xml
   usermgmt:
     schema: data/wrdschemas/usermgmt.wrdschema.xml
+
+notifications:
+  notifications.whfs.siteprofcompiled:
+    tid: notifications.whfs.siteprofcompiled
+    descriptionTid: notifications.whfs.siteprofcompiled-desc
+
+  notifications.whfs.siteproferrors:
+    tid: notifications.whfs.siteproferrors
+    descriptionTid: notifications.whfs.siteproferrors-desc
+    defaultEnabled: true
+
+  notifications.webdav.putexception:
+    tid: notifications.webdav.putexception
+    descriptionTid: notifications.webdav.putexception-desc
+    defaultEnabled: true
+
+  notifications.broadcast:
+    tid: notifications.broadcast
+    descriptionTid: notifications.broadcast-desc
+    defaultEnabled: true

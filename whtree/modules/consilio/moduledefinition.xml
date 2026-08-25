@@ -96,10 +96,6 @@
                     group="consilio"
                     screen="tolliumapps/dashboard/queries.xml"
                     tid="tolliumapps.dashboard.queries.title" />
-
-    <notification name="notifications.catalog_uptodate"
-                  descriptiontid="module.notifications.catalog_uptodate-desc"
-                  tid="module.notifications.catalog_uptodate" />
   </portal>
 
   <publisher>

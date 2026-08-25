@@ -2,3 +2,8 @@ webDesigns:
   webinterface:
     title: WebHare interface
     siteProfile: webdesigns/webinterface/webinterface.siteprl.xml
+
+notifications:
+  notifications.testnotification:
+    tid: notifications.testnotification
+    descriptionTid: notifications.testnotification-desc

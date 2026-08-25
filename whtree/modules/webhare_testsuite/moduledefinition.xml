@@ -114,11 +114,6 @@
     <application name="writablewidgets" screen="screens/tests/richdoc.xml#writablewidgets">
       <accesscheck />
     </application>
-
-    <notification name="eventservertest"
-                  defaultenabled="true"
-                  descriptiontid="module.eventservertest-desc"
-                  tid="module.eventservertest" />
   </portal>
 
   <tollium>

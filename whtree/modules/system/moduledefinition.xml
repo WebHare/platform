@@ -231,22 +231,6 @@
     <dashboardpanel name="events" group="dev" screen="monitor/events.events" tid="monitor.events.title" />
     <dashboardpanel name="locks" group="dev" screen="monitor/locks.locks" tid="monitor.locks.title" />
     <dashboardpanel name="managedtasks" group="tasks" screen="monitor/managedtasks.panel" tid="monitor.managedtasks.title" />
-
-    <notification name="notifications.whfs.siteprofcompiled"
-                  descriptiontid="notifications.whfs.siteprofcompiled-desc"
-                  tid="notifications.whfs.siteprofcompiled" />
-    <notification name="notifications.whfs.siteproferrors"
-                  defaultenabled="true"
-                  descriptiontid="notifications.whfs.siteproferrors-desc"
-                  tid="notifications.whfs.siteproferrors" />
-    <notification name="notifications.webdav.putexception"
-                  defaultenabled="true"
-                  descriptiontid="notifications.webdav.putexception-desc"
-                  tid="notifications.webdav.putexception" />
-    <notification name="notifications.broadcast"
-                  defaultenabled="true"
-                  descriptiontid="notifications.broadcast-desc"
-                  tid="notifications.broadcast" />
   </portal>
 
   <tollium>
@@ -1212,13 +1196,7 @@ Add the name of the type of data (for example "headerimages") or the purpose it 
       </d:boolean>
     </d:table>
 
-    <d:table name="towl_notifications" primarykey="id">
-      <d:integer name="id" autonumberstart="1" />
-      <d:integer name="module" nullable="false" ondelete="cascade" references=".modules" />
-      <d:varchar name="name" maxlength="256" />
-      <d:varchar name="descriptiontid" maxlength="256" />
-      <d:boolean name="defaultenabled" />
-    </d:table>
+    <d:obsoletetable name="towl_notifications" primarykey="id" />
 
     <d:obsoletetable name="adhocdump_dumps" />
 
