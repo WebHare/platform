@@ -72,6 +72,9 @@ properties:
   tasks:
     description: Tasks
     $ref: "#/$defs/Tasks"
+  notifications:
+    description: Notifications
+    $ref: "#/$defs/Notifications"
 
 
 $defs:
@@ -667,3 +670,7 @@ $defs:
           ifWebHare:
             description: "Restrict task to specific installations or versions"
             $ref: "#/$defs/IfWebHare"
+
+  Notifications:
+    type: object
+    description: Declare notifications for this module
