@@ -29,7 +29,7 @@ PUBLIC RECORD FUNCTION RPC_GetConnectionState(STRING token, RECORD options DEFAU
     }
     ELSE
     {
-      //Log audit!
+      LogDebug("system:webharepeers.invalidtoken", res);
     }
   }
 

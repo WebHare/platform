@@ -699,13 +699,13 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
         if (entity && getAccountStatus) {
           accountStatus = entity.wrdauthAccountStatus || null;
           if (accountStatus?.status !== "active" && !options?.ignoreAccountStatus) {
-            return { error: `Token owner has been disabled` };
+            return { error: `Token owner #${matchToken.entity} has been disabled` };
           }
         }
       }
 
       if (!entity)
-        return { error: `Token owner does not exist anymore` };
+        return { error: `Token owner #${matchToken.entity} does not exist anymore` };
     }
 
     const scopes = matchToken.scopes.length ? matchToken.scopes.split(' ') : [];
