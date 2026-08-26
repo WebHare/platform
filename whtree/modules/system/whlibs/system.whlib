@@ -5040,3 +5040,11 @@ VARIANT FUNCTION WrapJSONObjectsInternal(VARIANT value, RECORD translations)
   }
   RETURN value;
 }
+
+/** Ternary operator that doesn't require both output values to have the same type*/
+PUBLIC VARIANT FUNCTION IfThenElse(BOOLEAN condition, VARIANT iftrue, VARIANT iffalse) {
+  IF (condition)
+    RETURN iftrue;
+  ELSE
+    RETURN iffalse;
+}
