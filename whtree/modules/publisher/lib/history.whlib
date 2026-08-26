@@ -323,10 +323,18 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
 
     }
 
-    //Clear draft flag
-    UPDATE system.fs_objects
-        SET published := SetFlagsInPublished(published, PublishedFlag_HasPublicDraft, FALSE)
-      WHERE id = this->baseobject->id;
+    // Fire events
+    OBJECT commithandler := GetWHFSCommitHandler();
+    commithandler->ObjectHistoryChange(this->baseobject->parentsite, this->baseobject->parent, this->baseobject->id, this->baseobject->isfolder);
+
+    IF (RecordExists(this->currentdraft_version) AND revert_draft) {
+      //Clear draft flag
+      UPDATE system.fs_objects
+          SET published := SetFlagsInPublished(published, PublishedFlag_HasPublicDraft, FALSE)
+        WHERE id = this->baseobject->id;
+
+      commithandler->ObjectUpdate(this->baseobject->parentsite, this->baseobject->parent, this->baseobject->id, this->baseobject->isfolder);
+    }
 
     this->EnsureMetadataUpToDate();
   }

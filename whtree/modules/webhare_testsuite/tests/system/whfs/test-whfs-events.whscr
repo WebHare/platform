@@ -510,6 +510,120 @@ MACRO TestEvents() {
     ], events);
   }
 
+  // STORY: test events on draft discard
+  {
+    testfw->BeginWork();
+    metamgr := NEW WorkflowManager(subfile->id, [ user := GetEffectiveUser() ]);
+    metamgr->UpdateData(StringToBlob("Draft data 4"));
+    OBJECT draft4 := metamgr->__GetAutosavedObject();
+    testfw->CommitWork();
+
+    TestEQ([
+      [
+        folder := snapshotfolder,
+        events := STRING[],
+        files := [
+          [ file := draft4->id, isfolder := FALSE, events := [ "create", "update" ] ]
+        ]
+      ]
+    , [
+        folder := subfile->parent,
+        events := STRING[],
+        files := [
+          [ file := subfile->id, isfolder := FALSE, events := [ "history" ] ]
+        ]
+      ]
+    ], ExpectWHFSEvents(2));
+
+    // Discard autosaved-changes. Only history event should be emitted
+    testfw->BeginWork();
+    metamgr->DiscardAutosavedChanges();
+    testfw->CommitWork();
+
+    TestEQ([
+      [
+        folder := subfile->parent,
+        events := STRING[],
+        files := [
+          [ file := subfile->id, isfolder := FALSE, events := [ "history" ] ]
+        ]
+      ]
+    ], ExpectWHFSEvents(1));
+
+    // Saving a draft should update the original file (draft flag is set)
+    testfw->BeginWork();
+    metamgr := NEW WorkflowManager(subfile->id, [ user := GetEffectiveUser() ]);
+    metamgr->UpdateData(StringToBlob("Draft data 5"));
+    OBJECT draft5 := metamgr->__GetAutosavedObject();
+    metamgr->Save();
+    metamgr->UpdateData(StringToBlob("Draft data 6"));
+    OBJECT draft6 := metamgr->__GetAutosavedObject();
+    testfw->CommitWork();
+
+    // Expect events for drafts, history event for original file, update event for original file (draft flag is set)
+    TestEQ([
+      [
+        folder := snapshotfolder,
+        events := STRING[],
+        files := [
+          [ file := draft5->id, isfolder := FALSE, events := [ "create", "update" ] ],
+          [ file := draft6->id, isfolder := FALSE, events := [ "create", "update" ] ]
+        ]
+      ],
+      [
+        folder := subfile->parent,
+        events := STRING[],
+        files := [
+          [ file := subfile->id, isfolder := FALSE, events := [ "update" ] ]
+        ]
+      ],
+      [
+        folder := subfile->parent,
+        events := STRING[],
+        files := [
+          [ file := subfile->id, isfolder := FALSE, events := [ "history" ] ]
+        ]
+      ],
+    ], ExpectWHFSEvents(3));
+
+    // Discard autosaved-changes. Only history event should be emitted
+    testfw->BeginWork();
+    metamgr->DiscardAutosavedChanges();
+    testfw->CommitWork();
+
+    TestEQ([
+      [
+        folder := subfile->parent,
+        events := STRING[],
+        files := [
+          [ file := subfile->id, isfolder := FALSE, events := [ "history" ] ]
+        ]
+      ]
+    ], ExpectWHFSEvents(1));
+
+    // Discard draft and autosaved changes. Expect history event and update event on original file (draft flag is cleared)
+    testfw->BeginWork();
+    metamgr->DiscardDraftAndAutosavedChanges();
+    testfw->CommitWork();
+
+    TestEQ([
+      [
+        folder := subfile->parent,
+        events := STRING[],
+        files := [
+          [ file := subfile->id, isfolder := FALSE, events := [ "update" ] ]
+        ]
+      ],
+      [
+        folder := subfile->parent,
+        events := STRING[],
+        files := [
+          [ file := subfile->id, isfolder := FALSE, events := [ "history" ] ]
+        ]
+      ],
+    ], ExpectWHFSEvents(2));
+  }
+
   testfw->BeginWork();
   testfolder->RecycleSelf();
   testfw->CommitWork();
