@@ -51,7 +51,7 @@ OBJECTTYPE __TolliumImageResizerBase
       this->pvt_imagesetwidth := 0;
     IF (this->pvt_imagesetheight < 0)
       this->pvt_imagesetheight := 0;
-    IF (this->pvt_imageresizemethod NOT IN [ "none", "fit", "scale", "fitcanvas", "scalecanvas", "fill", "stretch" ])
+    IF (this->pvt_imageresizemethod NOT IN [ "none", "fit", "scale", "fitcanvas", "scalecanvas", "fill" ])
       this->pvt_imageresizemethod := "none";
   }
 
@@ -112,7 +112,7 @@ OBJECTTYPE __TolliumImageResizerBase
 
   MACRO SetImageResizeMethod(STRING method)
   {
-    IF (method NOT IN [ "none", "fit", "scale", "fitcanvas", "scalecanvas", "fill", "stretch" ])
+    IF (method NOT IN [ "none", "fit", "scale", "fitcanvas", "scalecanvas", "fill" ])
       RETURN;
     IF (method != this->pvt_imageresizemethod)
     {
@@ -212,7 +212,7 @@ PUBLIC OBJECTTYPE TolliumImageEdit EXTEND TolliumPanel
       {
         this->pvt_imagesetwidth := imageforcewidth;
         this->pvt_imagesetheight := imageforceheight;
-        this->pvt_imageresizemethod := "stretch";
+        this->pvt_imageresizemethod := "scale";
       }
       ELSE IF (imagemaxwidth != 0 OR imagemaxheight != 0)
       {

@@ -1196,7 +1196,7 @@ PUBLIC OBJECT FUNCTION __CreateCanvasWithCanvasID(INTEGER id) //entry point for 
 /** @short Resize an image with a given resizing method
     @param fileinfo Wrapped input image blob (i.e. WrapBlob, or ScanBlob with an added 'data' cell)
     @param resizemethod The resize method properties, all cells but the 'method' cell are optional
-    @cell resizemethod.method The method to use, one of "none", "fit", "scale", "fitcanvas", "scalecanvas", "fill" or "stretch"
+    @cell resizemethod.method The method to use, one of "none", "fit", "scale", "fitcanvas", "scalecanvas" or "fill"
     @cell resizemethod.setwidth Width to set, in pixels.
     @cell resizemethod.setheight Height to set, in pixels.
     @cell resizemethod.format Output format. If empty, format is not changed. Otherwise one of "image/jpeg", "image/gif" or

@@ -95,7 +95,7 @@ PUBLIC RECORD FUNCTION GfxResizeCropImageBlob(BLOB inblob, INTEGER setwidth, INT
 }
 
 //these functions are in filters.whlib to ensure they stay in sync
-STRING ARRAY packmethods := [/*0*/"none",/*1*/"fit",/*2*/"scale",/*3*/"fill",/*4*/"stretch",/*5*/"fitcanvas",/*6*/"scalecanvas",/*7*/"stretch-x",/*8*/"stretch-y",/*9*/"crop",/*10*/"cropcanvas"];
+STRING ARRAY packmethods := [/*0*/"none",/*1*/"fit",/*2*/"scale",/*3*/"fill",/*4*/"stretch",/*5*/"fitcanvas",/*6*/"scalecanvas",/*7*/"stretch-x",/*8*/"stretch-y",/*9*/"crop",/*10*/"cropcanvas"]; //kept for legacy image URLS still in use
 STRING methodnoneformat := "format:C";
 STRING methodsizeformat := "setwidth:S,setheight:S,format:C";
 
@@ -205,7 +205,7 @@ PUBLIC RECORD FUNCTION GfxUnpackImageResizeMethod(STRING packedmethod)
 /** @short Resize an image with a given resizing method
     @param inblob Input image blob
     @param resizemethod The resize method properties, all cells but the 'method' cell are optional
-    @cell resizemethod.method The method to use, one of "none", "fit", "scale", "fitcanvas", "scalecanvas", "fill" or "stretch"
+    @cell resizemethod.method The method to use, one of "none", "fit", "scale", "fitcanvas", "scalecanvas", "fill"
     @cell resizemethod.setwidth Width to set, in pixels.
     @cell resizemethod.setheight Height to set, in pixels.
     @cell resizemethod.format Output format. If empty, format is not changed. Otherwise one of "image/jpeg", "image/gif" or
@@ -227,7 +227,7 @@ PUBLIC RECORD FUNCTION GfxResizeImageBlobWithMethod(BLOB inblob, RECORD resizeme
 /** @short Resize an image with a given resizing method
     @param infile Wrapped input image blob
     @param resizemethod The resize method properties, all cells but the 'method' cell are optional
-    @cell resizemethod.method The method to use, one of "none", "fit", "scale", "fitcanvas", "scalecanvas", "fill" or "stretch"
+    @cell resizemethod.method The method to use, one of "none", "fit", "scale", "fitcanvas", "scalecanvas", "fill"
     @cell resizemethod.setwidth Width to set, in pixels.
     @cell resizemethod.setheight Height to set, in pixels.
     @cell resizemethod.format Output format. If empty, format is not changed. Otherwise one of "image/jpeg", "image/gif" or
@@ -324,7 +324,7 @@ RECORD FUNCTION GetJPEGRotationInformation(BLOB jpeg) {
 /** @short Resize an image with a given resizing method
     @param fileinfo Wrapped input image blob (i.e. WrapBlob, or ScanBlob with an added 'data' cell)
     @param resizemethod The resize method properties, all cells but the 'method' cell are optional
-    @cell resizemethod.method The method to use, one of "none", "fit", "scale", "fitcanvas", "scalecanvas", "fill" or "stretch"
+    @cell resizemethod.method The method to use, one of "none", "fit", "scale", "fitcanvas", "scalecanvas", "fill"
     @cell resizemethod.setwidth Width to set, in pixels.
     @cell resizemethod.setheight Height to set, in pixels.
     @cell resizemethod.format Output format. If empty, format is not changed. Otherwise one of "image/jpeg", "image/gif" or

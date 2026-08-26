@@ -15,6 +15,7 @@ import "./imageeditor.css";
 import "./imageeditor.lang.json";
 import "../../common.lang.json";
 import type { ImgPoint } from "@webhare/imgtransform";
+import type { ResizeMethodName } from "@webhare/services/src/descriptor";
 
 // Impose some limits on image sizes
 //ADDME: Should these be different for other platforms, e.g. mobile?
@@ -42,7 +43,7 @@ export type SetModalLayerOpacityCallback = (opacity: number) => void;
 type ImageAction = "all" | "crop" | "rotate" | "refpoint";
 
 export type ImgSize = {
-  method?: "none" | "fill" | "fitcanvas" | "scalecanvas" | "stretch" | "fit" | "scale";
+  method?: ResizeMethodName;
   setwidth?: number;
   setheight?: number;
   noforce?: boolean;
@@ -291,11 +292,7 @@ function resizeCanvasWithMethod(canvas: HTMLCanvasElement, imgSize: ImgSize, ref
       canvasHeight = Math.round(canvasWidth * imageHeight / imageWidth);
     }
 
-    if (resizeMethod === "stretch") {
-      // Just stretch to canvas
-      imageWidth = canvasWidth;
-      imageHeight = canvasHeight;
-    } else if (resizeMethod.indexOf("fit") === 0 && imageWidth <= canvasWidth && imageHeight <= canvasHeight) {
+    if (resizeMethod.indexOf("fit") === 0 && imageWidth <= canvasWidth && imageHeight <= canvasHeight) {
       // Don't resize
       if (resizeMethod === "fit") {
         canvasWidth = imageWidth;
@@ -412,7 +409,6 @@ export function resizeMethodApplied(imgSize: ImgSize, width: number, height: num
     case "fill":
     case "fitcanvas":
     case "scalecanvas":
-    case "stretch":
       // Image method is applied if the image doesn't match both the set width and height exactly
       //ADDME: If image has transparency, only skip editor if conversionbackground is transparent
       return width !== imgSize.setwidth || height !== imgSize.setheight;

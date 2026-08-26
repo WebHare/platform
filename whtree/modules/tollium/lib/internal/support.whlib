@@ -509,7 +509,7 @@ PUBLIC RECORD FUNCTION FixImgSize(RECORD imgsize)
                                ], imgsize);
 
   imgsize.method := ToLowercase(imgsize.method);
-  IF (imgsize.method NOT IN [ "none", "fit", "scale", "fitcanvas", "scalecanvas", "fill", "stretch" ])
+  IF (imgsize.method NOT IN [ "none", "fit", "scale", "fitcanvas", "scalecanvas", "fill" ])
     RETURN DEFAULT RECORD;
   IF (imgsize.setwidth < 0)
     imgsize.setwidth := 0;

@@ -104,8 +104,8 @@ MACRO ImgCacheTest() {
   UPDATE system.fs_objects SET creationdate:=AddTimeToDate(1,creationdate) WHERE id=kikkertje->id;
 
   STRING goodkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "scale", setwidth:=25, setheight:=25, format := "keep"]);
-  STRING bigkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "stretch", setwidth:=250, setheight:=250, format := "keep"]);
-  STRING poorkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "stretch", setwidth:=250, setheight:=250, quality := 25, format := "keep"]);
+  STRING bigkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "scale", setwidth:=250, setheight:=250, format := "keep"]);
+  STRING poorkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "scale", setwidth:=250, setheight:=250, quality := 25, format := "keep"]);
 
   TestEq(FALSE, testfw->browser->GotoWebPage(goodkikkerlink), testfw->browser->url);
   TestEq("no-cache", testfw->browser->GetResponseHeader("Cache-Control")); //A valid 'but not yet' hash should return a no-cache header
@@ -207,14 +207,14 @@ MACRO ImgCacheTest() {
   TestEqMembers([ contenttype := "image/png" ], FetchUCLink(homerlink_avif, "image/png"), "*", "First we see a PNG");
   TestEqMembers([ contenttype := "image/avif" ], FetchUCLink(homerlink_avif, "image/avif"), "*", "And then we see an avif");
 
-  STRING homercroplink := GetCachedFSImageURL(baseurl, homer->id, [ method := "crop", setwidth:=25, setheight:=25, format := "image/png"]);
+  STRING homercroplink := GetCachedFSImageURL(baseurl, homer->id, [ method := "scale", setwidth:=25, setheight:=25, format := "image/png"]);
 
   //Modify homer base file
   testfw->BeginWork();
   homer->UpdateMetadata(DEFAULT RECORD);
   testfw->CommitWork();
   TestEq(homerlink, GetCachedFSImageURL(baseurl, homer->id, [ method := "scale", setwidth:=25, setheight:=25, format := "image/png"]), "moddate update should not affect scaled link");
-  TestEq(homercroplink, GetCachedFSImageURL(baseurl, homer->id, [ method := "crop", setwidth:=25, setheight:=25, format := "image/png"]), "moddate update should not affect crop link");
+  TestEq(homercroplink, GetCachedFSImageURL(baseurl, homer->id, [ method := "scale", setwidth:=25, setheight:=25, format := "image/png"]), "moddate update should not affect crop link");
 
   //Modify refpoint
   RECORD homerdata := homer->GetWrapped();
@@ -231,8 +231,6 @@ MACRO ImgCacheTest() {
   testfw->CommitWork();
 
   TestEq(homerlink, GetCachedFSImageURL(baseurl, homer->id, [ method := "scale", setwidth:=25, setheight:=25, format := "image/png"]), "moddate update should not affect scaled link");
-  STRING newurl := GetCachedFSImageURL(baseurl, homer->id, [ method := "crop", setwidth:=25, setheight:=25, format := "image/png"]);
-  TestEq(TRUE, homercroplink != newurl, "moddate update should affect crop link");
 
   wrapped := WrapCachedImage(homer->GetWrapped(), [ method := "fill", setwidth := 80,  setheight := 80 ]);
   TestEq("0.0000% 1.2500%", wrapped.refpoint_backgroundposition);

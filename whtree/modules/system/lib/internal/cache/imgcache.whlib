@@ -37,7 +37,7 @@ CONSTANT STRING ARRAY blobsources := ["o","s","w","r"];
 
 BOOLEAN FUNCTION IsImageRefpointRelevant(RECORD resizemethod)
 {
-  RETURN resizemethod.method IN ["crop","cropcanvas","fill"];
+  RETURN resizemethod.method IN ["fill"];
 }
 
 RECORD FUNCTION GetObjInfo(INTEGER sourcetype, INTEGER64 sourceid)
