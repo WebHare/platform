@@ -159,7 +159,6 @@ OBJECT ASYNC FUNCTION InsertEmbObj()
   RECORD insertdata := insertedobjectinstr.messages[0].data;
   TestEq(TRUE, insertdata.widget.canedit);
   RTE()->TolliumWeb_FormUpdate('<html><body><div class="wh-rtd-embeddedobject" data-instanceref="' || EncodeValue(insertdata.widget.instanceref) || '"></div></body></html>');
-  RTE()->__debug_simulatedirty();
 
   OBJECT insertedobj := MakeXMLDocumentFromHTML(StringToBLob(insertdata.widget.htmltext),"UTF-8",FALSE,TRUE);
   TestEq("div", insertedobj->documentelement->nodename);
@@ -270,7 +269,6 @@ OBJECT ASYNC FUNCTION InsertEmbObj_SecondLevel(OBJECT rte)
   //dumpvalue(insertdata,'tree');
   //insert it like the client-side would. cheat by trying to insert a <i>
   level2rte->TolliumWeb_FormUpdate('<html><body><p class="normal">This is the <a href="' || EncodeValue(firsturl) || '">text</a> <i>entered</i> into a <a href="' || EncodeValue(secondurl) || '">level 2 rtd</a></p></body></html>');
-  level2rte->__debug_simulatedirty();
 
   TestEqLike('*This is the <a*>text</a>*<a*>level 2 rtd</a*', BlobToString(level2rte->value.htmltext));
   internallink_clipboard := level2rte->GetRenderValue();
@@ -311,7 +309,6 @@ OBJECT ASYNC FUNCTION InsertEmbObj_SecondLevel(OBJECT rte)
   //Keep this RTE
   rte := TT("richdoc");
   rte->TolliumWeb_FormUpdate('<html><body><div class="wh-rtd-embeddedobject" data-instanceref="' || EncodeValue(insertdata.widget.instanceref) || '"></div></body></html>');
-  rte->__debug_simulatedirty();
 
   STRING clientvalue := rte->GetRenderValue();
 
@@ -362,7 +359,6 @@ OBJECT ASYNC FUNCTION PasteLink()
 
 //  RTE()->TolliumWebRender(); //flush dirty flags (ADDME do we need this? cant we avoid the odd ignore-if-dirty check in the RTE?)
   RTE()->TolliumWeb_FormUpdate(internallink_clipboard);
-  RTE()->__debug_simulatedirty();
 
   AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("publishbutton")); //answer to dialog: are you sure you want to publish?
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
@@ -427,7 +423,7 @@ OBJECT ASYNC FUNCTION ModifyLink()
 
   TestEq(0, Length(RTE()->value.links));
 
-  RTE()->__debug_simulatedirty();
+  RTE()->SetDirty();
   AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("publishbutton")); //answer to dialog: are you sure you want to publish?
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 
@@ -448,7 +444,6 @@ OBJECT ASYNC FUNCTION CleanupLink()
 
   // Insert a link of which the last character ('T') is cut off due to the 2000 character limit
   RTE()->TolliumWeb_FormUpdate("<html><body><p><a href=\"http://example.com/" || RepeatText("1", 2000-19) || "T0123456789\">link</a></p></body></html>");
-  RTE()->__debug_simulatedirty();
 
   AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("publishbutton")); //answer to dialog: are you sure you want to publish?
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());

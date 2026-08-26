@@ -30,8 +30,7 @@ OBJECT ASYNC FUNCTION EmptyFileTest()
 
   OBJECT rte := TT("doceditor")->contents->rte;
   TestEq(TRUE,rte->trimwhitespace); //is the default
-  rte->TolliumWeb_FormUpdate('<p class="normal"><br data-wh-rte="bogus"></p>');
-  TestEq(DEFAULT RECORD ARRAY, GetTestController()->GrabInstructions()); //no sudden rewrites returning please...
+  //the server won't send us: rte->TolliumWeb_FormUpdate('<p class="normal"><br data-wh-rte="bogus"></p>'); as it wouldn't be dirty
   TestEq(DEFAULT RECORD, rte->value);
 
   AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("publishbutton")); //answer to dialog: are you sure you want to publish?

@@ -104,8 +104,6 @@ ASYNC MACRO TestPasswordPreview() {
 
   OBJECT rte := TT("doceditor")->contents->rte;
   rte->TolliumWeb_FormUpdate('<p class="normal">This is a previewable text</p>');
-  Print("[rte-workflow] explicitly marking doc as dirty\n");
-  rte->__debug_simulatedirty();
 
   Print("[rte-workflow] trigger the autosave step of sendpreviewlink\n");
   AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("sendpreviewlink"), [ messagemask := "*save*preview*"]);
@@ -159,7 +157,7 @@ ASYNC MACRO AssumeWriteAccess()
 
   OBJECT rte := TT("doceditor")->contents->rte;
   Print("[rte-workflow] explicitly marking doc as dirty\n");
-  rte->__debug_simulatedirty();
+  rte->SetDirty();
 
   // Save the changes
   Print("[rte-workflow] save changes\n");

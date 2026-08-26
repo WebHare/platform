@@ -137,7 +137,6 @@ ASYNC MACRO TestMetaTab()
   TT(":File name")->value := "testmetatab1.rtd";
   TT(":Title")->value := "My autosaved document";
   RTE()->TolliumWeb_FormUpdate('<p class="normal">autosaved text</p>');
-  RTE()->__debug_simulatedirty();
 
   AWAIT TestMetaFields(FALSE);
 
@@ -270,7 +269,6 @@ ASYNC MACRO TestRevert()
 
   TestEq(FALSE, topscreen->frame->flags.isdirty);
   RTE()->TolliumWeb_FormUpdate('<p class="normal">This is another text</p>');
-  RTE()->__debug_simulatedirty();
   TestEq(TRUE, topscreen->frame->flags.isdirty);
 
   //Save as draft
@@ -338,7 +336,6 @@ ASYNC MACRO TestSaveToUnpublishedSite()
 
   TT(":Title")->value := "My Doc";
   RTE()->TolliumWeb_FormUpdate('<p class="normal">This is the document</p>');
-  RTE()->__debug_simulatedirty(); //ADDME why doesn't the above command imply this?
 
   Testeq(FALSE, OpenWHFSObject(testfile->id)->publish);
   DATETIME publishedafter := GetCurrentDatetime();

@@ -88,7 +88,9 @@ OBJECT ASYNC FUNCTION InsertLink()
   myrte->TolliumWeb_FormUpdate('<html><body><p class="normal">This is <a href="https://drive.google.com/drive/u/99/folders/abcdefg-1234567890">link</a>.</p></body></html>');
   TestEq(`<html><body><p class="normal">This is <a href="https://drive.google.com/drive/folders/abcdefg-1234567890">link</a>.</p></body></html>`, BlobToString(myrte->value.htmltext));
 
-  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  //Cancel unsaved changes created above
+  AWAIT ExpectAndAnswerMessageBox("no", PTR TTEscape, [ messagemask := "*save*changes*" ]);
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR);
 
   RETURN TRUE;
 }

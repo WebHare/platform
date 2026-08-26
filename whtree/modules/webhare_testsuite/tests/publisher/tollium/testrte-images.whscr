@@ -60,7 +60,7 @@ OBJECT ASYNC FUNCTION CreateDoc()
   AWAIT ExpectScreenChange(+1, PTR Rte()->ProcessInboundMessage("properties2", [ action := "action-properties", subaction := "edit", affectednodeinfo := [ type := "img", src := imginfo.link, alttext := "", align := "", width := imginfo.width, height := imginfo.height, link := DEFAULT RECORD ], actionid:= "XX" ]));
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
 
-  Rte()->__debug_simulatedirty();
+  Rte()->SetDirty();
 
   RECORD richvalue := Rte()->value;
   OBJECT htmldoc := MakeXMLDocumentFromHTML(richvalue.htmltext);
