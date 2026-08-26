@@ -378,13 +378,6 @@
       <text tid="title">Selecteer bestand om te uploaden</text>
       <text tid="upload">Uploaden</text>
     </textgroup>
-    <textgroup gid="imageedit">   <!-- commondialogs.imageedit -->
-      <textgroup gid="main">   <!-- commondialogs.imageedit.main -->
-        <text tid="crop">Uitsnijden</text>
-        <text tid="main">Afbeelding bewerken</text>
-        <text tid="undo">Ongedaan maken</text>
-      </textgroup>
-    </textgroup>
     <textgroup gid="loaderror">   <!-- commondialogs.loaderror -->
       <text tid="filename">Bestandsnaam</text>
       <text tid="linenum">Regelnummer</text>
@@ -488,10 +481,6 @@
         <text tid="replace_file">Een bestand uploaden om het huidige bestand door te vervangen</text>
         <text tid="save_file">Dit bestand downloaden</text>
       </textgroup>
-    </textgroup>
-    <textgroup gid="imageedit">   <!-- components.imageedit -->
-      <text tid="delete_image">Verwijder deze afbeelding</text>
-      <text tid="replace_image">Een afbeelding uploaden om de huidige afbeelding door te vervangen</text>
     </textgroup>
     <textgroup gid="imgedit">   <!-- components.imgedit -->
       <text tid="add_image">Een afbeelding uploaden</text>
