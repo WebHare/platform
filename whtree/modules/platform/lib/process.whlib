@@ -1,29 +1,46 @@
 <?wh
+
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 
+ASYNC MACRO SendProcessInput(OBJECT process, BLOB data)
+{
+  AWAIT AsyncSendBlobTo(process->input_handle, data);
+  process->CloseInput();
+}
 
 PUBLIC RECORD FUNCTION SpawnProcessSync(STRING cmd, STRING ARRAY args, RECORD options DEFAULTSTO DEFAULT RECORD) {
-  options := ValidateOptions(CELL[ use_wh_run := FALSE ], options);
+  options := ValidateOptions(CELL[ use_wh_run := FALSE
+                                 , stdin := ""
+                                 , output_as_blob := FALSE
+                                 , merge_stderr := TRUE
+                                 ], options);
 
   IF(options.use_wh_run) {
     args := [ "run", GetWebHareResourceDiskPath(cmd), ...args ];
-    cmd := `${GetWebHareConfiguration().installationroot}/bin/wh`;
+    cmd := "wh";
   }
 
-  IF(IsWasm())
-    RETURN CallJS("mod::platform/js/harescript/process.ts#spawnProcessSync", cmd, args);
+  IF(cmd = "wh") //auto rewrite so callers don't have too. a bare 'wh' in path should be only our wh anyway.
+    cmd := `${GetWebHareConfiguration().installationroot}/bin/wh`;
+
+  IF(IsWasm() ) //process iterator doesn't seem to support input, and taking over stdin is rare enough anyway, IPC-ing to JS should be fine
+    RETURN CallJS("mod::platform/js/harescript/process.ts#spawnProcessSync", cmd, args, options);
 
   OBJECT process;
+  OBJECT inputpromise;
   TRY {
-    process := CreateProcess(cmd, args, [ take_output := TRUE, take_errors := TRUE, merge_output_errors := TRUE ]);
+    process := CreateProcess(cmd, args, [ take_input := IsValueSet(options.stdin), take_output := TRUE, take_errors := TRUE, merge_output_errors := options.merge_stderr ]);
 
     process->Start();
 
-    STRING output;
+    inputpromise := SendProcessInput(process, StringToBlob(options.stdin));
+
+    STRING output, stderr;
     INTEGER exitcode := -1;
     OBJECT itr := MakeProcessAsyncIterator(process, [ autoclose := FALSE ]);
     WHILE (TRUE) {
@@ -32,11 +49,25 @@ PUBLIC RECORD FUNCTION SpawnProcessSync(STRING cmd, STRING ARRAY args, RECORD op
         BREAK;
       SWITCH (rec.value.type) {
         CASE "output"   { output := output || rec.value.line || "\n"; }
+        CASE "error"    { stderr := stderr || rec.value.line || "\n"; }
         CASE "close"    { exitcode := rec.value.exitcode; }
       }
     }
 
-    RETURN CELL[ error := exitcode != 0, exitcode, output ];
+    //Finalize input
+    TRY {
+      WaitForPromise(inputpromise);
+    } CATCH(OBJECT e) {
+      //ignore
+    }
+
+    // VARIANT
+    RETURN CELL[
+      error := exitcode != 0,
+      exitcode,
+      output := IfThenElse(options.output_as_blob, StringToBlob(output), output),
+      stderr := IfThenElse(options.output_as_blob, StringToBlob(stderr), stderr)
+    ];
   } FINALLY {
     process->Close();
   }
