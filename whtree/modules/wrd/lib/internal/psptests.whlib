@@ -75,13 +75,11 @@ PUBLIC STRING FUNCTION GetWRDTestPaymentReturnURL(OBJECT paymentapi)
                                             ]);
 }
 
-PUBLIC MACRO AddPaymentToTestWRDSchema(RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC MACRO AddPaymentToTestWRDSchema(OBJECT schemaobj, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   GetPrimary()->PushWork();
   options := ValidateOptions([ keephistorydays := 0
                              ], options);
-
-  OBJECT schemaobj := OpenTestsuiteWRDSchema();
 
   OBJECT persontype := schemaobj->GetType("WRD_PERSON");
   persontype->CreateAttribute("WRD_CONTACT_PHONE", "TELEPHONE", [ title := "Testphone" ]);

@@ -47,8 +47,7 @@ PUBLIC STATIC OBJECTTYPE PeerServers EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC STATIC OBJECTTYPE AddPeer EXTEND TolliumScreenBase
-<
+PUBLIC STATIC OBJECTTYPE AddPeer EXTEND TolliumScreenBase <
   RECORD options;
   MACRO Init(RECORD data)
   {
@@ -66,10 +65,11 @@ PUBLIC STATIC OBJECTTYPE AddPeer EXTEND TolliumScreenBase
 
     RECORD resp := GetWebHareRequestTokenURL(this, ^peer->value, [ scopes := this->options.scopes ]);
     urlreceiver->SendUrl(resp.requesturl);
-    IF(AWAIT resp.tokenpromise != "")
-    {
+
+    RECORD result := AWAIT resp.tokenpromise;
+    IF(RecordExists(result)) {
       // we're not getting the peer id, so look the peer up by the serverurl
-      this->__SetScreenResult(this->contexts->wrdschema->^whuser_peerserver->Search("serverurl", ^peer->value));
+      this->__SetScreenResult(result.peerid);
     }
   }
 
@@ -92,7 +92,7 @@ PUBLIC STATIC OBJECTTYPE ReauthServer EXTEND TolliumScreenBase
   {
     RECORD resp := GetWebHareRequestTokenURL(this, ^url->value, [ scopes := this->options.scopes ]);
     urlreceiver->SendUrl(resp.requesturl);
-    IF(AWAIT resp.tokenpromise != "")
-      this->tolliumresult := "ok";
+    AWAIT resp.tokenpromise;
+    this->tolliumresult := "ok";
   }
 >;

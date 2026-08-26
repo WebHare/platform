@@ -1,6 +1,6 @@
 import { type BaseWireMessage, LinkEndpoint } from "@mod-tollium/web/ui/js/comm/linkendpoint";
 import type TransportManager from "@mod-tollium/web/ui/js/comm/transportmanager";
-import { createClient } from "@webhare/jsonrpc-client";
+import { createClient, type GetClientInterface } from "@webhare/jsonrpc-client";
 import * as $todd from '@mod-tollium/web/ui/js/support.ts';
 import type { BackendApplication } from "@mod-tollium/web/ui/js/application";
 import { emplace } from "@webhare/std";
@@ -65,13 +65,17 @@ class FrontendLink extends LinkEndpoint {
   }
 }
 
-interface ApplicationPortalService {
+export interface ApplicationPortalService {
   //TODO: this is just a dummy to get started, we'll write up the rest of the service during the transfer from IndyShell to TolliumShell
   startApp(appname: string, options: unknown): Promise<AppStartResponse>;
+
+  executeAction(options: unknown): Promise<unknown>;
 }
 
+export type ApplicationPortalRPCService = GetClientInterface<ApplicationPortalService>;
+
 export default class TolliumShell {
-  tolliumservice: ApplicationPortalService;
+  tolliumservice: ApplicationPortalRPCService;
   frontendlinks = new Map<string, FrontendLink>();
   transportmgr!: TransportManager; //to be further initialized by IndyShell for now (TODO)
 
