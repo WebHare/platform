@@ -605,8 +605,8 @@ function validateResizeMethod(resizemethod: PackableResizeMethod) {
   if (resizemethod.method === "fitcanvas" || resizemethod.method === "scalecanvas") {
     //TODO start throwing explicitly once all are WH6+ and we can phase out the lowercase names
     methodName = resizemethod.method === "fitcanvas" ? "fitCanvas" as const : "scaleCanvas" as const;
-  } else if (['stretch-x', 'stretch-y', 'stretch', 'cropcanvas', 'crop'].includes(resizemethod.method)) {
-    throw new Error(`Resize method '${resizemethod.method}' is deprecated and not supported in JavaScript or for WebP/AVIF image formats`);
+  } else if (['stretch-x', 'stretch-y', 'stretch', 'cropcanvas', 'crop'].includes(resizemethod.method)) { //unsupported methods
+    throw new Error(`Resize method '${resizemethod.method}' is no longer supported`);
   } else {
     methodName = resizemethod.method;
   }

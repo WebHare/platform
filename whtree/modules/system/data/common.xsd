@@ -555,7 +555,6 @@
           <xs:enumeration value="fitcanvas"/>
           <xs:enumeration value="scalecanvas"/>
           <xs:enumeration value="fill"/>
-          <xs:enumeration value="stretch"/>
         </xs:restriction>
       </xs:simpleType>
     </xs:attribute>

@@ -628,7 +628,7 @@ PUBLIC MACRO ValidateFontID(INTEGER id)
 
 /** Validates an image resize method
     @param method Image resize method
-    @cell(string) method.method Method to use. One of "none", "fit", "fitcanvas", "scale", "scalecanvas", "fill", "crop".
+    @cell(string) method.method Method to use. One of "none", "fit", "fitcanvas", "scale", "scalecanvas", "fill".
     @cell(integer) method.setwidth
     @cell(integer) method.setheight
     @cell(string) method.format Output format One of "", "image/png", "image/jpeg", "image/gif".
@@ -649,10 +649,10 @@ PUBLIC RECORD FUNCTION ValidateResizeMethod(RECORD method)
  IF(NOT CellExists(method,'format'))
     THROW NEW Exception("Missing required cell 'format'");
 
-  IF(method.method IN ["stretch","stretch-x","stretch-y","crop","cropcanvas"] AND method.format IN ["image/webp", "image/avif"])
-    THROW NEW Exception("Resize method '" || method.method || "' is deprecated and not supported for modern image formats");
+  IF(method.method IN ["stretch","stretch-x","stretch-y","crop","cropcanvas"])
+    THROW NEW Exception("Resize method '" || method.method || "' is no longer supported");
 
-  IF(method.method NOT IN ["none","fit","fitcanvas","scale","scalecanvas","fill","stretch","stretch-x","stretch-y","crop","cropcanvas"])
+  IF(method.method NOT IN ["none","fit","fitcanvas","scale","scalecanvas","fill"])
     THROW NEW Exception("Unknown resize method '" || method.method || "'");
 
   FOREVERY(RECORD cellrec FROM UnpackRecord(method))
@@ -661,28 +661,16 @@ PUBLIC RECORD FUNCTION ValidateResizeMethod(RECORD method)
 
   IF(CellExists(method, "setwidth"))
   {
-    IF(method.setwidth < 0 OR (method.setwidth = 0 AND method.method = "stretch-x"))
+    IF(method.setwidth < 0)
       THROW NEW Exception("Invalid width '" || method.setwidth || "' in resize method");
   }
   IF(CellExists(method, "setheight"))
   {
-    IF(method.setheight < 0 OR (method.setheight = 0 AND method.method = "stretch-y"))
+    IF(method.setheight < 0)
       THROW NEW Exception("Invalid height '" || method.setheight || "' in resize method");
 
     IF(method.setheight = 0 AND CellExists(method, "setwidth") AND method.setwidth=0)
       method.method := "none"; //no-op
-  }
-
-  IF (method.method = "crop" OR method.method = "cropcanvas")
-  {
-    IF (NOT CellExists(method, "setwidth"))
-      THROW NEW Exception("Missing width in resize method");
-    ELSE IF (method.setwidth <= 0)
-      THROW NEW Exception("Invalid width '" || method.setwidth || "' in resize method");
-    IF (NOT CellExists(method, "setheight"))
-      THROW NEW Exception("Missing height in resize method");
-    ELSE IF (method.setheight <= 0)
-      THROW NEW Exception("Invalid height '" || method.setheight || "' in resize method");
   }
 
   IF(CellExists(method, "quality") AND (method.quality < 0 OR method.quality > 100))
@@ -794,54 +782,6 @@ RECORD FUNCTION GetResizeInstruction(RECORD baseinstruction, RECORD method)
   INTEGER setwidth := CellExists(method, "setwidth") ? method.setwidth : 0;
   INTEGER setheight := CellExists(method, "setheight") ? method.setheight : 0;
 
-  IF(method.method = "stretch" AND setwidth > 0 AND setheight > 0) //simple resize
-  {
-    IF (RecordExists(baseinstruction.refpoint))
-    {
-      baseinstruction.refpoint.x := baseinstruction.refpoint.x * setwidth / baseinstruction.outwidth;
-      baseinstruction.refpoint.y := baseinstruction.refpoint.y * setheight / baseinstruction.outheight;
-    }
-    baseinstruction.outwidth := setwidth;
-    baseinstruction.outheight := setheight;
-    baseinstruction.renderwidth := setwidth;
-    baseinstruction.renderheight := setheight;
-    RETURN baseinstruction;
-  }
-
-  IF (method.method = "crop" OR method.method = "cropcanvas") // simple crop, no resizing
-  {
-    IF (method.method = "crop")
-    {
-      IF (setwidth > width)
-        setwidth := width;
-      IF (setheight > height)
-        setheight := height;
-    }
-
-    baseinstruction.outwidth := setwidth;
-    baseinstruction.outheight := setheight;
-    baseinstruction.renderwidth := width;
-    baseinstruction.renderheight := height;
-    baseinstruction.renderx := (setwidth - width) / 2;
-    baseinstruction.rendery := (setheight - height) / 2;
-
-    IF (RecordExists(baseinstruction.refpoint))
-    {
-      INTEGER hw := INTEGER(Ceil(FLOAT(width) / 2));
-      INTEGER dx := INTEGER(Floor(FLOAT(baseinstruction.refpoint.x - hw) * baseinstruction.renderx / hw));
-      baseinstruction.renderx := baseinstruction.renderx + dx;
-
-      INTEGER hh := INTEGER(Ceil(FLOAT(height) / 2));
-      INTEGER dy := INTEGER(Floor(FLOAT(baseinstruction.refpoint.y - hh) * baseinstruction.rendery / hh));
-      baseinstruction.rendery := baseinstruction.rendery + dy;
-
-      baseinstruction.refpoint.x := baseinstruction.refpoint.x + baseinstruction.renderx;
-      baseinstruction.refpoint.y := baseinstruction.refpoint.y + baseinstruction.rendery;
-    }
-    RETURN baseinstruction;
-  }
-
-
   /* dx = input image width / method setwidth    (dx < 1: input image is smaller than requested by method)
      dy = input image height / method setheight
 
@@ -868,21 +808,7 @@ RECORD FUNCTION GetResizeInstruction(RECORD baseinstruction, RECORD method)
   //print("w " || width || " h " || height || " sw " || setwidth || " sh " || setheight || " dx " || formatfloat(dx,3) || " dy " || formatfloat(dy,3) || "\n");
 
   FLOAT scale := 1;
-  IF(method.method = "stretch-x" OR (method.method="stretch" AND setheight=0))
-  {
-    renderwidth := INTEGER(Ceil(width/dx));
-    renderheight := INTEGER(Ceil(height/dx));
-    IF(setheight != 0 AND renderheight > setheight)
-      renderheight := setheight;
-  }
-  ELSE IF(method.method = "stretch-y" OR (method.method="stretch" AND setwidth=0))
-  {
-    renderwidth := INTEGER(Ceil(width/dy));
-    renderheight := INTEGER(Ceil(height/dy));
-    IF(setwidth != 0 AND renderwidth > setwidth)
-      renderwidth := setwidth;
-  }
-  ELSE IF((method.method="fit" OR method.method="fitcanvas") AND dx <= 1 AND dy <= 1) //no-op, it already fits
+  IF((method.method="fit" OR method.method="fitcanvas") AND dx <= 1 AND dy <= 1) //no-op, it already fits
   {
     renderwidth := width;
     renderheight := height;
