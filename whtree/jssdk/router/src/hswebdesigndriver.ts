@@ -148,7 +148,8 @@ export async function runHareScriptPage(contReq: ContentPageRequest, how:
       };
     }
   } else {
-    result = await loadlib("mod::platform/lib/internal/hs-pagehost.whlib").RunStaticHarescriptPage(how.hsPageObjectType, contReq.targetObject.id);
+    const contentObject = (contReq as CPageRequest)["_contentObject"];
+    result = await loadlib("mod::platform/lib/internal/hs-pagehost.whlib").RunStaticHarescriptPage(how.hsPageObjectType, contReq.targetObject.id, contentObject.id);
   }
 
   const statusSetValue = result.headers.find(h => h.header.toLowerCase() === "status")?.data.split(" ")[0];
