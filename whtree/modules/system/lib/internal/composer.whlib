@@ -149,8 +149,8 @@ PUBLIC OBJECTTYPE ComposeException EXTEND Exception
 >;
 
 
-PUBLIC STATIC OBJECTTYPE ComposerBase
-< // ---------------------------------------------------------------------------
+PUBLIC STATIC OBJECTTYPE ComposerBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -256,7 +256,7 @@ PUBLIC STATIC OBJECTTYPE ComposerBase
 
     IF (inpath LIKE "*/.wh/ea/uc/*") // image cache
     {
-      RECORD data := GetCachedDataFromURL(inpath);
+      RECORD data := GetCachedDataFromURL(inpath, [ mailsafe := TRUE ]);
       IF (NOT RecordExists(data))
         THROW NEW ComposeException("Cannot find embedded resource '" || inpath || "'");
 

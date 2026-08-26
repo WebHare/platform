@@ -22,6 +22,7 @@ LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
 
 STRING link_grayscalehomer, link_kikker, link_fs_frogger, link_unused_kikker, link_wrd_homer;
+STRING homerlink_avif;
 DATETIME after_kikker_hit;
 STRING default_imgcache := "public, max-age=31536000, immutable";
 STRING incorrect_imgcache := "public, max-age=86400"; //used when requesting incorrect urls
@@ -201,7 +202,7 @@ MACRO ImgCacheTest() {
   TestEq(TRUE , testfw->browser->GotoWebPage(homerlink_webp));
   TestEq("image/webp", testfw->browser->contenttype);
 
-  STRING homerlink_avif := GetCachedFSImageURL(baseurl, homer->id, [ method := "scale", setwidth:=25, setheight:=25, format := "image/avif"]);
+  homerlink_avif := GetCachedFSImageURL(baseurl, homer->id, [ method := "scale", setwidth:=25, setheight:=25, format := "image/avif"]);
   TestAssert(homerlink_avif != "");
   TestEqMembers([ contenttype := "image/png" ], FetchUCLink(homerlink_avif, "image/png"), "*", "First we see a PNG");
   TestEqMembers([ contenttype := "image/avif" ], FetchUCLink(homerlink_avif, "image/avif"), "*", "And then we see an avif");
@@ -544,6 +545,16 @@ STRING FUNCTION GetCacheDiskPathFromLink(STRING link)
   RETURN GetUnifiedCacheDiskRoot() || hash;
 }
 
+BOOLEAN FUNCTION IsMatchIgnoreExt(STRING fullpath, STRING ARRAY list) {
+  fullpath := Left(fullpath, Length(fullpath) - Length(GetExtensionFromPath(fullpath)));
+  FOREVERY(STRING item FROM list) {
+    item := Left(item, Length(item) - Length(GetExtensionFromPath(item)));
+    IF (fullpath = item)
+      RETURN TRUE;
+  }
+  RETURN FALSE;
+}
+
 MACRO CleanupTests()
 {
   IF(testfw->debug)
@@ -561,22 +572,30 @@ MACRO CleanupTests()
   STRING filename_grayscalehomer := GetCacheDiskPathFromLink(link_grayscalehomer);
   STRING filename_fs_frogger := GetCacheDiskPathFromLink(link_fs_frogger);
   STRING filename_wrd_homer := GetCacheDiskPathFromLink(link_wrd_homer);
+  STRING filename_homerlink_avif := GetCacheDiskPathFromLink(homerlink_avif);
+  STRING filename_homerlink_avif_png := Substitute(filename_homerlink_avif, ".avif", ".png");
 
   currentcachecontents := SELECT *
                             FROM currentcachecontents
-                           WHERE fullpath IN [ filename_kikker
-                                             , filename_unused_kikker
-                                             , filename_grayscalehomer
-                                             , filename_fs_frogger
-                                             , filename_wrd_homer
-                                             ];
+                           WHERE IsMatchIgnoreExt(fullpath,[ filename_kikker
+                                                           , filename_unused_kikker
+                                                           , filename_grayscalehomer
+                                                           , filename_fs_frogger
+                                                           , filename_wrd_homer
+                                                           , filename_homerlink_avif
+                                                           ]) ;
 
-  TestEq(5, Length(currentcachecontents));
+  RECORD ARRAY ccc_nofrogger := SELECT * FROM currentcachecontents WHERE NOT IsMatchIgnoreExt(fullpath,[ filename_fs_frogger ]);
+
+  TestEq(6, Length(ccc_nofrogger)); //we should have two for the homer, one for AVIF and one for the PNG. ignore frogger as it may or may not have a WEBP/AVIF depending on server settings
 
   RECORD ARRAY cachecontents := SELECT * FROM FilterRecentHits(currentcachecontents, after_kikker_hit, tracestarttime);
 
   //unused kikker should be a deletion candidate
   TestEq([[ expired := TRUE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_unused_kikker);
+  //PNG version of homer should be a deletion candidate, but AVIF shouldn't
+  TestEq([[ expired := FALSE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_homerlink_avif);
+  TestEq([[ expired := TRUE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_homerlink_avif_png);
   //but grayscale and testhost were seen 'after' kikker so should not be marked as expired
   TestEq([[ expired := FALSE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_kikker);
   TestEq([[ expired := FALSE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_grayscalehomer, filename_grayscalehomer);

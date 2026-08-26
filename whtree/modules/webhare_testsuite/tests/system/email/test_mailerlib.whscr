@@ -230,7 +230,6 @@ MACRO EmbedTest_PrepareMail()
   testfw->CommitWork();
 
   RECORD ARRAY mails := testfw->ExtractAllMailFor("testenvelope@beta.webhare.net", [ count := 1 ]);
-  dumpvalue(mails[0],'tree');
   TestEq('Your Info <info@example.net>', mails[0].mailfrom);
   TestEq("<info@example.net>", mails[0].envelope_sender);
 }
@@ -596,6 +595,7 @@ MACRO TestMailWitty_EmbedSafety()
   testfw->BeginWork();
   BLOB toupload := GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/cmyk_kikkertje.jpg");
   OBJECT kikkertje := GetTestsuiteTempFolder()->CreateFile( [ data := toupload, publish := FALSE, name := "kwaak.jpg" ]);
+  testfw->CommitWork();
 
   outmail := PrepareMailWitty(`inline::<img src="${GetCachedImageLink(kikkertje->GetWrapped(),[ method := "fit", setheight:=50, setwidth:=50 ])}">`);
 
@@ -604,6 +604,17 @@ MACRO TestMailWitty_EmbedSafety()
   RECORD image_scan := ScanBlob(image_mail.data.subparts[1].data);
   TestEq(50, image_scan.height);
   TestEq(42, image_scan.width);
+
+  outmail := PrepareMailWitty(`inline::<img src="${GetCachedImageLink(kikkertje->GetWrapped(),[ method := "fit", setheight:=50, setwidth:=50, format:="image/avif" ])}">`);
+
+  image_mail := DecodeMIMEMessage(outmail->ExportAsEML());
+  TestEqLike("multipart/related*", image_mail.contenttype);
+  TestEqLike("*kwaak.jpg*", image_mail.data.subparts[1].disposition);
+  TestEqLike("*image/jpeg*kwaak.jpg*", image_mail.data.subparts[1].mimetype);
+  image_scan := ScanBlob(image_mail.data.subparts[1].data);
+  TestEq(50, image_scan.height);
+  TestEq(42, image_scan.width);
+  TestEq("image/jpeg", image_scan.mimetype);
 
   outmail := PrepareMailWitty(`inline-base64::${EncodeBase64(`<img src="${GetCachedImageLink(kikkertje->GetWrapped(),[ baseurl := GetPrimaryWebHareInterfaceURL(), method := "fit", setheight:=50, setwidth:=50 ])}">`)}`);
 
@@ -619,8 +630,6 @@ MACRO TestMailWitty_EmbedSafety()
   image_scan := ScanBlob(image_mail.data.subparts[1].data);
   TestEq(120, image_scan.height);
   TestEq(160, image_scan.width);
-
-  testfw->CommitWork();
 }
 
 
