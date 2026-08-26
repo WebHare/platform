@@ -553,19 +553,38 @@ MACRO DraftingTestWithCancel() {
     ]);
 
   ///////////////////////////
-  // STORY: create two drafts
+  // STORY: create two drafts and an autosave
 
   workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_ondraft", [ on_draft_string := "draft_0_1" ]);
   workflowmgr->Save([ finalize := FALSE ]);
   workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_ondraft", [ on_draft_string := "draft_0_2" ]);
   workflowmgr->Save([ finalize := FALSE ]);
+  workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_ondraft", [ on_draft_string := "autosave" ]);
 
   RECORD ARRAY history := ListObjectHistory(testfile->id,[include_autosaves := TRUE]);
   TestEqMembers([ [ type := "created",  version := "0.1", user := testfw->GetUserAuthobjectId("marge"), name := "withcancel" ]
                 , [ type := "saved",    version := "0.2", user := testfw->GetUserAuthobjectId("marge"), name := "withcancel" ]
                 , [ type := "saved",    version := "0.3", user := testfw->GetUserAuthobjectId("marge"), name := "withcancel" ]
+                , [ type := "autosave", version := "", user := testfw->GetUserAuthobjectId("marge"), name := "withcancel" ]
                 ], history, "*");
   TestEq(TRUE, TestFlagFromPublished(OpenWHFSObject(testfile->id)->published, PublishedFlag_HasPublicDraft));
+
+  testfw->CommitWork();
+  VerifyTSHistory(testfile->id);
+
+  ///////////////////////////
+  // STORY: *abandon* the autosave only, keep the drafts
+  testfw->BeginWork();
+  workflowmgr->DiscardAutosavedChanges();
+  history := ListObjectHistory(testfile->id,[include_autosaves := TRUE]);
+  TestEqMembers([ [ type := "created",            version := "0.1", user := testfw->GetUserAuthobjectId("marge"), name := "withcancel" ]
+                , [ type := "saved",              version := "0.2", user := testfw->GetUserAuthobjectId("marge"), name := "withcancel" ]
+                , [ type := "saved",              version := "0.3", user := testfw->GetUserAuthobjectId("marge"), name := "withcancel" ]
+                , [ type := "autosave",           version := "",    user := testfw->GetUserAuthobjectId("marge"), name := "withcancel" ]
+                , [ type := "abandoned-autosave", version := "",    user := testfw->GetUserAuthobjectId("marge"), name := "" ]
+                ], history, "*");
+  TestEq(TRUE, TestFlagFromPublished(OpenWHFSObject(testfile->id)->published, PublishedFlag_HasPublicDraft));
+  TestEq("draft_0_2", workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_ondraft").on_draft_string, "Discarding the draft should have reverted the workflow data to the last saved draft");
 
   testfw->CommitWork();
   VerifyTSHistory(testfile->id);
@@ -578,6 +597,8 @@ MACRO DraftingTestWithCancel() {
   TestEqMembers([ [ type := "created",            version := "0.1", user := testfw->GetUserAuthobjectId("marge"), name := "withcancel" ]
                 , [ type := "saved",              version := "0.2", user := testfw->GetUserAuthobjectId("marge"), name := "withcancel" ]
                 , [ type := "saved",              version := "0.3", user := testfw->GetUserAuthobjectId("marge"), name := "withcancel" ]
+                , [ type := "autosave",           version := "",    user := testfw->GetUserAuthobjectId("marge"), name := "withcancel" ]
+                , [ type := "abandoned-autosave", version := "",    user := testfw->GetUserAuthobjectId("marge"), name := "" ]
                 , [ type := "abandoned-draft",    version := "",    user := testfw->GetUserAuthobjectId("marge"), name := "" ]
                 ], history, "*");
   TestEq(FALSE, TestFlagFromPublished(OpenWHFSObject(testfile->id)->published, PublishedFlag_HasPublicDraft));
