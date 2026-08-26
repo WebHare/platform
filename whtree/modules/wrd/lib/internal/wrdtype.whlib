@@ -17,7 +17,6 @@ LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
@@ -56,8 +55,6 @@ CONSTANT RECORD wrd_query_options :=
     , wrapobjects := FALSE
     , jsonstrings := FALSE
     ];
-
-STRING ARRAY warnings_per_vm;
 
 INTEGER64 ARRAY entity_settings_autonumbers;
 
@@ -2031,14 +2028,6 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
         IF(TypeId(val) != TYPEID(DATETIME))
           THROW NEW Exception(`Value must be of type DATETIME, got ${GetTypeName(TYPEID(val))}`);
-        IF (val = MAX_DATETIME)
-        {
-          IF ("wrd:store_maxdatetime" NOT IN warnings_per_vm)
-          {
-            INSERT "wrd:store_maxdatetime" INTO warnings_per_vm AT END;
-            LogWarning("wrd:store_maxdatetime", `Storing MAX_DATETIME in field ${this->__tag}.${attr.tag} in schema ${this->pvt_wrdschema->tag}`, [ trace := GetAsyncStackTrace() ]);
-          }
-        }
 
         IF(val != DEFAULT DATETIME)
           INSERT [ setting := 0, rawdata := GetDayCount(val) || "," || GetMsecondCount(val), blobdata := DEFAULT BLOB ] INTO newsets AT END;
