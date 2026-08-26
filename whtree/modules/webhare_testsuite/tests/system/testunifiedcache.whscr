@@ -323,13 +323,13 @@ MACRO ImgCacheSourcesTest()
   TestEq('kikker.jpg', wrappedinfo.filename);
   TestEq(122, wrappedinfo.width); //original width
 
-  RECORD kikkerinstance_ts := CallJS("@webhare/hscompat#resizeTSDescriptor", ExportTSDescriptor(img), [ method := "scale", setwidth:=25, setheight:=25, filename := "kikker.png", format := "keep" ]);
+  RECORD kikkerinstance_ts := CallJS("@webhare/hscompat#resizeTSDescriptor", ExportTSDescriptor(img), [ method := "scale", width:=25, height:=25, filename := "kikker.png", format := "keep" ]);
   TestEqLike("*/kikker.jpg", kikkerinstance_ts.link);
   TestEq(TRUE, testfw->browser->GotoWebPage(kikkerinstance_ts.link), kikkerinstance_ts.link);
 
   RECORD kikkerinfo := ScanBlob(testfw->browser->content,"");
-  TestEq(122, kikkerinfo.width);
-  TestEq(148, kikkerinfo.height);
+  TestEq(21, kikkerinfo.width);
+  TestEq(25, kikkerinfo.height);
 }
 
 MACRO NotTheImageTest()
