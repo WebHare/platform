@@ -25,7 +25,7 @@ function getKeyForScope(scope: string, options?: AlgorithmOptions): Buffer {
 }
 
 /** Encrypt data with this server's local key
-    @param scope - Scope for encryption (must be unique for each Encrypt usage so you can't accidentally mix up calls)
+    @param scope - Scope or audience for encryption. This must be unique for each Encrypt usage so users cannot reuse encrypted data for a different API/call
     @param data - Data to sign and encrypt. Will be encoded as typed JSON if necessary
     @returns Encrypted data, base64url encoded (so safe for direct use in URLs)
     @example
@@ -54,7 +54,7 @@ export function encryptForThisServer<S extends string>(scope: keyof ServerEncryp
 }
 
 /** Decrypt data encrypted using encryptForThisServer
-    @param scope - Scope for encryption (must be unique for each Encrypt usage so you can't accidentally mix up calls)
+    @param scope - Scope or audience for encryption. This must be unique for each Encrypt usage so users cannot reuse encrypted data for a different API/call
     @param text - Data to decrypt
     @param options - Options for decryption
     @param options.nullIfInvalid - If true, return null if the data is invalid (instead of throwing an error)
