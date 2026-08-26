@@ -255,6 +255,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
 
   MACRO DoRefreshName() {
     ^name->value := this->GetSuggestedSlug(0);
+    ^dirtylistener->SetDirty();
   }
 
   MACRO RefreshMetaTabsReadonly() {

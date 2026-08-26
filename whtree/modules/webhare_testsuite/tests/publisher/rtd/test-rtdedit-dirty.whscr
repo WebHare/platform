@@ -1,0 +1,55 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::publisher/lib/rtd.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+LOADLIB "mod::system/lib/internal/whfs/scheduledtasks.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+OBJECT FUNCTION RTE() {
+  RETURN TT("doceditor")->contents->rte;
+}
+
+ASYNC MACRO TestDirtySetting()
+{
+  testfw->BeginWork();
+
+  OBJECT testfile := GetTestsuiteJSTempFolder()->CreateFile(
+      [ name :=   "test-rtdedit-dirtysetting"
+      , typens := "platform:filetypes.richdocument"
+      , title := "My dirty document"
+      , publish := FALSE
+      ], [ createdby := testfw->GetUserObject("sysop")
+         ]);
+
+  testfw->CommitWork();
+
+  // STORY: Open RTD. Schedule first publish
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testfile->id) ]  ]));
+  TestEq(FALSE, topscreen->contexts->editdocumentapi->readonly);
+  TestEq(FALSE, topscreen->frame->flags.isdirty);
+
+  TestEq("test-rtdedit-dirtysetting", TT("name")->value);
+  TTClick("refreshname");
+
+  TestEq("my-dirty-document", TT("name")->value);
+  TestEq(TRUE, topscreen->frame->flags.isdirty);
+
+  TTClick(":Save");
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+RunTestFramework(
+    [ PTR TestDirtySetting
+    ],
+    [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                   ]
+    ]);
