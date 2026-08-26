@@ -74,8 +74,14 @@ ASYNC MACRO ObjectProps()
     TestEq(staticfile, TT("wh_fs_cell")->value, "Selection not properly retained");
     AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
-    AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+    //Test refresh name button
+    TT("Title")->value := "My new image";
+    TestEq("imglink.jpg", TT("name")->value);
+    TTClick("refreshname");
 
+    TestEq("my-new-image.jpg", TT("name")->value);
+
+    AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
   }
 
   RECORD data := imglink->GetInstanceData("http://www.webhare.net/xmlns/beta/test");
