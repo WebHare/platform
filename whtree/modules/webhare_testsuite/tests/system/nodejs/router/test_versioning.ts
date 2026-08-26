@@ -47,7 +47,39 @@ async function testVersionedForm() {
   test.eq(/This is test #2/, currentPreview.contentDiv?.textContent);
 }
 
+async function testVersionedStaticPage() {
+  const tmp = await test.getTestSiteJSTemp();
+
+  await beginWork();
+
+  //We need a file that will remain HS HTML rendered so use the explicit test type
+  const file = await tmp.createFile("widgetholder", { type: "webhare_testsuite:base_test.testsuite_rtd_hs", publish: true });
+  await whfsType("platform:filetypes.richdocument").set(file.id, { data: [{ p: "This is version #1" }] });
+
+  const workflowMgr = await openWorkflowManager(file.id, {
+    useWorkflow: true,
+    workflowTypes: ["platform:filetypes.richdocument"],
+    assumeWriteAccess: true
+  });
+
+  await workflowMgr.set("platform:filetypes.richdocument", { data: [{ p: "This is version #2" }] });
+  await workflowMgr.save();
+
+  await commitWork();
+
+  const livePreview = await fetchPreviewAsDoc(file.id);
+  test.eq(/This is version #1/, livePreview.contentDiv?.textContent);
+
+  const history = await file.listHistory();
+  test.eqPartial([{ type: "import", version: "1.0" }, { type: "saved", version: "1.1" }], history);
+  const draftPreview = await fetchPreviewAsDoc(history[1].snapshot ?? throwError("No snapshot for draft save?"));
+
+  test.eq(/This is version #2/, draftPreview.contentDiv?.textContent);
+
+}
+
 test.runTests([
   test.reset,
-  testVersionedForm
+  testVersionedForm,
+  testVersionedStaticPage
 ]);
