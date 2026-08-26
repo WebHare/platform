@@ -493,9 +493,9 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase <
     RETURN ObjectExists(this->editable) ? this->editable->GetHTMLForClientRTE() : "";
   }
 
-  PUBLIC MACRO TolliumWeb_FormUpdate(STRING indata)
-  {
+  PUBLIC MACRO TolliumWeb_FormUpdate(STRING indata) {
     this->editable->SetHTMLFromClientRTE(indata);
+    this->SetDirty(); //the server would only send us data if it was dirty there, so consider it a local dirty marking
   }
 
   UPDATE PUBLIC MACRO TolliumWeb_ParseEvent(STRING action, STRING param)
@@ -758,10 +758,6 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase <
       RETURN;
     }
     TolliumComponentBase::ProcessInboundMessage(type, msgdata);
-  }
-
-  PUBLIC MACRO __debug_simulatedirty() { //FIXME remove this
-    this->SetDirty();
   }
 
   RECORD FUNCTION HandlePropertiesRequest2(RECORD data)

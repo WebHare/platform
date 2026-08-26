@@ -114,7 +114,6 @@ ASYNC MACRO ObjectProps()
     RECORD newfile := TT("filelist")->selection;
     AWAIT ExpectScreenChange(+1, PTR TTLaunchStartedApp());
     TT("doceditor")->contents->rte->TolliumWeb_FormUpdate('<p class="normal">This is the document</p>');
-    TT("doceditor")->contents->rte->__debug_simulatedirty(); //ADDME why doesn't the above command imply this?
     TTClick(":Save");
     AWAIT ExpectScreenChange(-1, PTR TTEscape);
 

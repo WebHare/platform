@@ -60,7 +60,6 @@ OBJECT ASYNC FUNCTION TestReadOnly()
   TestEq("cancel", openres.type);
 
   RTE()->TolliumWeb_FormUpdate('<p class="normal">This is the document</p>');
-  RTE()->SetDirty();
 
   clicked := AWAIT ExpectNoScreenChange(PTR topscreen->^save->TolliumClick());
   TestEq(TRUE, clicked);
@@ -82,7 +81,6 @@ OBJECT ASYNC FUNCTION TestReadOnly()
 
   // Add some text and save draft
   RTE()->TolliumWeb_FormUpdate('<p class="normal">This is the document</p>');
-  RTE()->SetDirty();
   clicked := AWAIT ExpectNoScreenChange(PTR topscreen->^save->TolliumClick());
   TestEq(TRUE, clicked);
 
@@ -165,7 +163,6 @@ OBJECT ASYNC FUNCTION TestReadOnly()
 
   // Edit the text and save draft
   RTE()->TolliumWeb_FormUpdate('<p class="normal">This is the draft</p>');
-  RTE()->__debug_simulatedirty(); //ADDME why doesn't the above command imply this?
   clicked := AWAIT ExpectNoScreenChange(PTR topscreen->^save->TolliumClick());
   TestEq(TRUE, clicked);
 

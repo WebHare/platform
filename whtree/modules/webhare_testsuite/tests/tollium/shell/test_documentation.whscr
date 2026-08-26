@@ -150,7 +150,7 @@ ASYNC MACRO TestDocumentationSite()
   //STORY: Start the editor. we'll put some text there but NOT publish it yet...
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("tollium:editdocumentation", [ target := [ edittoken := openhelp.params[1] ]]));
   TT("doceditor")->contents->rte->value := [htmltext := StringToBlob(`<body><p class="normal">help text!</p></body>`)];
-  TT("doceditor")->contents->rte->__debug_simulatedirty();
+  TT("doceditor")->contents->rte->SetDirty();
   TTClick("saveasdraftbutton");
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
