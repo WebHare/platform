@@ -1,7 +1,7 @@
 // @webhare/cli: Manage WebHare file system (WHFS)
 
 import { createWHFSExportZip, describeWHFSType, lookupURL, openFileOrFolder, openSite, storeWHFSExport, type ExportWHFSOptions, type WHFSFile } from '@webhare/whfs';
-import { CLIRuntimeError, CLISyntaxError, enumOption, floatOption, intOption, runCli } from "@webhare/cli";
+import { CLIRuntimeError, CLISyntaxError, floatOption, intOption, runCli } from "@webhare/cli";
 import { storeDiskFile } from "@webhare/system-tools";
 import type { PlatformDB } from '@mod-platform/generated/db/platform';
 import { db, runInWork, sql } from '@webhare/whdb';
@@ -262,7 +262,7 @@ runCli({
         return 1;
       }
     },
-    getpreviewlink: {
+    "get-preview-link": {
       arguments: [{ name: "<path>", description: "File path" }],
       main: async ({ args, opts }) => {
         const target = await resolveWHFSPathArgument(args.path);
@@ -276,7 +276,7 @@ runCli({
           console.log(link);
       }
     },
-    showusage: {
+    "show-usage": {
       flags: {
         "versions-in-site": "Include versions and snapshots storage in site folders"
       },
@@ -290,14 +290,9 @@ runCli({
           type: intOption({ start: 1 }),
           description: "Maximum depth to report",
         },
-        format: {
-          type: enumOption(["table", "json"]),
-          description: "Output format",
-          default: "table",
-        }
       },
       main: async ({ opts }) => {
-        await displayUsage(opts);
+        await displayUsage({ ...opts, format: opts.json ? "json" : "table" });
       }
     }
   }
