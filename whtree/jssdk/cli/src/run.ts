@@ -42,7 +42,7 @@ export class CLIRuntimeError extends CLIError {
 
 export interface CLIArgumentType<ValueType> {
   /** Parses a user-provided value. Throws CLISyntaxError. Required to allow typeinference to work. */
-  parseValue(arg: string, options: { argName: string; command?: string[] }): ValueType;
+  parseValue(arg: string, options: { argName: string; command?: string[] }): ValueType | Promise<ValueType>;
   /** Return possible autocomplete sugegestions. Incomplete suggestions (user should add more text) should end with a '*'. Returned values that do not match the supplied 'startsWith' are ignored
    * `cwd` is the current working directory, is filled in from WH 5.9+.
   */
@@ -138,7 +138,7 @@ type SanitizeOptArgs<O extends OptArgBase> =
   } : {});
 
 /// Returns the type a type rec returns
-type GetArgumentTypeType<O extends { type: CLIArgumentType<any> }> = ReturnType<O["type"]["parseValue"]>;
+type GetArgumentTypeType<O extends { type: CLIArgumentType<any> }> = Awaited<ReturnType<O["type"]["parseValue"]>>;
 
 /// Determine the type of an argument (taking the type into account)
 type TypeOfArgument<A extends Argument<unknown>> = A["name"] extends `<${string}...>` | `[${string}...]` ? GetParsedType<A, string, true> : GetParsedType<A, string, false>;
@@ -356,6 +356,7 @@ export function inferRunCliTypes<
   return data;
 }
 
+// Can't make parse an async function directly, because TS will then give an 'infinite instantiation' error.
 export function parse<
   const E extends object,
   const S extends object,
@@ -363,7 +364,12 @@ export function parse<
 >(
   data: InferRootOptionsArguments<E> & InferSubCommandOptionsArguments<S> & InferSubSubCommandOptionsArguments<SS> & NoInfer<ParseData & SanitizeOptArgs<E & Combine<S, SS>>>,
   argv: string[]
-): ParseResult<E & Combine<S, SS>> {
+): Promise<ParseResult<E & Combine<S, SS>>> {
+  return parseInternal(data as OptArgBase, argv);
+}
+
+// Returning 'any' to make type interference easier
+async function parseInternal(data: OptArgBase, argv: string[]): Promise<any> {
   const parsedOpts: Record<string, unknown> = {};
   const parsedGlobalOpts: Record<string, unknown> = {};
   const parsedArgs: Record<string, unknown> = {};
@@ -435,7 +441,7 @@ export function parse<
           }
 
           let storeValue = typeof rec === "object" && rec.type ?
-            rec.type.parseValue(strValue, { argName: `option ${JSON.stringify(key)}`, command: command }) :
+            await rec.type.parseValue(strValue, { argName: `option ${JSON.stringify(key)}`, command: command }) :
             strValue;
 
           if (typeof rec === "object" && rec.multiple)
@@ -485,7 +491,7 @@ export function parse<
             }
 
             let storeValue = typeof rec === "object" && rec.type ?
-              rec.type.parseValue(strValue, { argName: `option ${JSON.stringify(key)}`, command: command }) :
+              await rec.type.parseValue(strValue, { argName: `option ${JSON.stringify(key)}`, command: command }) :
               strValue;
 
             if (typeof rec === "object" && rec.multiple)
@@ -542,8 +548,8 @@ export function parse<
       const minRequired = arg.name.startsWith("<") ? 1 : 0;
       const parsed = argList.length <= trailingRequired ?
         [] :
-        argList.splice(0, Math.max(minRequired, argList.length - trailingRequired))
-          .map(value => arg.type?.parseValue(value, { argName: `argument ${JSON.stringify(name)}`, command: command }) ?? value);
+        await Promise.all(argList.splice(0, Math.max(minRequired, argList.length - trailingRequired))
+          .map(value => arg.type?.parseValue(value, { argName: `argument ${JSON.stringify(name)}`, command: command }) ?? value));
       if (parsed.length < minRequired)
         throw new CLISyntaxError(`Missing required argument: ${name}`, command);
       parsedArgs[name] = parsed;
@@ -552,12 +558,12 @@ export function parse<
       if (!argList.length)
         throw new CLISyntaxError(`Missing required argument: ${name}`, command);
       const value = argList.shift()!;
-      parsedArgs[name] = arg.type?.parseValue(value, { argName: `argument ${JSON.stringify(name)}`, command: command }) ?? value;
+      parsedArgs[name] = await arg.type?.parseValue(value, { argName: `argument ${JSON.stringify(name)}`, command: command }) ?? value;
     } else if (arg.name.startsWith("[")) {
       const name = arg.name.slice(1, -1);
       const value = argList.length > trailingRequired ? argList.shift() : undefined;
       if (value !== undefined)
-        parsedArgs[name] = arg.type?.parseValue(value, { argName: `argument ${JSON.stringify(name)}`, command: command }) ?? value;
+        parsedArgs[name] = await arg.type?.parseValue(value, { argName: `argument ${JSON.stringify(name)}`, command: command }) ?? value;
     } else
       throw new CLIConfigError(`Invalid argument name: ${arg.name}`, command);
   }
@@ -678,7 +684,7 @@ export function runCli<
     const parsed: Record<string, unknown> & { cmd?: string[] } = {};
     try {
       // Must cast to unknown to avoid TS infinite instantation error
-      const parseReturnPromise = Promise.resolve(parse<E, S, SS>(data, options.argv ?? process.argv.slice(2))) as unknown as Promise<{ cmd?: string[] } & Global>;
+      const parseReturnPromise = parse<E, S, SS>(data, options.argv ?? process.argv.slice(2)) as unknown as Promise<{ cmd?: string[] } & Global>;
       runReturn.global = parseReturnPromise.then(parseReturn => ({ globalOpts: parseReturn.globalOpts, specifiedGlobalOpts: parseReturn.specifiedGlobalOpts }));
       const parseReturn = await parseReturnPromise;
       for (const [key, value] of Object.entries(parseReturn))
