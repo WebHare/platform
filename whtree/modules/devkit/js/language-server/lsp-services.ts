@@ -41,6 +41,22 @@ function getKeywordOrTextAt(docs: DocumentsLike, where: TextDocumentPositionPara
   if (!line)
     return "";
 
+  if (doc?.uri.endsWith(".yml") || doc?.uri.endsWith(".yaml")) {
+    //Heuristic - detect selecting "property: value" and return the full value.
+    const asPropValueLine = line.match(/^\s*([a-zA-Z0-9_]+)\s*:\s*(.*)$/);
+    if (asPropValueLine) {
+      const prop = asPropValueLine[1];
+      const value = asPropValueLine[2];
+      const propStart = line.indexOf(prop);
+      const valueStart = line.indexOf(value, propStart + prop.length);
+      if (where.position.character >= valueStart && where.position.character <= valueStart + value.length) {
+        if ([`'`, `"`].includes(value[0]) && value.endsWith(value[0])) //quoted string
+          return value.slice(1, -1);
+        return value;
+      }
+    }
+  }
+
   interface Segment {
     start: number;
     end: number;
@@ -76,22 +92,6 @@ function getKeywordOrTextAt(docs: DocumentsLike, where: TextDocumentPositionPara
       segments.push({ start, end: i, isString: false, text: line.slice(start, i) });
     }
   }
-
-  if (doc?.uri.endsWith(".yml") || doc?.uri.endsWith(".yaml")) {
-    //Heuristic - detect selecting "property: value" and return the full value
-    const asPropValueLine = line.match(/^\s*([a-zA-Z0-9_]+)\s*:\s*(.*)$/);
-    if (asPropValueLine) {
-      const prop = asPropValueLine[1];
-      const value = asPropValueLine[2];
-      const propStart = line.indexOf(prop);
-      const valueStart = line.indexOf(value, propStart + prop.length);
-      if (where.position.character >= valueStart && where.position.character <= valueStart + value.length) {
-        return value;
-      }
-    }
-  }
-
-  // console.log(segments);
 
   let cursor = where.position.character;
   if (cursor < 0)
