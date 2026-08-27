@@ -95,15 +95,29 @@ async function testDefinitionLookupYML() {
   await using docs = new MockDocuments;
   await docs.addResource(
     "mod::platform/data/siteprofiles/types.siteprl.yml",
+    "mod::devkit/tests/lsp/data/test.siteprl.yml",
   );
 
-  /// We want to hover over '../basetestjs/pages/jsrendered.ts#renderDynamicPage'
-  const defPos = docs.get(0)?.getPositionFor('mod::platform/js/pagebuilders/richdocument.ts#renderRTD', { goRight: 5 });
-  test.assert(defPos, "Could not find position for definition lookup in YML test");
+  {
+    /// We want to hover over '../basetestjs/pages/jsrendered.ts#renderDynamicPage'
+    const defPos = docs.get(0)?.getPositionFor('mod::platform/js/pagebuilders/richdocument.ts#renderRTD', { goRight: 5 });
+    test.assert(defPos, "Could not find position for definition lookup in YML test");
 
-  const def = await getDefinitions(docs, defPos);
-  test.assert(def && !Array.isArray(def), "Expected a single definition result");
-  test.eq("renderRTD", getTextAtLocation(def));
+    const def = await getDefinitions(docs, defPos);
+    test.assert(def && !Array.isArray(def), "Expected a single definition result");
+    test.eq("renderRTD", getTextAtLocation(def));
+  }
+
+
+  {
+    /// We want to hover over '@mod-platform/js/pagebuilders/richdocument.ts#renderRTD'
+    const defPos = docs.get(1)?.getPositionFor('@mod-platform/js/pagebuilders/richdocument.ts#renderRTD', { goRight: 5 });
+    test.assert(defPos, "Could not find position for definition lookup in YML test");
+
+    const def = await getDefinitions(docs, defPos);
+    test.assert(def && !Array.isArray(def), "Expected a single definition result");
+    test.eq("renderRTD", getTextAtLocation(def));
+  }
 }
 
 async function testFormatting() {

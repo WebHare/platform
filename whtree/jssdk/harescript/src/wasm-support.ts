@@ -12,7 +12,7 @@ export function mapHareScriptPath(uri: string | null) {
     return uri.substring(8);
 
   if (uri.startsWith("wh::"))
-    return toFSPath("mod::system/whlibs/" + uri.substring(4));
+    return toFSPath("mod::system/whlibs/" + uri.substring(4), { keepUnmatched: true });
 
   return toFSPath(uri, { keepUnmatched: true });
 }

@@ -13,6 +13,12 @@ export function toFSPath(resource: string, options?: { allowUnmatched?: boolean;
     @throws If the path cannot be mapped to a filesystem path
 */
 export function toFSPath(resource: string, { allowUnmatched = false, keepUnmatched = false } = {}) {
+  if (resource.startsWith("@webhare/"))
+    return backendConfig.installationRoot + "jssdk/" + resource.substring(9);
+
+  if (resource.startsWith("@mod-"))
+    resource = `mod::${resource.substring(5)}`;
+
   const namespace = resource.substring(0, resource.indexOf("::")).toLowerCase();
   const restpath = resource.substring(namespace.length + 2);
 

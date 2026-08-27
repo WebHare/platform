@@ -1,5 +1,5 @@
 import { loadlib } from "@webhare/harescript";
-import { backendConfig, isAbsoluteResource, toFSPath, toResourcePath } from "@webhare/services";
+import { backendConfig, isAbsoluteResource, toResourcePath } from "@webhare/services";
 import { mapHareScriptPath } from "@webhare/harescript/src/wasm-support";
 import {
   type CodeAction,
@@ -151,7 +151,17 @@ export async function getDefinitions(docs: DocumentsLike, e: TextDocumentPositio
   //Does this look like a resource path?
   if (keyword.includes('.ts') || keyword.includes('.tsx') || keyword.includes('.whlib')) {
     const [, file, symbol] = keyword.match(/^([^#]+)(?:[#](.*))?$/) || [];
-    const finallocation = new URL(isAbsoluteResource(file) ? `file://${toFSPath(file)}` : file, e.textDocument.uri);
+    let finallocation;
+    if (isAbsoluteResource(file)) {
+      //mapHareScriptPath can handle @mod- paths unlike toFSPath
+      const diskpath = mapHareScriptPath(file);
+      if (!diskpath)
+        return null;
+
+      finallocation = new URL(`file://${diskpath}`, e.textDocument.uri);
+    } else {
+      finallocation = new URL(file, e.textDocument.uri);
+    }
     // console.log(`Resolving ${file} relative to ${e.textDocument.uri}, final ${finallocation}`);
 
     try {
