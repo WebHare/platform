@@ -662,43 +662,44 @@ export function runCli<
   options: {
     argv?: string[];
   } = {}
-): Simplify<{ onDone?: () => void } & GlobalData<E & S>> {
-  type ReturnType = Simplify<{ onDone?: () => void } & GlobalData<E & S>>;
+): { onDone?: () => void; global: Promise<GlobalData<E & S>> } {
+  type Global = GlobalData<E & S>;
+  type ReturnType = { onDone?: () => void; global: Promise<Global> };
+
   const runReturn: ReturnType = {
-    globalOpts: {},
-    specifiedGlobalOpts: []
+    global: Promise.resolve({ globalOpts: {}, specifiedGlobalOpts: [] })
   } as any;
 
   const registerData = registerRun((argv: string[], opts: { cwd: string }) => runAutoComplete(data, argv, opts));
   if (registerData.mode === "autocomplete")
     return runReturn;
 
-  const parsed: Record<string, unknown> & { cmd?: string[] } = {};
-  try {
-    // The return type of parse is not very useful in this (generic) context, so we cast it to a useful type
-    const parseReturn = parse<E, S, SS>(data, options.argv ?? process.argv.slice(2)) as { cmd?: string[] } & ReturnType;
-    runReturn.globalOpts = parseReturn.globalOpts;
-    runReturn.specifiedGlobalOpts = parseReturn.specifiedGlobalOpts;
-    for (const [key, value] of Object.entries(parseReturn))
-      if (!["globalOpts", "specifiedGlobalOpts"].includes(key))
-        parsed[key] = value;
-  } catch (e) {
-    if (e instanceof CLIShowHelp) {
-      printHelp(data, { command: e.options.command });
-      return runReturn;
-    }
-    if (e instanceof CLIError) {
-      printHelp(data, { error: e });
-      process.exitCode = 1;
-      void Promise.resolve(true).then(() => runReturn.onDone?.());
-      return runReturn;
-    }
-    throw e;
-
-  }
-  type MainFunc = (arg: object) => CommandReturn;
-
   void (async () => {
+    const parsed: Record<string, unknown> & { cmd?: string[] } = {};
+    try {
+      // Must cast to unknown to avoid TS infinite instantation error
+      const parseReturnPromise = Promise.resolve(parse<E, S, SS>(data, options.argv ?? process.argv.slice(2))) as unknown as Promise<{ cmd?: string[] } & Global>;
+      runReturn.global = parseReturnPromise.then(parseReturn => ({ globalOpts: parseReturn.globalOpts, specifiedGlobalOpts: parseReturn.specifiedGlobalOpts }));
+      const parseReturn = await parseReturnPromise;
+      for (const [key, value] of Object.entries(parseReturn))
+        if (!["globalOpts", "specifiedGlobalOpts"].includes(key))
+          parsed[key] = value;
+    } catch (e) {
+      if (e instanceof CLIShowHelp) {
+        printHelp(data, { command: e.options.command });
+        return runReturn;
+      }
+      if (e instanceof CLIError) {
+        printHelp(data, { error: e });
+        process.exitCode = 1;
+        void Promise.resolve(true).then(() => runReturn.onDone?.());
+        return runReturn;
+      }
+      throw e;
+
+    }
+    type MainFunc = (arg: object) => CommandReturn;
+
     // Execute the main() command after an await, so the run() command can first return and make the global options available.
     await Promise.resolve();
 

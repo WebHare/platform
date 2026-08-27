@@ -571,11 +571,11 @@ async function testCLIRun() {
       flags: {},
       options: {},
       arguments: [],
-      main(data) {
+      async main(data) {
         test.typeAssert<test.Equals<{ args: object; opts: object; specifiedOpts: never[]; cmd?: undefined }, typeof data>>();
         test.eq({ args: {}, opts: {}, specifiedOpts: [], cmd: undefined }, data);
-        test.typeAssert<test.Equals<{ onDone?: () => void; globalOpts: object; specifiedGlobalOpts: never[] }, typeof res>>();
-        test.eqPartial({ globalOpts: {}, specifiedGlobalOpts: [] }, res);
+        test.typeAssert<test.Equals<{ onDone?: () => void; global: Promise<{ globalOpts: object; specifiedGlobalOpts: never[] }> }, typeof res>>();
+        test.eqPartial({ globalOpts: {}, specifiedGlobalOpts: [] }, await res.global);
       }
     }, { argv: [] });
     await waitRunDone(res);
@@ -592,11 +592,11 @@ async function testCLIRun() {
           flags: { a: {} },
           options: { s: {} },
           arguments: [{ name: "<f1>" }],
-          main(data) {
+          async main(data) {
             test.typeAssert<test.Equals<{ args: { f1: string }; opts: { verbose: boolean; a: boolean; s?: string }; specifiedOpts: Array<"a" | "s" | "verbose">; cmd: ["c"] }, typeof data>>();
             test.eq({ args: { f1: "a" }, opts: { a: true, verbose: false }, specifiedOpts: ["a"], cmd: ["c"] }, data);
-            test.typeAssert<test.Equals<{ onDone?: () => void; globalOpts: { verbose: boolean }; specifiedGlobalOpts: Array<"verbose"> }, typeof res>>();
-            test.eqPartial({ globalOpts: { verbose: false }, specifiedGlobalOpts: [] }, res);
+            test.typeAssert<test.Equals<{ onDone?: () => void; global: Promise<{ globalOpts: { verbose: boolean }; specifiedGlobalOpts: Array<"verbose"> }> }, typeof res>>();
+            test.eqPartial({ globalOpts: { verbose: false }, specifiedGlobalOpts: [] }, await res.global);
           }
         }
       }
