@@ -193,7 +193,7 @@ async function getBundles(masks: string[], { onlyfailed = false } = {}) {
   const bundles = status.bundles
     .filter(bundle => maskRegExp ? maskRegExp.test(bundle.outputtag) : true)
     .toSorted((lhs, rhs) => lhs.outputtag.localeCompare(rhs.outputtag));
-  if (!bundles.length && !runData.globalOpts.allowMissing)
+  if (!bundles.length && !(await runData.global).globalOpts.allowMissing)
     throw new Error(`No assetpacks match masks: ${masks.join(",")}`);
 
   return bundles.filter(bundle => !onlyfailed || bundle.haserrors);
@@ -201,7 +201,7 @@ async function getBundles(masks: string[], { onlyfailed = false } = {}) {
 
 async function listBundles(masks: string[], withwatchcounts: boolean) {
   let bundles = await getBundles(masks);
-  if (runData.globalOpts.quiet) {
+  if ((await runData.global).globalOpts.quiet) {
     bundles = bundles.filter(bundle => bundle.haserrors);
   }
   const blen = Math.max(...bundles.map(bundle => bundle.outputtag.length));

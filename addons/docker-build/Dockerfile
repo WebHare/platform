@@ -5,7 +5,8 @@
 FROM almalinux:10 AS base
 LABEL maintainer="WebHare bv <info@webhare.com>"
 
-ARG WEBHARE_NODE_MAJOR # Depend on this setting to let builder.sh download the proper node
+# Depend on this setting to let builder.sh download the proper node
+ARG WEBHARE_NODE_MAJOR
 ARG WHBUILD_NODE_URL
 
 # Environment variables

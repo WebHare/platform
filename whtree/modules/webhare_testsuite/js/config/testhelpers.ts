@@ -52,8 +52,8 @@ export async function installTestModule(name: string, files: Record<string, stri
   return res;
 }
 
-export async function checkModule(name: string): Promise<ValidationMessageWithType[]> {
-  const res = await loadlib("mod::system/lib/internal/modules/checkmodule.whlib").CheckModule(name) as
+export async function checkModule(name: string, options: { fix?: boolean } = {}): Promise<ValidationMessageWithType[]> {
+  const res = await loadlib("mod::system/lib/internal/modules/checkmodule.whlib").CheckModule(name, options) as
     Array<{
       resourcename: string;
       line: number;

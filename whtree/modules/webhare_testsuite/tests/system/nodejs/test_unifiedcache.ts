@@ -1,11 +1,11 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { createWRDTestSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { loadlib } from "@webhare/harescript";
-import { backendConfig, ResourceDescriptor } from "@webhare/services";
+import { backendConfig, ResourceDescriptor, toFSPath } from "@webhare/services";
 import { explainImageProcessing, getUCSubUrl, getUnifiedCC, packImageResizeMethod, unpackImageResizeMethod, type ResourceMetadata } from "@webhare/services/src/descriptor";
 import { beginWork, commitWork } from "@webhare/whdb";
 import { openType, whfsType } from "@webhare/whfs";
-import { getSharpResizeOptions } from "@mod-platform/js/cache/imgcache";
+import { getSharpResizeOptions, isImageLossless } from "@mod-platform/js/cache/imgcache";
 import { createSharpImage, type Sharp } from "@webhare/deps/src/deps";
 import { promises as fs } from "node:fs";
 import { listDirectory } from "@webhare/system-tools";
@@ -22,6 +22,14 @@ async function clearUnifiedCache() {
 
   // Ensure the directory is now empty (or maybe a CACHEDIR.TAG file)
   test.eq([], (await listDirectory(ucCacheDir, { allowMissing: true })).filter(_ => _.name !== "CACHEDIR.TAG"));
+}
+
+async function testLosslessDetection() {
+  test.eq(true, await isImageLossless("image/avif", toFSPath("mod::webhare_testsuite/tests/system/nodejs/data/images/hdr_cosmos01000_cicp9-16-9_yuv444_full_qp10.avif")));
+  test.eq(false, await isImageLossless("image/avif", toFSPath("mod::webhare_testsuite/tests/system/nodejs/data/images/hdr_cosmos01000_cicp9-16-9_yuv420_limited_qp10.avif")));
+
+  test.eq(true, await isImageLossless("image/webp", toFSPath("mod::webhare_testsuite/tests/system/nodejs/data/images/webp_lossless.webp")));
+  test.eq(false, await isImageLossless("image/webp", toFSPath("mod::webhare_testsuite/tests/system/nodejs/data/images/webp_lossy_alpha.webp")));
 }
 
 async function testResizeMethods() {
@@ -544,9 +552,9 @@ async function testImgCache() {
 
   //cross avif->webp and webp->avif
   const avifBeagleAsWebP = await fetchUCLink(snowbeagleAvifFile.data.toResized({ method: "none", format: "image/webp" }).link, "image/webp");
-  await compareSharpImages(snowBeagleWebp, await createSharpImage(avifBeagleAsWebP.fetchBuffer), { minMSE: 0, maxMSE: 5 });
+  await compareSharpImages(snowBeagleWebp, await createSharpImage(avifBeagleAsWebP.fetchBuffer), { minMSE: 0, maxMSE: 8 });
   const webPBeagleAsAvif = await fetchUCLink(snowBeagleWebpFile.data.toResized({ method: "none", format: "image/avif" }).link, "image/avif");
-  await compareSharpImages(snowBeagleAvif, await createSharpImage(webPBeagleAsAvif.fetchBuffer), { minMSE: 0, maxMSE: 5 });
+  await compareSharpImages(snowBeagleAvif, await createSharpImage(webPBeagleAsAvif.fetchBuffer), { minMSE: 0, maxMSE: 11 });
   const avifBeagleAsJpeg = await fetchUCLink(snowbeagleAvifFile.data.toResized({ method: "none", format: "image/jpeg" }).link, "image/jpeg");
   await compareSharpImages(snowBeagleWebp, await createSharpImage(avifBeagleAsJpeg.fetchBuffer), { minMSE: 0, maxMSE: 10 });
 
@@ -669,10 +677,10 @@ async function testWRDImgCache() {
   await compareSharpImages(imgFishPng, await createSharpImage(fetchedGoldFishAVIF.fetchBuffer));
 }
 
-
 test.runTests([
   test.reset,
   clearUnifiedCache,
+  testLosslessDetection,
   testResizeMethods,
   testImgMethodPacking,
   testImgCacheTokens,

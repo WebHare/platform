@@ -1,11 +1,20 @@
 
 import { addConsoleCallback } from "@mod-system/js/internal/whmanager/bridge";
 import { intOption, enumOption, floatOption, runCli, CLIRuntimeError, inferRunCliTypes } from "@webhare/cli";
-import { parse, printHelp, runAutoComplete, type ParseData } from "@webhare/cli/src/run";
+import { parse, printHelp, runAutoComplete, type CLIArgumentType, type ParseData } from "@webhare/cli/src/run";
 import { parseCommandLine } from "@webhare/cli/src/run-autocomplete";
 import { backendConfig } from "@webhare/services";
 import * as test from "@webhare/test-backend";
 import * as child_process from "node:child_process";
+
+const asyncType = {
+  parseValue(arg: string, options: { argName: string; command?: string[] }) {
+    return Promise.resolve(arg);
+  },
+  async autoComplete(startsWith: string, options: { argName: string; command?: string[] }) {
+    return ["file1.txt", "file2.txt"];
+  }
+} satisfies CLIArgumentType<string>;
 
 async function testCLIMainParse() {
   test.eq({
@@ -15,22 +24,22 @@ async function testCLIMainParse() {
     specifiedOpts: [],
     globalOpts: {},
     specifiedGlobalOpts: [],
-  }, parse({
+  }, await parse({
     options: {},
     arguments: [],
   }, []));
 
-  parse({
+  await parse({
     //@ts-expect-error Mixed case flags are rejected at compile-time
     flags: { "dryRun": "dry run" },
   }, []);
-  parse({
+  await parse({
     //@ts-expect-error Mixed case options are rejected at compile-time
     options: { "dryRunOpt": { description: "Dry run opt" } },
   }, []);
 
   // After the first argument flags and options are not parsed
-  test.throws(/too many arguments/i, () => parse({
+  await test.throws(/too many arguments/i, () => parse({
     flags: {
       "v,verbose": { default: false, description: "Show verbose output" },
     },
@@ -42,7 +51,7 @@ async function testCLIMainParse() {
   }, ["a", "--with-blabla", "b"]));
 
   // After the first argument flags and options are not parsed when mixedFlags is false
-  test.throws(/too many arguments/i, () => parse({
+  await test.throws(/too many arguments/i, () => parse({
     flags: {
       "v,verbose": { default: false, description: "Show verbose output" },
     },
@@ -61,7 +70,7 @@ async function testCLIMainParse() {
     specifiedOpts: ["withBlabla"],
     globalOpts: { verbose: false, withBlabla: "b" },
     specifiedGlobalOpts: ["withBlabla"],
-  }, parse({
+  }, await parse({
     flags: {
       "v,verbose": { default: false, description: "Show verbose output" },
     },
@@ -79,7 +88,7 @@ async function testCLIMainParse() {
     specifiedOpts: [],
     globalOpts: {},
     specifiedGlobalOpts: [],
-  }, parse({
+  }, await parse({
     arguments: [{ name: "[file]", description: "Optional arg" }],
   }, ["a"]));
 
@@ -90,7 +99,7 @@ async function testCLIMainParse() {
     specifiedOpts: ["verbose", "output", "num"],
     globalOpts: { verbose: true, output: "test", num: 3 },
     specifiedGlobalOpts: ["verbose", "output", "num"],
-  }, parse({
+  }, await parse({
     flags: {
       "v,no-verbose,verbose": { default: true, description: "Show verbose output" },
     },
@@ -102,7 +111,7 @@ async function testCLIMainParse() {
   }, ["-v", "--output", "test", "--num", "3", "a"]));
 
   async function testOptionsParse(args: string[]) {
-    const res = parse({
+    const res = await parse({
       flags: {
         "v,verbose": { default: false, description: "Show verbose output" },
         "a,all": { default: true, description: "Show all" }
@@ -124,7 +133,7 @@ async function testCLIMainParse() {
     specifiedOpts: ["a"],
     globalOpts: { a: true, b: false },
     specifiedGlobalOpts: ["a"],
-  }, parse({
+  }, await parse({
     flags: {
       "a": { default: false },
       "b": { default: false },
@@ -141,7 +150,7 @@ async function testCLIMainParse() {
     specifiedOpts: ["a", "b"],
     globalOpts: { a: "--", b: true, c: false },
     specifiedGlobalOpts: ["a", "b"],
-  }, parse({
+  }, await parse({
     flags: {
       "b": { default: false },
       "c": { default: false },
@@ -159,7 +168,7 @@ async function testCLIMainParse() {
     specifiedOpts: [],
     globalOpts: {},
     specifiedGlobalOpts: [],
-  }, parse({
+  }, await parse({
     options: {},
     arguments: [{ name: "<a>" }, { name: "[b]" }, { name: "[c...]" }, { name: "<d>" },],
   }, ["a", "b"]));
@@ -171,29 +180,41 @@ async function testCLIMainParse() {
     specifiedOpts: [],
     globalOpts: {},
     specifiedGlobalOpts: [],
-  }, parse({
+  }, await parse({
     options: {},
     arguments: [{ name: "<a>" }, { name: "[b]" }, { name: "[c...]" }, { name: "<d>" },],
   }, ["a", "b", "c", "d", "e", "f"]));
 
-  test.throws(/Required argument "c" cannot be placed between optional arguments/, () => parse({
+  test.eq({
+    cmd: undefined,
+    args: { file: "test1.txt", file2: "test2.txt", file3: ["test3.txt"] },
+    opts: { opt: "test.txt" },
+    specifiedOpts: ["opt"],
+    globalOpts: { opt: "test.txt" },
+    specifiedGlobalOpts: ["opt"],
+  }, await parse({
+    options: { "opt": { type: asyncType } },
+    arguments: [{ name: "<file>", type: asyncType }, { name: "[file2]", type: asyncType }, { name: "[file3...]", type: asyncType }],
+  }, ["--opt", "test.txt", "test1.txt", "test2.txt", "test3.txt"]));
+
+  await test.throws(/Required argument "c" cannot be placed between optional arguments/, () => parse({
     options: {},
     arguments: [{ name: "<a>" }, { name: "[b]" }, { name: "<c>" }, { name: "[d]" }],
   }, []));
 
-  test.throws(/Optional argument "c" cannot follow a rest argument/, () => parse({
+  await test.throws(/Optional argument "c" cannot follow a rest argument/, () => parse({
     options: {},
     arguments: [{ name: "<a>" }, { name: "[b...]" }, { name: "[c]" }],
   }, []));
 
-  test.throws(/Argument "a" is specified twice/, () => parse({
+  await test.throws(/Argument "a" is specified twice/, () => parse({
     options: {},
     arguments: [{ name: "<a>" }, { name: "[a...]" }],
   }, []));
 }
 
 async function testCLISubCommandParse() {
-  test.throws(/No subcommand specified/, () => parse({
+  await test.throws(/No subcommand specified/, () => parse({
     options: {},
     subCommands: {
       "cmd": {
@@ -210,7 +231,7 @@ async function testCLISubCommandParse() {
     specifiedOpts: [],
     globalOpts: {},
     specifiedGlobalOpts: [],
-  }, parse({
+  }, await parse({
     options: {},
     subCommands: {
       "cmd": {
@@ -227,7 +248,7 @@ async function testCLISubCommandParse() {
     specifiedOpts: [],
     globalOpts: {},
     specifiedGlobalOpts: [],
-  }, parse({
+  }, await parse({
     options: {},
     subCommands: {
       "hidden-cmd": {
@@ -245,7 +266,7 @@ async function testCLISubCommandParse() {
     specifiedOpts: ["v", "a"],
     globalOpts: { v: true },
     specifiedGlobalOpts: ["v"],
-  }, parse({
+  }, await parse({
     flags: { "v": { default: false } },
     subCommands: {
       "cmd": {
@@ -266,7 +287,7 @@ async function testCLISubCommandParse() {
     specifiedOpts: [],
     globalOpts: {},
     specifiedGlobalOpts: [],
-  }, parse({
+  }, await parse({
     name: "test",
     description: "Test command",
     options: {},
@@ -274,7 +295,7 @@ async function testCLISubCommandParse() {
     main() { }
   }, []));
 
-  test.throws(/Illegal value "d" specified for argument "f1"/, () => parse({
+  await test.throws(/Illegal value "d" specified for argument "f1"/, () => parse({
     arguments: [{ name: "<f1>", type: enumOption(["a", "b", "c"]) }]
   }, ["d"]));
 
@@ -285,7 +306,7 @@ async function testCLISubCommandParse() {
     specifiedOpts: [],
     globalOpts: { a: [], b: ["a"], c: [], d: [3] },
     specifiedGlobalOpts: [],
-  }, parse({
+  }, await parse({
     options: {
       a: { multiple: true },
       b: { default: ["a"], multiple: true },
@@ -302,7 +323,7 @@ async function testCLISubCommandParse() {
     specifiedOpts: ["a", "b", "c", "d"],
     globalOpts: { a: ["1", "2"], b: ["1", "2"], c: [1, 2], d: [1, 2] },
     specifiedGlobalOpts: ["a", "b", "c", "d"],
-  }, parse({
+  }, await parse({
     options: {
       a: { multiple: true },
       b: { default: ["a"], multiple: true },
@@ -319,7 +340,7 @@ async function testCLISubCommandParse() {
     specifiedOpts: ["aa", "bb", "cc", "dd"],
     globalOpts: { aa: ["1", "2"], bb: ["1", "2"], cc: [1, 2], dd: [1, 2] },
     specifiedGlobalOpts: ["aa", "bb", "cc", "dd"],
-  }, parse({
+  }, await parse({
     options: {
       aa: { multiple: true },
       bb: { default: ["a"], multiple: true },
@@ -339,7 +360,7 @@ async function testCLISubSubCommandParse() {
     specifiedOpts: ["v", "a"],
     globalOpts: { v: true },
     specifiedGlobalOpts: ["v"],
-  }, parse({
+  }, await parse({
     flags: { "v": { default: false } },
     subCommands: {
       "cmd1": {
@@ -363,14 +384,14 @@ async function testCLISubSubCommandParse() {
 
 
 
-function dontRun(a: () => void) {
+function dontRun(a: () => void | Promise<void>) {
   void a;
 }
 
 async function testCLITypes() {
-  dontRun(() => {
+  dontRun(async () => {
     {
-      const res = parse({
+      const res = await parse({
         flags: {
           "v,verbose": { default: false },
           "all": { default: false },
@@ -413,7 +434,7 @@ async function testCLITypes() {
       }, typeof res>>();
     }
     {
-      const res = parse({
+      const res = await parse({
         options: {},
         flags: {},
         arguments: [{ name: "[f2]" }],
@@ -433,7 +454,7 @@ async function testCLITypes() {
     }
 
     {
-      const res = parse({
+      const res = await parse({
         options: {},
         subCommands: {
           "cmd": {
@@ -478,7 +499,7 @@ async function testCLITypes() {
     }
 
     {
-      const res = parse({
+      const res = await parse({
         flags: { a: "description-a" },
         options: { b: "description-b" },
         subCommands: {
@@ -501,7 +522,7 @@ async function testCLITypes() {
     }
 
     {
-      const res = parse({
+      const res = await parse({
         options: {
           a: { multiple: true },
           b: { default: ["a"], multiple: true },
@@ -521,12 +542,12 @@ async function testCLITypes() {
       }, typeof res>>();
     }
 
-    parse({
+    await parse({
       // @ts-expect-error default has the wrong type
       options: { a: { type: intOption({ start: 0, end: 10 }), default: "a" } },
     }, []);
 
-    parse({
+    await parse({
       options: {
         a: {
           // @ts-expect-error default has the wrong type
@@ -571,11 +592,11 @@ async function testCLIRun() {
       flags: {},
       options: {},
       arguments: [],
-      main(data) {
+      async main(data) {
         test.typeAssert<test.Equals<{ args: object; opts: object; specifiedOpts: never[]; cmd?: undefined }, typeof data>>();
         test.eq({ args: {}, opts: {}, specifiedOpts: [], cmd: undefined }, data);
-        test.typeAssert<test.Equals<{ onDone?: () => void; globalOpts: object; specifiedGlobalOpts: never[] }, typeof res>>();
-        test.eqPartial({ globalOpts: {}, specifiedGlobalOpts: [] }, res);
+        test.typeAssert<test.Equals<{ onDone?: () => void; global: Promise<{ globalOpts: object; specifiedGlobalOpts: never[] }> }, typeof res>>();
+        test.eqPartial({ globalOpts: {}, specifiedGlobalOpts: [] }, await res.global);
       }
     }, { argv: [] });
     await waitRunDone(res);
@@ -592,11 +613,11 @@ async function testCLIRun() {
           flags: { a: {} },
           options: { s: {} },
           arguments: [{ name: "<f1>" }],
-          main(data) {
+          async main(data) {
             test.typeAssert<test.Equals<{ args: { f1: string }; opts: { verbose: boolean; a: boolean; s?: string }; specifiedOpts: Array<"a" | "s" | "verbose">; cmd: ["c"] }, typeof data>>();
             test.eq({ args: { f1: "a" }, opts: { a: true, verbose: false }, specifiedOpts: ["a"], cmd: ["c"] }, data);
-            test.typeAssert<test.Equals<{ onDone?: () => void; globalOpts: { verbose: boolean }; specifiedGlobalOpts: Array<"verbose"> }, typeof res>>();
-            test.eqPartial({ globalOpts: { verbose: false }, specifiedGlobalOpts: [] }, res);
+            test.typeAssert<test.Equals<{ onDone?: () => void; global: Promise<{ globalOpts: { verbose: boolean }; specifiedGlobalOpts: Array<"verbose"> }> }, typeof res>>();
+            test.eqPartial({ globalOpts: { verbose: false }, specifiedGlobalOpts: [] }, await res.global);
           }
         }
       }
@@ -634,7 +655,7 @@ Options:
   test.eq(2, process.exitCode);
   process.exitCode = 0;
 
-  dontRun(() => {
+  dontRun(async () => {
     // Test if main() without arguments, options and flags is handled correctly by the type system
     runCli({
       subCommands: {
@@ -681,7 +702,7 @@ Options:
       typeof inferred.subCommands.test2.main,
       (data: { opts: object; args: object; specifiedOpts: never[]; cmd: ["test2"] }) => void>>();
 
-    parse(inferred, ["test"]);
+    await parse(inferred, ["test"]);
     runCli(inferred);
   });
 }

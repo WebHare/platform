@@ -126,6 +126,22 @@ PUBLIC OBJECTTYPE TolliumDateTime EXTEND TolliumComponentBase
     TolliumComponentBase::SetYamlProps(props);
   }
 
+  UPDATE PUBLIC MACRO ExecutePathAction(STRING path) {
+    IF (this->pvt_type = "date") {
+      DATETIME dt := MakeDateFromText(`${path}T00:00:00Z`);
+      IF (IsDefaultValue(dt) AND path != "")
+        THROW NEW TolliumException(this, "Invalid date value: " || path);
+      this->value := dt;
+
+    } ELSE {
+      DATETIME dt := MakeDateFromText(path);
+      IF (IsDefaultValue(dt) AND path != "")
+        THROW NEW TolliumException(this, "Invalid date/time value: " || path);
+      this->value := dt;
+    }
+  }
+
+
   MACRO SetStoreUTC(BOOLEAN newutc)
   {
     IF(this->pvt_storeutc=newutc)

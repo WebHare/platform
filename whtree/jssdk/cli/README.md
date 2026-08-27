@@ -111,9 +111,9 @@ will become required (eg: `{ args: { file: string } }`).
 
 Example:
 ```typescript
-import { intOption, run } from "@webhare/cli";
+import { intOption, runCli } from "@webhare/cli";
 
-run({
+runCli({
   options: {
     "withoutDefault": { description: "Option without default" },
     "withDefault": { default: "", description: "Option with default" },
@@ -128,8 +128,7 @@ run({
 });
 ```
 
-To see if an option was provided on the command-line, use specifiedOpts (or
-specifiedGlobalOpts for global options in the return value of `run()`).
+runCli may return an `onDone` callback, that will be called when the `main()` has returned.
 
 ### Arguments
 There are four forms of arguments:

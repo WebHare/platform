@@ -6,13 +6,36 @@ import { launchService } from '@mod-platform/js/nodeservices/runner';
 import { getExtractedConfig } from '@mod-system/js/internal/configuration';
 import type { BackendServiceDescriptor } from '@mod-system/js/internal/generation/gen_extracts';
 import { openBackendService, type GetBackendServiceInterface } from '@webhare/services';
-import { CLIRuntimeError, runCli } from "@webhare/cli";
+import { CLIRuntimeError, CLISyntaxError, runCli, type CLIArgumentType } from "@webhare/cli";
 import { spawn } from 'child_process';
 import { kill } from 'process';
 import { compareProperties } from '@webhare/std';
 import { activateHMR } from '@webhare/services/src/hmr';
+import { getBestMatch } from '@webhare/js-api-tools';
 
 type ServiceManagerClient = GetBackendServiceInterface<"platform:servicemanager">;
+
+export function serviceOption(): CLIArgumentType<string> {
+  const servicePromise = (async () => {
+    const smservice = await openBackendService("platform:servicemanager");
+    const state = await smservice.getWebHareState();
+    return state.availableServices.map(s => s.name).toSorted();
+  })().catch(err => new Array<string>);
+  return {
+    async parseValue(arg, options) {
+      const list = await servicePromise;
+      if (!list.includes(arg)) {
+        const bestMatch = getBestMatch(arg, list);
+        throw new CLISyntaxError(`Unknown service ${JSON.stringify(arg)}${bestMatch ? ` (did you mean ${JSON.stringify(bestMatch)}?)` : ""}`, options.command);
+      }
+      return arg;
+    },
+    async autoComplete() {
+      return await servicePromise;
+    },
+    description: `service name (use 'service list' to see all services)`,
+  };
+}
 
 async function startService(smservice: ServiceManagerClient, service: string) {
   const result = await smservice.startService(service);
@@ -133,7 +156,7 @@ runCli({
     },
     "start": {
       description: "Start a service",
-      arguments: [{ name: "<service>", description: "Service name" }],
+      arguments: [{ name: "<service>", description: "Service name", type: serviceOption() }],
       main: async ({ opts, args }) => {
         const smservice = await openBackendService("platform:servicemanager");
         await startService(smservice, args.service);
@@ -141,7 +164,7 @@ runCli({
     },
     "stop": {
       description: "Stop a service",
-      arguments: [{ name: "<service>", description: "Service name" }],
+      arguments: [{ name: "<service>", description: "Service name", type: serviceOption() }],
       main: async ({ opts, args }) => {
         const smservice = await openBackendService("platform:servicemanager");
         await stopService(smservice, args.service);
@@ -151,7 +174,7 @@ runCli({
       description: "Debug a service",
       flags: { alt: "Use an alternative serviceport, to reroute specific request to the debugged service" },
       arguments: [
-        { name: "<service>", description: "Service name" },
+        { name: "<service>", description: "Service name", type: serviceOption() },
       ],
       mixedFlags: false,
       main: async ({ opts, args }) => {
@@ -177,7 +200,7 @@ runCli({
     },
     "restart": {
       description: "Restart a service",
-      arguments: [{ name: "<service>", description: "Service name" }],
+      arguments: [{ name: "<service>", description: "Service name", type: serviceOption() }],
       main: async ({ opts, args }) => {
         const smservice = await openBackendService("platform:servicemanager");
         const result = await smservice.restartService(args.service);
