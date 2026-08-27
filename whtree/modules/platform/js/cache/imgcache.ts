@@ -14,6 +14,7 @@ import { storeDiskFile } from "@webhare/system-tools";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import { __getBlobDatabaseId, __getBlobDiskFilePath } from "@webhare/whdb/src/blobs";
+import { isLosslessAvifImage, isLosslessWebPImage } from "./image-analysis";
 
 
 const workerPool = new WorkerPool("imgcache", 5, 100);
@@ -163,7 +164,7 @@ export async function getRawCacheData(xdata: AnalyzedToken, targetmimetype: Outp
 }
 
 
-export function getSharpResizeOptions(infile: Pick<ResourceMetadata, "width" | "height" | "refPoint" | "mediaType">, method: PackableResizeMethod) {
+export function getSharpResizeOptions(infile: Pick<ResourceMetadata, "width" | "height" | "refPoint" | "mediaType">, method: PackableResizeMethod, options?: { lossless?: boolean }) {
   // https://sharp.pixelplumbing.com/api-resize
   let extract: SharpRegion | null = null;
   let resize: SharpResizeOptions | null = null;
@@ -176,7 +177,7 @@ export function getSharpResizeOptions(infile: Pick<ResourceMetadata, "width" | "
   } : undefined;
 
   const explain = explainImageProcessing(infile, method);
-  const lossless = infile.mediaType !== "image/jpeg";
+  const lossless = options?.lossless ?? infile.mediaType !== "image/jpeg";
 
   if (infile.width !== explain.outWidth || infile.height !== explain.outHeight) { //we only need to consider extract/resize/extend if input & output dimensions differ
     if (method.method === "fill") {
@@ -250,8 +251,22 @@ async function renderImageForCache(request: HSImgCacheRequest): Promise<Buffer> 
   return img ? await img.toBuffer() : await readFile(sourceimage); //TODO avoid copying. consider hardlink or reflink?
 }
 
+export async function isImageLossless(mimetype: string, sourceimage: string): Promise<boolean> {
+  if (mimetype === "image/avif") {
+    const fileData = await readFile(sourceimage);
+    return isLosslessAvifImage(fileData);
+  }
+  if (mimetype === "image/webp") {
+    const fileData = await readFile(sourceimage);
+    return isLosslessWebPImage(fileData);
+  }
+  return ["image/x-bmp", "image/png", "image/gif"].includes(mimetype);
+}
+
 export async function resizeImage(resource: Pick<ResourceMetadata, "width" | "height" | "refPoint" | "mediaType">, sourceimage: string, method: PackableResizeMethod, options?: { unsafe?: boolean }): Promise<Sharp | null> {
-  const resizeOptions = getSharpResizeOptions(resource, method);
+  // TODO: we're reading the file twice, but not sure whether we'd want to use fs.openAsBlob (extra stat ops before every read)
+  const lossless = await isImageLossless(resource.mediaType, sourceimage);
+  const resizeOptions = getSharpResizeOptions(resource, method, { lossless });
   if (!resizeOptions)
     return null;
 
