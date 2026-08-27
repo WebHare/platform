@@ -247,7 +247,44 @@ type TuplePrefixes<K extends AnyKey | [...any[]]> = K extends [any] ? never : K 
 /** Template for possible keys value (needed to make TS understand that a tuple prefix of the keys is also a valid keys list */
 type PossibleFields<E extends object> = ComparableFields<E> | [ComparePropertiesArrayElement<E>, ...Array<ComparePropertiesArrayElement<E>>];
 
-
+/**
+ * Build a comparator function for objects using one or more comparable properties.
+ * This is extremely useful as a type-safe comparator for sort/toSorted APIs, especially
+ * when dealing with multiple or non-string keys.
+ *
+ * Keys can be provided as:
+ * - a single property key
+ * - a tuple/array of keys
+ * - a tuple/array with sort direction entries in the form [key, "asc" | "desc"]
+ *
+ * Comparison is performed in order until the first non-zero result.
+ *
+ * @param fields - Field selector(s) defining compare priority and optional direction.
+ * @returns A compare callback suitable for Array.prototype.sort, extended with
+ * `partialCompare(...)` to create a comparator for a prefix of the same key sequence.
+ * @throws Error if any configured property is undefined on either compared object.
+ * @example
+ * ```ts
+ * const byName = compareProperties("name");
+ * users.sort(byName);
+ * ```
+ *
+ * @example
+ * ```ts
+ * const byPriorityThenDate = compareProperties([
+ *   ["priority", "desc"],
+ *   ["createdAt", "asc"]
+ * ] as const);
+ * items.sort(byPriorityThenDate);
+ * ```
+ *
+ * @example
+ * ```ts
+ * const byCountryCityStreet = compareProperties(["country", "city", "street"] as const);
+ * const byCountryCity = byCountryCityStreet.partialCompare(["country", "city"] as const);
+ * addresses.sort(byCountryCity);
+ * ```
+ */
 export function compareProperties<const K extends ComparableFields<E> | [...Array<ComparePropertiesArrayElement<E>>], E extends object = Record<GetPropertiesFromComparePropertiesKeys<K>, ComparableType>>(fields: K) {
   const compareList = (Array.isArray(fields) ? fields : [fields]).map((field): [keyof E, 1 | -1] => Array.isArray(field) ? [field[0], field[1] === "desc" ? -1 : 1] : [field, 1]);
   const retval: (lhs: E, rhs: E) => number = (a, b) => {
