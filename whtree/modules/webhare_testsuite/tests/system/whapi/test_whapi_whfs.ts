@@ -28,7 +28,9 @@ async function setup() {
 }
 
 async function testWHFSAPI() {
-  const apiurl = (await test.getTestSiteJS()).webRoot + "testsuiteportal/.wh/api/v1/";
+  const testSite = await test.getTestSiteJS();
+  const testRoot = await testSite.openFolder("/");
+  const apiurl = testSite.webRoot + "testsuiteportal/.wh/api/v1/";
   using directFetch = await getDirectOpenAPIFetch("platform:api", { baseUrl: apiurl });
 
   { //test anonymous listing
@@ -297,21 +299,27 @@ async function testWHFSAPI() {
       order: 0
     }, updatedFolder.body.instances?.find(_ => _.whfsType === "platform:virtual.objectdata")?.data);
   }
+
+  test.eqPartial({
+    status: 200,
+    body: { whfsPath: testRoot.whfsPath + "TestPages/formtest" }
+  }, await api.get("/whfs/resolve", { params: { url: testSite.webRoot + "testpages/formtest/?array=1&prefill=1" } }));
 }
 
-
 async function testWHFSasMarge() {
-  const apiurl = (await test.getTestSiteJS()).webRoot + "testsuiteportal/.wh/api/v1/";
+  const testSite = await test.getTestSiteJS();
+  const apiurl = testSite.webRoot + "testsuiteportal/.wh/api/v1/";
   using directFetch = await getDirectOpenAPIFetch("platform:api", { baseUrl: apiurl });
   const api = new OpenAPIApiClient(directFetch, { bearerToken: apiMargeToken });
 
   const result = await api.get("/whfs/object");
   test.assert(result.status === 403, `No permission`);
 
+  //TODO test also with limited WHFS rights
 }
 
 test.runTests([
   setup,
   testWHFSAPI,
-  testWHFSasMarge,
+  testWHFSasMarge
 ]);

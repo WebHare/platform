@@ -1,7 +1,7 @@
 import type { TypedRestRequest } from "@mod-platform/generated/openapi/platform/api";
 import type { AuthorizedWRDAPIUser, HTTPSuccessCode, OpenAPIResponse, OpenAPIResponseType } from "@webhare/openapi-service";
 import { getAuthorizationInterface } from "@webhare/auth";
-import { listInstances, openFileOrFolder, whfsType, type WHFSObject } from "@webhare/whfs";
+import { listInstances, lookupURL, openFileOrFolder, whfsType, type WHFSObject } from "@webhare/whfs";
 import { getVirtualObjectData } from "@webhare/whfs/src/export";
 import { runInWork } from "@webhare/whdb";
 import { getType } from "@webhare/whfs/src/describe";
@@ -93,6 +93,24 @@ export async function getWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUser, 
     }
     throw e;
   }
+}
+
+export async function resolveWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUser, "get /whfs/resolve">) {
+  let url;
+  try {
+    url = new URL(req.params.url);
+  } catch (e) {
+    return req.createErrorResponse(400, { error: `Invalid URL: ${req.params.url}` });
+  }
+  const resolveRes = await lookupURL(url, { matchProduction: req.params.match_production || false });
+  const target = resolveRes.file || resolveRes.folder;
+  if (target) {
+    const obj = await openFileOrFolder(target, { allowMissing: true });
+    if (obj)
+      return req.createJSONResponse(200, { whfsPath: obj.whfsPath });
+  }
+
+  return req.createErrorResponse(404, { error: `No WHFS object found for URL: ${req.params.url}` });
 }
 
 async function mapVirtualMetadata(target: WHFSObject | null, data: Record<string, unknown>, importOptions?: ImportOptions): Promise<ImportedVirtualMetadata | null> {
