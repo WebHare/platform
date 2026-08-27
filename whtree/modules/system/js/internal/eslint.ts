@@ -5,7 +5,7 @@ import { whconstant_builtinmodules } from "./webhareconstants";
 import { appendToArray } from "@webhare/std";
 import { readFileSync } from "node:fs";
 import type { ValidationMessageWithType } from "@mod-platform/js/devsupport/validation";
-import { storeDiskFile } from "@webhare/system-tools/src/fs";
+import { storeDiskFile } from "@webhare/system-tools";
 
 export type ESLintResult = {
   messages: ValidationMessageWithType[];

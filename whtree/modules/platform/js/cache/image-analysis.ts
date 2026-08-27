@@ -2,7 +2,7 @@
  * This isn't the fastest method, passing offset & length/limits would be faster, but
  * this implementation is easier to reason about for now
  *
- * AFIF:
+ * AVIF:
  *   ISO-MBFF stores integers in big-endian order.
  *   References:
  *   - ISO/IEC 14496:12-2015
