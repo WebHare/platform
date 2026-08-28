@@ -146,17 +146,6 @@ PUBLIC RECORD FUNCTION WrapImageField(STRING field, RECORD method)
          ];
 }
 
-
-// Copied from UnifiedCacheHost - needed to get resizing to work quickly in GetCachedDataFromURL
-BLOB FUNCTION __ProcessImage(RECORD imgrec, RECORD imginfo)
-{
-  /* Verify and decode image information */
-  RECORD res := GfxResizeWrappedImageWithMethod(imgrec, imginfo.resizemethod);
-  IF(NOT RecordExists(res))
-    THROW NEW Exception("GfxResizeWrappedImageWithMethod failed");
-  RETURN res.data;
-}
-
 /** @short Extract the original image from an image cache URL
     @param url URL to extract the image from
     @return The wrapped object if extract it from the URL. Returns a default record on failure */

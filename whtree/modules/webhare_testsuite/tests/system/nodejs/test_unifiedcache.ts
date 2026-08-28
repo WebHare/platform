@@ -600,7 +600,7 @@ async function testFileCache() {
   const docxjelink = docxje.data.toLink({ fileName: "empty.docx" });
   test.eq(/\/empty.docx$/, docxjelink);
   const docxjelink_fetched = await fetch(new URL(docxjelink, backendConfig.backendURL));
-  test.eq(200, docxjelink_fetched.status);
+  test.eq(200, docxjelink_fetched.status, `Failed to fetch ${docxjelink_fetched.url}`);
   test.eq("application/vnd.openxmlformats-officedocument.wordprocessingml.document", docxjelink_fetched.headers.get("content-type"));
 
   let odditylink = oddity.data.toLink({ baseURL: backendConfig.backendURL });

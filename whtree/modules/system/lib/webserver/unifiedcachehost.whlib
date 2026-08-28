@@ -74,15 +74,6 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase <
     RETURN GetUnifiedCacheDiskRoot() || hash;
   }
 
-  BLOB FUNCTION ProcessImage(RECORD imgrec, RECORD imginfo)
-  {
-    /* Verify and decode image information */
-    RECORD res := GfxResizeWrappedImageWithMethod(imgrec, imginfo.resizemethod);
-    IF(NOT RecordExists(res))
-      THROW NEW Exception("GfxResizeImageBlobWithMethod failed");
-    RETURN res.data;
-  }
-
   RECORD FUNCTION TestDiskPath(STRING path, BOOLEAN fast, BOOLEAN generated) {
     TRY
     {
@@ -145,7 +136,7 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase <
         DumpValue(CELL[ dbdata, fast ], [ format := "tree", name := "Database data" ]);
 
       //If we get here, the url was validated and the item was not rejected
-      IF(tryfastpath OR (data.datatype = 1 AND (targetmimetype IN ["image/webp","image/avif"] OR dbdata.mimetype IN ["image/webp","image/avif"]))) {
+      IF(data.datatype = 1) { //Image to resize
         //Request needs to match HSImgCacheRequest
         RECORD req := CELL[
           ...dbdata,
@@ -175,9 +166,6 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase <
       ELSE
       {
         BLOB content := dbdata.data;
-        IF(data.datatype = 1)
-          content := this->ProcessImage(dbdata, data.item);
-
         CreateDiskDirectoryRecursive(GetDirectoryFromPath(path), TRUE);
         StoreDiskFile(path, content, [ overwrite := TRUE]);
       }
