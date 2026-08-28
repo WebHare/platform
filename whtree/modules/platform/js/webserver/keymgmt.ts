@@ -74,6 +74,8 @@ function shouldRenew(start: Temporal.Instant, end: Temporal.Instant) {
   // 5. Otherwise, sleep until the next normal wake time, re-check ARI, and return to "1."
 
   // We don't schedule ourselves and usually run once each day, so we can just check if the selected time is less than one day away
+  // TODO we run more frequently now so we will tend to be early in the windows (as we'll roll the dice more frequently and as we go through the window, 'now' is more likely to be past 'rt')
+  //      we should either store a planned time or derive our Math.random() from something stable, eg key id or creationdate modulo something
   return Temporal.Instant.compare(rt, now.add({ hours: 24 })) < 0;
 }
 
@@ -137,7 +139,7 @@ class StoredKeyPair {
     this.keyFolder = keyFolder;
   }
 
-  async shouldRenewThisKey(options?: { staging?: boolean; ignoreRenewalAfter?: boolean }): Promise<{ shouldRenew: boolean; validUntil?: Temporal.Instant; retryAfter?: Temporal.Instant | null }> {
+  async shouldRenewThisKey(options?: { staging?: boolean }): Promise<{ shouldRenew: boolean; validUntil?: Temporal.Instant; retryAfter?: Temporal.Instant | null }> {
     // Check if we have a renewalInfo url, so we can use ARI to check if we have to renew yet
     const data = await whfsType("platform:system.keystorefolder").get(this.id);
 
@@ -172,7 +174,6 @@ class StoredKeyPair {
     if (renewalInfo
       && (!data.renewWindowStart
         || !data.renewWindowEnd
-        || options?.ignoreRenewalAfter
         || (retryAfter && Temporal.Instant.compare(retryAfter, Temporal.Now.instant()) <= 0))) {
       // We have a renewalInfo url, do an ARI check
       // https://letsencrypt.org/2024/04/25/guide-to-integrating-ari-into-existing-acme-clients
