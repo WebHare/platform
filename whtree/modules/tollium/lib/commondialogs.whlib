@@ -121,11 +121,6 @@ PUBLIC OBJECT FUNCTION CreateBrowseServerPathDialog(OBJECT parent)
   RETURN parent->LoadScreen("tollium:commondialogs.browseserverpath");
 }
 
-PUBLIC OBJECT FUNCTION CreateImageEditDialog(OBJECT parent)
-{
-  RETURN parent->LoadScreen("tollium:commondialogs/imageedit.main");
-}
-
 PUBLIC OBJECT FUNCTION CreatePasswordChangeDialog(OBJECT parent)
 {
   RETURN parent->LoadScreen("mod::tollium/tolliumcomponents/passwordfield.xml#editpassword");

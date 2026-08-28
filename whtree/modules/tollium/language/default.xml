@@ -378,13 +378,6 @@
       <text tid="title">Select file to upload</text>
       <text tid="upload">Upload</text>
     </textgroup>
-    <textgroup gid="imageedit">   <!-- commondialogs.imageedit -->
-      <textgroup gid="main">   <!-- commondialogs.imageedit.main -->
-        <text tid="crop">Crop</text>
-        <text tid="main">Image edit</text>
-        <text tid="undo">Undo</text>
-      </textgroup>
-    </textgroup>
     <textgroup gid="loaderror">   <!-- commondialogs.loaderror -->
       <text tid="filename">Filename</text>
       <text tid="linenum">Line number</text>
@@ -488,10 +481,6 @@
         <text tid="replace_file">Upload a file to replace the current file with</text>
         <text tid="save_file">Download this file</text>
       </textgroup>
-    </textgroup>
-    <textgroup gid="imageedit">   <!-- components.imageedit -->
-      <text tid="delete_image">Delete this image</text>
-      <text tid="replace_image">Upload an image to replace the current image with</text>
     </textgroup>
     <textgroup gid="imgedit">   <!-- components.imgedit -->
       <text tid="add_image">Upload an image</text>

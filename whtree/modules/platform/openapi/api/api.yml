@@ -117,6 +117,39 @@ paths:
           $ref: "#/components/responses/notfound"
       x-webhare-implementation: "whfs.ts#updateWHFSObject"
 
+  "/whfs/resolve":
+    get:
+      parameters:
+        - in: query
+          name: url
+          required: true
+          schema:
+            type: string
+            description: The URL of the WHFS object to resolve
+        - in: query
+          name: match_production
+          schema:
+            type: boolean
+            description: Also attempt to match sites by their URL on production
+      responses:
+        "200":
+          description: Returns the location of the whfsObject
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [whfsPath]
+                properties:
+                  whfsPath:
+                    type: string
+                    description: The WHFS path of the object
+
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/notfound"
+      x-webhare-implementation: "whfs.ts#resolveWHFSObject"
+
   "/wrd":
     get:
       responses:

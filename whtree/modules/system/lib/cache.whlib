@@ -19,6 +19,7 @@ LOADLIB "mod::system/whlibs/dbase/postgresql.whlib";
 LOADLIB "mod::system/lib/internal/cache/imgcache.whlib" EXPORT ExportTSDescriptor;
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
+LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/support2.whlib";
 
@@ -78,6 +79,21 @@ PUBLIC RECORD FUNCTION GetCachedDataFromURL(STRING url, RECORD options DEFAULTST
   IF(tok = "")
     RETURN DEFAULT RECORD;
 
+  IF(IsAbsoluteURL(url)) { //verify it's one of *our* hostnames
+    BOOLEAN gotmatch;
+    STRING findhostname := ToUppercase(UnpackURL(url).host);
+    RECORD ARRAY sites := GetHostedSites().hosts;
+    FOREVERY(RECORD site FROM sites)
+      FOREVERY(STRING host FROM site.listenhosts)
+        IF(ToUppercase(host) = findhostname) {
+          gotmatch := TRUE;
+          BREAK;
+        }
+
+    IF(NOT gotmatch)
+      RETURN DEFAULT RECORD; //external URL, don't try to embed
+  }
+
   RECORD analyzed := AnalyzeUnifiedURLToken(tok);
   IF(NOT RecordExists(analyzed))
     RETURN DEFAULT RECORD;
@@ -103,7 +119,7 @@ PUBLIC RECORD FUNCTION GetCachedDataFromURL(STRING url, RECORD options DEFAULTST
 
   OBJECT target := FetchSync(ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), url));
   IF(NOT target->ok)
-    THROW NEW Exception(`Failed to fetch cached data from URL '${url}': ${target->status} ${target->statusmessage} - ensure that any data referenced by this email has been committed`);
+    THROW NEW Exception(`Failed to fetch cached data from URL '${url}': ${target->status} ${target->statustext} - ensure that any data referenced by this email has been committed`);
 
   RETURN CELL [ data := target->AsBlob()
               , mimetype := target->headers->Get("Content-Type")
