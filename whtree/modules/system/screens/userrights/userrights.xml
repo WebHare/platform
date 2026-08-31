@@ -35,6 +35,10 @@
                   max="1"
                   checkflags="canmanage"
                   onexecute="userrolerightslist->doeditgrant" />
+        <enableon source="userrolerightslist->userlistbyrole"
+                  min="1"
+                  checkflags="canmanagerolegrant"
+                  onexecute="userrolerightslist->doeditrolegrant" />
         <enableon source="objectrightslist->authobjectlistbyobject"
                   min="1"
                   max="1"
@@ -59,7 +63,7 @@
                   onexecute="userrolerightslist->dorevokefromusers" />
         <enableon source="userrolerightslist->userlistbyrole"
                   min="1"
-                  checkflags="candelete"
+                  checkflags="canmanagerolegrant"
                   onexecute="userrolerightslist->doremoveusersfromrole" />
         <enableon source="objectrightslist->authobjectlistbyobject"
                   min="1"
