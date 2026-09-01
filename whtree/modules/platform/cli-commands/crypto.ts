@@ -1,6 +1,6 @@
 // @webhare/cli: Manage SSL keys and certificates
 
-import { requestACMECertificate } from "@mod-platform/js/certbot/certbot";
+import { requestACMECertificate } from "@mod-platform/js/certbot/internal/task";
 import { readArgFile } from "@mod-platform/js/cli/cli-tools";
 import { CLIRuntimeError, runCli } from "@webhare/cli";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
@@ -49,10 +49,13 @@ async function openKey(rawkeyname: boolean, hostname: string): Promise<KeyPair> 
   return keypair;
 }
 
-async function certbot(primaryhostname: string, hostnames: string[], options: { staging: boolean; debug: boolean }): Promise<void> {
-  const result = await requestACMECertificate([primaryhostname, ...hostnames], {
-    staging: options.staging,
+async function requestCertficiate(primaryhostname: string, hostnames: string[], options: { staging: boolean; debug: boolean }): Promise<void> {
+  const result = await requestACMECertificate({
+    domains: [primaryhostname, ...hostnames],
+    //TODO get debug output to go to stdout instead of logDebug
     debug: options.debug,
+    staging: options.staging,
+    //TODO offer more flags to the CLI ? eg testonly?
   });
 
   if (!result.success) {
@@ -122,7 +125,7 @@ runCli({
         { name: "[hostnames...]", description: "Additional domains" },
       ],
       async main({ args, opts }) {
-        await certbot(args.primaryhostname, args.hostnames, opts);
+        await requestCertficiate(args.primaryhostname, args.hostnames, opts);
       }
     },
     "list-keys": {

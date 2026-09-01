@@ -22,7 +22,7 @@ type CertificateRequestOptions = {
 };
 
 /** Request a certificate for one or more domains hosted by this installation */
-export async function requestACMECertificate(domains: string[], options?: CertificateRequestOptions): Promise<CertificateRequestResult> {
+export async function scheduleRequestACMECertificateTask(domains: string[], options?: CertificateRequestOptions): Promise<CertificateRequestResult> {
   await beginWork();
   const taskId = await scheduleTask("platform:requestcertificate", toSnakeCase({
     certificateId: options?.certificateId ?? 0,
@@ -42,7 +42,7 @@ export async function requestACMECertificate(domains: string[], options?: Certif
 }
 
 export async function requestACMECertificateForHs(domains: string[], options?: ToSnakeCase<CertificateRequestOptions>): Promise<ToSnakeCase<CertificateRequestResult>> {
-  return toSnakeCase(await requestACMECertificate(domains, toCamelCase(options)));
+  return toSnakeCase(await scheduleRequestACMECertificateTask(domains, toCamelCase(options)));
 }
 
 type TestCertificateOptions = {

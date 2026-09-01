@@ -82,7 +82,11 @@ export type CertificateRequestResult = {
   /** The request was not successful */
   success: false;
   /** The error code */
-  error: "nodomains" | "certificateobsolete" | "noprovider" | "noproviderdirectory" | "hostnotlocal" | "hostconnecterror" | "requesterror" | "testerror" | "error" | "stillvalid";
+  error: "nodomains" | "certificateobsolete" | "noprovider" | "noproviderdirectory" | "hostnotlocal" | "hostconnecterror" | "requesterror" | "testerror" | "error" | "stillvalid" | "storeerror";
+  /** Error message */
+  errorMessage?: string;
+  /** Worth retrying? */
+  isTemporary?: boolean;
   /** Additional error data */
   errorData?: string;
 };
@@ -99,6 +103,26 @@ type CertificateRequestData = {
 //Implements task platform:requestcertificate
 export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<CertificateRequestData>, CertificateRequestResult>): Promise<TaskResponse> {
   const taskdata = toCamelCase(req.taskdata);
+  const result = await requestACMECertificate(taskdata);
+  if (result.success === false) {
+    if (result.error === "stillvalid")
+      return req.resolveByCompletion(result);
+    else if (result.isTemporary)
+      return req.resolveByTemporaryFailure(result.errorMessage || "Unknown temporary error", { result });
+    else
+      return req.resolveByPermanentFailure(result.errorMessage || "Unknown error", { result });
+  } else {
+    return req.resolveByCompletion({
+      success: true,
+      certificateId: 0,
+      //NOTE only part of the response for staging requests as we don't store the actual certificate then
+      certificate: result.certificate,
+      privateKey: result.privateKey,
+    });
+  }
+}
+
+export async function requestACMECertificate(taskdata: CertificateRequestData): Promise<CertificateRequestResult> {
   await beginWork();
 
   // Find the domains to request certificates for
@@ -113,20 +137,19 @@ export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<Certif
         errorData = `Valid until ${checkResult.validUntil.toString()}`;
       if (checkResult.retryAfter)
         errorData = errorData ? `${errorData} (retry after ${checkResult.retryAfter.toString()})` : `Retry after ${checkResult.retryAfter.toString()}`;
-      return req.resolveByCompletion({
+      return {
         success: false,
         error: "stillvalid",
         errorData,
-      });
+      };
     }
   } else if (taskdata.certificateId && !storedKeyPair)
-    return req.resolveByPermanentFailure("Certificate not found", {
-      result: {
-        success: false,
-        error: "nodomains",
-        errorData: taskdata.certificateId.toString(),
-      }
-    });
+    return {
+      success: false,
+      error: "nodomains",
+      errorMessage: "Certificate not found",
+      errorData: taskdata.certificateId.toString(),
+    };
   if (!domains.length && storedKeyPair)
     domains.push(...(await storedKeyPair.getDNSNames()));
 
@@ -164,13 +187,12 @@ export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<Certif
         .executeTakeFirst();
       if (result) {
         if (!setupReplacement) {
-          return req.resolveByPermanentFailure(`Certificate '${storedKeyPair.name}' is no longer needed here but still referred by a SSL port!`, {
-            result: {
-              success: false,
-              error: "certificateobsolete",
-              errorData: skippedDomains.join("; "),
-            }
-          });
+          return {
+            success: false,
+            error: "certificateobsolete",
+            errorMessage: `Certificate '${storedKeyPair.name}' is no longer needed here but still referred by a SSL port!`,
+            errorData: skippedDomains.join("; "),
+          };
         }
       }
 
@@ -183,33 +205,32 @@ export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<Certif
         .execute();
     }
 
-    return req.resolveByPermanentFailure("No domains to request certificate for", {
-      result: {
-        success: false,
-        error: "nodomains",
-        errorData: skippedDomains.join("; "),
-      }
-    });
+    return {
+      success: false,
+      error: "nodomains",
+      errorMessage: "No domains to request certificate for",
+      errorData: skippedDomains.join("; "),
+    };
   }
 
   // Find the relevant certificate provider
   const { provider, directory } = await getProviderForDomains(requestDomains, taskdata.staging);
   if (!provider)
-    return req.resolveByTemporaryFailure(`No matching certificate provider found matching domains ${requestDomains.join(", ")}`, {
-      result: {
-        success: false,
-        error: "noprovider",
-        errorData: requestDomains.join(", "),
-      }
-    });
+    return {
+      success: false,
+      isTemporary: true,
+      error: "noprovider",
+      errorMessage: `No matching certificate provider found for domains ${requestDomains.join(", ")} `,
+      errorData: requestDomains.join(", "),
+    };
   if (!directory)
-    return req.resolveByTemporaryFailure(`No directory for provider ${provider.issuerDomain}`, {
-      nextRetry: null, result: {
-        success: false,
-        error: "noproviderdirectory",
-        errorData: provider.issuerDomain,
-      }
-    });
+    return {
+      success: false,
+      isTemporary: true,
+      error: "noproviderdirectory",
+      errorMessage: `No directory for provider ${provider.issuerDomain}`,
+      errorData: provider.issuerDomain,
+    };
 
   let keyPair: CryptoKeyPair | undefined = undefined;
   if (provider.accountPrivatekey)
@@ -226,33 +247,30 @@ export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<Certif
       try {
         const response = await fetch(`http://${domain}/.webhare/direct/system/uuid.shtml`, { signal: AbortSignal.timeout(2000) });
         if (!response.ok)
-          return req.resolveByPermanentFailure(`Error while checking domain '${domain}' connectivity: ${response.statusText.substring(0, 512) || "Unknown error"}`, {
-            result: {
-              success: false,
-              error: "hostconnecterror",
-              errorData: response.statusText.substring(0, 512) || "Unknown error",
-            }
-          });
+          return {
+            success: false,
+            error: "hostconnecterror",
+            errorMessage: `Error while checking domain '${domain}' connectivity: ${response.statusText.substring(0, 512) || "Unknown error"}`,
+            errorData: response.statusText.substring(0, 512) || "Unknown error",
+          };
         const serverUuid = await response.text();
         if (serverUuid !== myUuid) {
           if (taskdata.debug)
             logDebug("platform:certbot", { "#what": "Server mismatch", myUuid, serverUuid });
-          return req.resolveByPermanentFailure(`Domain '${domain}' not hosted by this installation`, {
-            result: {
-              success: false,
-              error: "hostnotlocal",
-              errorData: domain,
-            }
-          });
+          return {
+            success: false,
+            error: "hostnotlocal",
+            errorMessage: `Domain '${domain}' not hosted by this installation`,
+            errorData: domain,
+          };
         }
       } catch (e) {
-        return req.resolveByPermanentFailure(`Error while checking domain '${domain}' connectivity: ${(e as Error).message}`, {
-          result: {
-            success: false,
-            error: "hostconnecterror",
-            errorData: (e as Error).message,
-          }
-        });
+        return {
+          success: false,
+          error: "hostconnecterror",
+          errorMessage: `Error while checking domain '${domain}' connectivity: ${(e as Error).message}`,
+          errorData: (e as Error).message,
+        };
       }
     }
   }
@@ -309,13 +327,12 @@ export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<Certif
         }
       } catch (_) { }
     }
-    return req.resolveByPermanentFailure((e as Error).message, {
-      result: {
-        success: false,
-        error: "requesterror",
-        errorData,
-      }
-    });
+    return {
+      success: false,
+      error: "requesterror",
+      errorMessage: (e as Error).message,
+      errorData,
+    };
   }
 
   const certificate = result.certificate;
@@ -325,23 +342,23 @@ export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<Certif
   // Check the certificate
   const test = await testCertificate(certificate, { privateKey: certKeyPair.privateKey, checkFullChain: !taskdata.staging && !taskdata.testOnly });
   if (!test.success) {
-    return req.resolveByTemporaryFailure(`Invalid certificate received: ${test.error}`, {
-      result: {
-        success: false,
-        error: "testerror",
-        errorData: test.error,
-      }
-    });
+    return {
+      success: false,
+      isTemporary: true,
+      error: "testerror",
+      errorMessage: `Invalid certificate received: ${test.error}`,
+      errorData: test.error,
+    };
   }
 
   if (taskdata.staging || taskdata.testOnly) {
     // Don't actually update the certificate and private keys, but return them in the task result for inspection
-    return req.resolveByCompletion({
+    return {
       success: true,
       certificateId: 0,
       certificate,
       privateKey: certKeyPair.privateKey,
-    });
+    };
   }
 
   try {
@@ -369,19 +386,18 @@ export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<Certif
       onCommit: async () => applyConfiguration({ subsystems: ["webserver"], source: "platform:requestcertificate" })
     });
 
-    return req.resolveByCompletion({
+    return {
       success: true,
       certificateId: certFolder.id,
-    });
+    };
   } catch (e) {
     logError(e as Error);
-    return req.resolveByPermanentFailure((e as Error).message, {
-      result: {
-        success: false,
-        error: "storeerror",
-        errorData: (e as Error).message,
-      }
-    });
+    return {
+      success: false,
+      error: "storeerror",
+      errorMessage: (e as Error).message,
+      errorData: (e as Error).message,
+    };
   }
 }
 
