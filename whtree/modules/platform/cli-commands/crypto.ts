@@ -49,7 +49,7 @@ async function openKey(rawkeyname: boolean, hostname: string): Promise<KeyPair> 
   return keypair;
 }
 
-async function requestCertficiate(primaryhostname: string, hostnames: string[], options: { staging: boolean; debug: boolean }): Promise<void> {
+async function requestCertficate(primaryhostname: string, hostnames: string[], options: { staging: boolean; debug: boolean }): Promise<void> {
   const result = await requestACMECertificate({
     domains: [primaryhostname, ...hostnames],
     //TODO get debug output to go to stdout instead of logDebug
@@ -125,7 +125,7 @@ runCli({
         { name: "[hostnames...]", description: "Additional domains" },
       ],
       async main({ args, opts }) {
-        await requestCertficiate(args.primaryhostname, args.hostnames, opts);
+        await requestCertficate(args.primaryhostname, args.hostnames, opts);
       }
     },
     "list-keys": {
