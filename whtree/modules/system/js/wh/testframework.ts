@@ -46,7 +46,8 @@ export {
 export {
   findElement,
   waitForElement,
-  type Selector
+  type Selector,
+  type SelectorPart,
 } from "../internal/tests/waitforelement";
 
 export { waitUIFree } from '@webhare/dompack/src/busy';

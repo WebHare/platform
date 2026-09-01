@@ -1,11 +1,11 @@
 import * as dompack from "@webhare/dompack";
 import * as test from '@mod-system/js/wh/testframework';
 
-export type SelectorPart = string | HTMLElement | RegExp | number | (() => string | HTMLElement | RegExp | number | undefined | null);
+export type SelectorPart = string | Element | RegExp | number | (() => string | Element | RegExp | number | undefined | null);
 export type Selector = SelectorPart[] | string;
 
-function evaluateSelectSingle(start: HTMLElement | Document, selector: Selector): HTMLElement | null {
-  let currentmatch: Document | HTMLElement | HTMLElement[] = start;
+function evaluateSelectSingle(start: Element | Document, selector: Selector): HTMLElement | null {
+  let currentmatch: Document | Element | Element[] = start;
   if (typeof selector === "string")
     selector = [selector];
 
@@ -66,13 +66,17 @@ function evaluateSelectSingle(start: HTMLElement | Document, selector: Selector)
       console.error(`Multiple matches for selector %o: %o`, selector, currentmatch);
       throw new Error("Multiple matches for selector " + selector.slice(-1)[0]);
     }
-    return currentmatch[0];
+    currentmatch = currentmatch[0];
+  }
+  if (!currentmatch)
+    return null;
+
+  //Our API is much more convenient to typed users if we always return a HTMLElement, so enforce that
+  if (!("accessKey" in currentmatch) || !("writingSuggestions" in currentmatch)) {
+    console.error(`Matched a non-HTMLElement: %o`, currentmatch);
+    throw new Error("Matched a non-HTMLElement");
   }
 
-  if (currentmatch && !(currentmatch as HTMLElement).ownerDocument) {
-    console.error(`Matched a non-element: %o`, currentmatch); //TODO or outside the DOM ?
-    throw new Error("Matched a non-element");
-  }
   return currentmatch as HTMLElement;
 }
 
