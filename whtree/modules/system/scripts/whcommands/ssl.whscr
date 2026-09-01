@@ -1,0 +1,36 @@
+<?wh
+LOADLIB "wh::os.whlib";
+
+RECORD ARRAY options := [ [ name := "command", type := "param", required := TRUE ]
+                        , [ name := "__params", type := "paramlist" ]
+                        ];
+
+RECORD cmdargs := ParseArguments(GetConsoleArguments(), options);
+
+SWITCH(RecordExists(cmdargs) ? cmdargs.command : "help")
+{
+  CASE "certbot"
+  {
+    TerminateScriptWithError(`Replace uses of this command with: wh crypto request-certificate ...`);
+  }
+  CASE "listkeys"
+  {
+    TerminateScriptWithError(`Replace uses of this command with: wh crypto list-keys`);
+  }
+  CASE "getprivatekey"
+  {
+    TerminateScriptWithError(`Replace uses of this command with: wh crypto get-private-key`);
+  }
+  CASE "addprivatekey"
+  {
+    TerminateScriptWithError(`Replace uses of this command with: wh crypto add-private-key`);
+  }
+  CASE "getcertificate"
+  {
+    TerminateScriptWithError(`Replace uses of this command with: wh crypto get-certificate`);
+  }
+  CASE "setcertificate"
+  {
+    TerminateScriptWithError(`Replace uses of this command with: wh crypto set-certificate`);
+  }
+}

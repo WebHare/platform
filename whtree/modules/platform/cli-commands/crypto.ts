@@ -5,7 +5,7 @@ import { readArgFile } from "@mod-platform/js/cli/cli-tools";
 import { CLIRuntimeError, runCli } from "@webhare/cli";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
 import type { HSVMBlob } from "@webhare/harescript/src/wasm-hsvmvar";
-import type { WebHareBlob } from "@webhare/services";
+import { decryptForThisServer, type WebHareBlob } from "@webhare/services";
 import { beginWork, commitWork } from "@webhare/whdb";
 
 type KeyPair = HSVMObject & {
@@ -111,8 +111,8 @@ async function listKeys(_allkeys: boolean): Promise<void> {
 runCli({
   description: "Manage SSL keys and certificates",
   subCommands: {
-    certbot: {
-      description: "Generate a certificate using LetsEncrypt",
+    "request-certificate": {
+      description: "Generate a certificate using ACME",
       flags: {
         staging: "Use the ACME staging environment",
         debug: "Enable debug output",
@@ -125,7 +125,7 @@ runCli({
         await certbot(args.primaryhostname, args.hostnames, opts);
       }
     },
-    listkeys: {
+    "list-keys": {
       description: "List all keys",
       flags: {
         raw: "Keep compatibility with the legacy command syntax",
@@ -134,7 +134,7 @@ runCli({
         await listKeys(opts.raw);
       }
     },
-    getprivatekey: {
+    "get-private-key": {
       description: "Output the private key for the requested hostname",
       flags: {
         rawkeyname: "Interpret name as a raw key name",
@@ -146,7 +146,7 @@ runCli({
         await getKeyInfo(opts.rawkeyname, args.hostname, "privatekey");
       }
     },
-    addprivatekey: {
+    "add-private-key": {
       description: "Add a new private key",
       flags: {
         replace: "Replace an existing key",
@@ -173,7 +173,7 @@ runCli({
         await commitWork();
       }
     },
-    getcertificate: {
+    "get-certificate": {
       description: "Output the certificate for the requested hostname",
       flags: {
         rawkeyname: "Interpret name as a raw key name",
@@ -185,7 +185,7 @@ runCli({
         await getKeyInfo(opts.rawkeyname, args.hostname, "certificatechain");
       }
     },
-    setcertificate: {
+    "set-certificate": {
       description: "Set the certificate for the requested hostname",
       flags: {
         rawkeyname: "Interpret name as a raw key name",
@@ -196,6 +196,22 @@ runCli({
       ],
       async main({ args, opts }) {
         await setKeyCertificate(opts.rawkeyname, args.hostname, await readArgFile(args.filename));
+      }
+    },
+    "decrypt-server": {
+      description: "Decrypt data encrypted by encryptForThisServer",
+      arguments: [
+        {
+          name: "<scope>",
+          description: "The scope of the decryption (e.g 'wrd:oidcauth')",
+        }, {
+          name: "<data>",
+          description: "The encrypted data to decrypt",
+        }
+      ],
+      async main({ opts, args }) {
+        console.log(JSON.stringify(await decryptForThisServer(args.scope, args.data), null, 2));
+
       }
     }
   }
