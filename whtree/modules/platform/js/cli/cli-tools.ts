@@ -1,5 +1,7 @@
 import { ansiCmd, enumOption } from "@webhare/cli";
+import { WebHareBlob } from "@webhare/services";
 import { openFileOrFolder, type WHFSObject } from "@webhare/whfs";
+import { readFileSync } from "node:fs";
 import { kill } from "node:process";
 import { createInterface } from "node:readline";
 
@@ -12,6 +14,18 @@ export const commonFlags = {
 export const commonOptions = {
   resources: { resources: { description: "Export resources for fetch (default) or inline as base64", type: enumOption(["fetch", "base64"]), default: "fetch" } }
 } as const;
+
+/** Reads a file or stdin for '-'. useful when parsing command lines */
+export async function readArgFile(filename: string): Promise<WebHareBlob> {
+  if (filename === "-") {
+    const chunks: Buffer[] = [];
+    for await (const chunk of process.stdin)
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    return WebHareBlob.from(Buffer.concat(chunks));
+  }
+
+  return WebHareBlob.from(readFileSync(filename));
+}
 
 /** Write a line of text, up to the terminal width.
  * @param text Text to write (truncated if needed)
