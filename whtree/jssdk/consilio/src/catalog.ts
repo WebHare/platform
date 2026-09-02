@@ -38,6 +38,13 @@ function getOSIndexName(indexName: string, suffix: string) {
   return indexName + (suffix ? "-" + suffix : "");
 }
 
+function buildFieldGroups(fieldGroups: string[]) {
+  if (!fieldGroups.length)
+    return "";
+
+  return [...new Set(fieldGroups)].sort().join(" ");
+}
+
 type OpenSearchDocument = { _id?: string } & Record<string, unknown>;
 
 // Extend opensearch model to support document type
@@ -437,10 +444,10 @@ export async function doCreateCatalog(tag: string, options?: CatalogOptions): Pr
     throw new Error("A managed index can't be set to suffixed");
 
   const lang = options?.lang || "en";
-  const fieldgrousps = options?.fieldGroups || [];
+  const fieldgroups = options?.fieldGroups || [];
 
   // Prepare configuration
-  const config = await loadlib("mod::consilio/lib/internal/opensearch/mapping.whlib").CalculateExpectedConfiguration(fieldgrousps, options?.managed || false, tag, [], lang);  //no contentsource ids yet
+  const config = await loadlib("mod::consilio/lib/internal/opensearch/mapping.whlib").CalculateExpectedConfiguration(fieldgroups, options?.managed || false, tag, [], lang);  //no contentsource ids yet
   const internalmetadata = await loadlib("mod::consilio/lib/internal/opensearch/mapping.whlib").BuildInternalMetadataFromConfiguration(config);
   await db<PlatformDB>().insertInto("consilio.catalogs").values({
     id: indexid,
@@ -451,7 +458,7 @@ export async function doCreateCatalog(tag: string, options?: CatalogOptions): Pr
     definedby: options?.definedBy || `createConsilioCatalog from ${getStackTrace()[1].filename}#${getStackTrace()[1].func}`,
     type: options?.managed ? whconstant_consilio_catalogtype_managed : whconstant_consilio_catalogtype_unmanaged,
     suffix: options?.suffixed ? whconstant_consilio_default_suffix_mask : "",
-    fieldgroups: await loadlib("mod::consilio/lib/catalogs.whlib").__BuildFieldgroups(fieldgrousps),
+    fieldgroups: buildFieldGroups(fieldgroups),
     lang,
     internalmetadata: await uploadBlob(WebHareBlob.from(encodeHSON(internalmetadata)))
   }).execute();

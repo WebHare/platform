@@ -439,6 +439,13 @@ MACRO TestSTDType()
   TestEQ(`{\n  "$stdType": "Money",\n  "money": "0"\n}\n`, EncodeJSON(0m, DEFAULT RECORD, [ typed := TRUE, formatted := TRUE ]));
   TestEQ(`{\n  "$stdType": "Date",\n  "date": "2020-01-01T00:00:00.000Z"\n}\n`, EncodeJSON(MakeDate(2020, 1, 1), DEFAULT RECORD, [ typed := TRUE, formatted := TRUE ]));
   TestEQ(6i64, DecodeJSON(`{\n  "$stdType": "BigInt",\n  "bigint": "6"\n}`, DEFAULT RECORD, [ typed := TRUE ]));
+
+  //Also ensure we can at least decode, if not encode, the Temporal types
+  TestEq(MakeDatetime(2020, 6, 5, 4, 3, 2, 1), DecodeJSON('{"$stdType":"Instant","instant":"2020-06-05T04:03:02.001Z"}', DEFAULT RECORD, [ typed := TRUE ]));
+  TestEq(MakeDatetime(2026, 9, 1, 11, 4, 57, 385), DecodeJSON('{"$stdType":"ZonedDateTime","zoneddatetime":"2026-09-01T13:04:57.385+02:00[Europe/Amsterdam]"}', DEFAULT RECORD, [ typed := TRUE ]));
+  TestEq(MakeDatetime(2026, 9, 1, 13, 5, 33, 2), DecodeJSON('{"$stdType":"PlainDateTime","plaindatetime":"2026-09-01T13:05:33.002"}', DEFAULT RECORD, [ typed := TRUE ]));
+  TestEq(MakeDatetime(2026, 9, 1, 0, 0, 0), DecodeJSON('{"$stdType":"PlainDate","plaindate":"2026-09-01"}', DEFAULT RECORD, [ typed := TRUE ]));
+  TestEq(MakeTime(13,6,27,601), DecodeJSON('{"$stdType":"PlainTime","plaintime":"13:06:27.601"}', DEFAULT RECORD, [ typed := TRUE ]));
 }
 
 MACRO TestCamelSnakeCasing()

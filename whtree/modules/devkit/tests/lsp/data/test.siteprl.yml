@@ -1,0 +1,7 @@
+types:
+  test: # Forced use of the JS renderer
+    metaType: page
+    clone: onDraft
+    apply:
+      bodyRenderer:
+        onRenderContent: "@mod-platform/js/pagebuilders/richdocument.ts#renderRTD"

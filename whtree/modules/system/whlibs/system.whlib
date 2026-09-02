@@ -3856,6 +3856,10 @@ PUBLIC VARIANT FUNCTION __DecodeJSONStdType(VARIANT value)
     CASE "Money" { RETURN ToMoney(value."money", 0m); }
     CASE "BigInt" { RETURN ToInteger64(value.bigint, 0i64); }
     CASE "Instant" {  RETURN MakeDateFromText(value.instant); }
+    CASE "PlainDate" { RETURN MakeDateFromText(value.plaindate); }
+    CASE "PlainTime" { RETURN GetMsecondCount(MakeDateFromText(`0001-01-01T${value.plaintime}Z`)); }
+    CASE "ZonedDateTime" { RETURN MakeDateFromText(Tokenize(value.zoneddatetime,'[')[0]); }
+    CASE "PlainDateTime" { RETURN MakeDateFromText(value.plaindatetime); }
     DEFAULT { THROW NEW Exception(`Unsupported $stdType ${EncodeJSON(type)}`); }
   }
 }

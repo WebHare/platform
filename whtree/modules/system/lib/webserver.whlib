@@ -934,9 +934,10 @@ RECORD FUNCTION GetCacheableWebHareBackendURLs() {
 }
 
 /** Prevent external iframes but trust the WebHare UI */
-PUBLIC MACRO SetWebhareEmbeddedPageCSP() {
-  STRING ARRAY backendurls := GetAdhocCached(CELL[ type := "backendurls" ], PTR GetCacheableWebHareBackendURLs);
-  AddHTTPHeader("Content-Security-Policy", `frame-ancestors ${Detokenize(backendurls, ' ')}`, FALSE);
-  AddHTTPHeader("X-Frame-Options", "", FALSE);
+PUBLIC MACRO SetWebhareEmbeddedPageCSP(RECORD options DEFAULTSTO DEFAULT RECORD) {
+  options := ValidateOptions(CELL[ include_self := FALSE ], options);
 
+  STRING ARRAY backendurls := GetAdhocCached(CELL[ type := "backendurls" ], PTR GetCacheableWebHareBackendURLs);
+  AddHTTPHeader("Content-Security-Policy", `frame-ancestors ${Detokenize(backendurls, ' ')}${options.include_self ? " 'self'" : ""}`, FALSE);
+  AddHTTPHeader("X-Frame-Options", "", FALSE);
 }

@@ -1,5 +1,5 @@
 import { loadlib } from "@webhare/harescript";
-import { backendConfig, isAbsoluteResource, toFSPath, toResourcePath } from "@webhare/services";
+import { backendConfig, isAbsoluteResource, toResourcePath } from "@webhare/services";
 import { mapHareScriptPath } from "@webhare/harescript/src/wasm-support";
 import {
   type CodeAction,
@@ -41,6 +41,22 @@ function getKeywordOrTextAt(docs: DocumentsLike, where: TextDocumentPositionPara
   if (!line)
     return "";
 
+  if (doc?.uri.endsWith(".yml") || doc?.uri.endsWith(".yaml")) {
+    //Heuristic - detect selecting "property: value" and return the full value.
+    const asPropValueLine = line.match(/^\s*([a-zA-Z0-9_]+)\s*:\s*(.*)$/);
+    if (asPropValueLine) {
+      const prop = asPropValueLine[1];
+      const value = asPropValueLine[2];
+      const propStart = line.indexOf(prop);
+      const valueStart = line.indexOf(value, propStart + prop.length);
+      if (where.position.character >= valueStart && where.position.character <= valueStart + value.length) {
+        if ([`'`, `"`].includes(value[0]) && value.endsWith(value[0])) //quoted string
+          return value.slice(1, -1);
+        return value;
+      }
+    }
+  }
+
   interface Segment {
     start: number;
     end: number;
@@ -76,22 +92,6 @@ function getKeywordOrTextAt(docs: DocumentsLike, where: TextDocumentPositionPara
       segments.push({ start, end: i, isString: false, text: line.slice(start, i) });
     }
   }
-
-  if (doc?.uri.endsWith(".yml") || doc?.uri.endsWith(".yaml")) {
-    //Heuristic - detect selecting "property: value" and return the full value
-    const asPropValueLine = line.match(/^\s*([a-zA-Z0-9_]+)\s*:\s*(.*)$/);
-    if (asPropValueLine) {
-      const prop = asPropValueLine[1];
-      const value = asPropValueLine[2];
-      const propStart = line.indexOf(prop);
-      const valueStart = line.indexOf(value, propStart + prop.length);
-      if (where.position.character >= valueStart && where.position.character <= valueStart + value.length) {
-        return value;
-      }
-    }
-  }
-
-  // console.log(segments);
 
   let cursor = where.position.character;
   if (cursor < 0)
@@ -151,7 +151,17 @@ export async function getDefinitions(docs: DocumentsLike, e: TextDocumentPositio
   //Does this look like a resource path?
   if (keyword.includes('.ts') || keyword.includes('.tsx') || keyword.includes('.whlib')) {
     const [, file, symbol] = keyword.match(/^([^#]+)(?:[#](.*))?$/) || [];
-    const finallocation = new URL(isAbsoluteResource(file) ? `file://${toFSPath(file)}` : file, e.textDocument.uri);
+    let finallocation;
+    if (isAbsoluteResource(file)) {
+      //mapHareScriptPath can handle @mod- paths unlike toFSPath
+      const diskpath = mapHareScriptPath(file);
+      if (!diskpath)
+        return null;
+
+      finallocation = new URL(`file://${diskpath}`, e.textDocument.uri);
+    } else {
+      finallocation = new URL(file, e.textDocument.uri);
+    }
     // console.log(`Resolving ${file} relative to ${e.textDocument.uri}, final ${finallocation}`);
 
     try {

@@ -89,7 +89,9 @@ async function testPaths() {
   test.assert(services.backendConfig);
 
   test.eq(services.backendConfig.module.system.root + "lib/database.whlib", services.toFSPath("mod::system/lib/database.whlib"));
+  test.eq(services.backendConfig.module.system.root + "lib/database.whlib", services.toFSPath("@mod-system/lib/database.whlib"));
   test.eq(services.backendConfig.module.system.root + "scripts/whcommands/reset.whscr", services.toFSPath("mod::system/scripts/whcommands/reset.whscr"));
+  test.eq(services.backendConfig.installationRoot + 'jssdk/services/src/services.ts', services.toFSPath("@webhare/services/src/services.ts"));
 
   //Verify final slashes handling
   test.eq(services.backendConfig.module.system.root, services.toFSPath("mod::system"));
