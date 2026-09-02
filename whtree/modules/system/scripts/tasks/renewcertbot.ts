@@ -41,7 +41,7 @@ runCli({
 
       // Should this certificate be renewed?
       const storedKeyPair = await openStoredKeyPair(cert.id);
-      const checkResult = await storedKeyPair.shouldRenewThisKey({ staging: options.staging, ignoreRenewalAfter: options.ignoreRenewalAfter });
+      const checkResult = await storedKeyPair.shouldRenewThisKey({ staging: options.staging });
       if (!checkResult.shouldRenew) {
         if (debug) {
           if (checkResult.retryAfter)
