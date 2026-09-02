@@ -629,10 +629,12 @@ async function testNewAPI() {
   await test.throws(/cannot be deleted/, schema.close("whuserUnit", unit_id, { mode: "delete-denyreferred" }));
   await test.throws(/cannot be closed/, schema.close("whuserUnit", unit_id, { mode: "close-denyreferred" }));
 
-  await schema.close("whuserUnit", unit_id, { mode: "delete-closereferred" });
+  const unreferencedUnitId = await schema.insert("whuserUnit", { wrdTitle: "Unreferenced unit", wrdTag: "UNREFERENCED" });
+  await schema.close("whuserUnit", [unit_id, unreferencedUnitId], { mode: "delete-closereferred" });
   test.assert((await schema.getFields("whuserUnit", unit_id, { wrdClosed: "wrdClosed" }, { historyMode: 'all' })).wrdClosed);
   await test.throws(/No such whuserUnit #[0-9]* in schema wrd:testschema/, schema.getFields("whuserUnit", unit_id, { wrdId: "wrdId" }, { historyMode: 'active' }));
   test.eqPartial({ wrdId: unit_id }, await schema.getFields("whuserUnit", unit_id, { wrdId: "wrdId" }, { historyMode: 'all' }));
+  test.eq(null, await schema.getFields("whuserUnit", unreferencedUnitId, { wrdId: "wrdId" }, { historyMode: 'all', allowMissing: true }));
   await schema.close("whuserUnit", unit_id, { mode: "delete" });
   await test.throws(/No such whuserUnit #[0-9]* in schema wrd:testschema/, schema.getFields("whuserUnit", unit_id, { wrdClosed: "wrdClosed" }));
   test.eq(null, await schema.getFields("whuserUnit", unit_id, { wrdClosed: "wrdClosed" }, { allowMissing: true }));
