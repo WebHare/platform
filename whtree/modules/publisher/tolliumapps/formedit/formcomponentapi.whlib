@@ -121,7 +121,7 @@ PUBLIC STATIC OBJECTTYPE FormComponentAPI
     this->editscreen->formdefsfile->SetConditionAttribute(node, attributename, cond);
   }
 
-  PUBLIC RECORD FUNCTION ValidateCondition(RECORD component, STRING type)
+  PUBLIC RECORD FUNCTION ValidateCondition(RECORD component, STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     IF (NOT CellExists(component, type))
       RETURN DEFAULT RECORD;
@@ -130,7 +130,7 @@ PUBLIC STATIC OBJECTTYPE FormComponentAPI
     IF (NOT RecordExists(condition))
       RETURN DEFAULT RECORD;
 
-    RECORD ARRAY sources := this->GetConditionSources();
+    RECORD ARRAY sources := CellExists(options, "__sources") ? options.__sources : this->GetConditionSources();
     RETURN this->ValidateConditionRecursive(condition, sources);
   }
 

@@ -217,11 +217,12 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase <
     // Check if there are no RTDs with merge fields on non-thankyou pages
     OBJECT finalform := this->curform->__OpenAsLiveForm(this->uselanguage, this->contexts->applytester);
     RECORD ARRAY allfields := finalform->__form.fields;
+    RECORD ARRAY conditionsources := this->GetConditionSources([ __listfields := finalform->ListFields() ]);
     FOREVERY (RECORD field FROM allfields)
     {
       FOREVERY (STRING type FROM [ "requiredcondition", "enabledcondition", "visiblecondition" ])
       {
-        RECORD result := this->contexts->formcomponentapi->ValidateCondition(field, type);
+        RECORD result := this->contexts->formcomponentapi->ValidateCondition(field, type, [ __sources := conditionsources ]);
         IF (RecordExists(result))
         {
           RECORD fielddesc := this->curform->DescribeField(field.guid, CELL[ languagecode := this->uselanguage, __listfields := allfields ]);
@@ -260,7 +261,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase <
     BOOLEAN hasconfirmationhandler;
     FOREVERY (RECORD handler FROM finalform->ListHandlers())
     {
-      RECORD result := this->contexts->formcomponentapi->ValidateCondition(handler, "__condition");
+      RECORD result := this->contexts->formcomponentapi->ValidateCondition(handler, "__condition", [ __sources := conditionsources ]);
       IF (RecordExists(result))
       {
         STRING handlername := GetTid("publisher:tolliumapps.formedit.messages.forhandler", handler.handlerobject->GetFormEditTitle());
@@ -841,13 +842,17 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase <
 
   RECORD ARRAY FUNCTION GetConditionSources(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions([ scope := "" ]
+    BOOLEAN haslistfields := CellExists(options, "__listfields");
+    options := ValidateOptions([ scope := "", __listfields := DEFAULT RECORD ARRAY ]
                                , options
                                , [ enums := [ scope := [ "", "frontend", "backend" ]]]);
 
     RECORD ARRAY sources;
 
-    RECORD ARRAY fields := this->GetFieldsForTypes(STRING[], [ scope := options.scope ]);
+    RECORD ARRAY fields := haslistfields
+        ? SELECT * FROM options.__listfields
+            WHERE options.scope = "" OR conditionscope = "" OR options.scope = conditionscope
+        : this->GetFieldsForTypes(STRING[], [ scope := options.scope ]);
     FOREVERY (RECORD field FROM fields)
     {
       { //scope the action on the field itself
