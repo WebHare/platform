@@ -1,212 +1,36 @@
 <?wh
-
-LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::files.whlib";
-LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::os.whlib";
-LOADLIB "wh::filetypes/pkcs.whlib";
-
-LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/keystore.whlib";
-
-
-MACRO CertBot(RECORD subargs)
-{
-  RECORD res := CallJS("mod::platform/js/certbot/certbot.ts#requestACMECertificateForHs", STRING[ subargs.primaryhostname, ...subargs.hostnames ], CELL[ subargs.staging, subargs.debug ]);
-  IF(NOT res.success)
-  {
-    IF (res.error = "hostnotlocal")
-      TerminateScriptWithError(`The hostname '${res.errordata}' is not hosted on this server`);
-
-    ABORT(res); //FIXME nice error
-  }
-}
-
-OBJECT FUNCTION OpenKey(BOOLEAN rawkeyname, STRING hostname)
-{
-  OBJECT keypair;
-  IF(rawkeyname)
-    keypair := OpenKeyPairByName(hostname);
-  ELSE
-    keypair := OpenKeyPair(GetBestKeyPairForHostName(hostname));
-
-  IF(NOT ObjectExists(keypair))
-    TerminateScriptWithError(`No such key ${rawkeyname ? `'${hostname}'` : `for hostname '${hostname}'`}`);
-
-  RETURN keypair;
-}
-
-MACRO GetKeyInfo(BOOLEAN rawkeyname, STRING hostname, STRING which)
-{
-  OBJECT keypair := OpenKey(rawkeyname, hostname);
-  SendBlobTo(0, which="privatekey" ? keypair->privatekey : keypair->certificatechain);
-}
-
-MACRO SetKeyCertificate(BOOLEAN rawkeyname, STRING hostname, BLOB certdata)
-{
-  OBJECT keypair := OpenKey(rawkeyname, hostname);
-  RECORD rec := keypair->TestCertificate(certdata);
-  IF (NOT rec.success)
-    TerminateScriptWithError(`Error: ${rec.message}`);
-
-  GetPrimary()->BeginWork();
-  keypair->UpdateMetadata([ certificatechain := certdata ]);
-  GetPrimary()->CommitWork();
-
-  PRINT(`Certificate has been updated\n`);
-}
-
-MACRO ListKeys(BOOLEAN allkeys)
-{
-  FOREVERY (RECORD rec FROM ListKeyPairs())
-  {
-    OBJECT keypair := OpenKeyPairByName(rec.name);
-    BLOB cert := keypair->certificate;
-
-    PRINT(`Key name: ${rec.name}\n`);
-    IF (LENGTH(cert) = 0)
-    {
-      PRINT(`- No certificate\n`);
-    }
-    ELSE
-    {
-      RECORD decoded := DecodePEMFile(BlobToString(cert));
-      PRINT(`- Common name: ${SELECT AS STRING value FROM decoded.subjectfields WHERE fieldname = "CN"}\n`);
-      PRINT(`- DNS alternative names: ${Detokenize(decoded.dns_altnames, " ")}\n`);
-      PRINT(`- Issuer: ${SELECT AS STRING value FROM decoded.issuerfields WHERE fieldname = "CN"}\n`);
-      PRINT(`- Valid until: ${FormatISO8601DateTime(decoded.valid_until, "", "", "CET")} (${GetDateTimeDifference(GetCurrentDateTime(), decoded.valid_until).days} days)`);
-      PRINT(`\n`);
-    }
-  }
-}
-
-/////////////////////////////////////////////////
-//
-// Main
-//
 
 RECORD ARRAY options := [ [ name := "command", type := "param", required := TRUE ]
                         , [ name := "__params", type := "paramlist" ]
                         ];
 
 RECORD cmdargs := ParseArguments(GetConsoleArguments(), options);
-OpenPrimary();
-
-MACRO ParseSubArgs(RECORD ARRAY suboptions, STRING subhelp DEFAULTSTO "")
-{
-  RECORD subargs := ParseArguments(cmdargs.__params, suboptions);
-
-  IF (NOT RecordExists(subargs) OR Detokenize(cmdargs.__params, " ") = "help")
-  {
-    IF (subhelp = "")
-      DisplayHelp();
-    PRINT(subhelp);
-    SetConsoleExitCode(1);
-    TerminateScript();
-  }
-
-  cmdargs := CELL[ ...cmdargs, ...subargs ];
-}
-
-BLOB FUNCTION ReadArgFile(STRING filename)
-{
-  IF (filename = "-")
-    RETURN GetSTDINAsBlob();
-
-  RETURN GetDiskResource(filename);
-}
-
-MACRO DisplayHelp()
-{
-  Print("Syntax: wh ssl <command>\n");
-  Print("  certbot:        Generate a certificate using LetsEncrypt\n");
-  Print("  listkeys:       List all keys\n");
-  Print("  getprivatekey:  Output the private key for the requested hostname\n");
-  Print("  addprivatekey:  Add a new private key\n");
-  Print("  getcertificate: Output the certificate for the requested hostname\n");
-  Print("  setcertificate: Set the certificate for the requested hostname\n");
-  SetConsoleExitCode(1);
-  TerminateScript();
-}
 
 SWITCH(RecordExists(cmdargs) ? cmdargs.command : "help")
 {
   CASE "certbot"
   {
-    ParseSubArgs(
-        [ [ name := "staging", type := "switch" ]
-        , [ name := "debug", type := "switch" ]
-        , [ name := "primaryhostname", type := "param", required := TRUE ]
-        , [ name := "hostnames", type := "paramlist" ]
-        ], "Syntax: wh ssl certbot [--staging] <primarydomain> [subdomains]\n");
-
-    CertBot(cmdargs);
+    TerminateScriptWithError(`Replace uses of this command with: wh crypto request-certificate ...`);
   }
   CASE "listkeys"
   {
-    ParseSubArgs(
-        [ [ name := "raw", type := "switch" ]
-        ], "Syntax: wh ssl listkeys [ --raw ]\n");
-
-    ListKeys(cmdargs."raw");
+    TerminateScriptWithError(`Replace uses of this command with: wh crypto list-keys`);
   }
   CASE "getprivatekey"
   {
-    ParseSubArgs(
-        [ [ name := "rawkeyname", type := "switch" ]
-        , [ name := "hostname", type := "param", required := TRUE ]
-        ], "Syntax: wh ssl getprivatekey [ --rawkeyname ] name\n");
-
-    GetKeyInfo(cmdargs.rawkeyname, cmdargs.hostname, 'privatekey');
+    TerminateScriptWithError(`Replace uses of this command with: wh crypto get-private-key`);
   }
   CASE "addprivatekey"
   {
-    ParseSubArgs(
-        [ [ name := "replace", type := "switch"  ]
-        , [ name := "rawkeyname", type := "switch", required := TRUE  ]
-        , [ name := "hostname", type := "param", required := TRUE ]
-        , [ name := "filename", type := "param", required := TRUE ]
-        ], "Syntax: wh ssl addprivatekey [ --replace ] --rawkeyname name filename\n");
-
-    IF (NOT cmdargs.rawkeyname)
-      THROW NEW Exception(`Keys can only be added by using a rawkeyname`);
-
-    GetPrimary()->BeginWork();
-    OBJECT existingkey := OpenKeyPairByName(cmdargs.hostname);
-    IF (ObjectExists(existingkey))
-    {
-      IF (NOT cmdargs.replace)
-        THROW NEW Exception(`Key ${cmdargs.hostname} already exists`);
-      existingkey->RecycleSelf();
-    }
-
-    BLOB keydata := ReadArgFile(cmdargs.filename);
-    CreateKeyPair(cmdargs.hostname, keydata);
-    GetPrimary()->CommitWork();
+    TerminateScriptWithError(`Replace uses of this command with: wh crypto add-private-key`);
   }
   CASE "getcertificate"
   {
-    ParseSubArgs(
-        [ [ name := "rawkeyname", type := "switch" ]
-        , [ name := "hostname", type := "param", required := TRUE ]
-        ], "Syntax: wh ssl getcertificate [ --rawkeyname ] [ name ]\n");
-
-    GetKeyInfo(cmdargs.rawkeyname, cmdargs.hostname, 'certificate');
+    TerminateScriptWithError(`Replace uses of this command with: wh crypto get-certificate`);
   }
   CASE "setcertificate"
   {
-    ParseSubArgs(
-        [ [ name := "rawkeyname", type := "switch" ]
-        , [ name := "hostname", type := "param", required := TRUE ]
-        , [ name := "filename", type := "param", required := TRUE ]
-        ], "Syntax: wh ssl getcertificate [ --rawkeyname ] name file\n" ||
-           "Use '-' as file to read from stdin\n");
-
-    BLOB certdata := ReadArgFile(cmdargs.filename);
-    SetKeyCertificate(cmdargs.rawkeyname, cmdargs.hostname, certdata);
-  }
-  DEFAULT //includes 'help'
-  {
-    DisplayHelp();
+    TerminateScriptWithError(`Replace uses of this command with: wh crypto set-certificate`);
   }
 }
