@@ -248,7 +248,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase <
           RECORD type := LookupContentType(instance.data.whfstype);
           IF (RecordExists(type) AND type.requiremergefieldscontext)
           {
-            RECORD fielddesc := this->curform->DescribeField(field.guid, [ languagecode := this->uselanguage ]);
+            RECORD fielddesc := this->curform->DescribeField(field.guid, [ languagecode := this->uselanguage, __listfields := allfields ]);
             work->AddError(GetTid("publisher:tolliumapps.formedit.messages.onlythankyoumergefields", fielddesc.pagetitle));
             BREAK;
           }
