@@ -178,8 +178,20 @@ ASYNC MACRO TestEditDeleteRole()
 
   TestEq(FALSE, testfw->userapi->GetUser(testfw->GetUserObject("user1")->entityid)->HasRight("webhare_testsuite:globalright"));
 
+  // Select the single user granted this role
+  TTFillByTitle("unitcontents->userandrolelist", "role2");
+  TT("userrolerightslist->rightstabs")->selectedtab := TT("userrolerightslist->userstab");
+  TT("userrolerightslist->userlistbyrole")->selection := TT("userrolerightslist->userlistbyrole")->rows;
+  TT("frame")->focused := TT("userrolerightslist->userlistbyrole");
+
+  // Try main interface edit and delete buttons
+  AWAIT ExpectScreenChange(+1, PTR TTClick("edit"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectAndAnswerMessagebox("NO", PTR TTClick("delete"));
+
   //Copying a user with a deleted role crashed earlier (because existence wasn't verified). See that it properly works now
   TT("unitcontents->userandrolelist")->selection := SELECT * FROM TT("unitcontents->userandrolelist")->rows WHERE name="user1@beta.webhare.net";
+  TT("frame")->focused := TT("unitcontents->userandrolelist");
   AWAIT ExpectScreenChange(+1, PTR TTClick("copypermissions"));
   topscreen->frame->focused := TT("selectuserrole->unitcontents->userandrolelist");
   TT("selectuserrole->unitcontents->userandrolelist")->selection := SELECT * FROM TT("selectuserrole->unitcontents->userandrolelist")->rows WHERE name="user3@beta.webhare.net";
