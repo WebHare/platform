@@ -366,7 +366,7 @@ class AddressFieldHandler extends RecordFieldHandler {
 
   getValue(): unknown {
     const val = super.getValue() as OldAddressValue;
-    if (val?.country === null)
+    if (!val?.country)
       return null;
 
     return val?.nrDetail !== undefined ? { ...omit(val, ["nrDetail"]), houseNumber: val.nrDetail } : val;
