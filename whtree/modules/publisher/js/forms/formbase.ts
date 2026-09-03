@@ -22,19 +22,13 @@ export type FormFrontendMessage = HTMLElement | string;
 
 declare global {
   interface HTMLElement {
-    //TODO Clean this up, these are internal. Move to a weakobject ?
-    propWhFormSavedRequired?: boolean;
-    propWhFormSavedEnabled?: boolean;
-    propWhFormSavedHidden?: boolean;
-    //TODO And how does this differ from propWhFormSavedRequired?
+    //TODO Clean this up, these are internal. Move to a dataset, safer against DOM manipulation eg as done by slimselect
+    //Used by formgroups:
     propWhFormInitialRequired?: boolean;
     propWhFormCurrentEnabled?: boolean;
     propWhFormCurrentRequired?: boolean;
     propWhFormCurrentVisible?: boolean;
-    //TODO It's suspicious that both propWhFormCurrent... and propWhNodeCurrent... exist
-    propWhNodeCurrentEnabled?: boolean;
-    propWhNodeCurrentRequired?: boolean;
-    propWhNodeCurrentHidden?: boolean;
+    //Used by formlines:
     propWhFormlineCurrentVisible?: boolean;
     propWhValidationSuggestion?: FormFrontendMessage | null;
     propWhCleanupFunction?: () => void;
@@ -952,20 +946,23 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
 
       for (const node of inputtargets) {
         //Record initial states
-        if (node.propWhFormSavedEnabled === undefined)
-          node.propWhFormSavedEnabled = "disabled" in node ? !node.disabled : !("whFormDisabled" in node.dataset);
+        if (!node.dataset.whFormSavedEnabled)
+          node.dataset.whFormSavedEnabled = ("disabled" in node ? !node.disabled : !("whFormDisabled" in node.dataset)).toString();
 
-        if (node.propWhFormSavedRequired === undefined)
-          node.propWhFormSavedRequired = Boolean("required" in node && node.required);
+        if (!node.dataset.whFormSavedRequired)
+          node.dataset.whFormSavedRequired = Boolean("required" in node && node.required).toString();
 
         // The field is enabled if all of these are matched:
         // - we're setting it to enabled now
         // - it hasn't been disabled explicitly (set initially on the node)
         // - it hasn't been disabled through enablecomponents
-        const node_enabled = enabled && node.propWhFormSavedEnabled && this._matchesCondition(node.dataset.whFormEnabledIf);
+        const node_enabled = enabled && node.dataset.whFormSavedEnabled === "true" && this._matchesCondition(node.dataset.whFormEnabledIf);
 
-        if (node_enabled !== node.propWhNodeCurrentEnabled) {
-          node.propWhNodeCurrentEnabled = node_enabled;
+        /* TODO ideally we'd eliminate 'current enabled/required' states, but we need them as long as some components intercept wh:form-enable and wh:form-require events
+                to know the state we told them to put the component in. we may be able to eliminate those events */
+        //if node.dataset.whFormCurrentEnabled is unset, we may still need to apply disabled state to a fresh field
+        if (!node.dataset.whFormCurrentEnabled || node_enabled !== (node.dataset.whFormCurrentEnabled === "true")) {
+          node.dataset.whFormCurrentEnabled = node_enabled ? "true" : "false";
 
           // Give the formgroup a chance to handle it
           if (dompack.dispatchCustomEvent(node, "wh:form-enable", { bubbles: true, cancelable: true, detail: { enabled: node_enabled } })) {
@@ -982,9 +979,11 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
             tovalidate.push(node); // to clear errors for this disabled field
         }
 
-        const node_required = (node.propWhFormSavedRequired || required) && node_enabled && visible;
-        if (node.propWhNodeCurrentRequired !== node_required) {
-          node.propWhNodeCurrentRequired = node_required;
+        const node_required = (node.dataset.whFormSavedRequired === "true" || required) && node_enabled && visible;
+        //if node.dataset.whFormCurrentEnabled is unset, we may still need to apply disabled state to a fresh field
+        //if node.dataset.whFormCurrentRequired is unset, we may still need to apply required state to a fresh field
+        if (!node.dataset.whFormCurrentRequired || node.dataset.whFormCurrentRequired !== (node_required ? "true" : "false")) {
+          node.dataset.whFormCurrentRequired = node_required ? "true" : "false";
 
           // Give the formgroup a chance to handle it
           if (dompack.dispatchCustomEvent(node, "wh:form-require", { bubbles: true, cancelable: true, detail: { required: node_required } })) {
@@ -1008,17 +1007,17 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
       const visible = this._matchesCondition(option.dataset.whFormVisibleIf);
 
       //Record initial states
-      if (option.propWhFormSavedEnabled === undefined)
-        option.propWhFormSavedEnabled = !option.disabled;
-      if (option.propWhFormSavedHidden === undefined)
-        option.propWhFormSavedHidden = option.hidden;
+      if (!option.dataset.whFormSavedEnabled)
+        option.dataset.whFormSavedEnabled = (!option.disabled).toString();
+      if (!option.dataset.whFormSavedHidden)
+        option.dataset.whFormSavedHidden = option.hidden.toString();
 
-      const option_enabled = visible && option.propWhFormSavedEnabled;
-      const option_hidden = !visible || option.propWhFormSavedHidden;
+      const option_enabled = visible && option.dataset.whFormSavedEnabled === "true";
+      const option_hidden = !visible || option.dataset.whFormSavedHidden === "true";
 
-      if (option_enabled !== option.propWhNodeCurrentEnabled || option_hidden !== option.propWhNodeCurrentHidden) {
-        option.propWhNodeCurrentEnabled = option_enabled;
-        option.propWhNodeCurrentHidden = option_hidden;
+      if (option_enabled !== (option.dataset.whFormCurrentEnabled === "true") || option_hidden !== (option.dataset.whFormCurrentHidden === "true")) {
+        option.dataset.whFormCurrentEnabled = option_enabled ? "true" : "false";
+        option.dataset.whFormCurrentHidden = option_hidden ? "true" : "false";
         option.disabled = !option_enabled;
         option.hidden = option_hidden;
 
