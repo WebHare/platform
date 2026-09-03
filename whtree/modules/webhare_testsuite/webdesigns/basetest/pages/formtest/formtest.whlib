@@ -945,10 +945,8 @@ PUBLIC STATIC OBJECTTYPE DateTimeTestForm EXTEND FormBase
   }
 >;
 
-PUBLIC STATIC OBJECTTYPE VisibleConditionsTestForm EXTEND FormBase
-<
-  MACRO NEW()
-  {
+PUBLIC STATIC OBJECTTYPE VisibleConditionsTestForm EXTEND FormBase <
+  MACRO NEW() {
     TestEq(["formdefclass1", "formdefclass2"], this->formclasses);
     this->formclasses := ["mycustomformclass"];
 
@@ -962,6 +960,20 @@ PUBLIC STATIC OBJECTTYPE VisibleConditionsTestForm EXTEND FormBase
         SELECT *
              , visiblecondition := FCMatch(^second, "IN", SELECT AS STRING ARRAY second.rowkey FROM ^second->options AS second WHERE second.rowkey LIKE "*" || third.rowkey)
           FROM ^third->options AS third;
+  }
+
+  UPDATE PUBLIC MACRO PrepareForFrontend() {
+    FormBase::PrepareForFrontend();
+
+    // We test IsRequest() as backend test testformrpc is invoking us even though backends normally don't trigger PrepareForFrontend
+    IF(IsRequest() AND GetFormWebVariable("type") = "pulldown") {
+      ^first->placeholder := "select!";
+      ^first->type := "pulldown";
+      ^second->placeholder := "select!";
+      ^second->type := "pulldown";
+      ^third->placeholder := "select!";
+      ^third->type := "pulldown";
+    }
   }
 >;
 
