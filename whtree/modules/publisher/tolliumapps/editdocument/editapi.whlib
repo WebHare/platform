@@ -6,6 +6,7 @@ MACRO Dummy() {
 }
 
 /** EditDocumentAPI emits the following events
+    - readonly - Fired when the editor's readonly state changes
     - loaddocument - Fired at startup on when reverting a draft. Signals all components to reload their data from the current instance data using GetInstanceData on the editdocument API
     - storedocument - Fired before we want to commit an autosave. Signals all components that manage their data themselves to now store that using SetInstanceData on the editdocument API
 */
@@ -26,9 +27,6 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI EXTEND TolliumEventSource <
 
   /// Can this file be published? Some library/reusable content may disable this. This is not foolproof but prevents obvious mistakes
   PUBLIC BOOLEAN canpublish;
-
-  /// Callback to mark us as readonly
-  PUBLIC MACRO PTR onsetenabled;
 
   /// Callback invoked when the editor should (re)load the edited object's instance data using GetInstanceData
   PUBLIC MACRO PTR onloaddata;

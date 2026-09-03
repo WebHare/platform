@@ -150,7 +150,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase <
              , builtin := namespace = xmlns_forms
           FROM GetAllFormHandlers() AS handlers;
 
-    this->contexts->editdocumentapi->onsetenabled := PTR this->SetEnabled;
+    this->contexts->editdocumentapi->AddEventListener("readonly", PTR this->SetReadOnly);
     this->contexts->editdocumentapi->AddEventListener("loaddocument", PTR this->LoadData);
     this->contexts->editdocumentapi->AddEventListener("storedocument", PTR this->StoreData);
     this->contexts->editdocumentapi->onprechecksave := PTR this->OnPrecheckSave;
@@ -173,7 +173,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase <
     this->ReadFormDefinition(data.data, FALSE);
     this->RefreshStoreResultsUI();
     IF(this->contexts->editdocumentapi->readonly)
-      this->SetReadOnly(this->contexts->editdocumentapi->readonly); //this will currently trigger ReloadList
+      this->ApplyReadOnly(this->contexts->editdocumentapi->readonly); //this will currently trigger ReloadList
     ELSE
       this->ReloadList();
   }
@@ -184,9 +184,9 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase <
     this->contexts->editdocumentapi->SetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool", [ data := data ]);
   }
 
-  MACRO SetEnabled(BOOLEAN enabled)
+  MACRO SetReadOnly()
   {
-    this->SetReadOnly(NOT enabled);
+    this->ApplyReadOnly(this->contexts->editdocumentapi->readonly);
     IF(this->contexts->editdocumentapi->__HaveMetaTabs())
       ^rabbitplaceholder->visible := FALSE;
   }
@@ -1466,7 +1466,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase <
     RETURN this->contexts->editdocumentapi->baseobject;
   }
 
-  MACRO SetReadOnly(BOOLEAN readonly)
+  MACRO ApplyReadOnly(BOOLEAN readonly)
   {
     IF(this->readonly = readonly)//no change!
       RETURN;

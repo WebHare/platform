@@ -7,7 +7,7 @@ PUBLIC STATIC OBJECTTYPE TextEditor EXTEND TolliumScreenBase
 <
   MACRO Init(RECORD data)
   {
-    this->contexts->editdocumentapi->onsetenabled := PTR this->SetEnabled;
+    this->contexts->editdocumentapi->AddEventListener("readonly", PTR this->SetReadOnly);
     this->contexts->editdocumentapi->AddEventListener("loaddocument", PTR this->LoadData);
     this->contexts->editdocumentapi->AddEventListener("storedocument", PTR this->StoreData);
   }
@@ -31,8 +31,8 @@ PUBLIC STATIC OBJECTTYPE TextEditor EXTEND TolliumScreenBase
     this->contexts->editdocumentapi->UpdateMetadata( [ data := StringToBlob(^code->value) ]);
   }
 
-  MACRO SetEnabled(BOOLEAN enabled)
+  MACRO SetReadOnly()
   {
-    ^code->readonly := NOT enabled;
+    ^code->readonly := this->contexts->editdocumentapi->readonly;
   }
 >;

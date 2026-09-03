@@ -44,8 +44,6 @@ LOADLIB "mod::publisher/tolliumapps/editdocument/editbase.whlib";
          publish -> save to public draft, add (+publish), ask 'submit for publicaction'
 */
 
-CONSTANT STRING ARRAY requiredapiproperties :=  [ "onsetenabled" ];
-
 PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
   // ---------------------------------------------------------------------------
   //
@@ -250,10 +248,6 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
 
     OBJECT filehandler := this->LoadScreen(objecteditor.documenteditor);
 
-    FOREVERY(STRING requiredprop FROM requiredapiproperties)
-      IF(IsDefaultValue(GetMember(this->contexts->editdocumentapi, requiredprop)))
-        THROW NEW Exception(`Document editor ${objecteditor.documenteditor} must implement '${requiredprop}'`);
-
     ^doceditor->contents := filehandler;
 
     // Merge document editor toolbar
@@ -386,7 +380,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
 
     BOOLEAN allowpublish;
 
-    this->contexts->editdocumentapi->onsetenabled(this->editable);
+    this->contexts->editdocumentapi->DispatchEvent("readonly");
     this->frame->flags.canedit := this->editable;
     this->frame->flags.readonly := this->readonly;
 
