@@ -958,7 +958,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
         // - it hasn't been disabled through enablecomponents
         const node_enabled = enabled && node.dataset.whFormSavedEnabled === "true" && this._matchesCondition(node.dataset.whFormEnabledIf);
 
-        /* TODO ideally we'd eliminate 'current enabled/required' states, but we need them as long as some components intercetp wh:form-enable and wh:form-require events
+        /* TODO ideally we'd eliminate 'current enabled/required' states, but we need them as long as some components intercept wh:form-enable and wh:form-require events
                 to know the state we told them to put the component in. we may be able to eliminate those events */
         //if node.dataset.whFormCurrentEnabled is unset, we may still need to apply disabled state to a fresh field
         if (!node.dataset.whFormCurrentEnabled || node_enabled !== (node.dataset.whFormCurrentEnabled === "true")) {
