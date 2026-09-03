@@ -128,7 +128,28 @@ runCli({
 });
 ```
 
-runCli may return an `onDone` callback, that will be called when the `main()` has returned.
+runCli returns synchronously, before the relevant `main()` is called. The global options will be returned in the `.global` promise, for usage in freestanding functions. If an `.onData` callback is set in the return value, it will be
+called when the `main()` has returned.
+
+Example:
+
+```typescript
+import { runCli } from "@webhare/cli";
+
+const runData = runCli({
+  flags: { "q,quiet": "Be quiet" },
+  async main() {
+    await runAction();
+  }
+});
+
+runData.onDone = () => console.log(`command complete`);
+
+async function runAction() {
+  if (!(await runData.global).globalOpts.quiet)
+    console.log(`noisy feedback`);
+}
+```
 
 ### Arguments
 There are four forms of arguments:
