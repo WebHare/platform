@@ -1923,6 +1923,24 @@ PUBLIC RECORD ARRAY FUNCTION GetObjectsPaths(STRING ARRAY rights, OBJECT user, I
 // Weblet stubs
 //
 
+RECORD ARRAY FUNCTION GetParentObjectTypeInfo(RECORD objtypedata)
+{
+  RETURN
+      [ [ name :=        ToUppercase(objtypedata.parentfield)
+        , dbase_name :=  objtypedata.parentfield
+        , type :=        TypeID(INTEGER)
+        , flags :=       0
+        , fase :=        0
+        ]
+      , [ name :=        ToUppercase(objtypedata.primarykey)
+        , dbase_name :=  objtypedata.primarykey
+        , type :=        TypeID(INTEGER)
+        , flags :=       0
+        , fase :=        0
+        ]
+      ];
+}
+
 /** Elevated rights calls
 */
 /** Given a right and an object, try to find the parent object. Must be run with full permissions.
@@ -1939,7 +1957,7 @@ PUBLIC INTEGER FUNCTION GetParentObject(STRING objecttypename, INTEGER obj)
     INTEGER trans := GetPrimaryWebhareTransaction();
 
     OBJECT query := NEW DynamicQuery;
-    query->AddTable("query", trans, objtypedata.tablename, [ STRING(objtypedata.parentfield) ]);
+    query->AddTableWithTypeInfo("query", trans, objtypedata.tablename, [ STRING(objtypedata.parentfield) ], GetParentObjectTypeInfo(objtypedata));
     query->AddConstraint("query." || objtypedata.primarykey, "=", obj);
     RECORD result := query->Execute();
 
@@ -1982,7 +2000,7 @@ PUBLIC INTEGER FUNCTION GetParentObject(STRING objecttypename, INTEGER obj)
 
     // Get the relevant records
     OBJECT query := NEW DynamicQuery;
-    query->AddTable("query", trans, objtypedata.tablename, [ STRING(objtypedata.parentfield), objtypedata.primarykey ]);
+    query->AddTableWithTypeInfo("query", trans, objtypedata.tablename, [ STRING(objtypedata.parentfield), objtypedata.primarykey ], GetParentObjectTypeInfo(objtypedata));
     query->AddConstraint("query." || objtypedata.primarykey, "IN", objs);
     RECORD ARRAY rawdata := query->Execute();
 
