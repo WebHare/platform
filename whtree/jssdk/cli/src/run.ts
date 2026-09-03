@@ -680,12 +680,16 @@ export function runCli<
   if (registerData.mode === "autocomplete")
     return runReturn;
 
-  void (async () => {
+  void (async (): Promise<void> => {
     const parsed: Record<string, unknown> & { cmd?: string[] } = {};
     try {
       // Must cast to unknown to avoid TS infinite instantation error
       const parseReturnPromise = parse<E, S, SS>(data, options.argv ?? process.argv.slice(2)) as unknown as Promise<{ cmd?: string[] } & Global>;
       runReturn.global = parseReturnPromise.then(parseReturn => ({ globalOpts: parseReturn.globalOpts, specifiedGlobalOpts: parseReturn.specifiedGlobalOpts }));
+      // don't want uncaught exceptions on runReturn.global, must scripts won't use it
+      runReturn.global.catch(e => void 0);
+      //runReturn.global.catch(e => console.error(`uncaught rejection!!`));
+
       const parseReturn = await parseReturnPromise;
       for (const [key, value] of Object.entries(parseReturn))
         if (!["globalOpts", "specifiedGlobalOpts"].includes(key))
@@ -693,17 +697,19 @@ export function runCli<
     } catch (e) {
       if (e instanceof CLIShowHelp) {
         printHelp(data, { command: e.options.command });
-        return runReturn;
+        void Promise.resolve(true).then(() => runReturn.onDone?.());
+        return;
       }
       if (e instanceof CLIError) {
         printHelp(data, { error: e });
         process.exitCode = 1;
         void Promise.resolve(true).then(() => runReturn.onDone?.());
-        return runReturn;
+        return;
       }
+      // rethrow, let the unhandledRejection handler handle it
       throw e;
-
     }
+
     type MainFunc = (arg: object) => CommandReturn;
 
     // Execute the main() command after an await, so the run() command can first return and make the global options available.
@@ -725,7 +731,7 @@ export function runCli<
         else
           process.exitCode ??= 1;
       } else
-        throw e; // rethrow, let the uncaughtException handler handle it
+        throw e; // rethrow, let the unhandledRejection handler handle it
     } finally {
       runReturn.onDone?.();
     }
