@@ -4,7 +4,7 @@ import * as test from '@mod-system/js/wh/testframework';
 export type SelectorPart = string | Element | RegExp | number | (() => string | Element | RegExp | number | undefined | null);
 export type Selector = SelectorPart[] | string;
 
-function evaluateSelectSingle(start: Element | Document, selector: Selector): HTMLElement | null {
+function evaluateSelectSingle(start: Element | Document, selector: Selector, options?: { expectSVG?: boolean }): SVGElement | HTMLElement | null {
   let currentmatch: Document | Element | Element[] = start;
   if (typeof selector === "string")
     selector = [selector];
@@ -71,10 +71,16 @@ function evaluateSelectSingle(start: Element | Document, selector: Selector): HT
   if (!currentmatch)
     return null;
 
-  //Our API is much more convenient to typed users if we always return a HTMLElement, so enforce that
-  if (!("accessKey" in currentmatch) || !("writingSuggestions" in currentmatch)) {
-    console.error(`Matched a non-HTMLElement: %o`, currentmatch);
-    throw new Error("Matched a non-HTMLElement");
+  if (options?.expectSVG) {
+    if (!("ownerSVGElement" in currentmatch)) {
+      console.error(`Matched a non-SVGElement: %o`, currentmatch);
+      throw new Error("Matched a non-SVGElement");
+    }
+  } else { //Our API is much more convenient to typed users if we always return a HTMLElement, so enforce that
+    if (!("accessKey" in currentmatch) || !("writingSuggestions" in currentmatch)) {
+      console.error(`Matched a non-HTMLElement: %o`, currentmatch);
+      throw new Error("Matched a non-HTMLElement");
+    }
   }
 
   return currentmatch as HTMLElement;
@@ -84,22 +90,28 @@ function evaluateSelectSingle(start: Element | Document, selector: Selector): HT
  * @param selector - either a direct string or an array of [selector,index,selector,index,...]
  * @returns The requested element or null if not found
 */
-export function findElement<E extends Element = test.TestQueriedElement>(selector: Selector): E | null {
-  return evaluateSelectSingle(test.getDoc(), selector) as E | null;
+export function findElement<E extends SVGElement>(selector: Selector, options: { expectSVG: true }): E | null;
+export function findElement<E extends Element = test.TestQueriedElement>(selector: Selector, options?: { expectSVG?: boolean }): E | null;
+
+export function findElement<E extends Element = test.TestQueriedElement>(selector: Selector, options?: { expectSVG?: boolean }): E | null {
+  return evaluateSelectSingle(test.getDoc(), selector, options) as E | null;
 }
 
 /** Wait for an element in the DOM to appear and become clickable. Scroll into view where needed
  * @param selector - either a direct string or an array of [selector,index,selector,index,...]
  * @returns The requested element (will throw on timeout)
 */
-export async function waitForElement<E extends Element = test.TestQueriedElement>(selector: Selector): Promise<E> {
+export async function waitForElement<E extends SVGElement>(selector: Selector, options: { expectSVG: true }): Promise<E>;
+export async function waitForElement<E extends Element = test.TestQueriedElement>(selector: Selector, options?: { expectSVG?: boolean }): Promise<E>;
+
+export async function waitForElement<E extends Element = test.TestQueriedElement>(selector: Selector, options?: { expectSVG?: boolean }): Promise<E> {
   let logstate = Date.now() + 5000;
   return await test.wait(() => {
     const lognow = Date.now() > logstate;
     if (lognow)
       logstate = Date.now() + 5000; //wait 5sec again for new reports
 
-    const node = findElement<E>(selector);
+    const node = findElement<E>(selector, options);
     if (!node) {
       if (lognow)
         console.warn("waitForElement: no match for selector", selector);
