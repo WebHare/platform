@@ -59,6 +59,7 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
   /// Current draft object
   OBJECT currentdraft;
 
+  RECORD ARRAY history;
   RECORD currentautosave_version;
   RECORD currentdraft_version;
   RECORD relevant_created_version;
@@ -176,10 +177,18 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     BOOLEAN hasworkflow := SELECT AS BOOLEAN workflow FROM system_internal.fs_instances WHERE fs_object = this->__GetAutosavedObject()->id AND fs_type = match.id;
     RETURN hasworkflow ? this->__GetAutosavedObject()->GetInstanceData(whfstype) : this->baseobject->GetInstanceData(whfstype);
   }
+  MACRO EnsureStartOfHistory() {
+    IF(Length(this->history) = 0) {
+      ImportCurrentState(this->baseobject->id);  //Import the current final state
+      this->EnsureMetadataUpToDate();
+    }
+  }
   MACRO EnsureAutosave() {
     this->EnsureMetadataUpToDate();
     IF(ObjectExists(this->currentautosave))
       RETURN;
+
+    this->EnsureStartOfHistory();
 
     //The autosave must be linked to the file we're editing, but we should grab instance data from the draft if it exists, otherwise we miss uncached data (as __FlushInstanceData won't see it)
     INTEGER autosave := StartWorkflowUpdate(this->baseobject, ObjectExists(this->currentdraft) ? this->currentdraft->id : this->baseobject->id,
@@ -238,14 +247,14 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
 
   MACRO EnsureMetadataUpToDate() {
     //TODO skip if our cached info should be up to date.
-    RECORD ARRAY history;
     BOOLEAN file_readonly :=
         this->options.readonly
         OR IsReadonlyWHFSSpace(this->baseobject->whfspath)
         OR (NOT this->options.assumewriteaccess
             AND (NOT ObjectExists(this->options.user) OR NOT this->options.user->HasRightOn("system:fs_fullaccess", this->baseobject->id)));
 
-    history := SELECT id, snapshot, type, when, user, currentname
+    this->history :=
+                SELECT id, snapshot, type, when, user, currentname
                   FROM system_internal.fs_history
                  WHERE fs_object = this->baseobject->id
               ORDER BY when, id;
@@ -253,11 +262,11 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     RECORD scheduleinfo := GetScheduleInfo(this->baseobject);
     this->publish_at := scheduleinfo.publish_at;
 
-    RECORD lastautosave := SELECT * FROM history WHERE type = whconstant_historytype_autosave ORDER BY when DESC LIMIT 1;
+    RECORD lastautosave := SELECT * FROM this->history WHERE type = whconstant_historytype_autosave ORDER BY when DESC LIMIT 1;
     //The last version superseding any autosave
-    RECORD last_cancel_autosave := SELECT * FROM history WHERE type IN [ whconstant_historytype_saved, whconstant_historytype_approved, whconstant_historytype_final, whconstant_historytype_abandoned_autosave, whconstant_historytype_abandoned_draft] ORDER BY when DESC LIMIT 1;
+    RECORD last_cancel_autosave := SELECT * FROM this->history WHERE type IN [ whconstant_historytype_saved, whconstant_historytype_approved, whconstant_historytype_final, whconstant_historytype_abandoned_autosave, whconstant_historytype_abandoned_draft] ORDER BY when DESC LIMIT 1;
     //The last version superseding any draft
-    RECORD lastdraftpublish := SELECT * FROM history WHERE type IN [ whconstant_historytype_saved, whconstant_historytype_approved, whconstant_historytype_final, whconstant_historytype_abandoned_draft] ORDER BY when DESC LIMIT 1;
+    RECORD lastdraftpublish := SELECT * FROM this->history WHERE type IN [ whconstant_historytype_saved, whconstant_historytype_approved, whconstant_historytype_final, whconstant_historytype_abandoned_draft] ORDER BY when DESC LIMIT 1;
 
     //TODO ReplaceWith tasks trigger autosaves without an owner/user. (see test-lifecycle). Should we optimize that path?
     INTEGER currentuser := ObjectExists(this->options.user) ? this->options.user->authobjectid : 0;
@@ -267,10 +276,10 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
 
     this->currentautosave := RecordExists(this->currentautosave_version) ? OpenWHFSObject(this->currentautosave_version.snapshot) : DEFAULT OBJECT;
     this->currentdraft := RecordExists(this->currentdraft_version) ? OpenWHFSObject(this->currentdraft_version.snapshot) : DEFAULT OBJECT;
-    this->relevant_created_version := Length(history) = 1 AND history[0].type = whconstant_historytype_created ? history[0] : DEFAULT RECORD;
+    this->relevant_created_version := Length(this->history) = 1 AND this->history[0].type = whconstant_historytype_created ? this->history[0] : DEFAULT RECORD;
 
      //a scheduled publish makes the document readonly until it is published
-    this->read_only := file_readonly ;
+    this->read_only := file_readonly;
     this->editable := this->read_only = FALSE AND this->publish_at = DEFAULT DATETIME;
   }
 
@@ -393,13 +402,7 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
       THROW NEW Exception("Cannot set both publish and publish_at");
 
     this->EnsureMetadataUpToDate();
-
-    RECORD ARRAY history := ListObjectHistory(this->baseobject->id);
-
-    IF(Length(SELECT FROM history WHERE type != "autosave") = 0) {
-      ImportCurrentState(this->baseobject->id);  //Import the current final state
-      history := ListObjectHistory(this->baseobject->id); //reload history
-    }
+    this->EnsureStartOfHistory(); //create an import if needed
 
     IF(NOT options.finalize) {
       IF(NOT RecordExists(this->currentautosave_version))
@@ -431,7 +434,7 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
 
     //If no autosave/draft present *AND* history already ends with a 'final', no need to add an entry
     IF(NOT RecordExists(this->currentautosave_version) AND NOT RecordExists(this->currentdraft_version)) {
-      IF(history[END-1].type = "final") {
+      IF(this->history[END-1].type = whconstant_historytype_final) {
         IF(CellExists(options, "publish")) { //we only need to update publish then, but just toggling that doesn't create additional haistory
           this->baseobject->UpdateMetadata(CELL[ publish := options.publish ]);
         }

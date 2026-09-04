@@ -9,6 +9,7 @@ LOADLIB "mod::publisher/lib/history.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::system/lib/internal/whfs/history.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
@@ -392,6 +393,7 @@ MACRO TestEvents() {
 
   OBJECT metamgr := NEW WorkflowManager(subfile->id, [ user := GetEffectiveUser() ]);
   metamgr->UpdateData(StringToBlob("Draft data 1"));
+  INTEGEr initialsnapshot := ListObjectHistory(subfile->id)[0].snapshot;
   OBJECT draft := metamgr->__GetAutosavedObject();
 
   metamgr->DiscardAutosavedChanges(); //FIXME this isn't generating events as CleanupMyPrivateDrafts isn't caring
@@ -407,6 +409,7 @@ MACRO TestEvents() {
       folder := snapshotfolder,
       events := STRING[],
       files := [
+        [ file := initialsnapshot, isfolder := FALSE, events := [ "create" ] ],
         [ file := draft->id, isfolder := FALSE, events := [ "create", "update" ] ],
         [ file := draft2->id, isfolder := FALSE, events := [ "create", "update" ] ]
       ]
@@ -437,18 +440,14 @@ MACRO TestEvents() {
   testfw->CommitWork();
 
   {
-    RECORD ARRAY events := ExpectWHFSEvents(3);
-    INTEGER finalsnapshot := events[0].files[1].file;
-
     // Draft is moved from autosaves to drafts, so we get a moved event
     // Draft2 is deleted (autosave cleanup)
-    TestEQ([
+    CompareEvents([
       [
         folder := snapshotfolder,
         events := STRING[],
         files := [
           [ file := draft2->id, isfolder := FALSE, events := [ "update" ] ],
-          [ file := finalsnapshot, isfolder := FALSE, events := [ "create" ] ]
         ]
       ], [
         folder := testfolder->id,
@@ -459,7 +458,7 @@ MACRO TestEvents() {
         events := STRING[],
         files := [ [ file := subfile->id, isfolder := FALSE, events := [ "history" ] ] ]
       ]
-    ], events);
+    ], 3);
   }
 
   testfw->BeginWork();
