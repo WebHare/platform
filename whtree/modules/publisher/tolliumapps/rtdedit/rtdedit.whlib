@@ -7,7 +7,7 @@ PUBLIC OBJECTTYPE RichDoc EXTEND TolliumScreenBase
 
   MACRO Init(RECORD data)
   {
-    this->contexts->editdocumentapi->onsetenabled := PTR this->SetEnabled;
+    this->contexts->editdocumentapi->AddEventListener("readonly", PTR this->SetReadOnly);
     this->contexts->editdocumentapi->AddEventListener("loaddocument", PTR this->LoadData);
     this->contexts->editdocumentapi->AddEventListener("storedocument", PTR this->StoreData);
   }
@@ -40,8 +40,8 @@ PUBLIC OBJECTTYPE RichDoc EXTEND TolliumScreenBase
     this->dirtylistener->ClearDirty(); //TODO why even have a separate listener?
   }
 
-  MACRO SetEnabled(BOOLEAN enabled)
+  MACRO SetReadOnly()
   {
-    this->rte->readonly := NOT enabled;
+    this->rte->readonly := this->contexts->editdocumentapi->readonly;
   }
 >;
