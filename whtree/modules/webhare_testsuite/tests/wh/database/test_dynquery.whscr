@@ -67,8 +67,35 @@ MACRO TestDynamicInsert()
       ], SELECT id, normalint, normalvarchar, normalblob FROM testtable ORDER BY id);
 }
 
+MACRO TestDynamicQueryWithTypeInfo()
+{
+  OBJECT trans := GetPrimary();
+  RECORD ARRAY typeinfocols :=
+      [ [ name := "ID"
+        , dbase_name := "id"
+        , type := TypeID(INTEGER)
+        , flags := 0
+        , fase := 0
+        ]
+      , [ name := "NORMALINT"
+        , dbase_name := "normalint"
+        , type := TypeID(INTEGER)
+        , flags := 0
+        , fase := 0
+        ]
+      ];
+
+  OBJECT query := NEW DynamicQuery;
+  query->AddTableWithTypeInfo("test", trans->id, "webhare_testsuite_testschema.testtable", [ "normalint" ], typeinfocols);
+  query->AddConstraint("test.id", "=", 4);
+
+  RECORD result := query->Execute();
+  TestEq(4, result.test.normalint);
+}
+
 RunTestframework(
       [ PTR TestDynamicInsert
+      , PTR TestDynamicQueryWithTypeInfo
       ],
       [ usedatabase := FALSE
       ]);

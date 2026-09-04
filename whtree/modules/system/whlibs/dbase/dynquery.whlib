@@ -110,6 +110,25 @@ PUBLIC OBJECTTYPE DynamicQuery
       INTO this->data.sources AT END;
   }
 
+  /** Add a table source for which the caller already knows the selected column types.
+      This avoids a PostgreSQL catalog lookup for dynamic table names.
+      @param typeinfocols Column descriptions accepted by __HS_SQL_REGISTERTABLETYPEINFO
+  */
+  PUBLIC MACRO AddTableWithTypeInfo(STRING rename, INTEGER transaction, STRING tablename, STRING ARRAY select_columns, RECORD ARRAY typeinfocols)
+  {
+    this->TryInit();
+    rename := ToUppercase(rename);
+    this->CheckRename(rename);
+
+    INSERT [ type := "T"
+           , rename := rename
+           , trans := transaction
+           , name := tablename
+           , tblcols := typeinfocols
+           , cols := select_columns
+           ] INTO this->data.sources AT END;
+  }
+
   /** Add a new selected table source to the query, with a declared table
       @param rename Name of the table in the query
       @param transaction Which transaction must this table be gotten from?
