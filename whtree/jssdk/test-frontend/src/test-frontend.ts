@@ -230,5 +230,7 @@ export {
   startExternalFileDrag,
   sendMouseGesture,
   hasFocus,
-  pressKey
+  pressKey,
+  type Selector,
+  type SelectorPart
 } from "@mod-system/js/wh/testframework";

@@ -952,9 +952,9 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     }
 
     if (todelete.length)
-      await this.__deleteEntities(ids);
+      await this.__deleteEntities(todelete);
     if (toclose.length)
-      await this.__closeEntities(ids, new Date);
+      await this.__closeEntities(toclose, new Date);
   }
 
   async describeAttribute(tag: string): Promise<WRDAttributeConfiguration | null> {
