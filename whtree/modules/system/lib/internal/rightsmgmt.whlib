@@ -1925,6 +1925,9 @@ PUBLIC RECORD ARRAY FUNCTION GetObjectsPaths(STRING ARRAY rights, OBJECT user, I
 
 RECORD ARRAY FUNCTION GetParentObjectTypeInfo(RECORD objtypedata)
 {
+  /* This assumes that the key column in INTEGER. That's true at the moment of this change, but this will need
+     rework when tables with INTEGER64 or STRING key columns are used for rights.
+  */
   RETURN
       [ [ name :=        ToUppercase(objtypedata.parentfield)
         , dbase_name :=  objtypedata.parentfield
