@@ -393,7 +393,7 @@ MACRO TestEvents() {
 
   OBJECT metamgr := NEW WorkflowManager(subfile->id, [ user := GetEffectiveUser() ]);
   metamgr->UpdateData(StringToBlob("Draft data 1"));
-  INTEGEr initialsnapshot := ListObjectHistory(subfile->id)[0].snapshot;
+  INTEGER initialsnapshot := ListObjectHistory(subfile->id)[0].snapshot;
   OBJECT draft := metamgr->__GetAutosavedObject();
 
   metamgr->DiscardAutosavedChanges(); //FIXME this isn't generating events as CleanupMyPrivateDrafts isn't caring
