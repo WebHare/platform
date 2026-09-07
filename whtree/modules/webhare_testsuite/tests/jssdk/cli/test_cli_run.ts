@@ -586,6 +586,7 @@ async function waitRunDone<T extends { onDone?: () => void }>(r: T): Promise<{ d
 
 async function testCLIRun() {
   {
+    let executed = false;
     const res = runCli({
       name: "test",
       description: "Test command",
@@ -593,6 +594,7 @@ async function testCLIRun() {
       options: {},
       arguments: [],
       async main(data) {
+        executed = true;
         test.typeAssert<test.Equals<{ args: object; opts: object; specifiedOpts: never[]; cmd?: undefined }, typeof data>>();
         test.eq({ args: {}, opts: {}, specifiedOpts: [], cmd: undefined }, data);
         test.typeAssert<test.Equals<{ onDone?: () => void; global: Promise<{ globalOpts: object; specifiedGlobalOpts: never[] }> }, typeof res>>();
@@ -600,8 +602,10 @@ async function testCLIRun() {
       }
     }, { argv: [] });
     await waitRunDone(res);
+    test.assert(executed);
   }
   {
+    let executed = false;
     const res = runCli({
       name: "test",
       description: "Test command",
@@ -614,6 +618,7 @@ async function testCLIRun() {
           options: { s: {} },
           arguments: [{ name: "<f1>" }],
           async main(data) {
+            executed = true;
             test.typeAssert<test.Equals<{ args: { f1: string }; opts: { verbose: boolean; a: boolean; s?: string }; specifiedOpts: Array<"a" | "s" | "verbose">; cmd: ["c"] }, typeof data>>();
             test.eq({ args: { f1: "a" }, opts: { a: true, verbose: false }, specifiedOpts: ["a"], cmd: ["c"] }, data);
             test.typeAssert<test.Equals<{ onDone?: () => void; global: Promise<{ globalOpts: { verbose: boolean }; specifiedGlobalOpts: Array<"verbose"> }> }, typeof res>>();
@@ -623,6 +628,46 @@ async function testCLIRun() {
       }
     }, { argv: ["c", "-a", "a"] });
     await waitRunDone(res);
+    test.assert(executed);
+  }
+
+  // STORY: show help with --help
+  {
+    const { output } = await waitRunDone(runCli({
+      options: { a: "option-a", b: { description: "option-b" } },
+      flags: { v: "flag-v", w: { description: "flag-w" } },
+      main() { }
+    }, { argv: ["--help"] }));
+
+    test.eq(0, process.exitCode ?? 0);
+
+    test.eq(`Options:
+  -a                    option-a
+  -b                    option-b
+  -v                    flag-v
+  -w                    flag-w
+`, output);
+  }
+
+  // STORY: test syntax error parsing
+  {
+    const { output } = await waitRunDone(runCli({
+      options: { a: "option-a", b: { description: "option-b" } },
+      flags: { v: "flag-v", w: { description: "flag-w" } },
+      main() { }
+    }, { argv: ["--wrong"] }));
+
+    test.eq(1, process.exitCode);
+    process.exitCode = undefined as number | undefined;
+
+    test.eq(`Error: Unknown option: "wrong"
+
+Options:
+  -a                    option-a
+  -b                    option-b
+  -v                    flag-v
+  -w                    flag-w
+`, output);
   }
 
   // STORY: test CLIRuntimeError handling
@@ -653,7 +698,7 @@ Options:
     main() { throw new CLIRuntimeError("", {}); }
   }));
   test.eq(2, process.exitCode);
-  process.exitCode = 0;
+  process.exitCode = undefined as number | undefined;
 
   dontRun(async () => {
     // Test if main() without arguments, options and flags is handled correctly by the type system

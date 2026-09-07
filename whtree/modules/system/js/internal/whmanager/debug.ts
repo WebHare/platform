@@ -17,68 +17,70 @@ export type PortList = Array<{
   name: string;
 }>;
 
-export enum DebugRequestType {
-  enableInspector,
-  getRecentlyLoggedItems,
-  getHMRState,
-  getCodeContexts,
-  getWorkers,
-  getEnvironment,
-  toggleDebugFlags,
-}
+export const DebugRequestType = {
+  enableInspector: 0,
+  getRecentlyLoggedItems: 1,
+  getHMRState: 2,
+  getCodeContexts: 3,
+  getWorkers: 4,
+  getEnvironment: 5,
+  toggleDebugFlags: 6,
+} as const;
+export type DebugRequestType = typeof DebugRequestType[keyof typeof DebugRequestType];
 
 type DebugRequest = {
-  type: DebugRequestType.enableInspector;
+  type: typeof DebugRequestType.enableInspector;
   port: number;
-  __responseKey: { type: DebugResponseType.enableInspectorResult };
+  __responseKey: { type: typeof DebugResponseType.enableInspectorResult };
 } | {
-  type: DebugRequestType.getRecentlyLoggedItems;
-  __responseKey: { type: DebugResponseType.getRecentlyLoggedItemsResult };
+  type: typeof DebugRequestType.getRecentlyLoggedItems;
+  __responseKey: { type: typeof DebugResponseType.getRecentlyLoggedItemsResult };
 } | {
-  type: DebugRequestType.getHMRState;
-  __responseKey: { type: DebugResponseType.getHMRStateResult };
+  type: typeof DebugRequestType.getHMRState;
+  __responseKey: { type: typeof DebugResponseType.getHMRStateResult };
 } | {
-  type: DebugRequestType.getCodeContexts;
-  __responseKey: { type: DebugResponseType.getCodeContextsResult };
+  type: typeof DebugRequestType.getCodeContexts;
+  __responseKey: { type: typeof DebugResponseType.getCodeContextsResult };
 } | {
-  type: DebugRequestType.getWorkers;
-  __responseKey: { type: DebugResponseType.getWorkersResult };
+  type: typeof DebugRequestType.getWorkers;
+  __responseKey: { type: typeof DebugResponseType.getWorkersResult };
 } | {
-  type: DebugRequestType.getEnvironment;
-  __responseKey: { type: DebugResponseType.getEnvironmentResult };
+  type: typeof DebugRequestType.getEnvironment;
+  __responseKey: { type: typeof DebugResponseType.getEnvironmentResult };
 } | {
-  type: DebugRequestType.toggleDebugFlags;
+  type: typeof DebugRequestType.toggleDebugFlags;
   mode: "enable" | "disable" | "clear";
   flags: string[];
-  __responseKey: { type: DebugResponseType.toggleDebugFlagsResult };
+  __responseKey: { type: typeof DebugResponseType.toggleDebugFlagsResult };
 };
 
-export enum DebugResponseType {
-  register,
-  enableInspectorResult,
-  getRecentlyLoggedItemsResult,
-  getHMRStateResult,
-  getCodeContextsResult,
-  getWorkersResult,
-  getEnvironmentResult,
-  toggleDebugFlagsResult,
-}
+export const DebugResponseType = {
+  register: 0,
+  enableInspectorResult: 1,
+  getRecentlyLoggedItemsResult: 2,
+  getHMRStateResult: 3,
+  getCodeContextsResult: 4,
+  getWorkersResult: 5,
+  getEnvironmentResult: 6,
+  toggleDebugFlagsResult: 7,
+} as const;
+export type DebugResponseType = typeof DebugResponseType[keyof typeof DebugResponseType];
 
 type DebugResponse = {
-  type: DebugResponseType.register;
+  type: typeof DebugResponseType.register;
   pid: number;
   workerid: string;
   workernr: number;
 } | {
-  type: DebugResponseType.enableInspectorResult;
+  type: typeof DebugResponseType.enableInspectorResult;
   url: string;
 } | {
-  type: DebugResponseType.getRecentlyLoggedItemsResult;
+  type: typeof DebugResponseType.getRecentlyLoggedItemsResult;
   items: ConsoleLogItem[];
 } | {
-  type: DebugResponseType.getHMRStateResult;
+  type: typeof DebugResponseType.getHMRStateResult;
 } & HMRState | {
-  type: DebugResponseType.getCodeContextsResult;
+  type: typeof DebugResponseType.getCodeContextsResult;
   codecontexts: Array<{
     id: string;
     title: string;
@@ -86,13 +88,13 @@ type DebugResponse = {
     trace: StackTraceItem[];
   }>;
 } | {
-  type: DebugResponseType.getWorkersResult;
+  type: typeof DebugResponseType.getWorkersResult;
   workers: Array<{ workernr: number; workerid: string }>;
 } | {
-  type: DebugResponseType.getEnvironmentResult;
+  type: typeof DebugResponseType.getEnvironmentResult;
   env: Record<string, string>;
 } | {
-  type: DebugResponseType.toggleDebugFlagsResult;
+  type: typeof DebugResponseType.toggleDebugFlagsResult;
   flags: DebugFlags;
 };
 
@@ -102,34 +104,36 @@ type DebugResponse = {
  */
 export type DebugIPCLinkType = IPCLinkType<DebugResponse, DebugRequest>;
 
-export enum DebugMgrClientLinkRequestType {
-  subscribeProcessList,
-  getProcessList,
-  enableInspector,
-  getRecentlyLoggedItems,
-  getHMRState,
-  getCodeContexts,
-  getWorkers,
-  getEnvironment,
-  toggleDebugFlags,
-}
+export const DebugMgrClientLinkRequestType = {
+  subscribeProcessList: 0,
+  getProcessList: 1,
+  enableInspector: 2,
+  getRecentlyLoggedItems: 3,
+  getHMRState: 4,
+  getCodeContexts: 5,
+  getWorkers: 6,
+  getEnvironment: 7,
+  toggleDebugFlags: 8,
+} as const;
+type DebugMgrClientLinkRequestType = typeof DebugMgrClientLinkRequestType[keyof typeof DebugMgrClientLinkRequestType];
 
-export enum DebugMgrClientLinkResponseType {
-  subscribeProcessListResult,
-  getProcessListResult,
-  eventProcessListUpdated,
-  enableInspectorResult,
-  getRecentlyLoggedItemsResult,
-  getHMRStateResult,
-  getCodeContextsResult,
-  getWorkersResult,
-  getEnvironmentResult,
-  toggleDebugFlagsResult,
-}
+export const DebugMgrClientLinkResponseType = {
+  subscribeProcessListResult: 0,
+  getProcessListResult: 1,
+  eventProcessListUpdated: 2,
+  enableInspectorResult: 3,
+  getRecentlyLoggedItemsResult: 4,
+  getHMRStateResult: 5,
+  getCodeContextsResult: 6,
+  getWorkersResult: 7,
+  getEnvironmentResult: 8,
+  toggleDebugFlagsResult: 9,
+} as const;
+type DebugMgrClientLinkResponseType = typeof DebugMgrClientLinkResponseType[keyof typeof DebugMgrClientLinkResponseType];
 
 /** List of directly forwarded calls */
 export const directforwards = {
-  [DebugMgrClientLinkRequestType.getRecentlyLoggedItems]: { requesttype: DebugRequestType.getRecentlyLoggedItems, responsetype: DebugResponseType.getRecentlyLoggedItemsResult, clientresponsetype: DebugMgrClientLinkResponseType.getRecentlyLoggedItemsResult },
+  [DebugMgrClientLinkRequestType.getRecentlyLoggedItems]: { requesttype: DebugRequestType.getRecentlyLoggedItems, responsetype: DebugResponseType.getRecentlyLoggedItemsResult, clientresponsetype: DebugMgrClientLinkResponseType.getRecentlyLoggedItemsResult } as const,
   [DebugMgrClientLinkRequestType.getHMRState]: { requesttype: DebugRequestType.getHMRState, responsetype: DebugResponseType.getHMRStateResult, clientresponsetype: DebugMgrClientLinkResponseType.getHMRStateResult },
   [DebugMgrClientLinkRequestType.getCodeContexts]: { requesttype: DebugRequestType.getCodeContexts, responsetype: DebugResponseType.getCodeContextsResult, clientresponsetype: DebugMgrClientLinkResponseType.getCodeContextsResult },
   [DebugMgrClientLinkRequestType.getWorkers]: { requesttype: DebugRequestType.getWorkers, responsetype: DebugResponseType.getWorkersResult, clientresponsetype: DebugMgrClientLinkResponseType.getWorkersResult },
@@ -157,27 +161,27 @@ type ForwardLinkSpecs<K extends keyof typeof directforwards = keyof typeof direc
 
 export type DebugMgrClientLinkRequest = {
   // If enabled, send a `eventProcessListUpdated` message every time the process list has changed after a `getProcessList` call.
-  type: DebugMgrClientLinkRequestType.subscribeProcessList;
+  type: typeof DebugMgrClientLinkRequestType.subscribeProcessList;
   enable: boolean;
-  __responseKey: { type: DebugMgrClientLinkResponseType.subscribeProcessListResult };
+  __responseKey: { type: typeof DebugMgrClientLinkResponseType.subscribeProcessListResult };
 } | {
-  type: DebugMgrClientLinkRequestType.getProcessList;
-  __responseKey: { type: DebugMgrClientLinkResponseType.getProcessListResult };
+  type: typeof DebugMgrClientLinkRequestType.getProcessList;
+  __responseKey: { type: typeof DebugMgrClientLinkResponseType.getProcessListResult };
 } | {
-  type: DebugMgrClientLinkRequestType.enableInspector;
+  type: typeof DebugMgrClientLinkRequestType.enableInspector;
   processid: string;
-  __responseKey: { type: DebugMgrClientLinkResponseType.enableInspectorResult };
+  __responseKey: { type: typeof DebugMgrClientLinkResponseType.enableInspectorResult };
 } | ForwardLinkSpecs["RequestTypeForLink"];
 
 export type DebugMgrClientLinkResponse = {
-  type: DebugMgrClientLinkResponseType.subscribeProcessListResult;
+  type: typeof DebugMgrClientLinkResponseType.subscribeProcessListResult;
 } | {
-  type: DebugMgrClientLinkResponseType.getProcessListResult;
+  type: typeof DebugMgrClientLinkResponseType.getProcessListResult;
   processlist: ProcessList;
 } | {
-  type: DebugMgrClientLinkResponseType.eventProcessListUpdated;
+  type: typeof DebugMgrClientLinkResponseType.eventProcessListUpdated;
 } | {
-  type: DebugMgrClientLinkResponseType.enableInspectorResult;
+  type: typeof DebugMgrClientLinkResponseType.enableInspectorResult;
   url: string;
 } | ForwardLinkSpecs["Response"];
 

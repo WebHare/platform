@@ -1909,6 +1909,7 @@
           <text tid="fullname">Name</text>
           <text tid="include_autosaves">Include autosaves</text>
           <text tid="metadata">Metadata</text>
+          <text tid="newdocumentnopreview">This version (document creation) does not have a preview</text>
           <text tid="previewtab">Preview</text>
           <text tid="unknownuser">Unknown user</text>
           <text tid="versionnumber">Content version</text>

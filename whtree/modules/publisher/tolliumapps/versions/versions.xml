@@ -71,7 +71,7 @@
             <column name="filename" type="text" />
             <column name="comment" type="text" />
             <column name="displayname" type="text" tid=".fullname" />
-            <column name="versionnumber" type="text" width="8x" sortkeyname="versionsort" tid=".versionnumber" align="right" />
+            <column name="versionnumber" type="text" width="8x" align="right" sortkeyname="versionsort" tid=".versionnumber" />
             <rowlayout name="singlerow">
               <col coldef="historytype_icon" />
               <col coldef="when" />
@@ -108,7 +108,7 @@
             </line>
           </panel>
           <line layout="left">
-            <checkbox name="include_autosaves" title="" labeltid=".include_autosaves" onchange="onfilterchange" />
+            <checkbox name="include_autosaves" labeltid=".include_autosaves" onchange="onfilterchange" title="" />
           </line>
         </part>
         <part width="2pr" spacers="none">
@@ -128,7 +128,18 @@
               </list>
             </tab>
             <tab spacers="none" tid=".previewtab">
-              <publisher:previewbrowser name="previewbrowser" urlbarvisible="false" />
+              <tabs name="previewcontenttabs" type="server" height="1pr">
+                <tab name="previewcontent" title="">
+                  <publisher:previewbrowser name="previewbrowser" urlbarvisible="false" />
+                </tab>
+                <tab name="previewnewdocument" width="1pr" title="">
+                  <spacer height="1pr" />
+                  <line layout="center">
+                    <text title="" valuetid=".newdocumentnopreview" />
+                  </line>
+                  <spacer height="1pr" />
+                </tab>
+              </tabs>
             </tab>
             <tab name="metadata" width="1pr" vscroll="true">
               <tabs name="templatetabs" type="stacked" height="1pr" visible="false">

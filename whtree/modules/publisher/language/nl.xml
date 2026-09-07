@@ -1907,6 +1907,7 @@
           <text tid="fullname">Naam</text>
           <text tid="include_autosaves">Toon autosaves</text>
           <text tid="metadata">Metadata</text>
+          <text tid="newdocumentnopreview">Deze versie (aanmaken van het document) heeft geen preview</text>
           <text tid="previewtab">Voorbeeldweergave</text>
           <text tid="unknownuser">Onbekende gebruiker</text>
           <text tid="versionnumber">Contentversie</text>

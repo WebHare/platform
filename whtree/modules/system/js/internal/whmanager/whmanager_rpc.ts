@@ -139,7 +139,7 @@ export function parseRPC(data: Buffer<ArrayBuffer>): defs.WHMResponse {
       return { opcode, requestid };
     }
     default: {
-      opcode satisfies defs.WHMResponseOpcode.Answer | defs.WHMResponseOpcode.Reset;
+      opcode satisfies typeof defs.WHMResponseOpcode.Answer | typeof defs.WHMResponseOpcode.Reset;
       throw new Error(`Cannot decode opcode #${opcode}`);
     }
   }

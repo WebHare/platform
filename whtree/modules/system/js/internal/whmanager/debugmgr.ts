@@ -201,7 +201,8 @@ class DebugMgrClient {
       if (!reg) {
         throw new Error(`Process has already terminated`);
       }
-      const res = await reg.link.doRequest({ ...message, type: directforwards[message.type].requesttype });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- can't get this to type-check
+      const res = await reg.link.doRequest({ ...message, type: directforwards[message.type].requesttype } as any);
       this.link.send({
         ...res,
         type: directforwards[message.type].clientresponsetype,

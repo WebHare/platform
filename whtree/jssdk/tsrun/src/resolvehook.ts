@@ -104,6 +104,11 @@ export function installResolveHook(config: { debug: boolean; cachePath: string }
     fs.writeFile(path.join(cachepath, "CACHEDIR.TAG"), "Signature: 8a477f597d28d172789f06886806bc55\n", () => { return; }); //ignoring errors
   }
 
+  // Load only one instance of the following packages.
+  const noDuplicates: Record<string, { mainImport: string; base: string | null }> = {
+    "@webhare/env": { mainImport: "/src/env.ts", base: null }
+  };
+
   /* TypeScript allows you to 'import "../../xxx.js"' even if only the .ts version exists. The compiler understands this and automatically
      switches to the ts version and gets the type. The expectation is that a build step will create the js files.
      esbuild will simply require the .js file, so if such a require fails we'll retry with the .ts extension.
@@ -114,6 +119,15 @@ export function installResolveHook(config: { debug: boolean; cachePath: string }
   */
   const oldresolve = Module._resolveFilename.bind(Module);
   Module._resolveFilename = function (request: string, parent: unknown, isMain: boolean, options?: unknown): string {
+    const isUnique = Object.keys(noDuplicates).find(key => request === key || request.startsWith(key + "/"));
+    if (isUnique) {
+      const oldReQuest = request;
+      const base = noDuplicates[isUnique].base ??= oldresolve(isUnique, parent, isMain, options).split(noDuplicates[isUnique].mainImport)[0];
+      request = base + (request.slice(isUnique.length) || noDuplicates[isUnique].mainImport);
+      if (debug)
+        console.error('[runner] rewriting noDuplicates request', oldReQuest, 'as', request);
+    }
+
     try {
       return oldresolve(request, parent, isMain, options);
     } catch (e) {

@@ -1,83 +1,86 @@
-export enum WHMRequestOpcode {
-  SendEvent = 101,
-  RegisterPort = 102,
-  UnregisterPort = 103,
-  ConnectLink = 104,
-  OpenLinkResult = 105,
-  DisconnectLink = 106,
-  SendMessageOverLink = 107,
-  RegisterProcess = 108,
-  GetProcessList = 109,
-  ConfigureLogs = 110,
-  Log = 111,
-  Disconnect = 112,
-  FlushLog = 113,
-  SetSystemConfig = 114,
-  GetPortList = 115,
-  FenceEvents = 116,
-}
+export const WHMRequestOpcode = {
+  SendEvent: 101,
+  RegisterPort: 102,
+  UnregisterPort: 103,
+  ConnectLink: 104,
+  OpenLinkResult: 105,
+  DisconnectLink: 106,
+  SendMessageOverLink: 107,
+  RegisterProcess: 108,
+  GetProcessList: 109,
+  ConfigureLogs: 110,
+  Log: 111,
+  Disconnect: 112,
+  FlushLog: 113,
+  SetSystemConfig: 114,
+  GetPortList: 115,
+  FenceEvents: 116,
+} as const;
+export type WHMRequestOpcode = typeof WHMRequestOpcode[keyof typeof WHMRequestOpcode];
 
-export enum WHMResponseOpcode {
-  Answer = 0,                     ///< Normal response to a request
-  AnswerException,                ///< Exception has triggered!
-  Reset,                          ///< Reset response code (after this code, connection can be reused)
-  IncomingEvent = 101,
-  RegisterPortResult = 102,
-  OpenLink = 103,
-  ConnectLinkResult = 104,
-  LinkClosed = 105,
-  IncomingMessage = 106,
-  RegisterProcessResult = 107,
-  GetProcessListResult = 108,
-  UnregisterPortResult = 109,
-  ConfigureLogsResult = 110,
-  FlushLogResult = 111,
-  SystemConfig = 112,
-  GetPortListResult = 113,
-  FenceEventsResult = 114,
-}
+export const WHMResponseOpcode = {
+  Answer: 0,                     ///< Normal response to a request
+  AnswerException: 1,                ///< Exception has triggered!
+  Reset: 2,                          ///< Reset response code (after this code, connection can be reused)
+  IncomingEvent: 101,
+  RegisterPortResult: 102,
+  OpenLink: 103,
+  ConnectLinkResult: 104,
+  LinkClosed: 105,
+  IncomingMessage: 106,
+  RegisterProcessResult: 107,
+  GetProcessListResult: 108,
+  UnregisterPortResult: 109,
+  ConfigureLogsResult: 110,
+  FlushLogResult: 111,
+  SystemConfig: 112,
+  GetPortListResult: 113,
+  FenceEventsResult: 114,
+} as const;
+export type WHMResponseOpcode = typeof WHMResponseOpcode[keyof typeof WHMResponseOpcode];
 
-export enum WHMProcessType {
-  HareScript = 1,
-  TypeScript = 2,
-}
+export const WHMProcessType = {
+  HareScript: 1,
+  TypeScript: 2,
+} as const;
+export type WHMProcessType = typeof WHMProcessType[keyof typeof WHMProcessType];
 
 export type WHMRequest_SendEvent = {
-  opcode: WHMRequestOpcode.SendEvent;
+  opcode: typeof WHMRequestOpcode.SendEvent;
   eventname: string;
   eventdata: Buffer<ArrayBuffer> | ArrayBuffer;
 };
 export type WHMRequest_RegisterPort = {
-  opcode: WHMRequestOpcode.RegisterPort;
+  opcode: typeof WHMRequestOpcode.RegisterPort;
   portname: string;
   linkid: number;
   msgid: bigint;
 };
 export type WHMRequest_UnregisterPort = {
-  opcode: WHMRequestOpcode.UnregisterPort;
+  opcode: typeof WHMRequestOpcode.UnregisterPort;
   portname: string;
   linkid: number;
   msgid: bigint;
   need_unregister_response: boolean;
 };
 export type WHMRequest_ConnectLink = {
-  opcode: WHMRequestOpcode.ConnectLink;
+  opcode: typeof WHMRequestOpcode.ConnectLink;
   portname: string;
   linkid: number;
   msgid: bigint;
 };
 export type WHMRequest_OpenLinkResult = {
-  opcode: WHMRequestOpcode.OpenLinkResult;
+  opcode: typeof WHMRequestOpcode.OpenLinkResult;
   linkid: number;
   replyto: bigint;
   success: boolean;
 };
 export type WHMRequest_DisconnectLink = {
-  opcode: WHMRequestOpcode.DisconnectLink;
+  opcode: typeof WHMRequestOpcode.DisconnectLink;
   linkid: number;
 };
 export type WHMRequest_SendMessageOverLink = {
-  opcode: WHMRequestOpcode.SendMessageOverLink;
+  opcode: typeof WHMRequestOpcode.SendMessageOverLink;
   linkid: number;
   msgid: bigint;
   replyto: bigint;
@@ -85,18 +88,18 @@ export type WHMRequest_SendMessageOverLink = {
   messagedata: Uint8Array<ArrayBuffer> | ArrayBuffer;
 };
 export type WHMRequest_RegisterProcess = {
-  opcode: WHMRequestOpcode.RegisterProcess;
+  opcode: typeof WHMRequestOpcode.RegisterProcess;
   pid: number;
-  type: WHMProcessType;
+  type: typeof WHMProcessType[keyof typeof WHMProcessType];
   name: string;
   parameters: Record<string, string>;
 };
 export type WHMRequest_GetProcessList = {
-  opcode: WHMRequestOpcode.GetProcessList;
+  opcode: typeof WHMRequestOpcode.GetProcessList;
   requestid: number;
 };
 export type WHMRequest_GetPortList = {
-  opcode: WHMRequestOpcode.GetPortList;
+  opcode: typeof WHMRequestOpcode.GetPortList;
   requestid: number;
 };
 export type LogFileConfiguration = {
@@ -109,29 +112,29 @@ export type LogFileConfiguration = {
   timestamps: boolean;
 };
 export type WHMRequest_ConfigureLogs = {
-  opcode: WHMRequestOpcode.ConfigureLogs;
+  opcode: typeof WHMRequestOpcode.ConfigureLogs;
   requestid: number;
   config: LogFileConfiguration[];
 };
 export type WHMRequest_Log = {
-  opcode: WHMRequestOpcode.Log;
+  opcode: typeof WHMRequestOpcode.Log;
   logname: string;
   logline: string;
 };
 export type WHMRequest_Disconnect = {
-  opcode: WHMRequestOpcode.Disconnect;
+  opcode: typeof WHMRequestOpcode.Disconnect;
 };
 export type WHMRequest_FlushLog = {
-  opcode: WHMRequestOpcode.FlushLog;
+  opcode: typeof WHMRequestOpcode.FlushLog;
   requestid: number;
   logname: string;
 };
 export type WHMRequest_SetSystemConfig = {
-  opcode: WHMRequestOpcode.SetSystemConfig;
+  opcode: typeof WHMRequestOpcode.SetSystemConfig;
   systemconfigdata: Buffer<ArrayBuffer> | ArrayBuffer;
 };
 export type WHMRequest_FenceEvents = {
-  opcode: WHMRequestOpcode.FenceEvents;
+  opcode: typeof WHMRequestOpcode.FenceEvents;
   requestid: number;
 };
 
@@ -153,7 +156,7 @@ export type WHMRequest = WHMRequest_SendEvent |
   WHMRequest_FenceEvents;
 
 export type WHMResponse_AnswerException = {
-  opcode: WHMResponseOpcode.AnswerException;
+  opcode: typeof WHMResponseOpcode.AnswerException;
   exception_code: number;
   exception_text: string;
   exception_table: string;
@@ -161,41 +164,41 @@ export type WHMResponse_AnswerException = {
   exception_clientname: string;
 };
 export type WHMResponse_IncomingEvent = {
-  opcode: WHMResponseOpcode.IncomingEvent;
+  opcode: typeof WHMResponseOpcode.IncomingEvent;
   eventname: string;
   eventdata: Buffer<ArrayBuffer>;
 };
 export type WHMResponse_RegisterPortResult = {
-  opcode: WHMResponseOpcode.RegisterPortResult;
+  opcode: typeof WHMResponseOpcode.RegisterPortResult;
   portname: string;
   linkid: number;
   replyto: bigint;
   success: boolean;
 };
 export type WHMResponse_UnregisterPortResult = {
-  opcode: WHMResponseOpcode.UnregisterPortResult;
+  opcode: typeof WHMResponseOpcode.UnregisterPortResult;
   portname: string;
   linkid: number;
   replyto: bigint;
 };
 export type WHMResponse_OpenLink = {
-  opcode: WHMResponseOpcode.OpenLink;
+  opcode: typeof WHMResponseOpcode.OpenLink;
   portname: string;
   linkid: number;
   msgid: bigint;
 };
 export type WHMResponse_ConnectLinkResult = {
-  opcode: WHMResponseOpcode.ConnectLinkResult;
+  opcode: typeof WHMResponseOpcode.ConnectLinkResult;
   linkid: number;
   replyto: bigint;
   success: boolean;
 };
 export type WHMResponse_LinkClosed = {
-  opcode: WHMResponseOpcode.LinkClosed;
+  opcode: typeof WHMResponseOpcode.LinkClosed;
   linkid: number;
 };
 export type WHMResponse_IncomingMessage = {
-  opcode: WHMResponseOpcode.IncomingMessage;
+  opcode: typeof WHMResponseOpcode.IncomingMessage;
   linkid: number;
   msgid: bigint;
   replyto: bigint;
@@ -203,7 +206,7 @@ export type WHMResponse_IncomingMessage = {
   messagedata: Buffer<ArrayBuffer>;
 };
 export type WHMResponse_GetProcessListResult = {
-  opcode: WHMResponseOpcode.GetProcessListResult;
+  opcode: typeof WHMResponseOpcode.GetProcessListResult;
   requestid: number;
   processes: Array<{
     pid: number;
@@ -213,29 +216,29 @@ export type WHMResponse_GetProcessListResult = {
   }>;
 };
 export type WHMResponse_ConfigureLogsResult = {
-  opcode: WHMResponseOpcode.ConfigureLogsResult;
+  opcode: typeof WHMResponseOpcode.ConfigureLogsResult;
   requestid: number;
   results: boolean[];
 };
 export type WHMResponse_FlushLogResult = {
-  opcode: WHMResponseOpcode.FlushLogResult;
+  opcode: typeof WHMResponseOpcode.FlushLogResult;
   requestid: number;
   result: boolean;
 };
 export type WHMResponse_SystemConfig = {
-  opcode: WHMResponseOpcode.SystemConfig;
+  opcode: typeof WHMResponseOpcode.SystemConfig;
   have_hs_debugger: boolean;
   have_ts_debugger: boolean;
   systemconfigdata: Buffer<ArrayBuffer>;
 };
 export type WHMResponse_RegisterProcessResult = {
-  opcode: WHMResponseOpcode.RegisterProcessResult;
+  opcode: typeof WHMResponseOpcode.RegisterProcessResult;
   have_hs_debugger: boolean;
   have_ts_debugger: boolean;
   systemconfigdata: Buffer<ArrayBuffer>;
 };
 export type WHMResponse_GetPortListResult = {
-  opcode: WHMResponseOpcode.GetPortListResult;
+  opcode: typeof WHMResponseOpcode.GetPortListResult;
   requestid: number;
   ports: Array<{
     name: string;
@@ -243,7 +246,7 @@ export type WHMResponse_GetPortListResult = {
   }>;
 };
 export type WHMResponse_FenceEventsResult = {
-  opcode: WHMResponseOpcode.FenceEventsResult;
+  opcode: typeof WHMResponseOpcode.FenceEventsResult;
   requestid: number;
 };
 
