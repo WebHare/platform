@@ -170,6 +170,9 @@ PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
       STRING link := GetPreviewLink(sel.snapshot);
       ^previewbrowser->SetPreviewURL(link);
 
+      // Assumption: sel.snapshot is 0 only for the document creation version.
+      ^previewcontenttabs->selectedtab := sel.snapshot = 0 ? ^previewnewdocument : ^previewcontent;
+
       // Ensure maintab won't be destroyed
       ^maintab->RemoveFromParent();
 
@@ -233,6 +236,7 @@ PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
     ELSE
     {
       ^previewbrowser->SetPreviewURL("");
+      ^previewcontenttabs->selectedtab := ^previewcontent;
       ^modifications->rows := DEFAULT RECORD ARRAY;
       this->maintabs->visible := FALSE;
     }

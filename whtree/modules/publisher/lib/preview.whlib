@@ -31,6 +31,9 @@ PUBLIC STRING FUNCTION GetPreviewLink(INTEGER fsobject, RECORD options DEFAULTST
   IF(options.validuntil = DEFAULT DATETIME)
     options.validuntil := AddDaysToDate(1, GetCurrentDatetime());
 
+  IF (fsobject = 0)
+    RETURN "";
+
   STRING baseurl := SELECT AS STRING objecturl FROM system.fs_objects WHERE id = fsobject;
 
   RECORD viewdata := [ id := fsobject, c := (SELECT AS DATETIME creationdate FROM system.fs_objects WHERE id = fsobject), v := options.validuntil, p := options.password ];
