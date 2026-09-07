@@ -456,13 +456,6 @@ PUBLIC MACRO TolliumUpdateRoleGrant(OBJECT contexts, OBJECT work, STRING action,
 
   FOREVERY (OBJECT obj FROM grantees)
   {
-    // User either should have the right to browse the new role, or should get it with the new role
-    IF (NOT roleunit->IsVisibleFor(obj) AND NOT roleunit->IsVisibleFor(roleobj))
-      work->AddWarning(GetTid("system:userrights.commondialogs.errors.usercannotviewunitofrole", obj->GetUserRightsName(), roleobj->GetUserRightsName()));
-  }
-
-  FOREVERY (OBJECT obj FROM grantees)
-  {
     LogAuditEvent("system:userrights", CELL[ action :=  action || "-role"
                                            , grantee := obj->GetUserDataForLogging()
                                            , roleauthobjectid := roleobj->authobjectid

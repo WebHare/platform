@@ -196,7 +196,7 @@ PUBLIC RECORD ARRAY FUNCTION CheckCertificates()
         RECORD period := obj->GetDefaultRenewalWarningPeriod();
         RECORD diff := GetDateTimeDifference(now, certdata.valid_until);
         //Is renew_window_end the proper time to look for? a case could be made that we'd need to look at our planned rerequest date plus a grace period , which may be before renew_window_end but still indicates a problem may be coming up
-        IF (period.renew_window_end != DEFAULT DATETIME AND now < period.renew_window_end)
+        IF (period.renew_window_end != DEFAULT DATETIME AND now > period.renew_window_end)
           INSERT
               [ msg := `:The certificate for key '${obj->name}' which expires in ${diff.days} days should have been renewed before ${FormatISO8601DateTime(period.renew_window_end)}`
               , jumpto := jumpto
