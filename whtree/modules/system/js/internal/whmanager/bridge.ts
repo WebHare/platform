@@ -3,7 +3,7 @@ import { WHManagerConnection, type WHMResponse } from "./whmanager_conn";
 import { type WHMRequest, WHMRequestOpcode, WHMResponseOpcode, WHMProcessType, type LogFileConfiguration } from "./whmanager_rpcdefs";
 import * as hsmarshalling from "./hsmarshalling";
 import { registerAsNonReloadableLibrary, getState as getHMRState } from "../../../../../jssdk/services/src/hmrinternal";
-import { pick, generateRandomId } from "@webhare/std";
+import { pick, generateRandomId, enumReverseMap } from "@webhare/std";
 import { type IPCPortControlMessage, type IPCEndPointImplControlMessage, IPCEndPointImpl, IPCPortImpl, IPCPortControlMessageType, IPCEndPointImplControlMessageType, type IPCLinkType, getIPCEndPointImplControlMessageTypeName } from "./ipc";
 import { type TypedMessagePort, createTypedMessageChannel, bufferToArrayBuffer, type AnyTypedMessagePort } from './transport';
 import { RefTracker } from "./refs";
@@ -149,129 +149,129 @@ interface Bridge extends EventSource<BridgeEvents> {
   fenceEvents(): Promise<void>;
 }
 
-enum ToLocalBridgeMessageType {
-  SystemConfig,
-  Event,
-  FlushLogResult,
-  EnsureDataSentResult,
-  GetProcessListResult,
-  ConfigureLogsResult,
-  ConnectToLocalServiceResult,
-  GetPortListResult,
-  ChangeLocalDebugFlags,
-  FenceEventsResult,
-}
+const ToLocalBridgeMessageType = {
+  SystemConfig: 0,
+  Event: 1,
+  FlushLogResult: 2,
+  EnsureDataSentResult: 3,
+  GetProcessListResult: 4,
+  ConfigureLogsResult: 5,
+  ConnectToLocalServiceResult: 6,
+  GetPortListResult: 7,
+  ChangeLocalDebugFlags: 8,
+  FenceEventsResult: 9,
+} as const;
 
 type ToLocalBridgeMessage = {
-  type: ToLocalBridgeMessageType.SystemConfig;
+  type: typeof ToLocalBridgeMessageType.SystemConfig;
   connected: boolean;
   systemconfig: Record<string, unknown>;
   have_ts_debugger: boolean;
 } | {
-  type: ToLocalBridgeMessageType.Event;
+  type: typeof ToLocalBridgeMessageType.Event;
   name: string;
   data: ArrayBuffer;
 } | {
-  type: ToLocalBridgeMessageType.FlushLogResult;
+  type: typeof ToLocalBridgeMessageType.FlushLogResult;
   requestid: number;
   success: boolean;
 } | {
-  type: ToLocalBridgeMessageType.EnsureDataSentResult;
+  type: typeof ToLocalBridgeMessageType.EnsureDataSentResult;
   requestid: number;
 } | {
-  type: ToLocalBridgeMessageType.GetProcessListResult;
+  type: typeof ToLocalBridgeMessageType.GetProcessListResult;
   requestid: number;
   processes: ProcessList;
 } | {
-  type: ToLocalBridgeMessageType.GetPortListResult;
+  type: typeof ToLocalBridgeMessageType.GetPortListResult;
   requestid: number;
   ports: PortList;
 } | {
-  type: ToLocalBridgeMessageType.ConfigureLogsResult;
+  type: typeof ToLocalBridgeMessageType.ConfigureLogsResult;
   requestid: number;
   results: boolean[];
 } | {
-  type: ToLocalBridgeMessageType.ConnectToLocalServiceResult;
+  type: typeof ToLocalBridgeMessageType.ConnectToLocalServiceResult;
   requestid: number;
   error: string;
 } | {
-  type: ToLocalBridgeMessageType.ChangeLocalDebugFlags;
+  type: typeof ToLocalBridgeMessageType.ChangeLocalDebugFlags;
   mode: "enable" | "disable" | "clear";
   flags: string[];
 } | {
-  type: ToLocalBridgeMessageType.FenceEventsResult;
+  type: typeof ToLocalBridgeMessageType.FenceEventsResult;
   requestid: number;
 };
 
-enum ToMainBridgeMessageType {
-  SendEvent,
-  RegisterPort,
-  ConnectLink,
-  Log,
-  FlushLog,
-  EnsureDataSent,
-  GetProcessList,
-  GetPortList,
-  RegisterLocalBridge,
-  ConfigureLogs,
-  ConnectToLocalService,
-  ChangeLocalDebugFlags,
-  FenceEvents,
-}
+const ToMainBridgeMessageType = {
+  SendEvent: 0,
+  RegisterPort: 1,
+  ConnectLink: 2,
+  Log: 3,
+  FlushLog: 4,
+  EnsureDataSent: 5,
+  GetProcessList: 6,
+  GetPortList: 7,
+  RegisterLocalBridge: 8,
+  ConfigureLogs: 9,
+  ConnectToLocalService: 10,
+  ChangeLocalDebugFlags: 11,
+  FenceEvents: 12,
+} as const;
 
 type ToMainBridgeMessage = {
-  type: ToMainBridgeMessageType.SendEvent;
+  type: typeof ToMainBridgeMessageType.SendEvent;
   name: string;
   data: ArrayBuffer;
   local: boolean;
 } | {
-  type: ToMainBridgeMessageType.RegisterPort;
+  type: typeof ToMainBridgeMessageType.RegisterPort;
   name: string;
   port: TypedMessagePort<IPCPortControlMessage, never>;
   global: boolean;
 } | {
-  type: ToMainBridgeMessageType.ConnectLink;
+  type: typeof ToMainBridgeMessageType.ConnectLink;
   name: string;
   id: string;
   port: TypedMessagePort<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>;
   global: boolean;
 } | {
-  type: ToMainBridgeMessageType.Log;
+  type: typeof ToMainBridgeMessageType.Log;
   logname: string;
   logline: string;
 } | {
-  type: ToMainBridgeMessageType.FlushLog;
+  type: typeof ToMainBridgeMessageType.FlushLog;
   requestid: number;
   logname: string;
 } | {
-  type: ToMainBridgeMessageType.EnsureDataSent;
+  type: typeof ToMainBridgeMessageType.EnsureDataSent;
   requestid: number;
 } | {
-  type: ToMainBridgeMessageType.GetProcessList;
+  type: typeof ToMainBridgeMessageType.GetProcessList;
   requestid: number;
 } | {
-  type: ToMainBridgeMessageType.GetPortList;
+  type: typeof ToMainBridgeMessageType.GetPortList;
   requestid: number;
 } | {
-  type: ToMainBridgeMessageType.RegisterLocalBridge;
+  type: typeof ToMainBridgeMessageType.RegisterLocalBridge;
   workerid: string;
   workernr: number;
   port: TypedMessagePort<ToLocalBridgeMessage, ToMainBridgeMessage>;
 } | {
-  type: ToMainBridgeMessageType.ConfigureLogs;
+  type: typeof ToMainBridgeMessageType.ConfigureLogs;
   requestid: number;
   config: LogFileConfiguration[];
 } | {
-  type: ToMainBridgeMessageType.ConnectToLocalService;
+  type: typeof ToMainBridgeMessageType.ConnectToLocalService;
   requestid: number;
   factory: string;
   port: MessagePort;
 } | {
-  type: ToMainBridgeMessageType.ChangeLocalDebugFlags;
+  type: typeof ToMainBridgeMessageType.ChangeLocalDebugFlags;
   mode: "enable" | "disable" | "clear";
   flags: string[];
 } | {
-  type: ToMainBridgeMessageType.FenceEvents;
+  type: typeof ToMainBridgeMessageType.FenceEvents;
   requestid: number;
 };
 
@@ -371,7 +371,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
 
   handleControlMessage(message: ToLocalBridgeMessage) {
     if (envbackend.debugFlags.ipc)
-      console.log(`localbridge ${this.workerid}: message from mainbridge`, { ...message, type: ToLocalBridgeMessageType[message.type] });
+      console.log(`localbridge ${this.workerid}: message from mainbridge`, { ...message, type: enumReverseMap(ToLocalBridgeMessageType, message.type) });
     switch (message.type) {
       case ToLocalBridgeMessageType.SystemConfig: {
         this.systemconfig = message.systemconfig;
@@ -956,13 +956,13 @@ class MainBridge extends EventSource<BridgeEvents> {
 
   sendData(data: WHMRequest) {
     if (envbackend.debugFlags.ipcpackets)
-      console.error(`${this.bridgename} send to whmanager`, { ...data, opcode: WHMRequestOpcode[data.opcode] });
+      console.error(`${this.bridgename} send to whmanager`, { ...data, opcode: enumReverseMap(WHMRequestOpcode, data.opcode) });
     this.conn.send(data);
   }
 
   gotWHManagerResponse(data: WHMResponse) {
     if (envbackend.debugFlags.ipcpackets)
-      console.error(`${this.bridgename} data from whmanager`, { ...data, opcode: WHMResponseOpcode[data.opcode] });
+      console.error(`${this.bridgename} data from whmanager`, { ...data, opcode: enumReverseMap(WHMResponseOpcode, data.opcode) });
 
     switch (data.opcode) {
       case WHMResponseOpcode.IncomingEvent: {
@@ -1168,7 +1168,7 @@ class MainBridge extends EventSource<BridgeEvents> {
 
   async gotLocalBridgeMessage(localBridge: LocalBridgeData, message: ToMainBridgeMessage) {
     if (envbackend.debugFlags.ipc)
-      console.log(`${this.bridgename}: message from ${getLocalBridgeName(localBridge)}`, { ...message, type: ToMainBridgeMessageType[message.type] });
+      console.log(`${this.bridgename}: message from ${getLocalBridgeName(localBridge)}`, { ...message, type: enumReverseMap(ToMainBridgeMessageType, message.type) });
     switch (message.type) {
       case ToMainBridgeMessageType.SendEvent: {
         const ref = await this.waitReadyReturnRef();

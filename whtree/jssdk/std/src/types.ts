@@ -301,3 +301,34 @@ export function compareProperties<const K extends ComparableFields<E> | [...Arra
     partialCompare: <T extends TuplePrefixes<K> & PossibleFields<E>>(partialFields: T) => compareProperties<T, E>(partialFields)
   });
 }
+
+let enumReverseMaps: WeakMap<Record<string, string | number>, Record<string | number, string>> | undefined;
+
+type EnumEntries<T extends Record<string, string | number>, F extends number, K extends keyof T = keyof T> = K extends keyof T ? T[K] extends F ? [K, T[K]] : never : never;
+
+/** Returns the reverse mapping of a value of an const object used as enum. Can only be used for numbers.
+ * @param enumObj - The enum object to reverse map.
+ * @param value - The value to look up in the reverse map.
+ * @returns The key corresponding to the given value in the enum object.
+ * @example
+ * ```ts
+ * const Color = {
+ *   Red: 1,
+ *   Green: 2,
+ *   Blue: 3
+ * } as const;
+ * const key = enumReverseMap(Color, 2); // "Green"
+ * ```
+ */
+export function enumReverseMap<const T extends Record<string, string | number>, const V extends EnumEntries<T, number>[1]>(enumObj: T, value: V): EnumEntries<T, V>[0] {
+  enumReverseMaps ??= new WeakMap<Record<string, string | number>, Record<string | number, string>>();
+  let reverse = enumReverseMaps.get(enumObj);
+  if (!reverse) {
+    reverse = {} as Record<string | number, string>;
+    for (const [key, v] of Object.entries(enumObj))
+      if (typeof v === "number")
+        reverse[enumObj[key]] = key;
+    enumReverseMaps.set(enumObj, reverse);
+  }
+  return reverse[value];
+}
