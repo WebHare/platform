@@ -9,6 +9,7 @@ LOADLIB "mod::publisher/lib/history.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::system/lib/internal/whfs/history.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
@@ -19,6 +20,16 @@ OBJECT movetarget;
 INTEGER ARRAY listenids;
 
 OBJECT eventmgr;
+
+MACRO CompareEvents(RECORD ARRAY expected_events, INTEGER msgcount, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  RECORD ARRAY actual_events := ExpectWHFSEvents(msgcount, options);
+  TRY {
+    TestEq(expected_events, actual_events);
+  } CATCH(OBJECT e) {
+    DumpValue(CELL[actual_events, expected_events],'tree');
+    THROW e;
+  }
+}
 
 // Returns events sorted on order the id was added to listenids
 RECORD ARRAY FUNCTION ExpectWHFSEvents(INTEGER msgcount, RECORD options DEFAULTSTO DEFAULT RECORD) {
@@ -95,43 +106,43 @@ MACRO TestEvents() {
     OBJECT testfile := testsite->rootobject->CreateFile([ name := "testfile.txt" ]);
     testfw->CommitWork();
 
-    TestEQ([
+    CompareEvents([
       [
         folder := testsite->root,
         events := STRING[],
         files := [ [ file := testfile->id, isfolder := FALSE, events := [ "create" ] ] ]
       ]
-    ], ExpectWHFSEvents(1));
+    ], 1);
 
     testfw->BeginWork();
     testfile->UpdateMetadata([ title := "updated title" ]);
     testfw->CommitWork();
 
-    TestEQ([
+    CompareEvents([
       [
         folder := testsite->root,
         events := STRING[],
         files := [ [ file := testfile->id, isfolder := FALSE, events := [ "update" ] ] ]
       ]
-    ], ExpectWHFSEvents(1));
+    ], 1);
 
     testfw->BeginWork();
     testfile->UpdateMetadata([ name := "testfile2.txt" ]);
     testfw->CommitWork();
 
-    TestEQ([
+    CompareEvents([
       [
         folder := testsite->root,
         events := STRING[],
         files := [ [ file := testfile->id, isfolder := FALSE, events := [ "rename", "update" ] ] ]
       ]
-    ], ExpectWHFSEvents(1));
+    ], 1);
 
     testfw->BeginWork();
     testfile->MoveTo(movetarget, "testfile3.txt");
     testfw->CommitWork();
 
-    TestEQ([
+    CompareEvents([
       [
         folder := testsite->root,
         events := STRING[],
@@ -141,19 +152,19 @@ MACRO TestEvents() {
         events := STRING[],
         files := [ [ file := testfile->id, isfolder := FALSE, events := [ "move" ] ] ]
       ]
-    ], ExpectWHFSEvents(2));
+    ], 2);
 
     testfw->BeginWork();
     testfile->RecycleSelf();
     testfw->CommitWork();
 
-    TestEQ([
+    CompareEvents([
       [
         folder := movetarget->id,
         events := STRING[],
         files := [ [ file := testfile->id, isfolder := FALSE, events := [ "del" ] ] ]
       ]
-    ], ExpectWHFSEvents(1));
+    ], 1);
   }
 
   testfw->BeginWork();
@@ -161,43 +172,43 @@ MACRO TestEvents() {
   ListenToId(testfolder->id);
   testfw->CommitWork();
 
-  TestEQ([
+  CompareEvents([
     [
       folder := testsite->root,
       events := STRING[],
       files := [ [ file := testfolder->id, isfolder := TRUE, events := [ "create" ] ] ]
     ]
-  ], ExpectWHFSEvents(1));
+  ], 1);
 
   testfw->BeginWork();
   testfolder->UpdateMetadata([ title := "updated title" ]);
   testfw->CommitWork();
 
-  TestEQ([
+  CompareEvents([
     [
       folder := testsite->root,
       events := STRING[],
       files := [ [ file := testfolder->id, isfolder := TRUE, events := [ "update" ] ] ]
     ]
-  ], ExpectWHFSEvents(1));
+  ], 1);
 
   testfw->BeginWork();
   testfolder->UpdateMetadata([ name := "testfolder2" ]);
   testfw->CommitWork();
 
-  TestEQ([
+  CompareEvents([
     [
       folder := testsite->root,
       events := STRING[],
       files := [ [ file := testfolder->id, isfolder := TRUE, events := [ "rename", "update" ] ] ]
     ]
-  ], ExpectWHFSEvents(1));
+  ], 1);
 
     testfw->BeginWork();
     testfolder->MoveTo(movetarget, "testfile3.txt");
     testfw->CommitWork();
 
-    TestEQ([
+    CompareEvents([
       [
         folder := testsite->root,
         events := STRING[],
@@ -207,7 +218,7 @@ MACRO TestEvents() {
         events := STRING[],
         files := [ [ file := testfolder->id, isfolder := TRUE, events := [ "move" ] ] ]
       ]
-    ], ExpectWHFSEvents(2));
+    ], 2);
 
   testfw->BeginWork();
   OBJECT subfile := testfolder->CreateFile([
@@ -244,13 +255,13 @@ MACRO TestEvents() {
   subfile->UpdateMetadata([ title := "updated title" ]);
   testfw->CommitWork();
 
-  TestEQ([
+  CompareEvents([
     [
       folder := testfolder->id,
       events := STRING[],
       files := [ [ file := subfile->id, isfolder := FALSE, events := [ "update" ] ] ]
     ]
-  ], ExpectWHFSEvents(1, [ timeout := 30000 ]));
+  ], 1, [ timeout := 30000 ]);
 
   testfw->BeginWork();
   subfile->UpdateMetadata([ name := "published2.txt" ]);
@@ -382,6 +393,7 @@ MACRO TestEvents() {
 
   OBJECT metamgr := NEW WorkflowManager(subfile->id, [ user := GetEffectiveUser() ]);
   metamgr->UpdateData(StringToBlob("Draft data 1"));
+  INTEGER initialsnapshot := ListObjectHistory(subfile->id)[0].snapshot;
   OBJECT draft := metamgr->__GetAutosavedObject();
 
   metamgr->DiscardAutosavedChanges(); //FIXME this isn't generating events as CleanupMyPrivateDrafts isn't caring
@@ -392,11 +404,12 @@ MACRO TestEvents() {
 
   testfw->CommitWork();
 
-  TestEQ([
+  CompareEvents([
     [
       folder := snapshotfolder,
       events := STRING[],
       files := [
+        [ file := initialsnapshot, isfolder := FALSE, events := [ "create" ] ],
         [ file := draft->id, isfolder := FALSE, events := [ "create", "update" ] ],
         [ file := draft2->id, isfolder := FALSE, events := [ "create", "update" ] ]
       ]
@@ -408,37 +421,33 @@ MACRO TestEvents() {
         [ file := subfile->id, isfolder := FALSE, events := [ "history" ] ]
       ]
     ]
-  ], ExpectWHFSEvents(2));
+  ], 2);
 
   testfw->BeginWork();
   metamgr->UpdateMetadata([ title := "updated title" ]);
   testfw->CommitWork();
 
-  TestEQ([
+  CompareEvents([
     [
       folder := snapshotfolder,
       events := STRING[],
       files := [ [ file := draft2->id, isfolder := FALSE, events := [ "update" ] ] ]
     ]
-  ], ExpectWHFSEvents(1));
+  ], 1);
 
   testfw->BeginWork();
   metamgr->Save();
   testfw->CommitWork();
 
   {
-    RECORD ARRAY events := ExpectWHFSEvents(3);
-    INTEGER finalsnapshot := events[0].files[1].file;
-
     // Draft is moved from autosaves to drafts, so we get a moved event
     // Draft2 is deleted (autosave cleanup)
-    TestEQ([
+    CompareEvents([
       [
         folder := snapshotfolder,
         events := STRING[],
         files := [
           [ file := draft2->id, isfolder := FALSE, events := [ "update" ] ],
-          [ file := finalsnapshot, isfolder := FALSE, events := [ "create" ] ]
         ]
       ], [
         folder := testfolder->id,
@@ -449,7 +458,7 @@ MACRO TestEvents() {
         events := STRING[],
         files := [ [ file := subfile->id, isfolder := FALSE, events := [ "history" ] ] ]
       ]
-    ], events);
+    ], 3);
   }
 
   testfw->BeginWork();
@@ -458,7 +467,7 @@ MACRO TestEvents() {
   OBJECT draft3 := metamgr->__GetAutosavedObject();
   testfw->CommitWork();
 
-  TestEQ([
+  CompareEvents([
     [
       folder := snapshotfolder,
       events := STRING[],
@@ -471,7 +480,7 @@ MACRO TestEvents() {
       events := STRING[],
       files := [ [ file := subfile->id, isfolder := FALSE, events := [ "history" ] ] ]
     ]
-  ], ExpectWHFSEvents(2));
+  ], 2);
 
   testfw->BeginWork();
   metamgr->Save();
@@ -518,7 +527,7 @@ MACRO TestEvents() {
     OBJECT draft4 := metamgr->__GetAutosavedObject();
     testfw->CommitWork();
 
-    TestEQ([
+    CompareEvents([
       [
         folder := snapshotfolder,
         events := STRING[],
@@ -533,14 +542,14 @@ MACRO TestEvents() {
           [ file := subfile->id, isfolder := FALSE, events := [ "history" ] ]
         ]
       ]
-    ], ExpectWHFSEvents(2));
+    ], 2);
 
     // Discard autosaved-changes. Only history event should be emitted
     testfw->BeginWork();
     metamgr->DiscardAutosavedChanges();
     testfw->CommitWork();
 
-    TestEQ([
+    CompareEvents([
       [
         folder := subfile->parent,
         events := STRING[],
@@ -548,7 +557,7 @@ MACRO TestEvents() {
           [ file := subfile->id, isfolder := FALSE, events := [ "history" ] ]
         ]
       ]
-    ], ExpectWHFSEvents(1));
+    ], 1);
 
     // Saving a draft should update the original file (draft flag is set)
     testfw->BeginWork();
@@ -561,7 +570,7 @@ MACRO TestEvents() {
     testfw->CommitWork();
 
     // Expect events for drafts, history event for original file, update event for original file (draft flag is set)
-    TestEQ([
+    CompareEvents([
       [
         folder := snapshotfolder,
         events := STRING[],
@@ -584,14 +593,14 @@ MACRO TestEvents() {
           [ file := subfile->id, isfolder := FALSE, events := [ "history" ] ]
         ]
       ],
-    ], ExpectWHFSEvents(3));
+    ], 3);
 
     // Discard autosaved-changes. Only history event should be emitted
     testfw->BeginWork();
     metamgr->DiscardAutosavedChanges();
     testfw->CommitWork();
 
-    TestEQ([
+    CompareEvents([
       [
         folder := subfile->parent,
         events := STRING[],
@@ -599,14 +608,14 @@ MACRO TestEvents() {
           [ file := subfile->id, isfolder := FALSE, events := [ "history" ] ]
         ]
       ]
-    ], ExpectWHFSEvents(1));
+    ], 1);
 
     // Discard draft and autosaved changes. Expect history event and update event on original file (draft flag is cleared)
     testfw->BeginWork();
     metamgr->DiscardDraftAndAutosavedChanges();
     testfw->CommitWork();
 
-    TestEQ([
+    CompareEvents([
       [
         folder := subfile->parent,
         events := STRING[],
@@ -621,20 +630,20 @@ MACRO TestEvents() {
           [ file := subfile->id, isfolder := FALSE, events := [ "history" ] ]
         ]
       ],
-    ], ExpectWHFSEvents(2));
+    ], 2);
   }
 
   testfw->BeginWork();
   testfolder->RecycleSelf();
   testfw->CommitWork();
 
-  TestEQ([
+  CompareEvents([
     [
       folder := movetarget->id,
       events := STRING[],
       files := [ [ file := testfolder->id, isfolder := TRUE, events := [ "del" ] ] ]
     ]
-  ], ExpectWHFSEvents(1));
+  ], 1);
 }
 
 RunTestframework([
