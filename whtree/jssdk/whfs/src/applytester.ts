@@ -17,6 +17,7 @@ import type { ApplyAuth, ApplySetMetadata } from "@mod-platform/generated/schema
 import { openType, whfsType, type WHFSTypeName } from "@webhare/whfs/src/contenttypes";
 import { lookupURL, type LookupURLOptions } from "./lookupurl";
 import { isHistoricWHFSSpace } from "./support";
+import { whconstant_whfsid_repository } from "@mod-system/js/internal/webhareconstants";
 
 export interface WebDesignInfo {
   objectname: string;
