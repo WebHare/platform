@@ -1,0 +1,16 @@
+{
+  "name": "@webhare/backend-integration",
+  "type": "module",
+  "version": "",
+  "description": "Exposes APIs to integrate code into WebHare's backend ",
+  "main": "src/backend-integration.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/backend-integration.ts"
+    ]
+  },
+  "private": true
+}

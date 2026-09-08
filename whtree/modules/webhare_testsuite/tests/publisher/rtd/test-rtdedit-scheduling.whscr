@@ -18,8 +18,7 @@ OBJECT FUNCTION RTE() {
   RETURN TT("doceditor")->contents->rte;
 }
 
-ASYNC MACRO TestScheduleFile()
-{
+ASYNC MACRO TestScheduleFile() {
   testfw->BeginWork();
 
   OBJECT testfile := GetTestsuiteJSTempFolder()->CreateFile(
@@ -146,8 +145,43 @@ ASYNC MACRO TestScheduleFile()
   //TODO also test readonly access
 }
 
-RunTestFramework(
-    [ PTR TestScheduleFile
+ASYNC MACRO TestScheduleDefaults() {
+  testfw->BeginWork();
+
+  OBJECT testfile := GetTestsuiteJSTempFolder()->CreateFile(
+      [ name :=   "test-rtdedit-scheduling-defaults"
+      , typens := "platform:filetypes.richdocument"
+      , title := "My scheduled document with defaults"
+      , publish := FALSE
+      ], [ createdby := testfw->GetUserObject("sysop")
+         ]);
+
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testfile->id) ]  ]));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Publish"));
+  TestEq("direct", TT("publish")->value, 'direct is the default - no effect from scheduling-defaults expected yet');
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  TT("title")->value := "2070-04-01T12:00:00Z";
+  TT("title")->SetDirty();
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Publish"));
+  TestEq("publish_at", TT("publish")->value);
+  TestEq(MakeDatetime(2070,4,1,12,0,0,0), TT("publish_at")->value);
+  TestEq("end_at", TT("endpublish")->value);
+  TestEq(MakeDatetime(2070,4,3,0,0,0,0), TT("end_at")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  TTClick(":Save");
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+
+RunTestFramework([
+      PTR TestScheduleFile,
+      PTR TestScheduleDefaults,
     ],
     [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                    ]

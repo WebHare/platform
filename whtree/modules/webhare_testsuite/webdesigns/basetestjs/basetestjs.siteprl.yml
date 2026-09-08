@@ -253,6 +253,10 @@ apply:
       whfsPath: "*scheduling*"
     experiments:
       editdocScheduling: true
+  - comment: experiment - scheduling defaults
+    to:
+      whfsPath: "*scheduling-defaults*"
+    fsObjectPolicy: ./webdesign/hooks.ts#schedulingDefaultsPolicy
 
 applySiteProfiles:
   - ./metadata.siteprl.yml

@@ -546,6 +546,8 @@ $defs:
         $ref: "#/$defs/ApplyToRepublish"
       folderSettings:
         $ref: "#/$defs/ApplyFolderSettings"
+      fsObjectPolicy:
+        $ref: "#/$defs/ApplyFSObjectPolicy"
       scheduleTimedTasks:
         $ref: "#/$defs/ApplyScheduleTimedTasks"
       scheduleManagedTasks:
@@ -1064,6 +1066,9 @@ $defs:
           - orderable
       contentsListHandler:
         type: string
+
+  ApplyFSObjectPolicy:
+    type: string
 
   ApplyScheduleTimedTasks:
     type: array

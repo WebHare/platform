@@ -830,6 +830,9 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
   if (apply.folderTypes)
     rule.modifyfoldertypes = parseModifyTypes(context, apply.folderTypes);
 
+  if (apply.fsObjectPolicy)
+    rule.fsobjectpolicy = context.resolve(apply.fsObjectPolicy);
+
   if (apply.mailTemplates?.length) {
     rule.mailtemplates = apply.mailTemplates.map(t => ({
       path: context.resolve(t.path || ''),

@@ -386,6 +386,7 @@ export type CSPApplyRule = {
   } | null;
   foldersettings: CSPFolderSettings | null;
   formdefinitions: Array<{ name: string; path: string }>;
+  fsobjectpolicy?: string;
   hookintercepts: CSPHookIntercept[];
   line: number;
   mailtemplates: CSPMailTemplate[];

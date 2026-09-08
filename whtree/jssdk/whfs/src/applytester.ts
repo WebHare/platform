@@ -178,8 +178,14 @@ async function getHistoricBaseInfo(obj: WHFSObject): Promise<BaseInfo> {
 }
 
 export async function getBaseInfoForApplyCheck(obj: WHFSObject, options?: { type?: WHFSTypeName }): Promise<BaseInfo> {
-  if (isHistoricWHFSSpace(obj.whfsPath))
+  if (isHistoricWHFSSpace(obj.whfsPath)) {
+    if (obj.snapshotFor) {
+      const snapshotSource = await openFileOrFolder(obj.snapshotFor);
+      if (!isHistoricWHFSSpace(snapshotSource.whfsPath)) //prevents loops (TODO deal with snapshot target being in the recycle bin)
+        return await getBaseInfoForApplyCheck(await openFileOrFolder(obj.snapshotFor, { allowHistoric: true }), options);
+    }
     return await getHistoricBaseInfo(obj);
+  }
 
   const siteapply = await getSiteApplicabilityInfo(obj.parentSite);
   let site: SiteRow | null = null;
@@ -440,7 +446,7 @@ export class WHFSApplyTester {
 
       if (propname) { //test if the property is set, skip actual matching if there isn't anything interesting in this rule
         const propvalue = (rule as unknown as { [key: string]: unknown })[propname];
-        if (!propvalue || (Array.isArray(propvalue) && !propvalue.length) || (yamlonly && !rule.yaml))
+        if (!propvalue || (Array.isArray(propvalue) && !propvalue.length))
           continue;
       }
 

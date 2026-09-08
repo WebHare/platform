@@ -487,7 +487,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       RECORD status := this->workflowmgr->GetCurrentStatus();
       IF(options.schedule_dialog) {
         //If currently unpublished we ask the user to publish now or later (unless the app had its own dialog - then we suppress ours. basically because utwente_brochures is the only one that doesn't need this diaolog right now)
-        publish_dialog_result := this->RunScreen(Resolve("dialogs.xml#publishdialog"), CELL [ fsobject := this->sourceitem->id ]);
+        publish_dialog_result := this->RunScreen(Resolve("dialogs.xml#publishdialog"), CELL [ fsobject := this->sourceitem->id, currentdraft := this->workflowmgr->__GetAutosavedObject()->id ]);
         IF(NOT RecordExists(publish_dialog_result))
           RETURN FALSE;
       } ELSE {
