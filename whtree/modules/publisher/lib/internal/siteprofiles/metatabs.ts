@@ -36,6 +36,15 @@ interface MetaTabs {
   issues: string[];
   /** Whether a workflow editor is active */
   workflowEditor: Record<never, never> | null; //we'll be adding metadata about the editor in the future, so already make it an object
+  baseProperties: {
+    description: boolean;
+    keywords: boolean;
+    pageHeading: boolean;
+    isUnlisted: boolean;
+    requireTitle: boolean;
+    seoTab: boolean;
+    seoTitle: boolean;
+  };
 }
 
 interface MetaTabsWithHSInfo extends MetaTabs {
@@ -163,6 +172,9 @@ export async function describeMetaTabs(applytester: WHFSApplyTester, options?: {
   //Find out if we have a workflow editor (documenteditor supporting Publish and Save, which implies workflow fields move from objectprops to the editor)
   const setObjectEditor = await applytester.getObjectEditor();
 
+  const baseProps = await applytester.getBaseProperties();
+  const needsTemplate = applytester.isTypeNeedsTemplate();
+
   // objectprops is not allowed to edit workflow fields when editing existing files which have a document editor
   const editWorkflowMetadata = applytester.isMocked() || !options?.isObjectProps || !setObjectEditor?.documentEditor;
   const aboutExtendProps = await getFilteredExtendProps(applytester, options?.user, editWorkflowMetadata, options?.isObjectProps || false);
@@ -171,7 +183,16 @@ export async function describeMetaTabs(applytester: WHFSApplyTester, options?: {
     extendProps: aboutExtendProps.extendProps,
     issues: aboutExtendProps.issues,
     [hsinfo]: applytester.__getHSInfo(),
-    workflowEditor: null
+    workflowEditor: null,
+    baseProperties: {
+      description: baseProps.description,
+      keywords: baseProps.keywords,
+      seoTitle: needsTemplate && baseProps.seotitle,
+      pageHeading: needsTemplate && baseProps.pageheading,
+      isUnlisted: baseProps.isunlisted,
+      requireTitle: baseProps.requiretitle,
+      seoTab: baseProps.seotab,
+    }
   };
 
 
@@ -298,6 +319,7 @@ interface MetaTabsForHS {
   extend_props: ToSnakeCase<MetaTabs['extendProps']>;
   //TODO do we need this? just inform the objecteditor about baseprops/edit_workflow_metadata
   workfloweditor: Record<never, never> | null;
+  base_properties: ToSnakeCase<MetaTabs['baseProperties']>;
 }
 
 export function remapForHs(metatabs: MetaTabs): MetaTabsForHS {
@@ -317,26 +339,21 @@ export function remapForHs(metatabs: MetaTabs): MetaTabsForHS {
     workfloweditor: metatabs.workflowEditor,
     __hsinfo: (metatabs as MetaTabsWithHSInfo)[hsinfo],
     issues: metatabs.issues,
-    extend_props: toSnakeCase(metatabs.extendProps)
+    extend_props: toSnakeCase(metatabs.extendProps),
+    base_properties: toSnakeCase(metatabs.baseProperties),
   };
   return translated;
 }
 
 export async function describeMetaTabsForHS(obj: { objectid: number; parent: number; isfolder: boolean; type: number; isobjectprops: boolean; user: number }): Promise<MetaTabsForHS | null> {
-  try {
-    let applytester;
-    if (obj.objectid) {
-      applytester = await getApplyTesterForObject(await openFileOrFolder(obj.objectid, { allowHistoric: true }));
-    } else {
-      const typens = getType(obj.type, obj.isfolder ? "folderType" : "fileType")?.namespace ?? (obj.isfolder ? "platform:foldertypes.default" as const : "platform:filetypes.unknown" as const);
-      applytester = await getApplyTesterForMockedObject(await openFolder(obj.parent, { allowRoot: true }), obj.isfolder, typens);
-    }
-
-    const metatabs = await describeMetaTabs(applytester, { isObjectProps: obj.isobjectprops, user: obj.user ? getAuthorizationInterface(obj.user) : undefined });
-    return remapForHs(metatabs);
-  } catch (e) {
-    if ((e as Error)?.message.startsWith('No recycle info found for'))
-      return null; //Fixes system.whfs.test-whfs-history-v4 and allows versioning to ignore metatabs for now. We want to finish metatabs first and *then* worry about how versioning ties into metatabs, if at all
-    throw e;
+  let applytester;
+  if (obj.objectid) {
+    applytester = await getApplyTesterForObject(await openFileOrFolder(obj.objectid, { allowHistoric: true }));
+  } else {
+    const typens = getType(obj.type, obj.isfolder ? "folderType" : "fileType")?.namespace ?? (obj.isfolder ? "platform:foldertypes.default" as const : "platform:filetypes.unknown" as const);
+    applytester = await getApplyTesterForMockedObject(await openFolder(obj.parent, { allowRoot: true }), obj.isfolder, typens);
   }
+
+  const metatabs = await describeMetaTabs(applytester, { isObjectProps: obj.isobjectprops, user: obj.user ? getAuthorizationInterface(obj.user) : undefined });
+  return remapForHs(metatabs);
 }

@@ -25,11 +25,22 @@ fi
 mkdir -p /tmp/downloads
 DLPATH=/tmp/downloads/$GETFILE
 
-if ! curl -fsS -o "$DLPATH" -z "$DLPATH" "${ASSETROOT}${GETFILE}" ; then
+FETCH_URL="${ASSETROOT}${GETFILE}"
+if ! curl -fsS -o "$DLPATH" -z "$DLPATH" "${FETCH_URL}" ; then
   echo "Primary download failed, attempting fallback location"
-  if ! curl -fsS -o "$DLPATH" -z "$DLPATH" "${FALLBACKURL}" ; then
+  FETCH_URL="${FALLBACKURL}"
+  if ! curl -fsS -o "$DLPATH" -z "$DLPATH" "${FETCH_URL}" ; then
     rm -f "$DLPATH"
     echo "Download failed"
+    exit 1
+  fi
+fi
+if ! tar -tzf "$DLPATH" > /dev/null 2>&1 ; then
+  echo "Downloaded tarball is corrupted"
+  rm -f "$DLPATH"
+  echo "Retrying download..."
+  if ! curl -fsS -o "$DLPATH" "${FETCH_URL}" ; then
+    echo "Download failed on retry"
     exit 1
   fi
 fi

@@ -526,10 +526,10 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
 
   MACRO SetupObjectProps()
   {
-    ^description->visible := this->basesettings.description;
-    ^keywords->visible := this->basesettings.keywords;
-    ^isunlisted->visible := this->basesettings.isunlisted;
-    ^title->required := this->basesettings.requiretitle;
+    ^description->visible := this->renderer->metatabsconfig.base_properties.description;
+    ^keywords->visible := this->renderer->metatabsconfig.base_properties.keywords;
+    ^isunlisted->visible := this->renderer->metatabsconfig.base_properties.is_unlisted;
+    ^title->required := this->renderer->metatabsconfig.base_properties.require_title;
   }
 
   UPDATE RECORD FUNCTION UpdatePinned()
@@ -1308,13 +1308,14 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
   {
     BOOLEAN needstemplate := this->isfolder ? FALSE : this->contexts->applytester->IsTypeNeedsTemplate();
 
+    BOOLEAN seotab := this->renderer->metatabsconfig.base_properties.seo_tab;
     ^advancedtab->visible := this->contexts->user->HasRight("publisher:advanced");
-    ^seocustomization->visible := this->basesettings.seotab;
-    ^canonical->visible := this->basesettings.seotab;
-    ^no_index->visible := this->basesettings.seotab;
-    ^no_follow->visible := this->basesettings.seotab;
-    ^no_archive->visible := this->basesettings.seotab;
-    ^customrobots->visible := this->basesettings.seotab;
+    ^seocustomization->visible := seotab;
+    ^canonical->visible := seotab;
+    ^no_index->visible := seotab;
+    ^no_follow->visible := seotab;
+    ^no_archive->visible := seotab;
+    ^customrobots->visible := seotab;
 
     IF(this->contexts->applytester->objsite != this->contexts->objectpropsapi->targetid)
     {

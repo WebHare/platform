@@ -15,6 +15,7 @@ LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/tolliumapps/editdocument/editbase.whlib";
 LOADLIB "mod::publisher/tolliumapps/filemanager/copymove.whlib";
 
@@ -48,6 +49,8 @@ PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
   //RECORD configdata;
 
   RECORD historytypes;
+
+  OBJECT renderer;
 
   // ---------------------------------------------------------------------------
   //
@@ -160,6 +163,16 @@ PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
     }
   }
 
+  MACRO ApplyBaseSettings() {
+    ^name->title := this->liveobject->isfolder ? GetTid("~foldername") : GetTid("~filename");
+    ^description->visible := this->renderer->metatabsconfig.base_properties.description OR IsValueSet(^description->value);
+    ^keywords->visible := this->renderer->metatabsconfig.base_properties.keywords OR IsValueSet(^keywords->value);
+
+    //As these are published, only files that go through a webdesign can show something useful
+    ^seotitle->visible := this->renderer->metatabsconfig.base_properties.seo_title OR IsValueSet(^seotitle->value);
+    ^page_heading->visible := this->renderer->metatabsconfig.base_properties.page_heading OR IsValueSet(^page_heading->value);
+  }
+
   MACRO OnSelectRequest() {
     RECORD sel := ^versions->selection;
     STRING previewlink;
@@ -193,7 +206,7 @@ PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
       this->LoadBaseData(sel);
 
       // Now load meta tabs
-      OBJECT renderer := CreateMetatabsRenderer([
+      this->renderer := CreateMetatabsRenderer([
         objectid := this->liveobject->id,
         parent := this->liveobject->parent,
         isfolder := this->liveobject->isfolder,
@@ -201,15 +214,15 @@ PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
         isobjectprops := FALSE
       ]);
 
-      renderer->RegisterMetaController(^webmetadata->type, ^webmetadata);
+      this->renderer->RegisterMetaController(^webmetadata->type, ^webmetadata);
 
       RECORD ARRAY instances := ListInstances(sel.snapshot);
 
       RECORD ARRAY metacontrollers;
 
       INTEGER insertpos := 1;
-      IF(RecordExists(renderer->metatabsconfig)) {
-        FOREVERY(RECORD type FROM renderer->metatabsconfig.types) {
+      IF(RecordExists(this->renderer->metatabsconfig)) {
+        FOREVERY(RECORD type FROM this->renderer->metatabsconfig.types) {
           RECORD instance :=
               SELECT *
                 FROM instances
@@ -219,19 +232,20 @@ PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
           IF (NOT RecordExists(instance))
             CONTINUE;
 
-          RECORD renderresult := renderer->RenderTypeIntoTabs(this->contexts, type, this->maintabs, insertpos);
+          RECORD renderresult := this->renderer->RenderTypeIntoTabs(this->contexts, type, this->maintabs, insertpos);
           insertpos := renderresult.insertpos;
         }
       }
 
       // Disable all metacontrollers so the fields are disabled too
-      renderer->SetControllersEnabled(FALSE);
+      this->renderer->SetControllersEnabled(FALSE);
 
       // Load the data
-      FOREVERY (RECORD controller FROM renderer->metacontrollers)
+      FOREVERY (RECORD controller FROM this->renderer->metacontrollers)
         controller.fsinstance->value := controller.type->GetInstanceData(sel.snapshot);
 
       this->maintabs->RunExtensionsPostInit();
+      this->ApplyBaseSettings();
     }
     ELSE
     {
