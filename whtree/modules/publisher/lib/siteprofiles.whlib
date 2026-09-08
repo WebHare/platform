@@ -155,11 +155,12 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailableWebFeatures()
            FROM webfeatures;
 }
 
-PUBLIC MACRO __ValidateWebdesign(OBJECT applytester)
-{
+PUBLIC MACRO __ValidateWebdesign(OBJECT applytester) {
+  IF(applytester->webdesign = "")
+    THROW NEW Exception(`No webdesign has been configured for ${applytester->DescribeTarget()}`);
   STRING ARRAY webdesigntoks := Tokenize(applytester->webdesign,':');
   IF(NOT IsModuleInstalled(webdesigntoks[0]))
-    THROW NEW Exception(`The module for webdesign '${webdesigntoks[0]}' is not installed`);
+    THROW NEW Exception(`The module for webdesign '${webdesigntoks[0]}' is not installed, requested for ${applytester->DescribeTarget()}`);
 
 }
 
