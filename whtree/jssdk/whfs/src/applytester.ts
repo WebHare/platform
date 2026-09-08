@@ -163,14 +163,16 @@ async function getHistoricBaseInfo(obj: WHFSObject): Promise<BaseInfo> {
     where("type", "=", 0).
     execute();
 
-  if (recycleinfo.length !== 1 || !recycleinfo[0].currentparent)
-    throw new Error(`No recycle info found for ${obj.id}`);
-
-  origparentid = recycleinfo[0].currentparent;
-  currentname = recycleinfo[0].currentname;
+  if (recycleinfo.length !== 1 || !recycleinfo[0].currentparent) {
+    origparentid = whconstant_whfsid_repository;
+    currentname = obj.name;
+  } else {
+    origparentid = recycleinfo[0].currentparent;
+    currentname = recycleinfo[0].currentname;
+  }
 
   //TODO chase parents that are already deleted/historic
-  const origparent = await openFolder(origparentid!, { allowHistoric: true });
+  const origparent = await openFolder(origparentid, { allowHistoric: true });
   return getBaseInfoForMockedApplyCheck(origparent, obj.isFolder, obj.type, currentname);
 }
 

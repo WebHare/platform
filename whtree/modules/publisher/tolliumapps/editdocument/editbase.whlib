@@ -100,8 +100,6 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
   /// Source item (original file for duplications, draft or edited file when editing).
   OBJECT sourceitem;
 
-  RECORD basesettings;
-
   /// Are we objectprops? some tweaks will be done
   BOOLEAN isobjectprops;
   /// Workflow editor settings, if any
@@ -139,13 +137,11 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
 
   MACRO SetupBaseSettings()
   {
-    this->basesettings := GetBaseProperties(this->contexts->applytester);
-
     ^name->title := this->isfolder ? GetTid("~foldername") : GetTid("~filename");
-    ^description->visible := this->basesettings.description;
-    ^keywords->visible := this->basesettings.keywords;
-    ^isunlisted->visible := this->basesettings.isunlisted;
-    ^title->required := this->basesettings.requiretitle;
+    ^description->visible := this->renderer->metatabsconfig.base_properties.description;
+    ^keywords->visible := this->renderer->metatabsconfig.base_properties.keywords;
+    ^isunlisted->visible := this->renderer->metatabsconfig.base_properties.is_unlisted;
+    ^title->required := this->renderer->metatabsconfig.base_properties.require_title;
 
     IF(this->namefollowstitle) {
       ^title->onchange := PTR this->SyncNameWithTitle;
@@ -267,8 +263,8 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
     BOOLEAN edit_workflow_metadata := this->isnew OR NOT RecordExists(this->workfloweditor) OR NOT this->isobjectprops;
     BOOLEAN needstemplate := this->isfolder ? FALSE : this->contexts->applytester->IsTypeNeedsTemplate();
     //As these are published, only files that go through a webdesign can show something useful
-    ^seotitle->visible := needstemplate AND this->basesettings.seotitle AND edit_workflow_metadata;
-    ^page_heading->visible := needstemplate AND this->basesettings.pageheading AND edit_workflow_metadata;
+    ^seotitle->visible := needstemplate AND this->renderer->metatabsconfig.base_properties.seo_title AND edit_workflow_metadata;
+    ^page_heading->visible := needstemplate AND this->renderer->metatabsconfig.base_properties.page_heading AND edit_workflow_metadata;
     ^title->enabled := this->editable AND ^title->visible AND edit_workflow_metadata;
     ^isunlisted->enabled := this->editable AND ^isunlisted->visible AND edit_workflow_metadata;
     ^description->enabled := this->editable AND ^description->visible AND edit_workflow_metadata;
@@ -515,12 +511,19 @@ PUBLIC OBJECT FUNCTION CreateMetatabsRenderer(RECORD objdata) {
   IF(NOT ObjectExists(applytester))
     THROW NEW Exception("No applytester found for this object");
 
-  metatabsconfig := EnforceStructure(
-    CELL[ extend_props := RECORD[]
-        , workfloweditor := DEFAULT RECORD
-        , types := RECORD[]
-        ], metatabsconfig
-  );
+  metatabsconfig := EnforceStructure(CELL[
+    extend_props := RECORD[],
+    workfloweditor := DEFAULT RECORD,
+    types := RECORD[],
+    base_properties := [
+      description := FALSE,
+      keywords := FALSE,
+      seotitle := FALSE,
+      page_heading := FALSE,
+      is_unlisted := FALSE,
+      require_title := FALSE,
+    ]
+  ], metatabsconfig);
 
   DELETE CELL __hsinfo FROM metatabsconfig;
 
