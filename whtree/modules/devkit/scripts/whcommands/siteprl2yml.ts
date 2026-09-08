@@ -408,7 +408,7 @@ function importApplyRule(ctxt: ImportContext, ar: CSPApplyRule): ApplyRule {
     rule.usePublishTemplate = unresolvePath(ctxt, ar.usepublishtemplate.script);
 
   if (ar.setobjecteditor) {
-    rule.setObjectEditor = {
+    rule.setContentEditor = {
       ...ar.setobjecteditor.separateapp ? { separateApp: true } : {},
       ...ar.setobjecteditor.screen ? { screen: ar.setobjecteditor.screen } : {},
       ...ar.setobjecteditor.name ? { name: ar.setobjecteditor.name } : {},

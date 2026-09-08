@@ -14,7 +14,7 @@ types:
       editProps:
         - type: platform:contentlibraries.beacon
           tabsExtension: mod::publisher/tolliumapps/objectprops/references.xml#referencestab
-      setObjectEditor:
+      setContentEditor:
         name: publisher:adaptivecontent_beacon
   contentlibraries.beacons:
     namespace: http://www.webhare.net/xmlns/publisher/contentlibraries/beacons

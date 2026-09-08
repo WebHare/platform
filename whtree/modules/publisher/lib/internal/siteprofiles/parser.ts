@@ -788,11 +788,11 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
       value
     })); //TODO generic module name resolve function ?
 
-  if (apply.setObjectEditor) {
+  if (apply.setContentEditor) {
     rule.setobjecteditor = {
-      name: apply.setObjectEditor.name || '',
-      screen: apply.setObjectEditor.screen || '',
-      separateapp: apply.setObjectEditor.separateApp === true
+      name: apply.setContentEditor.name || '',
+      screen: apply.setContentEditor.screen || '',
+      separateapp: apply.setContentEditor.separateApp === true
     };
   }
 

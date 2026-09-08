@@ -170,13 +170,13 @@ export async function describeMetaTabs(applytester: WHFSApplyTester, options?: {
     }
 
   //Find out if we have a workflow editor (documenteditor supporting Publish and Save, which implies workflow fields move from objectprops to the editor)
-  const setObjectEditor = await applytester.getObjectEditor();
+  const setContentEditor = await applytester.getObjectEditor();
 
   const baseProps = await applytester.getBaseProperties();
   const needsTemplate = applytester.isTypeNeedsTemplate();
 
   // objectprops is not allowed to edit workflow fields when editing existing files which have a document editor
-  const editWorkflowMetadata = applytester.isMocked() || !options?.isObjectProps || !setObjectEditor?.documentEditor;
+  const editWorkflowMetadata = applytester.isMocked() || !options?.isObjectProps || !setContentEditor?.documentEditor;
   const aboutExtendProps = await getFilteredExtendProps(applytester, options?.user, editWorkflowMetadata, options?.isObjectProps || false);
   const metasettings: MetaTabsWithHSInfo = {
     types: [],
@@ -196,7 +196,7 @@ export async function describeMetaTabs(applytester: WHFSApplyTester, options?: {
   };
 
 
-  if (setObjectEditor?.documentEditor)
+  if (setContentEditor?.documentEditor)
     metasettings.workflowEditor = {};
 
   for (const [contenttype, extendproperties] of Object.entries(pertype)) {

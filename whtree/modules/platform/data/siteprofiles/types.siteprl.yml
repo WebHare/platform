@@ -96,7 +96,7 @@ types:
     deleteMembers:
       - fixformoptions #archived original remapping in case we ever needed it. Deleted in WH6.0
     apply:
-      setObjectEditor:
+      setContentEditor:
         separateApp: true
         name: publisher:webtoolform
 
@@ -111,7 +111,7 @@ types:
     apply:
       bodyRenderer:
         objectName: mod::publisher/lib/internal/renderers/htmlfile.whlib#StaticHTMLFile
-      setObjectEditor:
+      setContentEditor:
         name: publisher:texteditor
   filetypes.image:
     namespace: http://www.webhare.net/xmlns/publisher/imagefile
@@ -154,7 +154,7 @@ types:
     apply:
       bodyRenderer:
         onRenderContent: mod::platform/js/pagebuilders/markdown.ts#renderMarkdown
-      setObjectEditor:
+      setContentEditor:
         separateApp: true
         name: publisher:editmarkdown
   filetypes.mp3audio:
@@ -212,7 +212,7 @@ types:
       bodyRenderer:
         objectName: mod::publisher/lib/internal/renderers/rtd.whlib#RenderRTD
         onRenderContent: mod::platform/js/pagebuilders/richdocument.ts#renderRTD
-      setObjectEditor:
+      setContentEditor:
         name: publisher:editdocument
   filetypes.search:
     comment: Consilio search page
