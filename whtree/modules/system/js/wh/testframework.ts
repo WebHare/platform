@@ -58,17 +58,6 @@ export { invoke };
 
 export type { TestWaitItem };
 
-// https://slimselectjs.com/
-interface SlimSelectAPI extends HTMLSelectElement {
-  slim: {
-    setSelected(value: string): void;
-  };
-}
-
-function hasSlimSelect(el: HTMLElement): el is SlimSelectAPI {
-  return Boolean(el.matches('select') && 'slim' in el && el.slim);
-}
-
 //basic test functions
 let testfw: TestFramework | undefined;
 if (typeof window !== 'undefined') {
@@ -257,11 +246,7 @@ export function fill(element: pointer.ValidElementTarget, newvalue: string | num
     throw new Error(`Cannot use test.fill on an element that is not a form control, got a ${JSON.stringify(element.tagName)}`);
 
   element.focus();
-  if (hasSlimSelect(element)) { // https://slimselectjs.com/ is not fully compatible with changeValue, probably some subtle html5 event model incompatibility
-    element.slim.setSelected(newvalue as string);
-  } else {
-    dompack.changeValue(element, newvalue);
-  }
+  dompack.changeValue(element, newvalue);
 }
 export function fillUpload(element: pointer.ValidElementTarget, files: Array<{ data: BlobPart; filename: string; mimetype: string }>) {
   element = pointer._resolveToSingleElement(element);
