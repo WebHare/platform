@@ -1,7 +1,7 @@
 # Document editor
 
 There are three sources of hooks into the document editor:
-- editProps (or extendProperties). Tabs/sections added to metadata. Stored in (workflowed) whfsTypes. There can be multiple extendProps in a documentewditor
+- editProps (or extendProperties). Tabs/sections added to metadata. Stored in (workflowed) whfsTypes. There can be multiple extendProps in a documenteditor
 - The main content. set using setContentEditor. There can be only one. Manages main content and toolbars. Examples are richtext, form and plaintext editors. In general
   the main content editor matches its type (eg platform:filetypes.richdocument is edited by the richdocument editor) but custom filetypes may reuse existing (built-in) editors
 - Apply rules. These can define a `fsObjectPolicy` which overrides the behavior of objects in the document editor.

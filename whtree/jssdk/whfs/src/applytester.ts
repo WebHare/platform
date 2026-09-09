@@ -189,7 +189,7 @@ export async function getBaseInfoForApplyCheck(obj: WHFSObject, options?: { type
 
   const siteapply = await getSiteApplicabilityInfo(obj.parentSite);
   let site: SiteRow | null = null;
-  if (obj.parentSite) { //TOOD Caller should be able to supply this if it already knows
+  if (obj.parentSite) { //TODO Caller should be able to supply this if it already knows
     site = await db<PlatformDB>().selectFrom("system.sites").
       selectAll().
       select(selectSitesWebRoot().as("webroot")).
