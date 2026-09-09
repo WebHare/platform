@@ -788,11 +788,11 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
       value
     })); //TODO generic module name resolve function ?
 
-  if (apply.setObjectEditor) {
+  if (apply.setContentEditor) {
     rule.setobjecteditor = {
-      name: apply.setObjectEditor.name || '',
-      screen: apply.setObjectEditor.screen || '',
-      separateapp: apply.setObjectEditor.separateApp === true
+      name: apply.setContentEditor.name || '',
+      screen: apply.setContentEditor.screen || '',
+      separateapp: apply.setContentEditor.separateApp === true
     };
   }
 
@@ -829,6 +829,9 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
     rule.modifyfiletypes = parseModifyTypes(context, apply.fileTypes);
   if (apply.folderTypes)
     rule.modifyfoldertypes = parseModifyTypes(context, apply.folderTypes);
+
+  if (apply.fsObjectPolicy)
+    rule.fsobjectpolicy = context.resolve(apply.fsObjectPolicy);
 
   if (apply.mailTemplates?.length) {
     rule.mailtemplates = apply.mailTemplates.map(t => ({

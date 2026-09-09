@@ -528,8 +528,8 @@ $defs:
         $ref: "#/$defs/ApplyUserData"
       usePublishTemplate:
         type: string
-      setObjectEditor:
-        $ref: "#/$defs/ApplySetObjectEditor"
+      setContentEditor:
+        $ref: "#/$defs/ApplySetContentEditor"
       forms:
         $ref: "#/$defs/ApplyForms"
       captcha:
@@ -546,6 +546,8 @@ $defs:
         $ref: "#/$defs/ApplyToRepublish"
       folderSettings:
         $ref: "#/$defs/ApplyFolderSettings"
+      fsObjectPolicy:
+        $ref: "#/$defs/ApplyFSObjectPolicy"
       scheduleTimedTasks:
         $ref: "#/$defs/ApplyScheduleTimedTasks"
       scheduleManagedTasks:
@@ -871,7 +873,7 @@ $defs:
               pin:
                 type: boolean
 
-  ApplySetObjectEditor: #TODO reconsider if separateapp & screen versions is really what we want, but some options are likely to be forced/obsoleted as they conflict with workflow?
+  ApplySetContentEditor: #TODO reconsider if separateapp & screen versions is really what we want, but some options are likely to be forced/obsoleted as they conflict with workflow?
     type: object
     additionalProperties: false
     properties:
@@ -1064,6 +1066,9 @@ $defs:
           - orderable
       contentsListHandler:
         type: string
+
+  ApplyFSObjectPolicy:
+    type: string
 
   ApplyScheduleTimedTasks:
     type: array

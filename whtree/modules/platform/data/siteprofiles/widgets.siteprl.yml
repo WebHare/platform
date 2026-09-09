@@ -89,7 +89,7 @@ types:
     metaType: blockWidget
     renderer: mod::publisher/lib/widgets/formwidget.whlib#FormWidgetBase
     apply:
-      setObjectEditor:
+      setContentEditor:
         separateApp: true
         name: publisher:webtoolform
   widgets.confirmfield:
