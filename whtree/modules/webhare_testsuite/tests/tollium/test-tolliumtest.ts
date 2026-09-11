@@ -19,6 +19,15 @@ async function testTTAPI() {
   test.eq("opt1", tt.comp("pulldown").getValue());
   test.eq("Textvalue", tt.comp("text").getTextValue());
   test.eq("Textvalue", tt.comp("text").getValue());
+
+  const api = tt.loadRemote<{
+    add: (lhs: number, rhs: number) => number;
+    setTextEdit: (newtext: string) => string;
+  }>("mod::webhare_testsuite/screens/tests/tolliumtests.whlib");
+  test.eq(42, await api.add(40, 2));
+  test.eq("", await api.setTextEdit("Val 1"));
+  test.eq("Val 1", await api.setTextEdit("Val 2"));
+  test.eq("Val 2", tt.comp("textedit").getValue());
 }
 
 test.runTests(

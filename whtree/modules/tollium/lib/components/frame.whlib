@@ -1,6 +1,7 @@
 ﻿<?wh
 LOADLIB "wh::crypto.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/dialogs.whlib";
@@ -15,8 +16,8 @@ PUBLIC INTEGER windowcounter;
 
 /** @short The screen's frame (represents the <screen> node itself)
 */
-PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase
-< // ---------------------------------------------------------------------------
+PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -42,7 +43,7 @@ PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase
   BOOLEAN pvt_allowclose;
   STRING integration_guid;
 
- //FIXME: Conflicts with list flags (which is the list of allowed flags)
+  //FIXME: Conflicts with list flags (which is the list of allowed flags)
   RECORD pvt_flags;
 
   BOOLEAN __is_tollium_frame; //workaround to check for extendsfrom TolliumFrame
@@ -365,6 +366,32 @@ PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase
 
     FOREVERY(OBJECT defbutton FROM defbuttons)
       defbutton->buttons := this->__footerbuttons;
+  }
+
+  RECORD FUNCTION OnRequestInvokeRemote(RECORD data) {
+    TRY {
+      /* FIXME consider security impact of random function calls.
+               verifying we're on a DEV server and you're invoking something inside /tests/ should give some protection
+               should we verify we were actually in a CI test?
+               start requiring and verifying tests were started by sysop?
+
+               or should we still do TestInvoke_ prefixing or similar? requiring a .test.whlib or .remote.whlib extension?
+
+               we could also make the helpers part of the screen but I'd prefer not to have all debug code in the screens themselves */
+      IF(GetDtapStage() != "development")
+        THROW NEW Exception(`invokeRemote is only allowed on development servers`);
+      IF(NOT IsAbsoluteResourcePath(data.target))
+        THROW NEW Exception(`Untrusted resource path: ${data.target}`);
+
+      IF(data.target LIKE "*.whlib") {
+        VARIANT func := MakeFunctionPtr(data.target || "#" || data.prop);
+        RETURN [ response := CallAnyPtrVA(func, VARIANT[ __HS_INTERNAL_MAKEOBJECTREFERENCEPRIVILEGED(this->owner), ...data.args]) ];
+      }
+
+      THROW NEW Exception(`Unsupported target for invokeRemote: ${data.target}`);
+    } CATCH(OBJECT e) {
+      RETURN [ error := e->what ]; //TODO encode exception, but do we have a generic encoder into something TS understands?
+    }
   }
 
   UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
