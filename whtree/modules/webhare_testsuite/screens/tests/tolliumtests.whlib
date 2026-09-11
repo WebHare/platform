@@ -2,6 +2,16 @@
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
+// Simple addition function for invokeRemote testing
+PUBLIC INTEGER FUNCTION Add(OBJECT screen, INTEGER lhs, INTEGER rhs) {
+  RETURN lhs + rhs;
+}
+
+PUBLIC STRING FUNCTION SetTextEdit(OBJECT screen, STRING newtext) {
+  STRING oldtext := screen->^textedit->value;
+  screen->^textedit->value := newtext;
+  RETURN oldtext;
+}
 
 PUBLIC STATIC OBJECTTYPE tolliumtests EXTEND TolliumScreenBase
 <
