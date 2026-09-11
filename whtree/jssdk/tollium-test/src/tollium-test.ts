@@ -13,6 +13,8 @@ import { getCurrentScreen, getTestScreen, type ScreenProxy } from "@mod-tollium/
 import * as test from "@webhare/test-frontend";
 import { changeValue, isFormControl, qSA, type FormControlElement } from "@webhare/dompack";
 import { nameToSnakeCase, throwError } from "@webhare/std";
+import type { ObjFrame } from "@mod-tollium/webdesigns/webinterface/components";
+import type { PromisifyInterface } from "@webhare/js-api-tools";
 
 const proxies = new WeakMap<HTMLElement, ComponentProxy>();
 
@@ -191,6 +193,33 @@ export async function launchScreen(resource: string) {
   await test.waitForUI();
   //FIXME verify a screen opened
 }
+
+class RemoteProxy {
+  frame;
+  target;
+
+  constructor(frame: ObjFrame, target: string) {
+    this.frame = frame;
+    this.target = target;
+  }
+
+  get(target: object, prop: string, receiver: unknown) {
+    return async (...args: unknown[]) => {
+      return await this.frame.invokeRemote(this.target, prop, args);
+    };
+  }
+}
+
+/** Connect to a library on the server in the context of the current screen. */
+export function loadRemote<APIShape>(target: string): PromisifyInterface<APIShape> {
+  //Bind to the current toplevel screen
+  const frame = getCurrentScreen().getNode()?.propTodd as ObjFrame | undefined;
+  if (!frame) //TODO should go through a controller or directly so we can prepare things before starting an application
+    throw new Error(`No current screen available, loadRemote cannot know where to bind`);
+
+  return new Proxy({}, new RemoteProxy(frame, target)) as PromisifyInterface<APIShape>;
+}
+
 
 function matchesLabel(el: HTMLElement, textlabel: string) {
   if (el.textContent === textlabel)

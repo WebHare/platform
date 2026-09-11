@@ -187,7 +187,8 @@ export class ObjFrame extends ToddCompBase {
     this.node = this.nodes.root =
       dompack.create("form", {
         className: "t-screen",
-        tabIndex: -1
+        tabIndex: -1,
+        propTodd: this
       }, [
         this.nodes.windowheader = dompack.create("div", {
           className: "windowheader"
@@ -797,6 +798,15 @@ export class ObjFrame extends ToddCompBase {
     }
 
     return allvars;
+  }
+
+  async invokeRemote(target: string, prop: string, args: unknown[]): Promise<unknown> {
+    //TODO decode and rethrow exceptions
+    const res = await this.asyncRequest<{ response: unknown | { error: string } }>("invokeRemote", { target, prop, args });
+    if ("error" in res)
+      throw new Error(`invokeRemote: ${res.error}`);
+    else
+      return res.response;
   }
 
   applyUpdate(data: any) {
