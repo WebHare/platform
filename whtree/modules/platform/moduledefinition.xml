@@ -52,6 +52,10 @@
       <addheader header="Content-Security-Policy" value="" />
     </webrule>
     <webrule path="allroots:/.wh/endpoints/" match="initial" router="/js/endpoints/endpoints.ts#endPointRouter" />
+    <!-- tollium iframes may embed things like Maps or Youtube which want to verify referrers -->
+    <webrule path="allroots:/.wh/common/tollium/ap-iframe.html" match="initial" priority="after">
+      <addheader header="Referrer-Policy" value="origin" />
+    </webrule>
 
     <!-- Assetpack caching.. cache everything (with hashed names) for 24 hours *except* ap.css/mjs etc... those should only be cached for 15 minutes as their names cannot change -->
     <webrule path="allroots:/.wh/ea/ap/" match="initial" cachecontrol="public, max-age=31536000, immutable" priority="after">
