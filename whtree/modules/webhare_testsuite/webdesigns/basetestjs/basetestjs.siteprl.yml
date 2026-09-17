@@ -240,7 +240,7 @@ apply:
       - path: ../../tests/system/email/data/template.html.witty
         title: Mailtemplate
       - sources:
-          - path: site::webhare_testsuite.testsite/tmp/templates/
+          - path: site::webhare_testsuite.testsitejs/tmp/templates/
       # below should not fail any parser but not cause any duplicates either
       - ordering: -1
         path: mod::webhare_testsuite/tests/system/email/data/template.html.witty

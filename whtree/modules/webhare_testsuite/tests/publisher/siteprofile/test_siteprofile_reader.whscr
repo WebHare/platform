@@ -220,31 +220,33 @@ MACRO GlobalDataTester()
   TestEQ(FALSE, 4 IN GetDynamicExecuteFolderTypes()); //word doc
 }
 
-MACRO TestMailTemplates()
-{
-  RECORD ARRAY nowtemplates := GetApplyTesterForObject(GetTestsuiteTempFolder()->id)->GetMailTemplates();
-  TestEq(1, Length(nowtemplates));
-  TestEq(":mod::webhare_testsuite/tests/system/email/data/template.html.witty", nowtemplates[0].title); //defaulted title
+MACRO TestMailTemplates() {
+  FOREVERY(OBJECT basesite FROM [OpenTestsuiteSite(), OpenTestsuiteJSSite()]) {
+    OBJECT tmpfolder := basesite->OpenByPath("tmp");
+    RECORD ARRAY nowtemplates := GetApplyTesterForObject(tmpfolder->id)->GetMailTemplates();
+    TestEq(1, Length(nowtemplates));
+    TestEq(":mod::webhare_testsuite/tests/system/email/data/template.html.witty", nowtemplates[0].title); //defaulted title
 
-  testfw->BeginWork();
-  OBJECT templatefolder := GetTestsuiteTempFolder()->CreateFolder([name:="templates"]);
-  OBJECT templatefolder2 := GetTestsuiteTempFolder()->CreateFolder([name:="templates2"]);
-  OBJECT templatehtml := templatefolder->CreateFile([name := "template.html", title := "Cool template", typens := "http://www.webhare.net/xmlns/publisher/htmlfile", ordering := 4 ]);
-  OBJECT templatehtmlwitty := templatefolder2->CreateFile([name := "template.html.witty", title := "template.html", typens := "http://www.webhare.net/xmlns/publisher/wittyfile", ordering := 2 ]);
-  OBJECT untitledhtml := templatefolder->CreateFile([name := "untitled.html", typens := "http://www.webhare.net/xmlns/publisher/wittyfile" ]);
-  OBJECT plaintexthtml := templatefolder->CreateFile([name := "plaintext.html", title := "plaintext", typens := "http://www.webhare.net/xmlns/publisher/plaintextfile", ordering := 1]);
-  OBJECT plaintexttxt := templatefolder->CreateFile([name := "plaintext.txt", title := "plaintext.txt", typens := "http://www.webhare.net/xmlns/publisher/plaintextfile" ]);
-  testfw->CommitWork();
+    testfw->BeginWork();
+    OBJECT templatefolder := tmpfolder->CreateFolder([name:="templates"]);
+    OBJECT templatefolder2 := tmpfolder->CreateFolder([name:="templates2"]);
+    OBJECT templatehtml := templatefolder->CreateFile([name := "template.html", title := "Cool template", typens := "http://www.webhare.net/xmlns/publisher/htmlfile", ordering := 4 ]);
+    OBJECT templatehtmlwitty := templatefolder2->CreateFile([name := "template.html.witty", title := "template.html", typens := "http://www.webhare.net/xmlns/publisher/wittyfile", ordering := 2 ]);
+    OBJECT untitledhtml := templatefolder->CreateFile([name := "untitled.html", typens := "http://www.webhare.net/xmlns/publisher/wittyfile" ]);
+    OBJECT plaintexthtml := templatefolder->CreateFile([name := "plaintext.html", title := "plaintext", typens := "http://www.webhare.net/xmlns/publisher/plaintextfile", ordering := 1]);
+    OBJECT plaintexttxt := templatefolder->CreateFile([name := "plaintext.txt", title := "plaintext.txt", typens := "http://www.webhare.net/xmlns/publisher/plaintextfile" ]);
+    testfw->CommitWork();
 
-  nowtemplates := GetApplyTesterForObject(GetTestsuiteTempFolder()->id)->GetMailTemplates();
-  //plaintexttxt should not exist, 1untitled templates should not be shown (easy hiding)
-  TestEq([ "mod::webhare_testsuite/tests/system/email/data/template.html.witty"
-         , "site::webhare_testsuite.testsite/tmp/templates/plaintext.html"
-         , "site::webhare_testsuite.testsite/tmp/templates2/template.html.witty"
-         , "site::webhare_testsuite.testsite/tmp/templates/template.html"
-         ], SELECT AS STRING ARRAY path FROM nowtemplates);
+    nowtemplates := GetApplyTesterForObject(tmpfolder->id)->GetMailTemplates();
+    //plaintexttxt should not exist, untitled templates should not be shown (easy hiding)
+    TestEq([ "mod::webhare_testsuite/tests/system/email/data/template.html.witty"
+          , `site::${basesite->name}/tmp/templates/plaintext.html`
+          , `site::${basesite->name}/tmp/templates2/template.html.witty`
+          , `site::${basesite->name}/tmp/templates/template.html`
+          ], SELECT AS STRING ARRAY path FROM nowtemplates);
 
-  TestEq(":Cool template", nowtemplates[3].title, "templatehtml should be named Cool template");
+    TestEq(":Cool template", nowtemplates[3].title, "templatehtml should be named Cool template");
+  }
 }
 
 RunTestframework([ PTR TestApplyRuleTester

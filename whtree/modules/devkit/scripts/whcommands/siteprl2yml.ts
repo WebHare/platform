@@ -285,7 +285,7 @@ function mapModifyTypes(mts: CSPModifyType[]): ApplyTypes {
 
 function importSources(ctxt: ImportContext, sources: CSPSource[]): Sources {
   return sources.map(s => ({
-    path: s.relativeto === "siteprofile" ? unresolvePath(ctxt, s.path) : s.path,
+    path: s.relativeto === "" ? unresolvePath(ctxt, s.path) : s.path,
     ...s.relativeto === "targetobject" ? { relativeTo: "targetObject" } : {}
   }));
 }

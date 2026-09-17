@@ -326,7 +326,8 @@ export type CSPHookIntercept = {
 
 export type CSPSource = {
   path: string;
-  relativeto: "siteprofile" | "targetobject";
+  /** How to interpret the path. Empty string: relative to siteprofile */
+  relativeto: "" | "targetobject";
 };
 
 export type CSPMailTemplate = {

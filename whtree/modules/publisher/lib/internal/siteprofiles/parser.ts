@@ -665,7 +665,7 @@ function parseApplyRule(context: SiteProfileParserContext, gid: ResourceParserCo
 function parseSources(context: SiteProfileParserContext, sources: Sp.Sources): CSPSource[] {
   return sources.map(_ => ({
     path: _.relativeTo === "targetObject" ? _.path : context.resolve(_.path, _, { allowWHFS: true }),
-    relativeto: _.relativeTo === "targetObject" ? "targetobject" : "siteprofile",
+    relativeto: _.relativeTo === "targetObject" ? "targetobject" : "",
   }));
 }
 
