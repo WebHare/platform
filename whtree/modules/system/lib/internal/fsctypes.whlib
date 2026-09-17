@@ -102,8 +102,7 @@ RECORD FUNCTION GetCacheableMembers(INTEGER typedefid)
            AT END;
   }
   RETURN
-      [ eventmasks := [ "publisher:compiled_siteprofiles"
-                      , "system:whfs.types"
+      [ eventmasks := [ "system:whfs.types"
                       ]
       , value :=      memberlist
       ];
