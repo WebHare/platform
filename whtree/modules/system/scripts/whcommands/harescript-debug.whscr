@@ -44,6 +44,7 @@ Commands:
   jobadhoccache process jobmask       List adhoccache items of the process of the specified job
   jobblobreferences process jobmask   Get list of blobs of the specified job
   complexfsstats process              Get complex filesystem statistics for the specified process
+  locks process                       Display the local locks of the specified process
 
 See https://www.webhare.dev/reference/installation/environment for available debug flags
 `);
@@ -525,6 +526,19 @@ Executed instrs.:   ${stats.instructions}
         process->TerminateJob(rec.groupid);
       }
     }
+
+    CASE "locks"
+    {
+      ParseSubArgs(
+            [ [ name := "process", type := "param", required := TRUE ]
+            ]);
+
+      OBJECT process := AWAIT GetProcessByParam(args.process);
+      RECORD stats := process->GetLocks();
+
+      DumpValue(stats.rawdata, "boxed");
+    }
+
     CASE "getconfig"
     {
       ParseSubArgs(RECORD[]);

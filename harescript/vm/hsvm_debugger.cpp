@@ -987,6 +987,7 @@ void Debugger::HandleMessage(std::string const &type)
         else if (type == "getadhoccachelist")       { RPC_GetAdhocCacheList(); }
         else if (type == "getcomplexfsstats")       { RPC_GetComplexFSStats(); }
         else if (type == "getmallocstats")          { RPC_GetMallocStats(); }
+        else if (type == "getlocks")                { RPC_GetLocks(); }
         else
             throw std::runtime_error(("Unknown message type '" + type + "'").c_str());
 }
@@ -2206,6 +2207,23 @@ void Debugger::RPC_GetMallocStats()
                 free(buffer);
         }
 #endif
+
+        SendComposeVar(lock, lock->comm.msgid);
+        lock->comm.msgid = 0;
+}
+
+void Debugger::RPC_GetLocks() {
+        LockedData::WriteRef lock(data);
+        HSVM *vm = lock->comm.vm;
+        HSVM_VariableId composevar = lock->comm.composevar;
+
+        HSVM_SetDefault(vm, composevar, HSVM_VAR_Record);
+        HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, composevar, HSVM_GetColumnId(vm, "TYPE")), "getlocks-response");
+
+        HSVM_VariableId var_rawdata = HSVM_RecordCreate(vm, composevar, HSVM_GetColumnId(vm, "RAWDATA"));
+        HSVM_SetDefault(vm, var_rawdata, HSVM_VAR_RecordArray);
+
+        jobmgr.GetLockManager().GetLockStatus(&jobmgr, vm, var_rawdata);
 
         SendComposeVar(lock, lock->comm.msgid);
         lock->comm.msgid = 0;

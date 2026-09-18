@@ -222,6 +222,7 @@ class Debugger
         void RPC_GetAdhocCacheList();
         void RPC_GetComplexFSStats();
         void RPC_GetMallocStats();
+        void RPC_GetLocks();
 
     public:
         Debugger(Environment &environment, JobManager &jobmgr);
