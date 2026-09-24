@@ -78,6 +78,8 @@ PUBLIC MACRO ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD options DEFAULTS
 
   IF (options.__debug)
     Print(`To update: ${EncodeJSON(to_update)}\nTo delete: ${EncodeJSON(to_delete)}\n`);
+  IF (IsDebugTagEnabled("consilio:whfscatalog"))
+    LogDebug("consilio:whfscatalog", "ReindexWHFSChanges", CELL[ to_update, to_delete ]);
 
   DATETIME now := GetCurrentDateTime();
   FOREVERY (INTEGER objid FROM to_delete)
