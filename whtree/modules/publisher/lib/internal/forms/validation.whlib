@@ -59,8 +59,12 @@ PUBLIC RECORD ARRAY FUNCTION ValidateFormSource(RECORD formdata, STRING text) {
     RECORD parseresult := ParseFormDef(mainform->node, "webtoolform", "", "", formdefsfile);
     IF (NOT RecordExists(parseresult))
       THROW NEW Exception(`Could not parse the form`);
+  } CATCH (OBJECT<FormDefParseException> e) {
+    // Deduplicate errors
+    STRING ARRAY seen := SELECT AS STRING ARRAY `${col}:${line}:${message}` FROM messages;
+    messages := messages CONCAT SELECT * FROM e->errors WHERE `${col}:${line}:${message}` NOT IN seen;
   } CATCH (OBJECT e) {
-    INSERT [ line := 0, message := e->what ] INTO messages AT END;
+    INSERT [ line := 0, message := e->what, type := "error" ] INTO messages AT END;
   }
   RETURN messages;
 }

@@ -227,6 +227,14 @@ OBJECTTYPE FormParser
   }
 >;
 
+PUBLIC OBJECTTYPE FormDefParseException EXTEND Exception <
+  RECORD ARRAY _errors;
+  PUBLIC PROPERTY errors(_errors, -);
+  MACRO NEW(RECORD ARRAY errors, RECORD options DEFAULTSTO DEFAULT RECORD) : Exception(`Cannot load form: ${errors[0].message} at line ${errors[0].line}`, options) {
+    this->_errors := errors;
+  }
+>;
+
 PUBLIC RECORD FUNCTION ParseFormDef(OBJECT formnode, STRING formname, STRING resourcename, STRING lookupname, OBJECT formdefinitions, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ webtoolformid := 0
@@ -313,10 +321,10 @@ PUBLIC RECORD FUNCTION ParseFormDef(OBJECT formnode, STRING formname, STRING res
   }
 
   formdef.handlers := ParseFormHandlers(formnode, resourcename, gid, formdefinitions, options.validatexmlonly);
-  formdef.warnings := formdef.warnings CONCAT parser->warnings;
-  formdef.errors := formdef.errors CONCAT parser->errors;
+  formdef.warnings := formdef.warnings CONCAT SELECT *, type := "warning" FROM parser->warnings;
+  formdef.errors := formdef.errors CONCAT SELECT *, type := "error" FROM parser->errors;
   IF(NOT options.accepterrors AND Length(formdef.errors)>0)
-    THROW NEW Exception(`Cannot load form: ${formdef.errors[0].message} at line ${formdef.errors[0].line}`);
+    THROW NEW FormDefParseException(formdef.errors);
   RETURN formdef;
 }
 
