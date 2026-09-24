@@ -5,6 +5,7 @@ on:
   schedule:
     - cron: "0 3 * * 0"
   workflow_dispatch:
+  pull_request:
 
 env:
   CI_REGISTRY_IMAGE: ghcr.io/webhare/platform
