@@ -86,6 +86,14 @@ get_finaltag "${FINALTAGARGS[@]}"
 list_finaltag
 
 if [ -n "$USEPODMAN" ]; then
+  if ! hash -r podman 2>/dev/null; then
+    if [ "$WEBHARE_IN_CONTAINER" == "1" ]; then
+      dnf install -y podman fuse-overlayfs
+    else
+      die "Podman not installed on host"
+    fi
+  fi
+
   podman -v
   buildah -v 2>/dev/null || echo "buildah not installed on host"
   DOCKERBUILDARGS+=(--layers)
@@ -112,8 +120,8 @@ fi
 echo ""
 echo "Packaging source tree for the WebHare runner"
 
-# Prune empty directories
-find "$WEBHARE_CHECKEDOUT_TO" -type d -empty -delete
+# Prune empty directories in whtree. The rest is only used in the builder image so not relevant
+find "$WEBHARE_CHECKEDOUT_TO"/whtree -type d -empty -delete || true
 
 if [ -z "$NOPULL" ]; then
   DOCKERBUILDARGS+=(--pull)

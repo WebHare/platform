@@ -43,12 +43,13 @@ ENV \
   WEBHARE_CHECKEDOUT_TO=/opt/wh \
   WHBUILD_EMSCRIPTEN_VERSION=$WHBUILD_EMSCRIPTEN_VERSION
 
-# Add vendor stuff (needed for emsdk)
+# Add vendor stuff (use to be for emsdk, but we still seem to need it?)
 COPY vendor/ /opt/wh/vendor/
 
 # Base image setup
 RUN --mount=type=bind,source=addons/docker-build/setup-base-shared.sh,target=/setup-base-shared.sh \
     --mount=type=bind,source=addons/docker-build/setup-builder.sh,target=/setup-builder.sh \
+    --mount=type=bind,source=addons/docker-build/setup-emsdk.sh,target=/setup-emsdk.sh \
     --mount=type=cache,id=builderdownloads,target=/tmp/downloads \
     --mount=type=cache,id=baseimage3,sharing=locked,target=/var/cache/dnf \
     /bin/bash /setup-builder.sh # 2024-08-19
@@ -75,7 +76,7 @@ RUN --mount=type=bind,source=/ap,target=/mnt/ap \
 RUN --mount=type=tmpfs,target=/opt/whbuild \
     --mount=type=tmpfs,target=/tmp \
     --mount=type=cache,id=compile,target=/tmp/compile  \
-    /bin/bash -c ". /opt/wh/vendor/emsdk/emsdk_env.sh && /opt/wh/builder/make.sh install"
+    /opt/wh/builder/make.sh install
 
 
 ################# STAGE devcontainer
@@ -97,14 +98,15 @@ ENV \
 # Expose usual WebHare hostingports
 EXPOSE 13684
 
-# emscripten, pdfbox and tika installed by makefile (because they write to /opt/wh)
+# pdfbox and tika installed by makefile (because they write to /opt/wh)
 
  # Base image setup
 RUN --mount=type=bind,source=addons/docker-build/setup-base-shared.sh,target=/setup-base-shared.sh \
      --mount=type=bind,source=addons/docker-build/setup-builder.sh,target=/setup-builder.sh \
+     --mount=type=bind,source=addons/docker-build/setup-emsdk.sh,target=/setup-emsdk.sh \
      --mount=type=cache,id=builderdownloads,target=/tmp/downloads \
      --mount=type=cache,id=baseimage3,sharing=locked,target=/var/cache/dnf \
-     /bin/bash /setup-builder.sh --skip-emscripten # 2024-08-19
+     /bin/bash /setup-builder.sh # 2024-08-19
 
 ARG WHBUILD_ASSETROOT
 

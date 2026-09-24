@@ -142,27 +142,32 @@ if [ -z "$WEBHARE_IN_DOCKER" ] || [ -n "$WHBUILD_DEVCONTAINER" ]; then # Not a d
   if ! /bin/bash "$WEBHARE_CHECKEDOUT_TO/addons/docker-build/setup-tika.sh" "$WHBUILD_ASSETROOT" 3.3.0; then
     echo "setup-tika failed"
   fi
-  rm -rf "$WEBHARE_CHECKEDOUT_TO/whtree/modules/system/data/engines"
 fi
 
-# Is emsdk installed?
-if [ -z "$WEBHARE_IN_DOCKER" ] || [ -n "$WHBUILD_DEVCONTAINER" ]; then
-  [ -x "$WEBHARE_CHECKEDOUT_TO/vendor/emsdk/emsdk" ] || git -C "$WEBHARE_CHECKEDOUT_TO" submodule update --init --recursive
-  [ -x "$WEBHARE_CHECKEDOUT_TO/vendor/emsdk/emsdk" ] || die "Submodule vendor/emsdk not present"
-  # TODO skip if already activated. need to support version checks then
-  # TODO can we ensure wasm-clean is invoked (ideally set a proper dep) whenever emsdk is updated?
-
-  if [ "$WHBUILD_EMSCRIPTEN_VERSION" != "$(cat "$WEBHARE_CHECKEDOUT_TO/vendor/wh-current-emscripten-version" 2> /dev/null)" ]; then
-    "$WEBHARE_CHECKEDOUT_TO/vendor/emsdk/emsdk" install "$WHBUILD_EMSCRIPTEN_VERSION"
-    "$WEBHARE_CHECKEDOUT_TO/vendor/emsdk/emsdk" activate "$WHBUILD_EMSCRIPTEN_VERSION"
-    echo "$WHBUILD_EMSCRIPTEN_VERSION" > "$WEBHARE_CHECKEDOUT_TO/vendor/wh-current-emscripten-version"
-  fi
-
-  if [ -z "$DEBUGMAKE" ] && [ -z "$EMSDK_QUIET" ]; then
-    export EMSDK_QUIET=1
-  fi
-  source "$WEBHARE_CHECKEDOUT_TO/vendor/emsdk/emsdk_env.sh"
+# Remove old version file (2026-09-24)
+if [ -f "$WEBHARE_CHECKEDOUT_TO/vendor/wh-current-emscripten-version" ]; then
+  rm "$WEBHARE_CHECKEDOUT_TO/vendor/wh-current-emscripten-version"
+  rm -rf "$WEBHARE_CHECKEDOUT_TO/vendor/emsdk"
 fi
+
+# ============ emsdk installation & configuration =====================
+# TODO can we ensure wasm-clean is invoked (ideally set a proper dep) whenever emsdk is updated?
+# let emsdk check versions and upgrade if needed. note that addons/ is not present in the build steps of
+[ -f "$WEBHARE_CHECKEDOUT_TO"/addons/docker-build/setup-emsdk.sh ] && "$WEBHARE_CHECKEDOUT_TO"/addons/docker-build/setup-emsdk.sh
+
+if [ -z "$DEBUGMAKE" ] && [ -z "$EMSDK_QUIET" ]; then
+  export EMSDK_QUIET=1
+fi
+
+if [ "$WEBHARE_IN_CONTAINER" == "1" ]; then
+  WHBUILD_EMSDK_ROOT="/opt/emsdk"
+else
+  WHBUILD_EMSDK_ROOT="$WEBHARE_BUILDDIR/emsdk"
+fi
+export WHBUILD_EMSDK_ROOT
+
+# shellcheck disable=SC1091
+source "$WHBUILD_EMSDK_ROOT/emsdk_env.sh"
 
 # Convert version number to 5 digit style used in C++/HareScript (GetWebHareVersionNumber)
 if [[ $WEBHARE_VERSION =~ ^([0-9]{1})\.([0-9]{1,2})\.([0-9]{1,2})$ ]]; then
