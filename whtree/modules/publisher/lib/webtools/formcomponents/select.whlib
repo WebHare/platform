@@ -311,14 +311,6 @@ PUBLIC OBJECTTYPE FormSelectSingleBase EXTEND FormComponentExtensionBase
         ELSE
           textedit->RemoveAttribute("required");
 
-        // Try not to overwrite custom names
-        IF (NOT textedit->HasAttribute("name") OR textedit->GetAttribute("name") LIKE "*.openanswer")
-        {
-          IF (this->compname != "")
-            textedit->SetAttribute("name", `${this->compname}.openanswer`);
-          ELSE
-            textedit->RemoveAttribute("name");
-        }
 /*        IF (option.maxlength > 0)
           textedit->SetAttribute("maxlength", ToString(option.maxlength));
         ELSE
