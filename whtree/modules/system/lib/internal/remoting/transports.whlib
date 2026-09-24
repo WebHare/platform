@@ -126,7 +126,8 @@ STATIC OBJECTTYPE JSONRPCTransport EXTEND Transport
     IF(e EXTENDSFROM RPCInvalidArgsException)
     {
       httpstatus := 400;
-      error.data := DEFAULT RECORD; // Hide trace, this is a normal error
+      IF(CellExists(error, "data"))
+        error.data := DEFAULT RECORD; // Hide trace, this is a normal error
     }
 
     RECORD responsedata := [ id := requesttoken.id
