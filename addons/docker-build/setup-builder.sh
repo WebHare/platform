@@ -17,18 +17,6 @@
 # Fail on any error
 set -eo pipefail
 
-SKIP_EMSCRIPTEN=
-while [[ $1 =~ ^-.* ]]; do
-  if [ "$1" == "--skip-emscripten" ]; then
-    SKIP_EMSCRIPTEN=1
-  else
-    echo "Illegal option $1"
-    exit 1
-  fi
-  shift
-done
-
-
 if [ -z "$WHBUILD_DOWNLOADCACHE" ]; then
   echo WHBUILD_DOWNLOADCACHE not set
   exit 1
@@ -77,14 +65,4 @@ PACKAGES=(
 dnf install -y "${PACKAGES[@]}"
 
 source "${BASH_SOURCE%/*}/setup-base-shared.sh"
-
-if [ -z "$SKIP_EMSCRIPTEN" ]; then
-  if [ -z "$WHBUILD_EMSCRIPTEN_VERSION" ]; then
-    echo "WHBUILD_EMSCRIPTEN_VERSION not set"
-    exit 1;
-  fi
-
-  /opt/wh/vendor/emsdk/emsdk install "$WHBUILD_EMSCRIPTEN_VERSION"
-  /opt/wh/vendor/emsdk/emsdk activate "$WHBUILD_EMSCRIPTEN_VERSION"
-  echo "$WHBUILD_EMSCRIPTEN_VERSION" > /opt/wh/vendor/wh-current-emscripten-version
-fi
+"${BASH_SOURCE%/*}/setup-emsdk.sh"
