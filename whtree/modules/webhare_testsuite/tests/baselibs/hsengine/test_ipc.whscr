@@ -140,6 +140,9 @@ MACRO OnEventCallbackS(STRING event, RECORD data)
 MACRO OnEventCallbackM(STRING event, RECORD ARRAY data)
 {
   INSERT [ type := "event-multiple", event := event, data := data ] INTO cbs AT END;
+  FOREVERY (RECORD rec FROM data)
+    IF (CellExists(rec, "EXC"))
+      THROW NEW Exception(rec.exc);
 }
 
 MACRO OnHandleCallback(INTEGER handle, OBJECT port)
@@ -230,6 +233,24 @@ MACRO CallbackTest()
   UnregisterCallback(cbhandle);
   DoCallbackHandling(AddTimeToDate(250, GetCurrentDateTime()));
   TestEQ(DEFAULT RECORD ARRAY, cbs);
+
+  // STORY: exception broke callback handler
+  cbhandle := RegisterMultiEventCallback("hs:test", PTR OnEventCallbackM);
+  RawBroadcastEvent("hs:test", [ a := 1 ]);
+  DoCallbackHandling(AddTimeToDate(250, GetCurrentDateTime()));
+  RawBroadcastEvent("hs:test", [ exc := "test exception" ]);
+  DoCallbackHandling(AddTimeToDate(250, GetCurrentDateTime()));
+  TestEQ([ [ type := "event-multiple", event := "hs:test", data := [ [ a := 1] ] ]
+         , [ type := "event-multiple", event := "hs:test", data := [ [ exc := "test exception" ] ] ]
+         ], cbs);
+  RawBroadcastEvent("hs:test", [ a := 2 ]);
+  DoCallbackHandling(AddTimeToDate(250, GetCurrentDateTime()));
+  TestEQ([ [ type := "event-multiple", event := "hs:test", data := [ [ a := 1] ] ]
+         , [ type := "event-multiple", event := "hs:test", data := [ [ exc := "test exception" ] ] ]
+         , [ type := "event-multiple", event := "hs:test", data := [ [ a := 2] ] ]
+         ], cbs);
+  UnregisterCallback(cbhandle);
+  cbs := DEFAULT RECORD ARRAY;
 }
 
 MACRO ImmediateBroadcastCallbackTest()

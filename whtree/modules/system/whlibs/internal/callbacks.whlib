@@ -4,6 +4,8 @@ LOADLIB "wh::system.whlib";
 LOADLIB "wh::internal/interface.whlib" EXPORT __INTERNAL_RunAsyncJSCode;
 LOADLIB "wh::internal/debug.whlib";
 
+LOADLIB "mod::system/lib/internal/cluster/logwriter.whlib";
+
 
 /// Event stream for event callbacks and broadcasts. Init with -2 so it doesn't clash with any handles or -1 (usual timeout return)
 INTEGER eventstream := -2;
@@ -688,6 +690,8 @@ STATIC OBJECTTYPE EventCallbackSerializer
       TRY
         __WITHASYNCCONTEXT(this->reg.asynccontext)
           this->reg.callback(rec.event, rec.msgs);
+      CATCH (OBJECT e)
+        LogNoticeException("script-error", "", e, DEFAULT RECORD);
       FINALLY
         __internal_forbidden_broadcasts := oldlist;
     }
