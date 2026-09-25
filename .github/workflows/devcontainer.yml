@@ -1,0 +1,40 @@
+name: WebHare Devcontainer
+
+on:
+  schedule:
+    - cron: "0 4 * * 1-5"
+  workflow_dispatch:
+  push:
+    branches:
+      - edge/arnoldhendriks  #temporary, remove when merged
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  builddocker:
+    name: Build Docker
+    # See https://github.com/actions/runner-images
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Build Docker in devcontainer
+        run: |
+          addons/docker-build/build-devcontainer.sh
+          addons/docker-build/run-devcontainer.sh wh builddocker --podman --build-arg --net=host
+
+  make-install:
+    name: Make install
+    # See https://github.com/actions/runner-images
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Run make install in devcontainer
+        run: |
+          addons/docker-build/build-devcontainer.sh
+          addons/docker-build/run-devcontainer.sh wh make install
