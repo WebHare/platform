@@ -11,6 +11,7 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/catalogs.whlib";
 
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 
@@ -34,7 +35,6 @@ INTEGER ARRAY FUNCTION GetIndexedWHFSObjectsForFolder(INTEGER folderid)
 */
 PUBLIC MACRO ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  RECORD ARRAY results;
   options := ValidateOptions([ __eventid := "", __debug := FALSE, __progress := FALSE, refresh := TRUE ], options);
 
   IF(NOT ObjectExists(publisher_fsobjects_source))
@@ -84,7 +84,10 @@ PUBLIC MACRO ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD options DEFAULTS
   DATETIME now := GetCurrentDateTime();
   FOREVERY (INTEGER objid FROM to_delete)
   {
-    publisher_fsobjects_source->DeleteGroup("fsobj_" || objid, [ foreground := TRUE ]);
+    TRY
+      publisher_fsobjects_source->DeleteGroup("fsobj_" || objid, [ foreground := TRUE ]);
+    CATCH (OBJECT e)
+      LogHareScriptException(e, [ info := [ context := "consilio:whfscatalog", to_delete := objid ] ]);
     IF(options.__progress)
       Print(`Deleting ${#objid+1}/${Length(to_delete)}: #${objid}\r`);
   }
@@ -93,14 +96,13 @@ PUBLIC MACRO ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD options DEFAULTS
 
   FOREVERY (INTEGER objid FROM to_update)
   {
-    publisher_fsobjects_source->ReindexGroup("fsobj_" || objid, [ foreground := TRUE ]);
+    TRY
+      publisher_fsobjects_source->ReindexGroup("fsobj_" || objid, [ foreground := TRUE ]);
+    CATCH (OBJECT e)
+      LogHareScriptException(e, [ info := [ context := "consilio:whfscatalog", to_update := objid ] ]);
     IF(options.__progress)
       Print(`Updating ${#objid+1}/${Length(to_update)}: #${objid}\r`);
   }
-
-  // Sort the results: first the requested ids in the order they're supplied, then other ids sorted ascending
-  INTEGER ARRAY orgids := SELECT AS INTEGER ARRAY id FROM to_reindex;
-  results := SELECT * FROM results ORDER BY SearchElement(orgids, objid) + 1 ?? objid;
 
   IF(options.__progress AND Length(to_update) > 0)
     Print(`\n`);
