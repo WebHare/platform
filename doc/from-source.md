@@ -69,12 +69,21 @@ If you're getting an error that openjdk isn't notarized, you can go to System Pr
 "Allow anyway" on the General tab to enable it.
 
 ## Build using devcontainer & podman
+The devcontainer can be used to build WebHare container images
+
 ```bash
-wh builddocker --podman --devcontainer
-podman run --rm -ti  -v ~/projects/webhare:/opt/wh --device /dev/fuse --net host --privileged localhost/webhare/platform:developcontainer /bin/bash
-wh builddocker --podman
+addons/docker-build/build-devcontainer.sh
+addons/docker-build/run-devcontainer.sh
+wh builddocker --podman --build-arg --net=host
 ```
 
+or to build WebHare from source
+
+```bash
+addons/docker-build/build-devcontainer.sh
+addons/docker-build/run-devcontainer.sh
+wh make install
+```
 
 ## Building for docker
 ```bash

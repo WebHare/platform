@@ -103,6 +103,8 @@ MACRO OnFolderEvent(STRING event, RECORD ARRAY messages)
 
 MACRO OnIndexRequest(STRING event, RECORD ARRAY msgs)
 {
+  IF (IsDebugTagEnabled("consilio:whfscatalog"))
+    LogDebug("consilio:whfscatalog", "OnIndexRequest", CELL[ event, msgs ]);
   PrintDebug("Got index request '" || event || "'");
   EnsurePublisherWHFSIndex();
 

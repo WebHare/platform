@@ -103,6 +103,7 @@ PUBLIC RECORD FUNCTION RPC_CrashTest(STRING type)
   {
     CASE "abort" { ABORT("boem"); }
     CASE "throw" { THROW NEW Exception("boem"); }
+    CASE "invalidargs" { THROW NEW RPCInvalidArgsException("boem"); }
     CASE "terminate" { TerminateScript(); }
   }
   ABORT("Unknown abort type '" || type || "'");
