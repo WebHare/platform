@@ -1,5 +1,6 @@
 # shellcheck shell=bash
 
+######################################## POSTGRES
 # postgres key & repository - https://www.postgresql.org/download/linux/redhat/
 dnf install -y "https://download.postgresql.org/pub/repos/yum/reporpms/EL-10-$(uname -m)/pgdg-redhat-repo-latest.noarch.rpm"
 

@@ -9,4 +9,6 @@ podman run \
   --privileged \
   -ti \
   -v "$(pwd)/../..":/opt/wh \
+  -v "devcontainer-currentinstall":/opt/wh/whtree/currentinstall \
+  -v "devcontainer-node_modules":/opt/wh/whtree/node_modules \
   localhost/webhare/platform:devcontainer

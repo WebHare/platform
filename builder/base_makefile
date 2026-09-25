@@ -212,7 +212,7 @@ DRAWLIB_STATIC_LIBS=
 DRAWLIB_BASE_LIBS+=jpeg
 
 EMCC?=emcc
-EMSCRIPTEN_VERSION_FILE := $(SRCDIR)/vendor/wh-current-emscripten-version
+EMSCRIPTEN_VERSION_FILE := $(WHBUILD_EMSDK_ROOT)/current-emscripten-version
 
 ifeq ($(BUILDSYSTEM),gcc)
 	ifeq ($(CXX),clang++)

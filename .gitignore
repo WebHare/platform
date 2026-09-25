@@ -25,7 +25,6 @@
 /whtree/modules/platform/generated/
 
 /vendor/.*.lock
-/vendor/wh-current-emscripten-version
 
 # We ignore .vscode as c_cpp_properties.json, launch.json and tasks.json aren't standardized (yet) accross developers
 /.vscode/*
