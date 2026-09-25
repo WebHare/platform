@@ -3,7 +3,7 @@ name: WebHare CI
 on:
   push:
   schedule:
-    - cron: "0 3 * * 0"
+    - cron: "0 3 * * 1-5"  # weekdays at 3AM
   workflow_dispatch:
   pull_request:
 
@@ -26,7 +26,6 @@ jobs:
     name: Build container
     # See https://github.com/actions/runner-images
     runs-on: ubuntu-26.04
-    if: github.event_name != 'schedule'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -34,7 +33,12 @@ jobs:
       - name: Log in to GHCR with Podman
         run: echo '${{ secrets.GITHUB_TOKEN }}' | podman login ghcr.io --username '${{ github.actor }}' --password-stdin
       - name: Build and push WebHare container
-        run: whtree/bin/wh buildcontainer --podman
+        run: |
+          build_container_args=()
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            build_container_args+=(--no-cache)
+          fi
+          whtree/bin/wh buildcontainer "${build_container_args[@]}" --podman
         env:
           PUSH_BUILD_IMAGES: "1"
       - name: Upload artifacts
@@ -42,28 +46,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: buildcontainer-artifacts
-          path: artifacts/
-          if-no-files-found: ignore
-
-  buildcontainer-scheduled:
-    name: Scheduled container build
-    runs-on: ubuntu-26.04
-    if: github.event_name == 'schedule'
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - name: Log in to GHCR with Podman
-        run: echo '${{ secrets.GITHUB_TOKEN }}' | podman login ghcr.io --username '${{ github.actor }}' --password-stdin
-      - name: Build container without cache
-        run: whtree/bin/wh buildcontainer --no-cache --podman
-        env:
-          PUSH_BUILD_IMAGES: "1"
-      - name: Upload artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: scheduled-build-artifacts
           path: artifacts/
           if-no-files-found: ignore
 
@@ -153,7 +135,7 @@ jobs:
   deploy:
     name: Deploy container
     needs: [buildcontainer, test-vscode-extension, testcontainers, test-devkit]
-    if: github.ref == 'refs/heads/main' && github.event_name != 'schedule'
+    if: success() && github.event_name != 'schedule'
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v4
@@ -176,7 +158,7 @@ jobs:
   update-testscripts:
     name: Update test scripts
     needs: deploy
-    if: github.ref == 'refs/heads/main'
+    if: success() && github.ref == 'refs/heads/main' && github.event_name != 'schedule'
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v4
