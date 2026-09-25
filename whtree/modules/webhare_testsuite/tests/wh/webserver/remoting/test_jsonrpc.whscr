@@ -1,6 +1,7 @@
 ﻿<?wh
 
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
 
@@ -127,6 +128,27 @@ MACRO TestBadrequest()
   TestEq(500, testfw->browser->GetHTTPStatusCode());
 }
 
+MACRO TestInvalidArgs()
+{
+  RECORD port := testfw->GetLocalhostWebinterface();
+  STRING url := "http://127.0.0.1:" || port.portnumber || "/wh_services/webhare_testsuite/testnoauth";
+  BLOB request := StringToBlob(EncodeJSON([method:="crashtest", params:=["invalidargs"], id:=5]));
+  RECORD ARRAY headers :=
+      [ [ field := "Content-Type", value := "application/json" ]
+      ];
+
+  //testfw->browser has the 'etr' debug flag set. The trace should still be hidden
+  TestEq(FALSE, testfw->browser->PostWebPageBlob(url, headers, request));
+  TestEq(400, testfw->browser->GetHTTPStatusCode());
+  TestEq(FALSE, RecordExists(DecodeJSONBlob(testfw->browser->content).error.data));
+
+  //A browser without the 'etr' debug flag should get a 400 too
+  OBJECT browser := NEW WebBrowser;
+  TestEq(FALSE, browser->PostWebPageBlob(url, headers, request));
+  TestEq(400, browser->GetHTTPStatusCode());
+  browser->Close();
+}
+
 MACRO TestJSONRPC()
 {
   RECORD port := testfw->GetLocalhostWebinterface();
@@ -166,6 +188,7 @@ MACRO TestOrigin()
 }
 
 RunTestFramework([ PTR TestBadRequest
+                 , PTR TestInvalidArgs
                  , PTR TestJSONRPC
                  , PTR TestOrigin
                  , PTR TestJSONRPC_JS
