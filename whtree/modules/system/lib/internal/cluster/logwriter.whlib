@@ -1,7 +1,6 @@
 <?wh
 (*ISSYSTEMLIBRARY*)
 
-LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
