@@ -4,6 +4,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/richdocument.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/auth.whlib";
 
 PUBLIC MACRO SetTestInstanceField(STRING wrdschemaname, INTEGER person, RECORD testinstance) {
   OpenWRDSchema(wrdschemaname)->^wrd_person->UpdateEntity(person, CELL[ testinstance ]);
@@ -56,4 +57,25 @@ PUBLIC RECORD FUNCTION GetWRDEntityFields(STRING wrdschema, STRING type, INTEGER
 PUBLIC MACRO UpdateWRDEntity(STRING wrdschema, STRING type, INTEGER entityid, RECORD updates)
 {
   OpenWRDSchema(wrdschema)->__GetTypeByTag(type)->UpdateEntity(entityid, updates);
+}
+
+PUBLIC INTEGER FUNCTION CreateRoleWithGlobalRight(STRING wrdschemaname, INTEGER unit, INTEGER grantor, STRING rightname, INTEGER ARRAY rolemembers)
+{
+  OBJECT userapi := GetWRDAuthUserAPI(OpenWRDSchema(wrdschemaname));
+  INTEGER role := userapi->CreateRole([ wrd_title := "tempTestRole", wrd_leftentity := unit ]);
+  OBJECT grantorobj := userapi->GetUser(grantor);
+  grantorobj->UpdateGrant("grant", rightname, 0, grantorobj, [ withgrantoption := TRUE, allowselfassignment := TRUE ]);
+  grantorobj->UpdateGrant("grant", rightname, 0, userapi->GetRole(role), [ withgrantoption := FALSE ]);
+  userapi->SetRoleMembers(role, rolemembers, grantor);
+  RETURN role;
+}
+
+PUBLIC MACRO DeleteRole(STRING wrdschemaname, INTEGER role)
+{
+  GetWRDAuthUserAPI(OpenWRDSchema(wrdschemaname))->DeleteRole(role);
+}
+
+PUBLIC BOOLEAN FUNCTION UserHasRight(STRING wrdschemaname, INTEGER user, STRING rightname)
+{
+  RETURN GetWRDAuthUserAPI(OpenWRDSchema(wrdschemaname))->GetUser(user)->HasRight(rightname);
 }

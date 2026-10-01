@@ -17,9 +17,9 @@ export type TargettedRight = "system:fs_fullaccess" | ModuleQualifiedName;
 type RightsDB = any;
 
 const authobjectTypeUser = 1;
-// const authobjectTypeRole = 3;
+const authobjectTypeRole = 3;
 
-type AuthObjectType = typeof authobjectTypeUser | 2 | 3; //TODO add constants for the others too as soon was we use them
+type AuthObjectType = typeof authobjectTypeUser | 2 | typeof authobjectTypeRole; //TODO add constants for the others too as soon was we use them
 type AuthObjectRef = { id: number; type: AuthObjectType };
 
 export interface InformationSchema {
@@ -258,8 +258,13 @@ class WRDEntityAuthorization implements AuthorizationInterface {
 
   private async expandAuthObjects(authobject: number) {
     const objs = [authobject];
-    const roles = await db<PlatformDB>().selectFrom("system.rolegrants").where("grantee", "=", authobject).select("role").execute();
-    //FIXME should also check deactivated 'If true, authobject is no longer visible in any usermgmt schema (currently used only for roles that only exist with a limitdate in WRD)'
+    //Skip deactivated roles (roles with a limitdate in WRD, including deleted roles), like HareScript's ExpandAuthobjectsWithRoleGrants
+    const roles = await db<PlatformDB>().selectFrom("system.rolegrants").
+      innerJoin("system.authobjects", "system.authobjects.id", "system.rolegrants.role").
+      where("system.rolegrants.grantee", "=", authobject).
+      where("system.authobjects.type", "=", authobjectTypeRole).
+      where("system.authobjects.deactivated", "=", false).
+      select("system.rolegrants.role").execute();
     appendToArray(objs, roles.map(r => r.role));
     return objs;
   }

@@ -1,9 +1,12 @@
 import * as whdb from "@webhare/whdb";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
-import { getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
+import { getWRDSchema, testSchemaTag } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { getAuthorizationInterface, getAuthorizationUser, getAuthorizationUsers } from "@webhare/auth";
 import type { WRDEntityAuthorization } from "@webhare/auth/src/userrights";
 import { CodeContext } from "@webhare/services/src/codecontexts";
+import { toResourcePath } from "@webhare/services";
+import { loadlib } from "@webhare/harescript";
+import { throwError } from "@webhare/std";
 
 async function testAuthObjects() { //test authobjects and the AuthorizationInterface
   const wrdschema = await getWRDSchema();
@@ -64,6 +67,28 @@ async function testAuthObjects() { //test authobjects and the AuthorizationInter
   test.eq(playerTwo, (await getAuthorizationUser(wrdschema, playerTwoAuthUncached)));
 }
 
+async function testDeactivatedRoles() {
+  const wrdschema = await getWRDSchema();
+  const support = loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib");
+  const testUnit = await wrdschema.find("whuserUnit", { wrdTitle: "tempTestUnit" }) ?? throwError("No test unit found");
+
+  await whdb.beginWork();
+  const grantor = await wrdschema.insert("wrdPerson", { wrdContactEmail: "role.grantor@beta.webhare.net", whuserUnit: testUnit, wrdauthAccountStatus: { status: "active" } });
+  const roleMember = await wrdschema.insert("wrdPerson", { wrdContactEmail: "role.member@beta.webhare.net", whuserUnit: testUnit, wrdauthAccountStatus: { status: "active" } });
+  for (const person of [grantor, roleMember]) //TS inserts don't create the authobjects the HareScript user API needs
+    await (getAuthorizationInterface(person) as WRDEntityAuthorization)["getPrimaryAuthObject"](true);
+  const role = await support.CreateRoleWithGlobalRight(testSchemaTag, testUnit, grantor, "system:sysop", [roleMember]) as number;
+  await whdb.commitWork();
+
+  test.eq(true, await getAuthorizationInterface(roleMember).hasRight("system:sysop"));
+  test.eq(true, await support.UserHasRight(testSchemaTag, roleMember, "system:sysop"));
+
+  //Deleting a role only sets its limitdate, which marks its authobject as deactivated
+  await whdb.runInWork(() => support.DeleteRole(testSchemaTag, role));
+  test.eq(false, await support.UserHasRight(testSchemaTag, roleMember, "system:sysop"));
+  test.eq(false, await getAuthorizationInterface(roleMember).hasRight("system:sysop"), "A deleted role should no longer grant rights");
+}
+
 test.runTests([
   () => test.resetWTS({
     users: {
@@ -71,5 +96,6 @@ test.runTests([
     }
   }),
   testAuthObjects,
+  testDeactivatedRoles,
 
 ]);
