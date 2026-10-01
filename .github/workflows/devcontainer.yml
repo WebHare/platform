@@ -1,0 +1,40 @@
+name: WebHare Devcontainer
+
+on:
+  schedule:
+    - cron: "0 4 * * 1-5"
+  workflow_dispatch: #Note that this won't work until the default branch has devcontainer.yml
+  push:
+    branches: #Use feature/devcontainer- branches for development
+      - feature/devcontainer-*
+
+concurrency: # cancel older workflows when a new push is done on a branch
+  group: \({{ github.workflow }}-\){{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  builddocker:
+    name: Build Docker
+    # See https://github.com/actions/runner-images
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Build Docker in devcontainer
+        run: addons/tests/test-devcontainer-builddocker.sh
+
+  make-install:
+    name: Make install
+    # See https://github.com/actions/runner-images
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Run make install in devcontainer
+        run: addons/tests/test-devcontainer-make-install.sh
