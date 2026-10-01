@@ -309,7 +309,7 @@ export async function verifyPasswordCompliance<T extends SchemaTypeDefinition>(w
     returnTo: returnTo || '',
     user: userId,
     badPasswordTime: passwordCheck.badPasswordTime,
-  }, { expires: 3600_0000 })); //we'll give the user 1 hour to complete the account setup
+  }, { expires: "PT1H" })); //we'll give the user 1 hour to complete the account setup
 
   return session;
 }

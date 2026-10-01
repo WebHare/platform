@@ -1,9 +1,10 @@
 import { defaultDateTime, encodeHSON } from "@webhare/hscompat";
-import { generateRandomId } from "@webhare/std";
+import { generateRandomId, throwError } from "@webhare/std";
 import * as test from "@webhare/test";
 import { AuthenticationSettings, updateSchemaSettings, wrd } from "@webhare/wrd";
-import { checkPasswordCompliance, describePasswordChecks, getPasswordBreachCount, getPasswordMinValidFrom, parsePasswordChecks } from "@webhare/auth/src/passwords";
-import { beginWork, rollbackWork } from "@webhare/whdb";
+import { checkPasswordCompliance, describePasswordChecks, getPasswordBreachCount, getPasswordMinValidFrom, parsePasswordChecks, verifyPasswordCompliance } from "@webhare/auth/src/passwords";
+import { beginWork, commitWork, db, rollbackWork, runInWork } from "@webhare/whdb";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { getUserValidationSettings } from "@webhare/auth/src/support";
 
 const wrdTestschemaSchema = wrd("wrd:testschema");
@@ -128,7 +129,27 @@ async function testSettingOverrides() {
   await rollbackWork();
 }
 
+async function testCompleteAccountExpiry() {
+  await beginWork();
+  const unit = await wrdTestschemaSchema.insert("whuserUnit", { wrdLeftEntity: null, overridePasswordchecks: true, passwordchecks: "minlength:20" });
+  const user = await wrdTestschemaSchema.insert("wrdPerson", { wrdContactEmail: `complete-${generateRandomId().toLowerCase()}@beta.webhare.net`, whuserUnit: unit, wrdauthAccountStatus: { status: "active" } });
+  await commitWork();
+
+  //A password that fails the unit's checks sends the user to complete the account, which should be possible for one hour
+  const start = Date.now();
+  const authsettings = AuthenticationSettings.fromHSON(encodeHSON({ version: 1, passwords: [{ validfrom: new Date, passwordhash: "PLAIN:short" }] }));
+  const sessionId = await verifyPasswordCompliance(wrdTestschemaSchema, user, unit, "short", authsettings, "", { clientIp: "1.2.3.4", browserTriplet: "ios-safari-1" }) ?? throwError("Expected an incomplete-account session");
+  const session = await db<PlatformDB>().selectFrom("system.sessions").select(["expires"]).where("sessionid", "=", sessionId).executeTakeFirstOrThrow();
+  test.assert(Math.abs(session.expires.getTime() - (start + 3600_000)) < 60_000, `Expected the session to expire in one hour, got ${session.expires.toISOString()}`);
+
+  await runInWork(async () => {
+    await wrdTestschemaSchema.delete("wrdPerson", user);
+    await wrdTestschemaSchema.delete("whuserUnit", unit);
+  });
+}
+
 test.runTests([
+  testCompleteAccountExpiry,
   testPasswordBreachCount,
   testCheckParser,
   testGetPasswordMinValueFrom,
