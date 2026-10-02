@@ -2,67 +2,70 @@ name: WebHare CI
 
 on:
   push:
-  schedule:
-    - cron: "0 3 * * 0"
-  workflow_dispatch:
+  workflow_dispatch: # Used by scheduld-ci.yml
+    inputs:
+      scheduled:
+        description: Skip deployment steps for scheduled CI runs
+        type: boolean
+        default: false
+  workflow_call: # Used by pull-request.yml to ensure we stay in the same PR context. Using dispatch doesn't add 'checks' to the PR
+    secrets:
+      cache_registry:
+        description: 'Cache Registry URL'
+      cache_user:
+        description: 'Cache user'
+      cache_password:
+        description: 'Cache password'
+    inputs:
+      ref: # This will point to the actual PR commit
+        type: string
+        description: 'Git ref to build'
 
 env:
-  CI_REGISTRY_IMAGE: ghcr.io/webhare/platform
-  CI_COMMIT_SHA: ${{ github.sha }}
+  CI_COMMIT_SHA: ${{ inputs.ref || github.sha }}
   CI_COMMIT_REF_SLUG: ci-${{ github.run_id }}
   GIT_SUBMODULE_STRATEGY: recursive
 
 permissions:
   contents: read
   packages: write
+  id-token: write
 
 defaults:
   run:
     shell: bash
+
+concurrency: # cancel older workflows when a new push is done on a branch
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   buildcontainer:
     name: Build container
     # See https://github.com/actions/runner-images
     runs-on: ubuntu-26.04
-    if: github.event_name != 'schedule'
     steps:
       - uses: actions/checkout@v4
         with:
+          repository: ${{ github.repository }}
+          ref: ${{ inputs.ref || github.sha }}
+          allow-unsafe-pr-checkout: true # Needed to be able to pull for Fork PRs
           submodules: recursive
-      - name: Log in to GHCR with Podman
-        run: echo '${{ secrets.GITHUB_TOKEN }}' | podman login ghcr.io --username '${{ github.actor }}' --password-stdin
+      - uses: ./.github/actions/checkout-and-login
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          registry: ${{ secrets.cache_registry }}
+          username: ${{ secrets.cache_user }}
+          password: ${{ secrets.cache_password }}
       - name: Build and push WebHare container
-        run: whtree/bin/wh buildcontainer --podman
         env:
           PUSH_BUILD_IMAGES: "1"
+        run: whtree/bin/wh buildcontainer --podman
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: buildcontainer-artifacts
-          path: artifacts/
-          if-no-files-found: ignore
-
-  buildcontainer-scheduled:
-    name: Scheduled container build
-    runs-on: ubuntu-26.04
-    if: github.event_name == 'schedule'
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - name: Log in to GHCR with Podman
-        run: echo '${{ secrets.GITHUB_TOKEN }}' | podman login ghcr.io --username '${{ github.actor }}' --password-stdin
-      - name: Build container without cache
-        run: whtree/bin/wh buildcontainer --no-cache --podman
-        env:
-          PUSH_BUILD_IMAGES: "1"
-      - name: Upload artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: scheduled-build-artifacts
           path: artifacts/
           if-no-files-found: ignore
 
@@ -93,6 +96,9 @@ jobs:
         include:
           - { name: baselibs, command: 'addons/docker-build/testcontainer.sh --podman --nocheckmodule --tag=-external baselibs', allow_failure: false }
           - { name: modules, command: 'addons/docker-build/testcontainer.sh --podman --tag=-external checkmodules', allow_failure: false }
+            #We need --noautomoduledir to prevent testmodule just using CI_PROJECT_DIR (which takes precedence over $1)
+            #We need --webhareimage because --module makes webhareimage default to 'main'
+          - { name: devkit, command: 'TESTFW_WEBHARE_ENABLE_DEVKIT=1 addons/docker-build/testcontainer.sh --podman --noautomoduledir --webhareimage "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA" --module "$(pwd)/whtree/modules/devkit"', allow_failure: false }
           - { name: publisher, command: 'addons/docker-build/testcontainer.sh --podman --nocheckmodule --tag=-external,-forms publisher,socialite', allow_failure: false }
           - { name: publisher-forms, command: 'addons/docker-build/testcontainer.sh --podman --nocheckmodule --tag=forms publisher', allow_failure: false }
           - { name: system, command: 'addons/docker-build/testcontainer.sh --podman --nocheckmodule --tag=-external,-nodejs system', allow_failure: false }
@@ -113,13 +119,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          repository: ${{ github.repository }}
+          ref: ${{ inputs.ref || github.sha }}
+          allow-unsafe-pr-checkout: true # Needed to be able to pull for Fork PRs
           submodules: recursive
-      - name: Log in to GHCR with Podman
-        run: echo '${{ secrets.GITHUB_TOKEN }}' | podman login ghcr.io --username '${{ github.actor }}' --password-stdin
+      - uses: ./.github/actions/checkout-and-login
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          registry: ${{ secrets.cache_registry || vars.CI_REGISTRY_IMAGE }}
+          username: ${{ secrets.cache_user }}
+          password: ${{ secrets.cache_password }}
       - name: Run test container
-        run: ${{ matrix.command }}
-        env:
-          BUILD_IMAGE: ${{ env.CI_REGISTRY_IMAGE }}:${{ env.CI_COMMIT_REF_SLUG }}-${{ env.CI_COMMIT_SHA }}
+        run: BUILD_IMAGE="$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA" ${{ matrix.command }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -127,62 +138,52 @@ jobs:
           path: artifacts/
           if-no-files-found: ignore
 
-  test-devkit:
-    name: devkit
-    needs: buildcontainer
-    if: needs.buildcontainer.result == 'success'
+  # we need this step for our GitHub approval settings to have some clear check they can require
+  all-tests-passed:
+    needs: [buildcontainer, test-vscode-extension, testcontainers]
+    # The gate must run even when a dependency fails so the required check reports failure rather than skipped.
+    if: always()
     runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - name: Log in to GHCR with Podman
-        run: echo '${{ secrets.GITHUB_TOKEN }}' | podman login ghcr.io --username '${{ github.actor }}' --password-stdin
-      - name: Run devkit tests
-        run: TESTFW_WEBHARE_ENABLE_DEVKIT=1 addons/docker-build/testcontainer.sh --podman --noautomoduledir --webhareimage "$BUILD_IMAGE" --module "$(pwd)/whtree/modules/devkit"
-        env:
-          BUILD_IMAGE: ${{ env.CI_REGISTRY_IMAGE }}:${{ env.CI_COMMIT_REF_SLUG }}-${{ env.CI_COMMIT_SHA }}
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-devkit-artifacts
-          path: artifacts/
-          if-no-files-found: ignore
+      - name: Verify all tests passed
+        if: >-
+          needs.buildcontainer.result != 'success' ||
+          needs.test-vscode-extension.result != 'success' ||
+          needs.testcontainers.result != 'success'
+        run: exit 1
+      - run: echo "All tests passed successfully."
 
   deploy:
     name: Deploy container
-    needs: [buildcontainer, test-vscode-extension, testcontainers, test-devkit]
-    if: github.ref == 'refs/heads/main' && github.event_name != 'schedule'
+    needs: [all-tests-passed]
+    if: github.ref == 'refs/heads/main' && !inputs.scheduled
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v4
         with:
+          repository: ${{ github.repository }}
+          ref: ${{ inputs.ref || github.sha }}
+          allow-unsafe-pr-checkout: true # Needed to be able to pull for Fork PRs
           submodules: recursive
-      - name: Log in to GHCR with Podman
-        run: echo '${{ secrets.GITHUB_TOKEN }}' | podman login ghcr.io --username '${{ github.actor }}' --password-stdin
-      - run: addons/docker-build/deploydocker.sh
+      - uses: ./.github/actions/checkout-and-login
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          registry: ${{ secrets.cache_registry || vars.CI_REGISTRY_IMAGE }}
+          username: ${{ secrets.cache_user }}
+          password: ${{ secrets.cache_password }}
+      - run: BUILD_IMAGE="$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA" addons/docker-build/deploydocker.sh
         env:
           PUSH_BUILD_IMAGES: "1"
           USEPODMAN: "1"
-          BUILD_IMAGE: ${{ env.CI_REGISTRY_IMAGE }}:${{ env.CI_COMMIT_REF_SLUG }}-${{ env.CI_COMMIT_SHA }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: deploy-artifacts
           path: artifacts/
           if-no-files-found: ignore
-
-  update-testscripts:
-    name: Update test scripts
-    needs: deploy
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-26.04
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - name: Update test scripts when credentials are configured
-        if: ${{ env.WHBUILD_BUILDBOTPASSWORD != '' }}
-        run: addons/deploy_testscripts.sh
+      - name: Deploy test scripts used by GitLab CI
         env:
           WHBUILD_BUILDBOTPASSWORD: ${{ secrets.WHBUILD_BUILDBOTPASSWORD }}
+        # only default branch should deploy test scripts
+        if: github.ref == 'refs/heads/main' && !inputs.scheduled && env.WHBUILD_BUILDBOTPASSWORD != ''
+        run: addons/deploy_testscripts.sh

@@ -1,0 +1,76 @@
+# we need two approvals inside the organization, one being from a reviewer. as you can't self-approve a PR, the WebHare Bot should send in the second approval
+name: Auto Approve Internal PRs
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  auto-approve:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    env:
+      WEBHARE_BOT_APPID: ${{ secrets.WEBHARE_BOT_APPID }}
+
+    steps:
+      - name: Generate Bot Token
+        if: env.WEBHARE_BOT_APPID != ''
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.WEBHARE_BOT_APPID }}
+          private-key: ${{ secrets.WEBHARE_BOT_PRIVATEKEY }}
+
+      - name: Auto-Approve if PR is Internal
+        if: env.WEBHARE_BOT_APPID != ''
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.generate-token.outputs.token }}
+          script: |
+            const org = context.repo.owner;
+            const repo = context.repo.repo;
+            const prNumber = context.payload.pull_request.number;
+            const prCreator = context.payload.pull_request.user.login;
+            const authorAssociation = context.payload.pull_request.author_association;
+
+            // List of associations that count as Internal
+            const internalRoles = ['OWNER', 'MEMBER', 'COLLABORATOR'];
+
+            const isInternal = internalRoles.includes(authorAssociation);
+
+            console.log(`PR Author: ${prCreator}`);
+            console.log(`Author Association: ${authorAssociation}`);
+            console.log(`Is Internal PR? ${isInternal}`);
+
+            if (!isInternal) {
+              console.log(`PR is external (${authorAssociation}). Skipping auto-approval.`);
+              return;
+            }
+
+            // Check if the bot has already approved to avoid duplicate spam on re-pushes
+            const { data: reviews } = await github.rest.pulls.listReviews({
+              owner: org,
+              repo: repo,
+              pull_number: prNumber,
+            });
+
+            const botUser = await github.rest.users.getAuthenticated();
+            const alreadyApproved = reviews.some(
+              r => r.user.login === botUser.data.login && r.state === 'APPROVED'
+            );
+
+            if (alreadyApproved) {
+              console.log('Bot has already approved this PR.');
+              return;
+            }
+
+            // Submit Auto-Approval for Internal PRs
+            console.log(`Auto-approving internal PR #${prNumber}...`);
+            await github.rest.pulls.createReview({
+              owner: org,
+              repo: repo,
+              pull_number: prNumber,
+              event: 'APPROVE',
+              body: `🤖 **Auto-Approved:** PR author (@${prCreator}) is an internal organization/repository member.`,
+            });

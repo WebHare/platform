@@ -1,0 +1,36 @@
+name: Checkout and log in to container registry
+description: Check out the repository and log in to its container registry with Podman
+inputs:
+  ref:
+    description: Git ref to check out
+    required: false
+  registry:
+    description: Container registry image or host
+    required: false
+  username:
+    description: Container registry username
+    required: false
+  password:
+    description: Container registry password
+    required: false
+runs:
+  using: composite
+  steps:
+    # TODO we could move the actual checkout here... but then we need to uses: OWNER/REPO/.github/actions/checkout-and-login@main and for that the action has to exist first
+    - name: Set CI_REGISTRY_IMAGE to retrieved value or fallback to ghcr.io
+      shell: bash
+      env:
+        CI_REGISTRY_IMAGE: ${{ inputs.registry }}
+      # Github's own macros can't do a lowercase which is needed for ghcr.io so we spell out the fallback
+      run: |
+        [ -n "$CI_REGISTRY_IMAGE" ] || CI_REGISTRY_IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
+        echo "CI_REGISTRY_IMAGE=$CI_REGISTRY_IMAGE" >> "$GITHUB_ENV"
+    - name: Log in to registry with Podman
+      shell: bash
+      env:
+        CI_REGISTRY_IMAGE: ${{ inputs.registry }}
+        CI_REGISTRY_USER: ${{ inputs.username || github.actor }}
+        CI_REGISTRY_PASSWORD: ${{ inputs.password || github.token }}
+      run: |
+        [ -n "$CI_REGISTRY_IMAGE" ] || CI_REGISTRY_IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
+        echo "$CI_REGISTRY_PASSWORD" | podman login "$CI_REGISTRY_IMAGE" --username "$CI_REGISTRY_USER" --password-stdin
