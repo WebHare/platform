@@ -21,7 +21,7 @@
   "dependencies": {
     "@types/sax": "^1.2.7",
     "@webhare/zip": "",
-    "sax": "^1.6.0"
+    "sax": "^1.6.1"
   },
   "private": true
 }

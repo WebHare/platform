@@ -14,7 +14,7 @@
   },
   "private": true,
   "dependencies": {
-    "@types/bcrypt": "^5.0.2",
+    "@types/bcrypt": "^6.0.0",
     "bcrypt": "^6.0.0"
   }
 }
