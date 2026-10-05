@@ -1,0 +1,36 @@
+# Sync to multiple target repositories defined in the WHBUILD_SYNCTARGETS secret
+# See https://start.1password.com/open/i?a=2NYH7YAYTBEBHFPLJRKHDY726E&v=myssmvtnld45dyx3at3ct3bvfe&i=65hj5yi5lprw25rhjsmygc5are&h=webhare.1password.com for the current list
+# Write it to secret https://github.com/organizations/WebHare/settings/secrets/actions/WHBUILD_SYNCTARGETS
+
+name: Dynamic Multi-Repo Sync
+
+on:
+  push:
+    branches:
+      - main
+      - 'release/*'
+
+jobs:
+  sync-branches:
+    # We expect ["self-hosted","podman"] at https://github.com/organizations/WebHare/settings/variables/actions/WHBUILD_RUNNER
+    runs-on: ${{ vars.WHBUILD_RUNNER && fromJSON(vars.WHBUILD_RUNNER) || 'ubuntu-26.04' }}
+    name: Sync branches to configured repositories
+    steps:
+      - name: Fetch repository source history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetches all history and branches required for syncing
+
+      - name: Push specific branches to destination
+        env:
+          WHBUILD_SYNCTARGETS: ${{ secrets.WHBUILD_SYNCTARGETS }}
+        run: |
+          targets=$(jq -ce 'if type == "array" then . else error("WHBUILD_SYNCTARGETS must be a JSON array") end' <<< "${WHBUILD_SYNCTARGETS:-[]}")
+          target_count=$(jq 'length' <<< "$targets")
+
+          for ((index = 0; index < target_count; index++)); do
+            target_url=$(jq -er --argjson index "$index" '.[$index].url | strings | select(length > 0)' <<< "$targets")
+            remote="destination-$index"
+            git remote add "$remote" "$target_url"
+            git push --force "$remote" "$GITHUB_REF:$GITHUB_REF"
+          done
