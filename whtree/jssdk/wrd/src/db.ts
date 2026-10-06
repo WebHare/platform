@@ -40,6 +40,8 @@ export type TypeRec = Pick<Selectable<PlatformDB, "wrd.types">, typeof selectTyp
   uniqueAttrs: Set<number>;
   /// All attributes that are used for email addresses
   emailAttrs: Set<number>;
+  /// All attributes that are used for dates
+  dateAttrs: Set<number>;
   /// The schema id this type belongs to
   schemaId: number;
 };
@@ -153,6 +155,7 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
       whfsLinkAttrs: new Set<number>,
       uniqueAttrs: new Set<number>,
       emailAttrs: new Set<number>,
+      dateAttrs: new Set<number>,
     }));
   const typeids: number[] = types.map(t => t.id);
 
@@ -231,6 +234,8 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
         type.whfsLinkAttrs.add(attr.id);
       if (attr.attributetype === WRDAttributeTypeId.Email)
         type.emailAttrs.add(attr.id);
+      if (attr.attributetype === WRDAttributeTypeId.Date)
+        type.dateAttrs.add(attr.id);
     }
     for (const rootAttr of type.rootAttrMap.values())
       recurseStoreRootAttrs(rootAttr, rootAttr.id, type.parentAttrMap, type.attrRootAttrMap, type.attrByFullTagMap, type.attrHSNameMap, rootAttr.tag + ".");

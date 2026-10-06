@@ -23,6 +23,12 @@ type WRDDBTimeConditions<ModernSchema extends boolean> = {
   condition: "in"; value: ReadonlyArray<(ModernSchema extends true ? Temporal.PlainTime : number) | null>;
 };
 
+type WRDDBDateArrayConditions<ModernSchema extends boolean> = WRDDBDateConditions<ModernSchema> | {
+  condition: "mentions"; value: ModernSchema extends true ? Temporal.PlainDate : Date;
+} | {
+  condition: "mentionsany"; value: ReadonlyArray<ModernSchema extends true ? Temporal.PlainDate : Date>;
+};
+
 /* Base for date validation.
    Note that with dates ... accepting Date (or HS DATETIME) is pretty dangerous as Date objects may also have a time and unexpected things
    may happen with non-midnight dates. So we don't accept any form of Date with 'modern' WRD integrations
@@ -72,9 +78,17 @@ abstract class WRDDBPlainDateValueBase<Required extends boolean, ModernSchema ex
 }
 
 export class WRDDBDateValue<Required extends boolean, ModernSchema extends boolean> extends WRDDBPlainDateValueBase<Required, ModernSchema> {
-  checkFilter({ condition, value }: WRDDBDateConditions<ModernSchema>) {
+  checkFilter({ condition, value }: WRDDBDateArrayConditions<ModernSchema>) {
     /* always ok */
   }
+  public matchesValue(value: (ModernSchema extends true ? Temporal.PlainDate : Date) | null, cv: WRDDBDateArrayConditions<ModernSchema>): boolean {
+    if (cv.condition === "mentions")
+      return super.matchesValue(value, { condition: "=", value: cv.value });
+    if (cv.condition === "mentionsany")
+      return super.matchesValue(value, { condition: "in", value: cv.value });
+    return super.matchesValue(value, cv);
+  }
+
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): (ModernSchema extends true ? Temporal.PlainDate : Date) | NullIfNotRequired<Required> {
     type RetVal = (ModernSchema extends true ? Temporal.PlainDate : Date) | NullIfNotRequired<Required>;
     const parts = entity_settings[settings_start].rawdata.split(",");
@@ -102,6 +116,11 @@ export class WRDDBDateValue<Required extends boolean, ModernSchema extends boole
     } else {
       if (!isTemporalPlainDate(value))
         throw new Error(`Invalid date value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+    }
+    if (this.attr.isunique) {
+      // Legacy Date values can include a time, but uniqueness only depends on the stored day.
+      const date = isDate(value) ? makeDateFromParts(dateToParts(value).days, 0) : value;
+      checker.addUniqueCheck(this.attr.fullTag, date, attrPath + this.attr.tag);
     }
     return value;
   }
