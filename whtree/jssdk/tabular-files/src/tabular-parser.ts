@@ -77,7 +77,8 @@ type RequiredFieldKeys<Fields extends TabularFields> = Exclude<keyof Fields, Opt
  */
 export type OutputRowForFields<Fields extends TabularFields> =
   { -readonly [K in RequiredFieldKeys<Fields>]: ValueTypForField<Fields[K]> } &
-  { -readonly [K in OptionalFieldKeys<Fields>]?: ValueTypForField<Fields[K]> };
+  { -readonly [K in OptionalFieldKeys<Fields>]?: ValueTypForField<Fields[K]> } &
+  { row: number };
 
 /**
  * Parse tabular input into typed rows according to `fields`.
@@ -154,7 +155,7 @@ export function parseTabularData<Fields extends TabularFields>(
   }
 
   for (const [rowIndex, row] of data.slice(1).entries()) {
-    const outputRow: Partial<OutputRowForFields<Fields>> = {};
+    const outputRow: Partial<OutputRowForFields<Fields>> = { row: rowIndex + 2 } as Partial<OutputRowForFields<Fields>>;
 
     for (const field of mappedFields) {
       if (field.position === null && field.optional)

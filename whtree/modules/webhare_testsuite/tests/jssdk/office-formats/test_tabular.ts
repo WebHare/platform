@@ -56,8 +56,8 @@ function testProcessing() {
 
   test.eq({
     rows: [
-      { programCode: "EMM", conditionsApply: true, credits: 0 },
-      { programCode: "EMM", conditionsApply: false, credits: 15 }
+      { row: 2, programCode: "EMM", conditionsApply: true, credits: 0 },
+      { row: 3, programCode: "EMM", conditionsApply: false, credits: 15 }
     ]
   }, parseTabularData(importMap3, tabularData));
 
@@ -73,8 +73,8 @@ function testProcessing() {
 
   test.eq({
     rows: [
-      { programCode: "EMM" },
-      { programCode: "EMM" }
+      { row: 2, programCode: "EMM" },
+      { row: 3, programCode: "EMM" }
     ]
   }, parseTabularData({
     programCode: { header: "Program code" },
@@ -135,8 +135,8 @@ function testProcessing() {
   ]);
   test.eq({
     rows: [
-      { dogs: 1, breed: "Beagle" },
-      { dogs: 0, breed: "Markies" }
+      { row: 2, dogs: 1, breed: "Beagle" },
+      { row: 3, dogs: 0, breed: "Markies" }
     ]
   }, parseResultWithAllowedValues2);
 
@@ -156,7 +156,7 @@ function testTypes() {
   } as const;
   testImportMap satisfies TabularFields;
 
-  const x: OutputRowForFields<typeof testImportMap> = { source: "Internal" };
+  const x: OutputRowForFields<typeof testImportMap> = { row: 1, source: "Internal" };
   x.source = "External";
   //@ts-expect-error TS should not allow arbitrary strings
   x.source = "bad";
