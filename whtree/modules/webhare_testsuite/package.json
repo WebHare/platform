@@ -3,7 +3,7 @@
   "author": "WebHare bv",
   "license": "MIT",
   "dependencies": {
-    "@xmldom/xmldom": "^0.9.10",
+    "@xmldom/xmldom": "^0.9.12",
     "openid-client": "^6.8.4",
     "stacktrace-parser": "^0.1.11",
     "temporal-polyfill": "^0.3.2",
