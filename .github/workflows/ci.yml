@@ -21,6 +21,10 @@ on:
         type: string
         description: 'Git ref to build'
 
+concurrency: # cancel older workflows when a new push is done on a branch
+  group: \({{ github.workflow }}-\){{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   CI_COMMIT_SHA: ${{ inputs.ref || github.sha }}
   CI_COMMIT_REF_SLUG: ci-${{ github.run_id }}
