@@ -354,6 +354,7 @@ async function testUnique() {
   await newdomtype.createAttribute("testEmail", { attributeType: "email", isUnique: true });
   await newdomtype.createAttribute("testInteger", { attributeType: "integer", isUnique: true });
   await newdomtype.createAttribute("testInteger64", { attributeType: "integer64", isUnique: true });
+  await newdomtype.createAttribute("testDate", { attributeType: "plainDate", isUnique: true });
   await test.throws(/cannot be set on attributes of type/, newdomtype.createAttribute("testArray", { attributeType: "array", isUnique: true }));
   await newdomtype.createAttribute("testArray", { attributeType: "array" });
   await newdomtype.createAttribute("testArray.email", { attributeType: "email", isUnique: true });
@@ -368,6 +369,12 @@ async function testUnique() {
   await test.throws(/Unique constraint/, wrdschema.insert("testUniques", { testEmail: "2a@a.com" }));
   await test.throws(/Unique constraint/, wrdschema.insert("testUniques", { testInteger: 3 }));
   await test.throws(/Unique constraint/, wrdschema.insert("testUniques", { testInteger64: 4 }));
+  const date = new Date("2025-01-01T00:00:00Z");
+  await wrdschema.update("testUniques", pietje, { testDate: date });
+  await wrdschema.update("testUniques", pietje, { testDate: date });
+  test.eq({ testDate: date }, await wrdschema.getFields("testUniques", pietje, ["testDate"]));
+  await test.throws(/Unique constraint violated/, wrdschema.insert("testUniques", { testDate: date }));
+  await test.throws(/Unique constraint violated/, wrdschema.insert("testUniques", { testDate: new Date("2025-01-01T12:00:00Z") }));
   await test.throws(/Unique constraint/, wrdschema.insert("testUniques", { testArray: [{ email: "pietje@beta.webhare.net" }] })); //"Issue #479"
 
   await wrdschema.update("testUniques", pietje, { testFree: "a8e64800-9854-4cf1-a7be-49ac3f6d380a" }); //looks like UUID. confused the PG driver

@@ -2542,9 +2542,13 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase <
       this->ValidateReferredType(tocheck, attr.domain, attr.tag);
     }
 
+    // Date values from the two APIs have different encodings; uniqueness only depends on the day.
     newsets :=
         SELECT *
-             , unique_rawdata := attr.isunique ? attr.attributetype = wrd_attributetype_email ? ToLowercase(rawdata) : rawdata : ""
+             , unique_rawdata := NOT attr.isunique ? ""
+                                : attr.attributetype = wrd_attributetype_email ? ToLowercase(rawdata)
+                                : attr.attributetype = wrd_attributetype_date ? Tokenize(rawdata, ",")[0]
+                                : rawdata
           FROM newsets;
 
     RETURN CELL[ attr, newsets, subs ];
@@ -2602,7 +2606,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase <
       }
       IF (toset.attr.isunique AND NOT size_error AND NOT options.importmode)
       {
-        IF(toset.attr.attributetype NOT IN [wrd_attributetype_free, wrd_attributetype_email, wrd_attributetype_integer, wrd_attributetype_integer64])
+        IF(toset.attr.attributetype NOT IN [wrd_attributetype_free, wrd_attributetype_email, wrd_attributetype_integer, wrd_attributetype_integer64, wrd_attributetype_date])
           THROW NEW Exception("Internal error, attribute " || toset.attr.tag || " of type #" || toset.attr.attributetype || " incorrectly marked as isunique");
 
         VARIANT findvalue;
@@ -2610,6 +2614,8 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase <
           findvalue := ToInteger(toset.newsets[0].rawdata,0);
         ELSE IF(toset.attr.attributetype = wrd_attributetype_integer64)
           findvalue := ToInteger64(toset.newsets[0].rawdata,0);
+        ELSE IF(toset.attr.attributetype = wrd_attributetype_date)
+          findvalue := DecodeWRDAttribute(toset.newsets[0].rawdata, wrd_attributetype_date);
         ELSE
           findvalue := toset.newsets[0].rawdata;
 
@@ -2630,7 +2636,10 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase <
         RECORD ARRAY res := wrd_query->Execute();
         IF (RecordExists(res))
         {
-          options.errorcallback([ message := `Unique value conflict with entity #${res[0].id} on attribute '${toset.attr.tag}' (${findvalue})`
+          VARIANT displayvalue := findvalue;
+          IF(toset.attr.attributetype = wrd_attributetype_date)
+            displayvalue := FormatDateTime("%Y-%m-%d", DATETIME(findvalue));
+          options.errorcallback([ message := `Unique value conflict with entity #${res[0].id} on attribute '${toset.attr.tag}' (${displayvalue})`
                         , tag := toset.attr.tag
                         , code := "NOTUNIQUE"
                         ]);
@@ -3511,9 +3520,12 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase <
         // materialize all unique data if needed after deleting updated settings
         INTEGER ARRAY unique_attrs := SELECT AS INTEGER ARRAY id FROM this->attributelist WHERE isunique;
         INTEGER ARRAY email_attrs := SELECT AS INTEGER ARRAY id FROM this->attributelist WHERE attributetype = wrd_attributetype_email;
+        INTEGER ARRAY date_attrs := SELECT AS INTEGER ARRAY id FROM this->attributelist WHERE attributetype = wrd_attributetype_date;
 
         UPDATE wrd.entity_settings
-           SET unique_rawdata := attribute IN email_attrs ? ToLowercase(rawdata) : rawdata
+           SET unique_rawdata := attribute IN email_attrs ? ToLowercase(rawdata)
+                                : attribute IN date_attrs ? Tokenize(rawdata, ",")[0]
+                                : rawdata
          WHERE entity = entityid
            AND unique_rawdata = ""
            AND attribute IN unique_attrs;
