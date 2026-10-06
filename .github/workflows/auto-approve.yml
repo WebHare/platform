@@ -8,7 +8,7 @@ on:
 
 jobs:
   auto-approve:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.WHBUILD_RUNNER && fromJSON(vars.WHBUILD_RUNNER) || 'ubuntu-26.04' }}
     permissions:
       contents: write # Our PR Approval was interpreted as 'Approved these changes with read-only permissions' - will this fix it?
       pull-requests: write

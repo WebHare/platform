@@ -11,7 +11,7 @@ jobs:
   dispatch:
     name: Schedule ${{ matrix.ref }}
     if: github.repository == 'WebHare/platform'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.WHBUILD_RUNNER && fromJSON(vars.WHBUILD_RUNNER) || 'ubuntu-26.04' }}
     strategy:
       fail-fast: false
       matrix:

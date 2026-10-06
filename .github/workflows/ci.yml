@@ -42,8 +42,8 @@ concurrency: # cancel older workflows when a new push is done on a branch
 jobs:
   buildcontainer:
     name: Build container
-    # See https://github.com/actions/runner-images
-    runs-on: ubuntu-26.04
+    # See https://github.com/actions/runner-images. Fork PRs (via pull-request.yml) never get our own runners
+    runs-on: ${{ github.event.pull_request.head.repo.fork != true && vars.WHBUILD_RUNNER && fromJSON(vars.WHBUILD_RUNNER) || 'ubuntu-26.04' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -71,7 +71,7 @@ jobs:
 
   test-vscode-extension:
     name: VS Code extension tests
-    runs-on: ubuntu-26.04
+    runs-on: ${{ github.event.pull_request.head.repo.fork != true && vars.WHBUILD_RUNNER && fromJSON(vars.WHBUILD_RUNNER) || 'ubuntu-26.04' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -88,7 +88,7 @@ jobs:
     name: ${{ matrix.name }}
     needs: buildcontainer
     if: needs.buildcontainer.result == 'success'
-    runs-on: ubuntu-26.04
+    runs-on: ${{ github.event.pull_request.head.repo.fork != true && vars.WHBUILD_RUNNER && fromJSON(vars.WHBUILD_RUNNER) || 'ubuntu-26.04' }}
     continue-on-error: ${{ matrix.allow_failure }}
     strategy:
       fail-fast: false
@@ -143,7 +143,7 @@ jobs:
     needs: [buildcontainer, test-vscode-extension, testcontainers]
     # The gate must run even when a dependency fails so the required check reports failure rather than skipped.
     if: always()
-    runs-on: ubuntu-26.04
+    runs-on: ${{ github.event.pull_request.head.repo.fork != true && vars.WHBUILD_RUNNER && fromJSON(vars.WHBUILD_RUNNER) || 'ubuntu-26.04' }}
     steps:
       - name: Verify all tests passed
         if: >-
@@ -157,7 +157,7 @@ jobs:
     name: Deploy container
     needs: [all-tests-passed]
     if: github.event_name == 'push' && !inputs.scheduled
-    runs-on: ubuntu-26.04
+    runs-on: ${{ github.event.pull_request.head.repo.fork != true && vars.WHBUILD_RUNNER && fromJSON(vars.WHBUILD_RUNNER) || 'ubuntu-26.04' }}
     steps:
       - uses: actions/checkout@v4
         with:
