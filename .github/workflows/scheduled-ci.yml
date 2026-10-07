@@ -1,0 +1,31 @@
+name: Schedule WebHare CI
+
+on:
+  schedule:
+    - cron: "0 3 * * 0"
+
+permissions:
+  actions: write
+
+jobs:
+  dispatch:
+    name: Schedule ${{ matrix.ref }}
+    if: github.repository == 'WebHare/platform'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ref: [main, release/5.9, release/6.0]
+    steps:
+      - uses: actions/github-script@v7
+        env:
+          TARGET_REF: ${{ matrix.ref }}
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'ci.yml',
+              ref: process.env.TARGET_REF,
+              inputs: { scheduled: 'true' },
+            });

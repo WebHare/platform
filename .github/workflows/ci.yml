@@ -1,0 +1,189 @@
+name: WebHare CI
+
+on:
+  push:
+  workflow_dispatch: # Used by scheduled-ci.yml
+    inputs:
+      scheduled:
+        description: Skip deployment steps for scheduled CI runs
+        type: boolean
+        default: false
+  workflow_call: # Used by pull-request.yml to ensure we stay in the same PR context. Using dispatch doesn't add 'checks' to the PR
+    secrets:
+      cache_registry:
+        description: 'Cache Registry URL'
+      cache_user:
+        description: 'Cache user'
+      cache_password:
+        description: 'Cache password'
+    inputs:
+      ref: # This will point to the actual PR commit
+        type: string
+        description: 'Git ref to build'
+
+env:
+  CI_COMMIT_SHA: ${{ inputs.ref || github.sha }}
+  CI_COMMIT_REF_SLUG: ci-${{ github.run_id }}
+  GIT_SUBMODULE_STRATEGY: recursive
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+defaults:
+  run:
+    shell: bash
+
+concurrency: # cancel older workflows when a new push is done on a branch
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  buildcontainer:
+    name: Build container
+    # See https://github.com/actions/runner-images
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ inputs.ref || github.sha }}
+          allow-unsafe-pr-checkout: true # Needed to be able to pull for Fork PRs
+          submodules: recursive
+      - uses: ./.github/actions/checkout-and-login
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          registry: ${{ secrets.cache_registry }}
+          username: ${{ secrets.cache_user }}
+          password: ${{ secrets.cache_password }}
+      - name: Build and push WebHare container
+        env:
+          PUSH_BUILD_IMAGES: "1"
+        run: whtree/bin/wh buildcontainer --podman
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: buildcontainer-artifacts
+          path: artifacts/
+          if-no-files-found: ignore
+
+  test-vscode-extension:
+    name: VS Code extension tests
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - run: addons/vscode-extension/scripts/run-extension-tests.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vscode-extension-artifacts
+          path: artifacts/
+          if-no-files-found: ignore
+
+  testcontainers:
+    name: ${{ matrix.name }}
+    needs: buildcontainer
+    if: needs.buildcontainer.result == 'success'
+    runs-on: ubuntu-26.04
+    continue-on-error: ${{ matrix.allow_failure }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: baselibs, command: 'addons/docker-build/testcontainer.sh --podman --nocheckmodule --tag=-external baselibs', allow_failure: false }
+          - { name: modules, command: 'addons/docker-build/testcontainer.sh --podman --tag=-external checkmodules', allow_failure: false }
+            #We need --noautomoduledir to prevent testmodule just using CI_PROJECT_DIR (which takes precedence over $1)
+            #We need --webhareimage because --module makes webhareimage default to 'main'
+          - { name: devkit, command: 'TESTFW_WEBHARE_ENABLE_DEVKIT=1 addons/docker-build/testcontainer.sh --podman --noautomoduledir --webhareimage "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA" --module "$(pwd)/whtree/modules/devkit"', allow_failure: false }
+          - { name: publisher, command: 'addons/docker-build/testcontainer.sh --podman --nocheckmodule --tag=-external,-forms publisher,socialite', allow_failure: false }
+          - { name: publisher-forms, command: 'addons/docker-build/testcontainer.sh --podman --nocheckmodule --tag=forms publisher', allow_failure: false }
+          - { name: system, command: 'addons/docker-build/testcontainer.sh --podman --nocheckmodule --tag=-external,-nodejs system', allow_failure: false }
+          - { name: system-nodejs, command: 'addons/docker-build/testcontainer.sh --podman --nocheckmodule --tag=-external,nodejs system', allow_failure: false }
+          - { name: webdesign, command: 'addons/docker-build/testcontainer.sh --podman --nocheckmodule --tag=-external publisher-webdesign', allow_failure: false }
+          - { name: database, command: 'addons/docker-build/testcontainer.sh --podman --nocheckmodule --tag=-external wh.database', allow_failure: false }
+          - { name: tollium, command: 'addons/docker-build/testcontainer.sh --podman --nocheckmodule --tag=-external tollium', allow_failure: false }
+          - { name: consilio, command: 'addons/docker-build/testcontainer.sh --podman --nocheckmodule --tag=-external consilio', allow_failure: false }
+          - { name: core, command: 'addons/docker-build/testcontainer.sh --podman --nocheckmodule --tag=-external --generatexmltests wh.hscore', allow_failure: false }
+          - { name: webserver, command: 'addons/docker-build/testcontainer.sh --podman --nocheckmodule --tag=-external wh.webserver', allow_failure: false }
+          - { name: wrd, command: 'addons/docker-build/testcontainer.sh --podman --nocheckmodule --tag=-external,-wrd-legacy,-wrd-nodejs wrd', allow_failure: false }
+          - { name: wrd-legacy, command: 'addons/docker-build/testcontainer.sh --podman --nocheckmodule --tag=-external,wrd-legacy wrd', allow_failure: false }
+          - { name: wrd-nodejs, command: 'addons/docker-build/testcontainer.sh --podman --nocheckmodule --tag=-external,wrd-nodejs wrd', allow_failure: false }
+          - { name: jscomponents, command: 'addons/docker-build/testcontainer.sh --podman --nocheckmodule --tag=-external wh.jscomponents', allow_failure: false }
+          - { name: external, command: 'addons/docker-build/testcontainer.sh --podman --nocheckmodule --tag=external', allow_failure: true }
+          - { name: two-hares, command: 'addons/docker-build/testcontainer.sh --podman --nocheckmodule --twohares --testscript $PWD/whtree/modules/webhare_testsuite/scripts/whcommands/twoharetests.sh', allow_failure: false }
+          - { name: backup-restore, command: 'TESTFW_SKIP_FINALIZE_CI=1 addons/docker-build/testcontainer.sh --podman --nocheckmodule --testscript $PWD/whtree/modules/webhare_testsuite/scripts/whcommands/backup-restore-test.sh', allow_failure: false }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ inputs.ref || github.sha }}
+          allow-unsafe-pr-checkout: true # Needed to be able to pull for Fork PRs
+          submodules: recursive
+      - uses: ./.github/actions/checkout-and-login
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          registry: ${{ secrets.cache_registry || vars.CI_REGISTRY_IMAGE }}
+          username: ${{ secrets.cache_user }}
+          password: ${{ secrets.cache_password }}
+      - name: Run test container
+        run: BUILD_IMAGE="$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA" ${{ matrix.command }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-${{ matrix.name }}-artifacts
+          path: artifacts/
+          if-no-files-found: ignore
+
+  # we need this step for our GitHub approval settings to have some clear check they can require
+  all-tests-passed:
+    needs: [buildcontainer, test-vscode-extension, testcontainers]
+    # The gate must run even when a dependency fails so the required check reports failure rather than skipped.
+    if: always()
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Verify all tests passed
+        if: >-
+          needs.buildcontainer.result != 'success' ||
+          needs.test-vscode-extension.result != 'success' ||
+          needs.testcontainers.result != 'success'
+        run: exit 1
+      - run: echo "All tests passed successfully."
+
+  deploy:
+    name: Deploy container
+    needs: [all-tests-passed]
+    if: github.event_name == 'push' && !inputs.scheduled
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ inputs.ref || github.sha }}
+          allow-unsafe-pr-checkout: true # Needed to be able to pull for Fork PRs
+          submodules: recursive
+      - uses: ./.github/actions/checkout-and-login
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          registry: ${{ secrets.cache_registry || vars.CI_REGISTRY_IMAGE }}
+          username: ${{ secrets.cache_user }}
+          password: ${{ secrets.cache_password }}
+      - run: BUILD_IMAGE="$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA" addons/docker-build/deploydocker.sh
+        env:
+          PUSH_BUILD_IMAGES: "1"
+          USEPODMAN: "1"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: deploy-artifacts
+          path: artifacts/
+          if-no-files-found: ignore
+      - name: Deploy test scripts used by GitLab CI
+        env:
+          WHBUILD_BUILDBOTPASSWORD: ${{ secrets.WHBUILD_BUILDBOTPASSWORD }}
+        # only default branch should deploy test scripts
+        if: github.ref == 'refs/heads/main' && !inputs.scheduled && env.WHBUILD_BUILDBOTPASSWORD != ''
+        run: addons/deploy_testscripts.sh

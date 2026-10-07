@@ -1,0 +1,80 @@
+name: External Pull Request CI
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  actions: write
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  # Job 1: Run pre-requisite steps & capture credentials into outputs
+  setup:
+    if: github.event.pull_request.head.repo.fork == true
+    runs-on: ubuntu-26.04
+    environment: external-ci # 🔐 Pauses here for maintainer approval before fetching credentials
+
+    outputs:
+      cache_registry: ${{ steps.fork-creds.outputs.cache_registry }}
+      cache_user: ${{ steps.fork-creds.outputs.cache_user }}
+      cache_password: ${{ steps.fork-creds.outputs.cache_password }}
+
+    steps:
+      - name: Fetch Registry Credentials for Fork PR
+        id: fork-creds
+        env:
+          AUTH_SERVICE_URL: "https://portal.webhare.com/portalapi/ci/get-buildcache-token"
+          OIDC_AUDIENCE: "https://portal.webhare.com"
+        run: |
+          if [[ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]]; then
+            echo "::error::ACTIONS_ID_TOKEN_REQUEST_URL not set; ensure id-token: write permission is enabled"
+            exit 1
+          fi
+
+          OIDC_TOKEN=$(curl --silent --show-error --fail \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            --get --data-urlencode "audience=$OIDC_AUDIENCE" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL" | jq -r '.value')
+
+          if [[ -z "$OIDC_TOKEN" || "$OIDC_TOKEN" == "null" ]]; then
+            echo "::error::Failed to fetch GitHub OIDC token"
+            exit 1
+          fi
+
+          RESPONSE=$(jq -n --arg token "$OIDC_TOKEN" '{token: $token}' | \
+            curl --silent --show-error --fail -X POST \
+              -H "Content-Type: application/json" \
+              --data-binary @- "$AUTH_SERVICE_URL")
+
+          REGISTRY_URL=$(jq -r '.registry_url' <<< "$RESPONSE")
+          REGISTRY_USER=$(jq -r '.username' <<< "$RESPONSE")
+          REGISTRY_PASSWORD=$(jq -r '.password' <<< "$RESPONSE")
+
+          if [[ -z "$REGISTRY_URL" || "$REGISTRY_URL" == "null" || \
+                -z "$REGISTRY_USER" || "$REGISTRY_USER" == "null" || \
+                -z "$REGISTRY_PASSWORD" || "$REGISTRY_PASSWORD" == "null" ]]; then
+            echo "::error::Failed to exchange OIDC token for registry credentials"
+            exit 1
+          fi
+
+          # Note: we can't mask the credentials or they won't get forwarded. password just needs to be shortlived
+          {
+            printf 'cache_registry=%s\n' "$REGISTRY_URL"
+            printf 'cache_user=%s\n' "$REGISTRY_USER"
+            printf 'cache_password=%s\n' "$REGISTRY_PASSWORD"
+          } >> "$GITHUB_OUTPUT"
+
+  # Job 2: Call reusable workflow and pass the output from Job 1
+  ci:
+    needs: setup # 👈 Wait for setup job to complete and get registry credentials
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ github.event.pull_request.head.sha }}
+    secrets:
+      # Pass the dynamic credential output into ci.yml as a secret
+      cache_registry: ${{ needs.setup.outputs.cache_registry }}
+      cache_user: ${{ needs.setup.outputs.cache_user }}
+      cache_password: ${{ needs.setup.outputs.cache_password }}
