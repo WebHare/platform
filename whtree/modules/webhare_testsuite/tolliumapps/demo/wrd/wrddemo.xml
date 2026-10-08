@@ -11,7 +11,7 @@
 
     <menus>
       <menu name="menubar">
-        <item action="persons->add" />
+        <item action="persons->add" name="personaddaction" title="Add person"/>
       </menu>
     </menus>
 

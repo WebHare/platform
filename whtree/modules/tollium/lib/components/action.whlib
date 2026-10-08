@@ -12,8 +12,7 @@ LOADLIB "mod::tollium/lib/internal/support.whlib";
 LOADLIB "mod::tollium/lib/internal/uploads.whlib";
 
 
-PUBLIC STATIC OBJECTTYPE TolliumActionForwardBase EXTEND TolliumSpecialComponent
-<
+PUBLIC STATIC OBJECTTYPE TolliumActionForwardBase EXTEND TolliumSpecialComponent <
   STRING pvt_icon;
 
   RECORD ARRAY dependencies;
@@ -212,8 +211,7 @@ PUBLIC STATIC OBJECTTYPE TolliumActionForwardBase EXTEND TolliumSpecialComponent
   }
 >;
 
-PUBLIC STATIC OBJECTTYPE TolliumForward EXTEND TolliumActionForwardBase
-<
+PUBLIC STATIC OBJECTTYPE TolliumForward EXTEND TolliumActionForwardBase <
   OBJECT pvt_action;
   PUBLIC PROPERTY action(pvt_action, SetAction);
 
@@ -225,15 +223,23 @@ PUBLIC STATIC OBJECTTYPE TolliumForward EXTEND TolliumActionForwardBase
   UPDATE PUBLIC MACRO StaticInit(RECORD definition)
   {
     TolliumActionForwardBase::StaticInit(definition);
-    this->pvt_action := definition.action;
+    this->action := definition.action;
   }
 
-  MACRO SetAction(OBJECT newaction)
-  {
+  MACRO SetAction(OBJECT newaction) {
     IF(this->pvt_action = newaction)
       RETURN;
+    IF(this->pvt_action != DEFAULT OBJECT) //TODO shouldn't we also have been following title? and perhaps icon?
+      this->pvt_action->SetDependency(this, [ ellipsis := FALSE ]);
 
     this->pvt_action := newaction;
+
+    IF(this->pvt_action != DEFAULT OBJECT) { //adopt and follow the new action's ellipsis
+      this->pvt_action->SetDependency(this, [ ellipsis := TRUE ]);
+      this->pvt_ellipsis := this->pvt_action->ellipsis;
+    }
+
+    this->UpdateDependentComponents("ellipsis");
     this->ExtUpdatedComponent();
   }
 
@@ -243,6 +249,7 @@ PUBLIC STATIC OBJECTTYPE TolliumForward EXTEND TolliumActionForwardBase
     {
       RECORD compinfo := [ action := GetComponentName(this->action)
                          , shortcut := RecordExists(this->pvt_shortcut) ? CellInsert(this->pvt_shortcut, "titlekeystr", this->GetShortcutString()) : DEFAULT RECORD
+                         , title := this->renderedtitle
                          ];
 
       this->owner->tolliumcontroller->SendComponent(this, compinfo);
@@ -266,14 +273,12 @@ PUBLIC STATIC OBJECTTYPE TolliumForward EXTEND TolliumActionForwardBase
 
 /** @short The action
 */
-PUBLIC STATIC OBJECTTYPE ActionBase EXTEND TolliumActionForwardBase
-< RECORD baseactionrecord;
+PUBLIC STATIC OBJECTTYPE ActionBase EXTEND TolliumActionForwardBase <
+  RECORD baseactionrecord;
   STRING handlername;
 
   RECORD ARRAY pvt_enableons;
   STRING ARRAY pvt_frameflags;
-
-//, RECORD FUNCTION GetActionInfo()
 
 
   /** @short List of enableons (the action will be enable if this array is empty, or one of the sources is focused
