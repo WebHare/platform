@@ -2,7 +2,9 @@
 /// @short Control statements test
 
 LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::internal/debug.whlib";
 
 RECORD ARRAY errors;
 RECORD result;
@@ -511,6 +513,38 @@ MACRO ErrorPositioningTest()
 MACRO TestFunc() { PRINT(""); /* Make sure it's not optimized away */}
 MACRO TestFunc2() { PRINT(""); /* Make sure it's not optimized away */}
 
+MACRO CoverageIdentityTest()
+{
+  OpenTest("TestControl: CoverageIdentityTest");
+
+  // The coverage profile is global to the VM: when this run is itself measuring coverage, resetting it here would
+  // throw away everything collected so far and leave coverage disabled for the rest of the script
+  IF (IsDebugTagEnabled("cov"))
+  {
+    CloseTest("TestControl: CoverageIdentityTest");
+    RETURN;
+  }
+
+  STRING script := "mod::webhare_testsuite/tests/baselibs/hsengine/test_control.whscr";
+  ResetCoverageProfile();
+  EnableCoverageProfile();
+  TestFunc();
+  DisableCoverageProfile();
+
+  RECORD coverage := __INTERNAL_GETCOVERAGEPROFILEDATA();
+  RECORD library := SELECT * FROM coverage.libraries WHERE liburi = script;
+  TestEq(TRUE, RecordExists(library), "coverage data must include this script");
+  RECORD librarydump := __HS_LIBDUMP(script);
+
+  TestEq(TRUE, CellExists(library, "COMPILE_ID"));
+  TestEq(TRUE, CellExists(library, "SOURCETIME"));
+  TestEq(librarydump.compile_id, library.compile_id);
+  TestEq(librarydump.sourcetime, library.sourcetime);
+
+  ResetCoverageProfile();
+  CloseTest("TestControl: CoverageIdentityTest");
+}
+
 MACRO ProfilingTest()
 {
   Opentest("TestControl: ProfilingTest");
@@ -539,6 +573,7 @@ MACRO ProfilingTest()
 }
 
 ProfilingTest();
+CoverageIdentityTest();
 LoadlibTest();
 LoadlibRedefinitionTest();
 FunctionTest();

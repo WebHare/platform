@@ -965,6 +965,7 @@ void EncodeCoverageProfileData(ProfileData const &profiledata, VirtualMachine *v
         ColumnNameId col_libraries = stackm.columnnamemapper.GetMapping("LIBRARIES");
         ColumnNameId col_liburi = vm->columnnamemapper.GetMapping("LIBURI");
         ColumnNameId col_compile_id = vm->columnnamemapper.GetMapping("COMPILE_ID");
+        ColumnNameId col_sourcetime = vm->columnnamemapper.GetMapping("SOURCETIME");
         ColumnNameId col_visitedcode = vm->columnnamemapper.GetMapping("VISITEDCODE");
         ColumnNameId col_lines = vm->columnnamemapper.GetMapping("LINES");
 
@@ -979,7 +980,7 @@ void EncodeCoverageProfileData(ProfileData const &profiledata, VirtualMachine *v
                 stackm.RecordInitializeEmpty(cell);
                 stackm.SetSTLString(stackm.RecordCellCreate(cell, col_liburi), lib.first->GetLibURI());
                 stackm.SetDateTime(stackm.RecordCellCreate(cell, col_compile_id), lib.first->GetWrappedLibrary().resident.compile_id);
-                stackm.SetDateTime(stackm.RecordCellCreate(cell, col_compile_id), lib.first->GetWrappedLibrary().resident.sourcetime);
+                stackm.SetDateTime(stackm.RecordCellCreate(cell, col_sourcetime), lib.first->GetWrappedLibrary().resident.sourcetime);
                 VarId var_visitedcode = stackm.RecordCellCreate(cell, col_visitedcode);
                 VarId var_lines = stackm.RecordCellCreate(cell, col_lines);
 
