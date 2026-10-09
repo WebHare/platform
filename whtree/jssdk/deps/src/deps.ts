@@ -20,6 +20,8 @@ export { default as YAML } from "yaml";
 
 ////////////////////////////// SHARP //////////////////////////
 import type sharp from "sharp";
+import type { Sharp } from "sharp";
+
 let sharppromise: Promise<typeof sharp> | undefined = undefined;
 
 /** Load Sharp  */
@@ -37,16 +39,18 @@ export async function createSharpImage(...args: Parameters<typeof sharp>): Promi
   return lib(...args);
 }
 
-export type Sharp = sharp.Sharp;
-export type SharpColor = sharp.Color;
-export type SharpRegion = sharp.Region;
-export type SharpResizeOptions = sharp.ResizeOptions;
-export type SharpExtendOptions = sharp.ExtendOptions;
-export type SharpJpegOptions = sharp.JpegOptions;
-export type SharpPngOptions = sharp.PngOptions;
-export type SharpWebpOptions = sharp.WebpOptions;
-export type SharpAvifOptions = sharp.AvifOptions;
-export type SharpGifOptions = sharp.GifOptions;
+export type {
+  Sharp,
+  Color as SharpColor,
+  Region as SharpRegion,
+  ResizeOptions as SharpResizeOptions,
+  ExtendOptions as SharpExtendOptions,
+  JpegOptions as SharpJpegOptions,
+  PngOptions as SharpPngOptions,
+  WebpOptions as SharpWebpOptions,
+  AvifOptions as SharpAvifOptions,
+  GifOptions as SharpGifOptions
+} from "sharp";
 
 ////////////////////////////// Puppeteer //////////////////////////
 import type * as Puppeteer from "puppeteer";
