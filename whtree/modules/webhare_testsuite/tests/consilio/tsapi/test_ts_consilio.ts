@@ -172,6 +172,13 @@ async function testSuffixes() {
   const mapping = await clientinfo.client.indices.getMapping({ index: clientinfo.indexName + "-sfx3" });
   const myMapping = mapping.body[`${clientinfo.indexName}-sfx3`].mappings;
   test.eq("keyword", myMapping.properties?.nosuchfieldyet_extra.type);
+
+  /* A falsy index passes the "don't specify the index" check, so it must not replace the catalog's index either:
+     the search would then run over every index, including the testindex catalog that testCatalogAPI filled */
+  for (const index of [undefined, ""]) {
+    const hits = (await cat.search({ index })).hits.hits.map(hit => hit._id).sort();
+    test.eq(["doc1", "doc2", "doc3"], hits, `search with index ${JSON.stringify(index)} must stay in the catalog`);
+  }
 }
 
 test.runTests([

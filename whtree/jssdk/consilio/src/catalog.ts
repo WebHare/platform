@@ -346,7 +346,7 @@ class CatalogObj<TDocument extends OpenSearchDocument = OpenSearchDocument> {
       //We can't grab the exact syntax from OpenSearch api I think?  but we can simulate it:
       console.log(`GET /${indexName + suffix}/_search\n${JSON.stringify(req.body, null, 2)}`);
     }
-    return (await client.search({ index: indexName + suffix, ...req })).body as SearchResult<SearchDocument>;
+    return (await client.search({ ...req, index: indexName + suffix })).body as SearchResult<SearchDocument>;
   }
 
   /** Bulk upload */
