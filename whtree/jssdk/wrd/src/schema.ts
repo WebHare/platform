@@ -907,9 +907,21 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     if (!typeRec)
       throw new Error(`No such type ${JSON.stringify(this.tag)}`);
 
-    await db<PlatformDB>().deleteFrom("wrd.entities").where("id", "in", ids).execute();
-    for (const id of ids)
-      wrdFinishHandler().entityDeleted(schemadata.schema.id, typeRec.id, id);
+    // Only delete existing entities of this type or its subtypes. Any other id points to a logic error in the caller,
+    // so check them all before deleting anything
+    const toDelete = await db<PlatformDB>().selectFrom("wrd.entities").select(["id", "type"]).where("id", "in", [...new Set(ids)]).execute();
+    const typeOf = new Map(toDelete.map(e => [e.id, e.type]));
+    for (const id of ids) {
+      const type = typeOf.get(id);
+      if (type === undefined)
+        throw new Error(`Trying to delete entity #${id} which does not exist`);
+      if (!typeRec.childTypeIds.includes(type))
+        throw new Error(`Trying to delete entity #${id} of type #${type} but we are type #${typeRec.id}`);
+    }
+
+    await db<PlatformDB>().deleteFrom("wrd.entities").where("id", "in", toDelete.map(e => e.id)).execute();
+    for (const entity of toDelete)
+      wrdFinishHandler().entityDeleted(schemadata.schema.id, entity.type, entity.id);
     return;
   }
 

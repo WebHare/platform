@@ -1,7 +1,7 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getExtendedWRDSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import type { Combine } from "@webhare/wrd/src/types";
+import type { Combine, WRDTypeBaseSettings } from "@webhare/wrd/src/types";
 import { wrd, type WRDSchemaLike } from "@webhare/wrd";
 import { subscribeToEventStream, toResourcePath, type BackendEvent } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
@@ -152,6 +152,27 @@ async function testEvents() {
     updated: [],
     deleted: [],
   }, event.data);
+
+  // STORY: delete through a type removes entities of that type and its subtypes, reported under their own type
+  const domains = wrd<Combine<[WRD_TestschemaSchemaType, CustomExtensions, { testDomain1Child: WRDTypeBaseSettings }]>>(testSchemaTag);
+  const testDomain1ChildTypeId = await domains.__toWRDTypeId("testDomain1Child");
+  await whdb.beginWork();
+  const own = await domains.insert("testDomain_1", {});
+  const child = await domains.insert("testDomain1Child", {});
+  const sibling = await domains.insert("testDomain_2", {});
+  await whdb.commitWork();
+  await whdb.beginWork();
+  await domains.delete("testDomain_1", [own, child]);
+  await whdb.commitWork();
+  event = await expectEvent(streamitr, { check: (evt) => evt.name === `wrd:type.${testDomain1ChildTypeId}.change` && (evt.data as { deleted: number[] }).deleted.length > 0 });
+  test.eq([child], (event.data as { deleted: number[] }).deleted);
+
+  // STORY: ids of another type, or that don't exist, point to a logic error: nothing is deleted
+  await whdb.beginWork();
+  await test.throws(/of type .* but we are type/, domains.delete("testDomain_1", [sibling]));
+  await test.throws(/does not exist/, domains.delete("testDomain_2", [sibling, own]));
+  test.eq([sibling], await domains.query("testDomain_2").select("wrdId").where("wrdId", "=", sibling).execute());
+  await whdb.rollbackWork();
 }
 
 
