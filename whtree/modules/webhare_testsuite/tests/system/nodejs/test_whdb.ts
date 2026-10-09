@@ -1,4 +1,4 @@
-import { WebHareBlob, ResourceDescriptor, lockMutex, subscribeToEventStream, writeRegistryKey } from "@webhare/services";
+import { WebHareBlob, ResourceDescriptor, lockMutex, hasMutex, subscribeToEventStream, writeRegistryKey } from "@webhare/services";
 import * as test from "@webhare/test";
 import { sleep } from "@webhare/std";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat";
@@ -721,6 +721,44 @@ async function testSeparatePrimaryLeak() {
   await rollbackWork();
 }
 
+async function testFailingCommitHandler() {
+  // An onCommit handler that fails runs after the database acknowledged the commit, so it must not undo anything
+  await beginWork();
+  const id = await nextVal("webhare_testsuite.exporttest.id");
+  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id, text: "committed despite a failing handler" }).execute();
+  let rolledBack = false, laterHandlerCommitted = false;
+  onFinishWork({
+    onCommit: () => { throw new Error("onCommit handler failed"); },
+    onRollback: () => { rolledBack = true; }
+  });
+  onFinishWork({ onCommit: () => { laterHandlerCommitted = true; } });
+  await test.throws(/onCommit handler failed/, commitWork());
+  test.eq(false, rolledBack, "an acknowledged commit must not be reported as a rollback");
+  test.eq(true, laterHandlerCommitted, "a failing handler doesn't keep the others from learning about the commit");
+  test.eq([{ id }], await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("id").where("id", "=", id).execute());
+
+  // The failing handler opened new work under the same mutex before failing. That work must stay attached, and
+  // still own the mutex, when the commit cleans up after the failure.
+  const mutex = "webhare_testsuite:failingcommithandler";
+  await beginWork({ mutex });
+  onFinishWork({
+    onCommit: async () => {
+      await beginWork({ mutex });
+      throw new Error("handler failed after opening work");
+    }
+  });
+  try {
+    await test.throws(/handler failed after opening work/, commitWork());
+    test.eq(true, isWorkOpen(), "the work opened by the handler must stay attached");
+    test.eq(true, hasMutex(mutex), "the mutex taken by the new work must still be known to be held");
+  } finally {
+    if (isWorkOpen())
+      await rollbackWork();
+  }
+
+  await runInWork(() => db<WebHareTestsuiteDB>().deleteFrom("webhare_testsuite.exporttest").where("id", "=", id).execute());
+}
+
 async function testDeadlockDetection() {
   // See if deadlock detection is working and throws the appropriate DatabaseError with the 40P01 code
   {
@@ -917,6 +955,7 @@ test.runTests([
   testHSCommitHandlers, //moving this higher triggers races around commit handlers and VM shutdowns
   testClosedConnectionHandling,
   testSeparatePrimaryLeak,
+  testFailingCommitHandler,
   testDeadlockDetection,
   testOtherTypes,
 ]);

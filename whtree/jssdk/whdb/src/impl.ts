@@ -102,11 +102,19 @@ class Work implements WorkObject {
 
   private async invokeFinishHandlers(stage: "onCommit" | "onRollback") {
     //invoke all finishedhandlers serially (otherwise opening/closing work in different HSVM's might run parallel)
+    //as in HareScript, a failing handler doesn't skip the others; the first failure is rethrown afterwards
+    let failure: { error: unknown } | null = null;
     for (const h of this.finishhandlers.values())
-      if (stage === "onCommit")
-        await h.onCommit?.();
-      else if (stage === "onRollback")
-        await h.onRollback?.();
+      try {
+        if (stage === "onCommit")
+          await h.onCommit?.();
+        else if (stage === "onRollback")
+          await h.onRollback?.();
+      } catch (error) {
+        failure ??= { error };
+      }
+    if (failure)
+      throw failure.error;
   }
 
   async nextVals(field: string, howMany: number): Promise<number[]> {
@@ -173,7 +181,16 @@ class Work implements WorkObject {
       const commitresult = await this.conn.client.query("COMMIT", []);
       if (commitresult.command as string !== "COMMIT")
         throw new Error(`Commit failed (usually due to earlier errors on this transaction)`);
+    } catch (e) {
+      this.clearWork();
+      await this.invokeFinishHandlers("onRollback");
+      throw e;
+    }
 
+    //The database acknowledged the commit, so nothing below may report it as a rollback. As in HareScript, the
+    //onCommit handlers still run when broadcasting failed, and the first failure is rethrown at the end
+    let failure: { error: unknown } | null = null;
+    try {
       this.commituniqueevents.forEach(event => broadcast(event));
       this.commitdataevents.forEach(event => broadcast(event.name, event.data));
       for (const [databaseid, blob] of this.conn.client.uploadTracker.byId.entries()) {
@@ -182,13 +199,17 @@ class Work implements WorkObject {
       const anyHandlerBroadcast = (await Promise.all(Array.from(this.finishhandlers.values()).map(h => h.onCommitEvents?.()))).some(_ => _);
       if (this.commitdataevents.length || this.commituniqueevents.size || anyHandlerBroadcast)
         await fenceEvents();
-      this.clearWork();
-      await this.invokeFinishHandlers("onCommit");
-    } catch (e) {
-      this.clearWork();
-      await this.invokeFinishHandlers("onRollback");
-      throw e;
+    } catch (error) {
+      failure = { error };
     }
+    this.clearWork();
+    try {
+      await this.invokeFinishHandlers("onCommit");
+    } catch (error) {
+      failure ??= { error };
+    }
+    if (failure)
+      throw failure.error;
   }
 
   private clearWork() {
