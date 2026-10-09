@@ -39,6 +39,7 @@ jobs:
             const authorAssociation = context.payload.pull_request.author_association;
 
             // List of associations that count as Internal
+            // Note that you need to a public member of the organization (https://github.com/orgs/WebHare/people) before creating the PR to get the auto-approve
             const internalRoles = ['OWNER', 'MEMBER', 'COLLABORATOR'];
 
             const isInternal = internalRoles.includes(authorAssociation);
