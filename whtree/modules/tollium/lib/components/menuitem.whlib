@@ -5,8 +5,7 @@ LOADLIB "mod::tollium/lib/components/action.whlib";
 
 /////////////////////////////////////////////////////////////////////
 // The menu item
-PUBLIC STATIC OBJECTTYPE TolliumMenuItem EXTEND TolliumSpecialComponent
-<
+PUBLIC STATIC OBJECTTYPE TolliumMenuItem EXTEND TolliumSpecialComponent <
   RECORD ARRAY pvt_items;
   BOOLEAN pvt_selected;
   BOOLEAN pvt_checked;
@@ -113,17 +112,16 @@ PUBLIC STATIC OBJECTTYPE TolliumMenuItem EXTEND TolliumSpecialComponent
     }
   }
 
-  UPDATE PUBLIC MACRO UpdatedDependentField(STRING fieldname)
-  {
-    SWITCH (fieldname)
-    {
-    CASE "title"
-      {
+  UPDATE PUBLIC MACRO UpdatedDependentField(STRING fieldname) {
+    SWITCH (fieldname) {
+      CASE "title" {
         TolliumComponentBase::SetTitle(this->pvt_action->title);
       }
-    CASE "hint"
-      {
+      CASE "hint" {
         TolliumComponentBase::SetHint(this->pvt_action->hint);
+      }
+      CASE "ellipsis" {
+        this->SetEllipsis(this->pvt_action->ellipsis);
       }
     }
   }

@@ -375,8 +375,10 @@ PUBLIC STATIC OBJECTTYPE FormBase <
   /// Label for 'submit' buttoon
   PUBLIC STRING formsubmitlabel;
 
-  /** Form variables, used for conditions. Updated in frontend when modified dynamically (but not when
-      initialized differently than the last load of the form)
+  /** Form variables are one way communication from the server to the client and can be used in conditions (using FCFormVariable)
+      You can setup flows where the client modifies form variables to affect the result of visible/enabled/required conditions,
+      but the server will ignore these changes. The server will also ignore changes made to formvariable calls in RPCs (as it would
+      need to trust the client about the changes).
   */
   PUBLIC PROPERTY formvariables(__formvariables, SetFormVariables);
 

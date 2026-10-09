@@ -20,7 +20,7 @@ OBJECT ASYNC FUNCTION TestMainApp()
   TestEq("OverwriteMe", TT("selected_email")->value, "onselect shouldn't have fired yet"); //keep behaviour predicatble
   TestEq(0, TT("autoupdatecount")->value);
   TestEq("14\u00a0August\u00a02019", topscreen->contexts->user->FormatDate(makedate(2019,8,14),FALSE,FALSE));
-
+  TestEq(TRUE, TT("personaddaction")->ellipsis);
 
   // lookup some values to use for testing setting/getting values
   INTEGER singledomid :=

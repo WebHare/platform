@@ -46,20 +46,26 @@ MACRO TestVies()
   TestEq(FALSE, result.serviceunavailable);
   TestEQ(FALSE, result.valid);
 
-  //real values that cause API calls
+  /* Real values that cause API calls. Unfortunately the VIES APIs are so unreliable that these tests tend to fail intermittently.
+     So we're happy if we get just ONE request through. Seems they're also less stable in CI than locally */
+  INTEGER successes := 0;
   result := CheckViesVATCode("nl 0000.000.12b00");
-  TestEq(FALSE, result.serviceunavailable);
-  TestEq(FALSE, result.valid);
-  TestEq("NL000000012B00", result.vatnumber);
-  TestEq("Invalid VAT number", result.error);
+  IF(NOT result.serviceunavailable) {
+    TestEq(FALSE, result.valid);
+    TestEq("NL000000012B00", result.vatnumber);
+    TestEq("Invalid VAT number", result.error);
+    successes := successes + 1;
+  }
 
   result := CheckViesVATCode("NL 8193.190.53B01");
-  TestEq(FALSE, result.serviceunavailable);
-  TestEq(TRUE, result.valid);
-  TestEq("NL819319053B01", result.vatnumber);
-  TestEqLike("*ENSCHEDE*", result.address);
-  TestEqLike("*WEBHARE*", result.name);
-  TestEq("", result.error);
+  IF(NOT result.serviceunavailable) {
+    TestEq(TRUE, result.valid);
+    TestEq("NL819319053B01", result.vatnumber);
+    TestEqLike("*ENSCHEDE*", result.address);
+    TestEqLike("*WEBHARE*", result.name);
+    TestEq("", result.error);
+    successes := successes + 1;
+  }
 
   //we just picked a random HAPPY cooperation.
   result := CheckViesVATCode("BE 0890.294.605");
@@ -69,6 +75,7 @@ MACRO TestVies()
     TestEq("BE0890294605", result.vatnumber);
     TestEqLike("*BEKKEVOORT*", ToUppercase(result.address));
     TestEqLike("*HAPPY*", result.name);
+    successes := successes + 1;
   }
 
   result := CheckViesVATCode("DE129274202"); //Siemens AG
@@ -77,6 +84,7 @@ MACRO TestVies()
     TestEq(FALSE, result.serviceunavailable);
     TestEq(TRUE, result.valid);
     TestEq("DE129274202", result.vatnumber);
+    successes := successes + 1;
   }
 
   result := CheckViesVATCode("XI 123456789"); //Northern Ireland
@@ -85,7 +93,11 @@ MACRO TestVies()
   {
     TestEq(FALSE, result.valid);
     TestEq("Invalid VAT number", result.error);
+    successes := successes + 1;
   }
+
+  Print(`API calls succeed ${successes} out of 5\n`);
+  TestEq(TRUE, successes > 0, "Ensure at least one successful API call");
 }
 
 RunTestframework([ PTR TestVies

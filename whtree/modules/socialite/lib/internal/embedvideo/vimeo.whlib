@@ -1,45 +1,69 @@
 <?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/fetch.whlib";
+
 LOADLIB "mod::publisher/lib/embedvideo.whlib";
-LOADLIB "mod::system/lib/remoting/whservice.whlib";
-
-LOADLIB "mod::tollium/lib/gettid.whlib";
 
 
-PUBLIC OBJECTTYPE VimeoProvider EXTEND EmbedVideoProviderBase
-<
-  UPDATE PUBLIC RECORD FUNCTION Search2(STRING searchfor, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
+PUBLIC OBJECTTYPE VimeoProvider EXTEND EmbedVideoProviderBase <
+  UPDATE PUBLIC RECORD FUNCTION Search2(STRING searchfor, RECORD options DEFAULTSTO DEFAULT RECORD) {
     options := ValidateOptions(CELL[maxresults := 25], options);
     IF(searchfor = "")
       RETURN [ error := "", results := RECORD[] ];
 
-    RECORD searchres := InvokeHostedWHService("socialite/searchvimeo2", searchfor, [ languagecode := GetTidLanguage(), maxresults := options.maxresults ]);
-    IF(searchres.error != "")
-      RETURN [ error := searchres.error, results := RECORD[] ];
+  /* Vimeo currently seems to be blocking searches from the EU. Error code 5451: This resource is restricted in your region
+     I'm pretty sure that's not how you should interpret the GDPR, but too bad. no more vimeo searches!
 
-    RETURN [ error := ""
-           , results := this->EnrichVideos(SELECT *
-                                   , videoid := id
-                                   , creationdate := (CellExists(videos, "creationdate") ? creationdate : upload_date) // TEMPORARY
-                                FROM searchres.results AS videos)
-    ];
+     https://www.reddit.com/r/vimeo/comments/1gh1kc0/comment/luujuf1/
+     "The bad news is we can confirm that it is not a bug. Unfortunately, this feature will not be restored in the future and will no longer be available in some regions as part of our compliance with local regulations.
+      We are extremely sorry for the inconvenience."
+
+     No changes in the last couple of years, and their API has now detoriated to giving different sized thumbnails for the same video between calls,
+     so we've decided we're no longer willing to take on the 'risk' with providing an API connection to the public through webhare_services.
+  */
+    RETURN [ error := "Vimeo has disabled search for legal reasons", results := RECORD[] ];
   }
 
-  UPDATE PUBLIC RECORD ARRAY FUNCTION Search(STRING searchfor, INTEGER maxresults)
-  {
-    RETURN this->Search2(searchfor, [ maxresults := maxresults ]).results;
+  UPDATE PUBLIC RECORD ARRAY FUNCTION Search(STRING searchfor, INTEGER maxresults) {
+    RECORD res := this->DescribeVideo(searchfor);
+    RETURN RecordExists(res) ? [res] : RECORD[];
   }
 
-  UPDATE PUBLIC RECORD FUNCTION DescribeVideo(STRING videoid)
-  {
-    RECORD video := InvokeHostedWHService("socialite/describevimeovideo", videoid);
-    IF (NOT Recordexists(video))
+  UPDATE PUBLIC RECORD FUNCTION DescribeVideo(STRING videoid) {
+    //Use their public unauthenticated API, at least it doesn't change its opinion on thumbnail dimensions all the time
+    OBJECT videoinfo := FetchSync("https://vimeo.com/api/oembed.json?url=https://player.vimeo.com/video/" || EncodeURL(videoid));
+
+    RECORD data := videoinfo->JSON();
+    IF(NOT RecordExists(data))
       RETURN DEFAULT RECORD;
-    RETURN RECORD(this->EnrichVideos(SELECT *, videoid := id FROM [ video ]));
+
+    data := EnforceStructure([ upload_date := ""
+                             , description := ""
+                             , duration := 0
+                             , thumbnail_width := 0
+                             , thumbnail_url := ""
+                             , thumbnail_height := 0
+                             , video_id := ""
+                             , title := ""
+                             ], data);
+
+    RECORD inferred_thumbnail := data.thumbnail_url != "" ? [ width := data.thumbnail_width, height := data.thumbnail_height, url := data.thumbnail_url ] : DEFAULT RECORD;
+    DATETIME creationdate := MakeDateFromText(Substitute(data.upload_date,' ','T'));
+    RETURN CELL[ creationdate
+               , upload_date := creationdate
+               , description := data.description
+               , duration := data.duration
+               , playratio := 16f/9f
+               , title := data.title ?? data.video_id
+               , location := DEFAULT RECORD
+               , videoid := data.video_id
+               , thumbnail := inferred_thumbnail
+               , biggestthumbnail := inferred_thumbnail
+               ];
   }
 
-  UPDATE PUBLIC STRING FUNCTION GetIFramePlayerURL(STRING videoid)
-  {
+  UPDATE PUBLIC STRING FUNCTION GetIFramePlayerURL(STRING videoid) {
     RETURN "//player.vimeo.com/video/"|| EncodeURL(videoid);
   }
 
