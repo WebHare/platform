@@ -17,6 +17,11 @@ import { getTypedArray, HareScriptType } from "@webhare/hscompat/src/hson";
 const wh_namespace_location = "mod::system/whlibs/";
 let webAssemblyInstantiatedSourcePromise: Promise<WebAssembly.WebAssemblyInstantiatedSource> | undefined;
 let cachedWebAssemblyModule: WebAssembly.Module | undefined;
+/// Prepared statement names are shared by all VMs in this process that use the same database connection
+let pgStatementIdCounter = 0;
+/// Process-unique ids for database connections, so a pg driver can tell which connection its prepared statements belong to
+const pgConnectionIds = new WeakMap<WHDBConnection, number>();
+let pgConnectionIdCounter = 0;
 
 export function getCachedWebAssemblyModule() {
   return cachedWebAssemblyModule;
@@ -631,6 +636,21 @@ export class WASMModule extends WASMModuleBase {
 
       this.setValue(webhare_blob_oid, config.bloboid, "i32");
       this.setValue(webhare_blobarray_oid, config.blobarrayoid, "i32");
+    });
+  }
+
+  getUniquePgStatementId(): number {
+    return ++pgStatementIdCounter;
+  }
+
+  getPgConnectionId(transactionId: number): number {
+    return this.runInPgTransactionContext(transactionId, conn => {
+      let id = pgConnectionIds.get(conn);
+      if (!id) {
+        id = ++pgConnectionIdCounter;
+        pgConnectionIds.set(conn, id);
+      }
+      return id;
     });
   }
 

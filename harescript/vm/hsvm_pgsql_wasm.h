@@ -36,8 +36,14 @@ class PGSQLWasmTransactionDriver : public PGSQLTransactionDriverBase
         /// List of prepared statements
         std::map< std::string, PreparedStatement > prepared_statements;
 
-        /// Counter for name generation
-        uint64_t prepared_statements_counter;
+        /// Process-unique id of the JavaScript-side database connection that prepared_statements belong to
+        uint32_t connection_id;
+
+        /// Prepared statements of the previous connection, so returning to it (eg. after runInSeparateWork) reuses them
+        uint32_t saved_connection_id;
+        std::map< std::string, PreparedStatement > saved_prepared_statements;
+
+        void SelectConnection();
 
         void PrepareForQuery();
         std::unique_ptr< QueryResult > ExecQuery(Query &query, bool asyncresult);

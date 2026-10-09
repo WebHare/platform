@@ -690,6 +690,58 @@ async function testHSRunInSeparatePrimary() {
   test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", id2).executeTakeFirst());
 }
 
+async function testPreparedStatementsAcrossVMs() {
+  const invoketargetlib = "mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib";
+  await beginWork();
+  await db<WebHareTestsuiteDB>().deleteFrom("webhare_testsuite.exporttest").execute();
+  const first = await nextVal("webhare_testsuite.exporttest.id"), second = await nextVal("webhare_testsuite.exporttest.id");
+  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values([{ id: first, text: "first" }, { id: second, text: "second" }]).execute();
+  await commitWork();
+
+  // The wasm driver prepares a query on its 16th use, so 20 uses run it as a prepared statement too
+  const repeat = async (call: () => Promise<unknown>) => {
+    let result;
+    for (let i = 0; i < 20; ++i)
+      result = await call();
+    return result;
+  };
+  const countPrepared = async () => (await query<{ count: number }>("SELECT count(*)::integer AS count FROM pg_prepared_statements WHERE name LIKE 'prep\\_%'")).rows[0].count; //the HareScript driver's statements
+
+  // A fresh code context has a fresh context VM, which prepares its statements on the primary connection
+  const context = new CodeContext("testPreparedStatementsAcrossVMs");
+  try {
+    await context.run(async () => {
+      const contextvm = loadlib(invoketargetlib);
+      test.eq("first", await repeat(() => contextvm.GetExportText(first)));
+      await beginWork();
+      await repeat(() => contextvm.AddExportRow("second")); //every other row says 'second', so GetOtherExportText stays predictable
+      await commitWork();
+      const preparedOnPrimary = await countPrepared();
+
+      await runInSeparateWork(async () => {
+        // Another VM in this code context prepares its statements on the separate connection
+        await using othervm = await createVM();
+        await othervm.loadlib("mod::system/lib/database.whlib").openPrimary();
+        const other = othervm.loadlib(invoketargetlib);
+        test.eq("second", await repeat(() => other.GetOtherExportText(first)));
+
+        // The context VM now runs on the separate connection too: it may not reuse statements it prepared elsewhere
+        test.eq("first", await repeat(() => contextvm.GetExportText(first)));
+        await repeat(() => contextvm.AddExportRow("second"));
+        // Both VMs can prepare more statements on the connection they share
+        test.eq("first", await repeat(() => other.GetExportText(first)));
+        test.eq("second", await repeat(() => contextvm.GetOtherExportText(first)));
+      });
+
+      // Back on the primary connection, the context VM reuses what it prepared there
+      test.eq("first", await repeat(() => contextvm.GetExportText(first)));
+      test.eq(preparedOnPrimary, await countPrepared());
+    });
+  } finally {
+    await context.close();
+  }
+}
+
 async function testClosedConnectionHandling() {
   const worker = new AsyncWorker;
   await worker.callRemote("@mod-webhare_testsuite/tests/system/nodejs/data/context-tests.ts#runShortLivedContext", 0);
@@ -914,6 +966,7 @@ test.runTests([
   testIsolation,
   testSeparatePrimary,
   testHSRunInSeparatePrimary,
+  testPreparedStatementsAcrossVMs,
   testHSCommitHandlers, //moving this higher triggers races around commit handlers and VM shutdowns
   testClosedConnectionHandling,
   testSeparatePrimaryLeak,

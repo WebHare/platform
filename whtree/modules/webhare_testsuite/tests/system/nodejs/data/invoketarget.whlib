@@ -94,3 +94,19 @@ PUBLIC INTEGER FUNCTION InsertImmediately()
 PUBLIC MACRO Crash() {
   ABORT("jscall aborted");
 }
+
+// Two queries with the same parameter and result shape, for the prepared statement tests in test_whdb
+PUBLIC STRING FUNCTION GetExportText(INTEGER rowid)
+{
+  RETURN SELECT AS STRING text FROM webhare_testsuite.exporttest WHERE id = rowid;
+}
+
+PUBLIC STRING FUNCTION GetOtherExportText(INTEGER rowid)
+{
+  RETURN SELECT AS STRING text FROM webhare_testsuite.exporttest WHERE id != rowid;
+}
+
+PUBLIC MACRO AddExportRow(STRING text)
+{
+  INSERT INTO webhare_testsuite.exporttest(id, text) VALUES(MakeAutonumber(webhare_testsuite.exporttest, "id"), text);
+}

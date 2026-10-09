@@ -381,6 +381,8 @@ inline void HSVM_SetIntegerCell(HSVM *hsvm, HSVM_VariableId id_set, HSVM_ColumnI
 
 PGSQLWasmTransactionDriver::PGSQLWasmTransactionDriver(HSVM *_vm, PGSQLWasmTransactionDriver::Options const &options)
 : PGSQLTransactionDriverBase(_vm, options)
+, connection_id(0)
+, saved_connection_id(0)
 {
 }
 
@@ -396,6 +398,38 @@ PGSQLWasmTransactionDriver::~PGSQLWasmTransactionDriver()
 EM_ASYNC_JS(void, supportPrepareForQuery, (int32_t trans_id, int32_t *webhare_blob_oid, int32_t *webhare_blobarray_oid), {
         await Module.prepareForPgQuery(trans_id, webhare_blob_oid, webhare_blobarray_oid);
 });
+
+EM_JS(uint32_t, supportGetPgConnectionId, (int32_t trans_id), {
+        return Module.getPgConnectionId(trans_id);
+});
+
+// Prepared statement names must be unique per connection, and VMs in the same process share connections
+EM_JS(uint32_t, supportGetUniquePgStatementId, (), {
+        return Module.getUniquePgStatementId();
+});
+
+/** The JavaScript side runs this driver on the connection of its code context at the time of the query, which may change
+    (runInSeparateWork, a reopened primary). Prepared statements only exist on the connection that prepared them.
+*/
+void PGSQLWasmTransactionDriver::SelectConnection()
+{
+        uint32_t new_connection_id = supportGetPgConnectionId(this->sqllib_transid);
+        if (new_connection_id == this->connection_id)
+            return;
+
+        if (new_connection_id == this->saved_connection_id)
+        {
+                std::swap(this->prepared_statements, this->saved_prepared_statements);
+                std::swap(this->connection_id, this->saved_connection_id);
+        }
+        else
+        {
+                this->saved_prepared_statements = std::move(this->prepared_statements);
+                this->prepared_statements.clear();
+                this->saved_connection_id = this->connection_id;
+                this->connection_id = new_connection_id;
+        }
+}
 
 void PGSQLWasmTransactionDriver::PrepareForQuery()
 {
@@ -427,6 +461,7 @@ EM_JS(void, supportSendPgQuery, (int32_t trans_id, void *query, unsigned length)
 });
 std::unique_ptr< QueryResult > PGSQLWasmTransactionDriver::ExecQuery(Query &query, bool asyncresult)
 {
+        SelectConnection();
         query.params.Finalize();
 
 #ifdef DUMP_BINARY_ENCODING
@@ -485,7 +520,7 @@ std::unique_ptr< QueryResult > PGSQLWasmTransactionDriver::ExecQuery(Query &quer
                 PreparedStatement &prep = prepared_statements[hash];
                 if (prep.use < 16 && ++prep.use == 16)
                 {
-                        std::string name = "prep_" + Blex::AnyToString(++prepared_statements_counter);
+                        std::string name = "prep_" + Blex::AnyToString(supportGetUniquePgStatementId());
                         should_prepare = true;
                         prep.name = name;
                         prep.querystr = query.querystr;
