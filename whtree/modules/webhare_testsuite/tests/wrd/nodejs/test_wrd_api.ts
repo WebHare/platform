@@ -1,7 +1,8 @@
 import { wrd, type WRDSchemaType } from "@webhare/wrd";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
-import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
+import { createWRDTestSchema, getWRDSchema, testSchemaTag } from "@mod-webhare_testsuite/js/wrd/testhelpers";
+import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { CodeContext } from "@webhare/services/src/codecontexts";
 import type { IsRequired, WRDAttributeTypeId, WRDBaseAttributeTypeId, WRDTypeBaseSettings } from "@webhare/wrd/src/types";
 import { throwError } from "@webhare/std";
@@ -451,6 +452,67 @@ async function testUnique() {
   await whdb.commitWork();
 }
 
+async function testUniqueDates() {
+  const wrdschema = await getWRDSchema();
+  await whdb.beginWork();
+  const type = await wrdschema.createType("testUniqueDates", { metaType: "domain" });
+  await type.createAttribute("testDate", { attributeType: "plainDate", isUnique: true });
+  await type.createAttribute("testArray", { attributeType: "array" });
+  await type.createAttribute("testArray.date", { attributeType: "plainDate", isUnique: true });
+  await whdb.commitWork();
+
+  await whdb.beginWork();
+  const date = Temporal.PlainDate.from("2025-01-01");
+  const first = await wrdschema.insert("testUniqueDates", { testDate: date, wrdCreated: Temporal.Instant.from("2010-01-01T00:00:00Z") });
+  await wrdschema.update("testUniqueDates", first, { testDate: date });
+  test.eq({ testDate: date }, await wrdschema.getFields("testUniqueDates", first, ["testDate"]));
+  await test.throws(/Unique constraint violated/, wrdschema.insert("testUniqueDates", { testDate: date }));
+
+  const second = await wrdschema.insert("testUniqueDates", {});
+  await wrdschema.insert("testUniqueDates", { testDate: null });
+  await test.throws(/Unique constraint violated/, wrdschema.update("testUniqueDates", second, { testDate: date }));
+  test.eq({ testDate: null }, await wrdschema.getFields("testUniqueDates", second, ["testDate"]));
+  await wrdschema.update("testUniqueDates", first, { testArray: [{ date }] });
+  await test.throws(/Unique constraint violated/, wrdschema.update("testUniqueDates", second, { testArray: [{ date }] }));
+
+  // Both APIs must recognize each other's dates and share the same unique key.
+  const hsSchema = await loadlib("mod::wrd/lib/api.whlib").OpenWRDSchema(testSchemaTag) as HSVMObject;
+  const hsType = await hsSchema.GetType("TEST_UNIQUE_DATES") as HSVMObject;
+  const hsDate = new Date("2025-01-01T00:00:00Z");
+  await hsType.UpdateEntity(first, { test_date: hsDate });
+  await test.throws(/Unique value conflict/, hsType.UpdateEntity(second, { test_date: hsDate }));
+  await test.throws(/Unique value conflict/, hsType.UpdateEntity(second, { test_date: new Date("2025-01-01T12:00:00Z") }));
+  await test.throws(/Unique constraint violated/, wrdschema.update("testUniqueDates", second, { testDate: date }));
+
+  await wrdschema.update("testUniqueDates", first, { wrdClosed: Temporal.Instant.from("2020-01-01T00:00:00Z") });
+  await hsType.UpdateEntity(second, { test_date: hsDate });
+  test.eq({ testDate: date }, await wrdschema.getFields("testUniqueDates", second, ["testDate"]));
+  await whdb.commitWork();
+
+  await whdb.beginWork();
+  await test.throws(/duplicate key/, wrdschema.update("testUniqueDates", first, { wrdClosed: null }));
+  await whdb.rollbackWork();
+
+  // Restoring an existing date must also restore database protection, even when the precheck is skipped.
+  for (const reopenInHS of [false, true]) {
+    // Each expected database failure needs its own HareScript transaction context.
+    const context = new CodeContext("testUniqueDates: reactivation", { reopenInHS });
+    await context.run(async () => {
+      await whdb.beginWork();
+      const hsRestoreSchema = await loadlib("mod::wrd/lib/api.whlib").OpenWRDSchema(testSchemaTag) as HSVMObject;
+      const hsRestoreType = await hsRestoreSchema.GetType("TEST_UNIQUE_DATES") as HSVMObject;
+      await hsRestoreType.CloseEntity(second);
+      if (reopenInHS)
+        await hsRestoreType.UpdateEntity(first, { wrd_limitdate: new Date("2050-01-01T00:00:00Z") });
+      else
+        await wrdschema.update("testUniqueDates", first, { wrdClosed: null });
+      const third = await wrdschema.insert("testUniqueDates", {});
+      await hsRestoreType.UpdateEntity(third, { test_date: hsDate }, { importmode: true });
+      await test.throws(/duplicate key|Commit failed/, whdb.commitWork());
+    });
+  }
+}
+
 async function testReferences1() {
   const wrdschema = await getWRDSchema();
   const domain1value1 = await wrdschema.find("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_1" }) ?? throwError("Domain value TEST_DOMAINVALUE_1_! not found");
@@ -506,6 +568,7 @@ test.runTests([
   testWRDUntypedApi,
   testRequired,
   testUnique,
+  testUniqueDates,
   testReferences1,
   testReferences2,
 ]);
