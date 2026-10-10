@@ -592,6 +592,27 @@ $(LIBXML2_WASM_GENERATEDFILE): $(SRCDIR)/vendor/setup-libxml2.sh $(SRCDIR)/vendo
 
 #################################################
 ##
+## Setup nginx njs module
+##
+NGINX_MODULE=$(WHBUILD_BUILDDIR)/vendor-nginx/ngx_http_js_module.so
+
+setup-nginx: $(NGINX_MODULE)
+
+$(SRCDIR)/vendor/njs/nginx/config:
+	git -C "$(SRCDIR)" submodule update --init --recursive vendor/njs
+
+$(NGINX_MODULE): $(SRCDIR)/vendor/setup-nginx.sh $(SRCDIR)/vendor/njs/nginx/config
+	bash $(SRCDIR)/vendor/setup-nginx.sh "$(dir $@)"
+
+ifeq ($(WEBHARE_WEBSERVER),nginxjs)
+install-binaries: $(PREFIX)/lib/ngx_http_js_module.so
+
+$(PREFIX)/lib/ngx_http_js_module.so: $(NGINX_MODULE)
+	$(HIDE)echo "- Installing $< -> $@" && mkdir -p $(dir $@) && cp -af $< $(dir $@)
+endif
+
+#################################################
+##
 ## Build instructions
 ##
 

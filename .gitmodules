@@ -1,6 +1,9 @@
 [submodule "vendor/libxml2"]
 	path = vendor/libxml2
 	url = https://github.com/GNOME/libxml2.git
+[submodule "vendor/njs"]
+	path = vendor/njs
+	url = https://github.com/nginx/njs.git
 [submodule "whtree/modules/platform/js/certbot/vendor/acme"]
 	path = whtree/modules/platform/js/certbot/vendor/acme
 	url = https://github.com/WebHare/acme.git
