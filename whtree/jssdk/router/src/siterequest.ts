@@ -375,6 +375,13 @@ export class CPageRequest {
     return typeinfo?.workflow && !(this.targetObject.type === "platform:filetypes.contentlink" && typeinfo?.contentlink) ? "content" : "target";
   }
 
+  /** Get the instance id to use for a given whfsType, considering workflows and contentlinks
+   * @returns the whfsobject id
+  */
+  getInstanceSource<const Type extends keyof WHFSTypes | string & {}>(type: string extends Type ? Type : WHFSTypeName): number {
+    return this.getSourceFor(type) === "target" ? this.targetObject.id : this._contentObject.id;
+  }
+
   /** Get data for a whfsType. Considers versioning and contentlinks to ensure the right version is picked
    * @param type - The whfsType to get data for
    * @param options.source - Override the source for the data. Usually you should let WebHare autoselect the right source or fix the type's metadata if it gets it wrong
@@ -770,7 +777,7 @@ export async function createContentPageRequest(toRender: WHFSObject, options?: C
 export type PagePartRequest = Pick<CPageRequest,
   "renderRTD" | "renderWidget" | "resolveLink" | "pageRoot" | "pageSubPath" |
   "targetFolder" | "targetObject" | "targetSite" | "targetPath" | "siteLanguage" |
-  "isLinkedContent" | "isEditorPreview" | "isPublisherPreview" | "webRequest" | "getInstance" | "timings" | "addStructuredData" |
+  "isLinkedContent" | "isEditorPreview" | "isPublisherPreview" | "webRequest" | "getInstance" | "getInstanceSource" | "timings" | "addStructuredData" |
   "getPlugin" | "setFrontendData" | "setPageBuilderData" | "insertAt" | "pageMetadata">; //TODO need something to determine emailwidgets. IsTargetEmail() ?
 
 /** The ContentPageRequest is offered to page renderers (onRenderContent, generally depends on the file type) */

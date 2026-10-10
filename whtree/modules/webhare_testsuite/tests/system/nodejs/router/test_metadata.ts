@@ -184,6 +184,8 @@ async function testPageMetadata() {
   test.eq(true, doc1clinkreq1.isLinkedContent);
   test.eq("doc1clink1", doc1clinkreq1.pageMetadata.title);
   test.eq("", doc1clinkreq1.pageMetadata.pageHeading);
+  test.eq(doc1clink1.id, doc1clinkreq1.getInstanceSource("webhare_testsuite:base_test.base_test_props"));
+  test.eq(doc1.id, doc1clinkreq1.getInstanceSource("platform:filetypes.richdocument"));
 
   await testfolder.update({ indexDoc: doc1clink1.id });
   const doc1clink1asIndex = await openFile(doc1clink1.id);
