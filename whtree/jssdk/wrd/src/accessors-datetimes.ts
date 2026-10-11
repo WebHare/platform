@@ -81,6 +81,7 @@ export class WRDDBDateValue<Required extends boolean, ModernSchema extends boole
   checkFilter({ condition, value }: WRDDBDateArrayConditions<ModernSchema>) {
     /* always ok */
   }
+  // Array date uniqueness checks use mentions/mentionsany to identify conflicting entities.
   public matchesValue(value: (ModernSchema extends true ? Temporal.PlainDate : Date) | null, cv: WRDDBDateArrayConditions<ModernSchema>): boolean {
     if (cv.condition === "mentions")
       return super.matchesValue(value, { condition: "=", value: cv.value });

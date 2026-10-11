@@ -473,6 +473,11 @@ async function testUniqueDates() {
   await test.throws(/Unique constraint violated/, wrdschema.update("testUniqueDates", second, { testDate: date }));
   test.eq({ testDate: null }, await wrdschema.getFields("testUniqueDates", second, ["testDate"]));
   await wrdschema.update("testUniqueDates", first, { testArray: [{ date }] });
+  // Unique checks use these array operators before writing the database constraint.
+  test.eq([first], await wrdschema.query("testUniqueDates").where("testArray.date", "mentions", date).select("wrdId").execute());
+  test.eq([first], await wrdschema.query("testUniqueDates").where("testArray.date", "mentionsany", [Temporal.PlainDate.from("2025-01-02"), date]).select("wrdId").execute());
+  test.eq([], await wrdschema.query("testUniqueDates").where("testArray.date", "mentions", Temporal.PlainDate.from("2025-01-02")).select("wrdId").execute());
+  test.eq([], await wrdschema.query("testUniqueDates").where("testArray.date", "mentionsany", []).select("wrdId").execute());
   await test.throws(/Unique constraint violated/, wrdschema.update("testUniqueDates", second, { testArray: [{ date }] }));
 
   // Both APIs must recognize each other's dates and share the same unique key.
