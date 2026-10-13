@@ -46,6 +46,7 @@ export type GetSetLangaguage = (lang?: string) => string;
 
 export type GetTidHooks = {
   loader: CompiledFileLoader | null;
+  addResourceChangeListener?: (resource: string, callback: () => void) => void;
   currentLanguage: GetSetLangaguage;
 };
 

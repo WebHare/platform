@@ -35,10 +35,15 @@ function getLanguageFile(module: string, langCode: string): CompiledLanguageFile
   const langkey = `${module}:${langCode}`;
   let compiled = langFileCache[langkey];
   if (!compiled || !compiled.resource) {
-    const loader = ensureHooks().loader;
+    const { loader, addResourceChangeListener } = ensureHooks();
     if (loader) {
       try {
-        compiled = loader(module, langCode, compiled?.registered ?? new Map);
+        const loaded = compiled = loader(module, langCode, compiled?.registered ?? new Map);
+        // Reload the language file on the next lookup when it has been modified
+        addResourceChangeListener?.(loaded.resource, () => {
+          loaded.resource = "";
+          loaded.texts.clear();
+        });
       } catch (e) {
         // loading failed, erase the loaded texts (keep the registered texts, though)
         if (dtapStage !== "production" || debugFlags.gtd) {
