@@ -134,7 +134,7 @@ function compileLanguageFile(input: string, texts: Map<string, LanguageText>) {
   return { fallbackLanguage, langCode, texts };
 }
 
-export function getCompiledLanguageFile(moduleName: string, langcode: string, registered: Map<string, LanguageText>) {
+export function readCompiledLanguageFile(moduleName: string, langcode: string, registered: Map<string, LanguageText>): CompiledLanguageFile {
   const texts = new Map(registered);
   const resource = `mod::${moduleName}/language/${langcode}.xml`;
   const resname = toFSPath(resource);
@@ -150,6 +150,11 @@ export function getCompiledLanguageFile(moduleName: string, langcode: string, re
     const resdata = readFileSync(resname, 'utf-8');
     retval = { resource: resname, ...compileLanguageFile(resdata, texts), registered };
   }
+  return retval;
+}
+
+export function getCompiledLanguageFile(moduleName: string, langcode: string, registered: Map<string, LanguageText>) {
+  const retval = readCompiledLanguageFile(moduleName, langcode, registered);
   addResourceChangeListener(module, retval.resource, () => {
     retval.resource = "";
     retval.texts.clear();

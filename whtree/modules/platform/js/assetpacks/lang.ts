@@ -6,7 +6,7 @@ import type { CaptureLoadPlugin } from "@mod-platform/js/assetpacks/compiletask"
 import * as fs from "node:fs";
 import { emplace } from '@webhare/std';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { getCompiledLanguageFile } from '@mod-tollium/js/internal/gettid_nodehooks';
+import { readCompiledLanguageFile } from '@mod-tollium/js/internal/gettid_nodehooks';
 import type { LanguageText } from '@webhare/gettid/src/types';
 
 type ModuleTids = { [tid: string]: string | ModuleTids };
@@ -119,7 +119,7 @@ export async function readLanguageFile(module: string, language: string, filelis
 
 async function getLanguageXML(modulename: string, language: string) {
   const texts = new Map<string, LanguageText>;
-  const output = getCompiledLanguageFile(modulename, language, texts);
+  const output = readCompiledLanguageFile(modulename, language, texts);
   const outputTexts = new Array<{ tid: string; text: string }>();
 
   for (const [tid, text] of output.texts.entries())
