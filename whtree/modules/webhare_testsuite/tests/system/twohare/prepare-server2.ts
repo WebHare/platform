@@ -8,7 +8,7 @@ import { CLIRuntimeError, runCli } from "@webhare/cli";
 import { dtapStage } from "@webhare/env";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { beginWork } from "@webhare/whdb";
-import { AuthenticationSettings, wrd } from "@webhare/wrd";
+import { AuthenticationSettings, updateSchemaSettings, wrd } from "@webhare/wrd";
 
 runCli({
   async main() {
@@ -44,6 +44,7 @@ runCli({
       });
     }
 
+    await updateSchemaSettings(usermgmtSchema, { dynamicRegistration: { enabled: true } });
     await work.commit();
   }
 });
