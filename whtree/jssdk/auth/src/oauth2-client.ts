@@ -5,7 +5,7 @@ import type { AnyWRDSchema, WRDEntityMatch, WRDSchema, WRDSchemaLike, WRDSchemaT
 import { encodeString, pick, throwError, toCamelCase, toSnakeCase, type ToSnakeCase } from "@webhare/std";
 import type { NavigateInstruction } from "@webhare/env";
 import { backendConfig, createServerSession, getServerSession, logNotice, subscribe, updateServerSession, type SessionScopes } from "@webhare/services";
-import type { OAuth2Tokens, OpenIdConfiguration, ResponseModesScopes } from "./types";
+import type { GrantTypesSupported, OAuth2Tokens, OpenIdConfiguration, ResponseModesScopes, ResponseType } from "./types";
 import { runInWork } from "@webhare/whdb/src/impl";
 import * as crypto from "node:crypto";
 import type { WebRequestInfo, WebResponseInfo } from "@mod-system/js/internal/types";
@@ -421,4 +421,69 @@ export async function fetchUserInfo(wrdSchema: AnyWRDSchema, server: WRDEntityMa
     throw new Error(`Error retrieving userinfo`);
 
   return await res.json();
+}
+
+export type DynamicClientRegistrationParameters = {
+  client_name: string;
+  redirect_uris: string[];
+  grant_types?: GrantTypesSupported[];
+  response_types?: ResponseType[];
+};
+
+export async function registerDynamicClient(serviceRoot: string, registration: DynamicClientRegistrationParameters) {
+  const metadataurl = new URL(".well-known/openid-configuration", serviceRoot).toString();
+  const metadataResponse = await fetch(metadataurl);
+  if (!metadataResponse.ok)
+    throw new Error(`Cannot load OpenID metadata from ${metadataurl}: HTTP ${metadataResponse.status}`);
+  const metadata: { registration_endpoint?: unknown } = await metadataResponse.json();
+  if (typeof metadata.registration_endpoint !== "string" || !metadata.registration_endpoint)
+    throw new Error("OpenID metadata does not advertise a registration_endpoint");
+
+  const registrationResponse = await fetch(metadata.registration_endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(registration)
+  });
+  if (registrationResponse.status !== 201)
+    throw new Error(`Dynamic registration failed: HTTP ${registrationResponse.status}`);
+  const registeredClient: {
+    client_id?: unknown;
+    client_secret?: unknown;
+    registration_access_token?: unknown;
+    registration_client_uri?: unknown;
+  } = await registrationResponse.json();
+  if (typeof registeredClient.client_id !== "string" || !registeredClient.client_id
+    || typeof registeredClient.client_secret !== "string" || !registeredClient.client_secret)
+    throw new Error("Dynamic registration did not return client credentials");
+
+  if (registeredClient.registration_access_token !== undefined
+    && (typeof registeredClient.registration_access_token !== "string" || !registeredClient.registration_access_token))
+    throw new Error("Dynamic registration returned an invalid registration_access_token");
+  if (registeredClient.registration_client_uri !== undefined
+    && (typeof registeredClient.registration_client_uri !== "string" || !URL.canParse(registeredClient.registration_client_uri)))
+    throw new Error("Dynamic registration returned an invalid registration_client_uri");
+
+  return {
+    metadataurl,
+    clientid: registeredClient.client_id,
+    clientsecret: registeredClient.client_secret,
+    ...typeof registeredClient.registration_access_token === "string" ? { registration_access_token: registeredClient.registration_access_token } : {},
+    ...typeof registeredClient.registration_client_uri === "string" ? { registration_client_uri: registeredClient.registration_client_uri } : {}
+  };
+}
+
+/** Read a client's current registration using its registration-management token. */
+export async function getDynamicClientRegistration(registrationClientUri: string, registrationAccessToken: string): Promise<Record<string, unknown> & { client_id: string }> {
+  const response = await fetch(registrationClientUri, {
+    headers: { Authorization: "Bearer " + registrationAccessToken }
+  });
+  if (!response.ok)
+    throw new Error(`Cannot retrieve dynamic client registration: HTTP ${response.status}`);
+
+  const registration: unknown = await response.json();
+  if (!registration || typeof registration !== "object" || Array.isArray(registration)
+    || !("client_id" in registration) || typeof registration.client_id !== "string" || !registration.client_id)
+    throw new Error("Dynamic client registration did not return a client_id");
+
+  return { ...registration, client_id: registration.client_id };
 }
