@@ -73,6 +73,7 @@ export async function runOpenIDLoginFlow(browser: Puppeteer.Browser, options: {
   scope?: string;
   nonce?: string;
   pkceCodeVerifier?: string;
+  handleConsent?: (page: Puppeteer.Page) => Promise<void>;
 }) {
   const config = await discovery(new URL(options.metadataUrl), options.clientId, options.clientSecret, undefined, {
     execute: [allowInsecureRequests]
@@ -123,7 +124,10 @@ export async function runOpenIDLoginFlow(browser: Puppeteer.Browser, options: {
     }
 
     const [, callbackRequest] = await Promise.all([
-      runWebHareLoginFlow(page),
+      (async () => {
+        await runWebHareLoginFlow(page);
+        await options.handleConsent?.(page);
+      })(),
       page.waitForRequest(isCallback, { timeout: 30000 })
     ]);
     const tokenSet = await authorizationCodeGrant(config, new URL(callbackRequest.url()), {
