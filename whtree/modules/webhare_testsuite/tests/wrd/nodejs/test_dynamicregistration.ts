@@ -6,6 +6,7 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { initializeIssuer } from "@webhare/auth";
 import { decompressUUID, hashClientSecret } from "@webhare/auth/src/identity";
 import { getDynamicClientRegistration, registerDynamicClient, type DynamicClientRegistrationParameters } from "@webhare/auth/src/oauth2-client";
+import { cleanupDynamicClients } from "@webhare/auth/src/support";
 import { createOpenAPIClient } from "@webhare/openapi-client";
 import { broadcast, toResourcePath } from "@webhare/services";
 import { runInWork } from "@webhare/whdb";
@@ -192,8 +193,44 @@ async function disableDynamicRegistration() {
   test.eq(0, (await testSchema.query("wrdauthApplication").select(["wrdId"]).execute()).length);
 }
 
+async function testCleanupDynamicClients() {
+  const testSchema = wrd<WRDSchemaLike["webhare_testsuite:oidcschema"]>("webhare_testsuite:testschema");
+  const now = Temporal.Now.instant().round({ smallestUnit: "milliseconds" });
+  const retainedClientIds = await testSchema.query("wrdauthApplication").select("wrdId").execute();
+
+  await runInWork(async () => {
+    for (const status of ["created", "active"] as const) {
+      const cutoff = now.subtract({ hours: status === "created" ? 6 : 14 * 24 });
+      await testSchema.insert("wrdauthApplication", {
+        wrdTitle: `Expired ${status} client`,
+        dynamicStatus: status,
+        wrdCreated: cutoff.subtract({ seconds: 1 })
+      });
+      retainedClientIds.push(await testSchema.insert("wrdauthApplication", {
+        wrdTitle: `Boundary ${status} client`,
+        dynamicStatus: status,
+        wrdCreated: cutoff
+      }));
+      retainedClientIds.push(await testSchema.insert("wrdauthApplication", {
+        wrdTitle: `Recent ${status} client`,
+        dynamicStatus: status,
+        wrdCreated: cutoff.add({ seconds: 1 })
+      }));
+    }
+    retainedClientIds.push(await testSchema.insert("wrdauthApplication", {
+      wrdTitle: "Old nondynamic client",
+      wrdCreated: now.subtract({ hours: 30 * 24 })
+    }));
+  });
+
+  await cleanupDynamicClients(testSchema, now);
+  const remainingClientIds = await testSchema.query("wrdauthApplication").select("wrdId").execute();
+  test.eq(retainedClientIds.sort((first, second) => first - second), remainingClientIds.sort((first, second) => first - second));
+}
+
 test.runTests([
   setupDynamicRegistration,
   testRegisterDynamicClient,
   disableDynamicRegistration,
+  testCleanupDynamicClients
 ]);
