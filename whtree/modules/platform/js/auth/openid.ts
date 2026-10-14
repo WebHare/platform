@@ -2,11 +2,11 @@ import * as crypto from "node:crypto";
 import { type WebHareRouter, type WebRequest, type WebResponse, createContentPageRequest, createJSONResponse, createRedirectResponse, createWebResponse } from "@webhare/router";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 //TOOD make this a public export somewhere? but should it include wrdOrg and wrdPerson though
-import { wrd, type WRDSchema, type WRDSchemaLike, type WRDSchemaType } from "@webhare/wrd";
+import { getSchemaSettings, wrd, type WRDSchema, type WRDSchemaLike, type WRDSchemaType } from "@webhare/wrd";
 import { listSites, openFileOrFolder, openFolder, openSite } from "@webhare/whfs";
 import { decompressUUID, hashClientSecret, IdentityProvider, listTokens, type AuthTokenOptions } from "@webhare/auth/src/identity";
 import { closeServerSession, createServerSession, encryptForThisServer, getServerSession, importJSObject, updateServerSession } from "@webhare/services";
-import type { AuthCustomizer, JWTPayload } from "@webhare/auth";
+import { registerRelyingParty, type AuthCustomizer, type JWTPayload } from "@webhare/auth";
 import { getCookieBasedUser } from "@webhare/auth/src/authfrontend";
 import { runInWork } from "@webhare/whdb";
 import type { AnySchemaType, SchemaTypeDefinition } from "@webhare/wrd/src/types";
@@ -457,6 +457,104 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
   const wrdschema = wrd<WRDSchemaLike["wrd:idp"]>(wrdschemaTag);
   if (!await wrdschema.exists() || !await wrdschema.hasType("wrdauthApplication"))
     return createJSONResponse(404, { error: "Provider not configured" });
+
+  if (endpoint[3] === 'register') {
+    const registrationClientId = pathname.match(/\/register\/([^/]+)\/?$/)?.[1];
+    if (registrationClientId) {
+      const registrationAccessToken = req.headers.get("Authorization")?.match(/^Bearer +(.+)$/i)?.[1];
+      const unauthorized = () => createJSONResponse(401, { error: "invalid_token" }, { headers: { "www-authenticate": "Bearer" } });
+      if (!registrationAccessToken)
+        return unauthorized();
+
+      const applications = await wrdschema.query("wrdauthApplication")
+        .where("wrdGuid", "=", decompressUUID(registrationClientId))
+        .select(["dynamicRegistration", "dynamicStatus", "callbackUrls"])
+        .execute();
+      const application = applications[0];
+      const tokenHash = application?.dynamicRegistration?.registrationAccessTokenHash;
+      const suppliedTokenHash = hashClientSecret(registrationAccessToken);
+      if (!application?.dynamicStatus || !tokenHash || tokenHash.length !== suppliedTokenHash.length
+        || !crypto.timingSafeEqual(Buffer.from(tokenHash), Buffer.from(suppliedTokenHash)))
+        return unauthorized();
+      if (req.method !== "GET")
+        return createJSONResponse(405, { error: "Client registration retrieval requires GET" }, { headers: { allow: "GET" } });
+
+      const registration = application.dynamicRegistration!.request;
+      return createJSONResponse(200, {
+        ...registration,
+        redirect_uris: application.callbackUrls.map(callback => callback.url),
+        grant_types: registration.grant_types ?? ["authorization_code"],
+        response_types: registration.response_types ?? ["code"],
+        token_endpoint_auth_method: registration.token_endpoint_auth_method ?? "client_secret_basic",
+        client_id: registrationClientId,
+        registration_access_token: registrationAccessToken,
+        registration_client_uri: new URL(getOpenIdBase(wrdschema) + "register/" + encodeURIComponent(registrationClientId), req.url).toString()
+      }, { headers: { "cache-control": "no-store", pragma: "no-cache" } });
+    }
+
+    // Clients may retain the endpoint after it disappears from discovery.
+    const settings = await getSchemaSettings(wrdschema, ["dynamicRegistration"]);
+    if (settings.dynamicRegistration?.enabled !== true)
+      return createJSONResponse(403, { error: "Dynamic registration is disabled" });
+    if (req.method !== "POST")
+      return createJSONResponse(405, { error: "Registration requires POST" }, { headers: { allow: "POST" } });
+    if (req.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json")
+      return createJSONResponse(415, { error: "Registration requires application/json" });
+
+    let registration: unknown;
+    try {
+      registration = await req.json();
+    } catch {
+      return createJSONResponse(400, { error: "invalid_client_metadata", error_description: "Invalid JSON" });
+    }
+    if (!registration || typeof registration !== "object" || Array.isArray(registration))
+      return createJSONResponse(400, { error: "invalid_client_metadata", error_description: "Expected a JSON object" });
+    if (!("redirect_uris" in registration) || !Array.isArray(registration.redirect_uris) || !registration.redirect_uris.length
+      || !registration.redirect_uris.every((url: unknown) => typeof url === "string" && URL.canParse(url)
+        && ["http:", "https:"].includes(new URL(url).protocol) && !new URL(url).hash))
+      return createJSONResponse(400, { error: "invalid_redirect_uri", error_description: "Expected nonempty HTTP(S) redirect_uris without fragments" });
+    if ("client_name" in registration && typeof registration.client_name !== "string")
+      return createJSONResponse(400, { error: "invalid_client_metadata", error_description: "client_name must be a string" });
+    if ("grant_types" in registration && (!Array.isArray(registration.grant_types) || registration.grant_types.length !== 1 || registration.grant_types[0] !== "authorization_code"))
+      return createJSONResponse(400, { error: "invalid_client_metadata", error_description: "Only authorization_code is supported" });
+    if ("response_types" in registration && (!Array.isArray(registration.response_types) || registration.response_types.length !== 1 || registration.response_types[0] !== "code"))
+      return createJSONResponse(400, { error: "invalid_client_metadata", error_description: "Only the code response type is supported" });
+    if ("token_endpoint_auth_method" in registration && (typeof registration.token_endpoint_auth_method !== "string" || !["client_secret_basic", "client_secret_post"].includes(registration.token_endpoint_auth_method)))
+      return createJSONResponse(400, { error: "invalid_client_metadata", error_description: "Unsupported token_endpoint_auth_method" });
+
+    const callbackUrls = registration.redirect_uris as string[];
+    const clientName = "client_name" in registration ? registration.client_name as string : "Dynamic client";
+    const registrationAccessToken = crypto.randomBytes(32).toString("base64url");
+    const client = await runInWork(async () => {
+      const relyingParty = await registerRelyingParty(wrdschema, {
+        // WRD titles must be unique, but submitted client names need not be.
+        title: `${clientName} (${crypto.randomUUID()})`,
+        callbackUrls
+      });
+      // Preserve the submitted metadata with the server-provided client IP.
+      await wrdschema.update("wrdauthApplication", relyingParty.wrdId, {
+        dynamicStatus: "created",
+        dynamicRegistration: {
+          request: registration as Record<string, unknown>,
+          clientIp: req.clientIp,
+          registrationAccessTokenHash: hashClientSecret(registrationAccessToken)
+        }
+      });
+      return relyingParty;
+    });
+
+    return createJSONResponse(201, {
+      ...registration,
+      grant_types: "grant_types" in registration ? registration.grant_types : ["authorization_code"],
+      response_types: "response_types" in registration ? registration.response_types : ["code"],
+      token_endpoint_auth_method: "token_endpoint_auth_method" in registration ? registration.token_endpoint_auth_method : "client_secret_basic",
+      client_id: client.clientId,
+      client_secret: client.clientSecret,
+      client_secret_expires_at: 0,
+      registration_access_token: registrationAccessToken,
+      registration_client_uri: new URL(getOpenIdBase(wrdschema) + "register/" + encodeURIComponent(client.clientId), req.url).toString()
+    }, { headers: { "cache-control": "no-store", pragma: "no-cache" } });
+  }
 
   //Determine the login page for this schema.
   //FIXME this really needs caching and optimization
