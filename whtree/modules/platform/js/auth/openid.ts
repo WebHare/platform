@@ -54,6 +54,8 @@ const openIdTokenExpiry = 60 * 60 * 1000; // openid id_token is valid for 1 hour
 const builtinScopes = ["openid", "profile", "email"];
 //TODO don't hardcode these, site/wrdauth config should explain them. different schemas do their own thing
 const supportedAccessScopes = {
+  "platform:sysop": "Allows full administrative access",
+  "platform:wrd.export": "Allows exporting WRD data",
   "testfw": "Testframework scope"
 };
 
@@ -334,7 +336,12 @@ export async function returnAuthorizeFlow<T extends SchemaTypeDefinition>(provid
   }
 
   //Update session with user info
-  await runInWork(() => updateServerSession("wrd:openid.idpstate", sessionid, { ...returnInfo, user }));
+  await runInWork(async () => {
+    await updateServerSession("wrd:openid.idpstate", sessionid, { ...returnInfo, user });
+    const application = await provider.wrdschema.getFields("wrdauthApplication", returnInfo.clientid, ["dynamicStatus"]);
+    if (application.dynamicStatus === "created")
+      await provider.wrdschema.update("wrdauthApplication", returnInfo.clientid, { dynamicStatus: "active" });
+  });
 
   if (returnInfo.response_mode === "form_post") {
     return createRedirectResponse({

@@ -16,7 +16,7 @@ export async function verifyUser(req: OpenAPIRequest): Promise<OpenAPIAuthorizat
 
   if (!await rightsChecker.hasRight("system:sysop")) //TODO APIs themselves SHOULD check whatever you're trying to do by testing against an intersection of your rights and scopes, but for now juist require sysop rights and tokens
     return failWRDAPIUserAuth(`User does not have the privileges to share what is currently scoped`);
-  if (!basecheck.authorization.scopes.includes("system:sysop"))
+  if (!basecheck.authorization.scopes.includes("system:sysop") && !basecheck.authorization.scopes.includes("platform:sysop")) //pre-DCR (WH6.0-) uses system:sysop
     return failWRDAPIUserAuth(`User lacks required scope`);
 
   return basecheck;
