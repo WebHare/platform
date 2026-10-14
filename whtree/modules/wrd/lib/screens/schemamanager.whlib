@@ -254,6 +254,9 @@ PUBLIC STATIC OBJECTTYPE SchemaProps EXTEND TolliumScreenBase <
     ^default_sender_name->value := GetWRDSetting(this->contexts->wrdschema, "default_sender_name");
 
     ^validationsettings->value := GetWRDSetting(this->contexts->wrdschema, "address_verification");
+
+    RECORD dynamic_registration := GetWRDSetting(this->contexts->wrdschema, "dynamic_registration");
+    ^dynamic_registration->value := CellExists(dynamic_registration,"enabled") AND dynamic_registration.enabled;
   }
 
   MACRO OnAccountTypeChange()
@@ -265,8 +268,7 @@ PUBLIC STATIC OBJECTTYPE SchemaProps EXTEND TolliumScreenBase <
     ^accountpassword->options := GenerateAccountOptions(GetSuitableAccountAttributes(curtype, this->originalschema.accountpassword), "allowforpassword", this->originalschema.accountpassword);
   }
 
-  BOOLEAN FUNCTION Submit()
-  {
+  BOOLEAN FUNCTION Submit() {
     OBJECT work := this->BeginWork();
 
     RECORD schemarec := ^wrdschema->value;
@@ -282,11 +284,16 @@ PUBLIC STATIC OBJECTTYPE SchemaProps EXTEND TolliumScreenBase <
       IF (IsAllowedEmailSender(^default_sender_mail->value) = 0)
         work->AddErrorFor(^default_sender_mail, GetTid("tollium:validation.errors.sender_not_whitelisted", ^default_sender_mail->title, ^default_sender_mail->value));
 
-    IF(NOT work->HasFailed())
-    {
+    IF(NOT work->HasFailed()) {
       SetupWRDAddressVerification(this->contexts->wrdschema, ^validationsettings->value);
-      SetWRDSetting(this->contexts->wrdschema, "default_sender_mail", ^default_sender_mail->value);
-      SetWRDSetting(this->contexts->wrdschema, "default_sender_name", ^default_sender_name->value);
+      RECORD cursettings := GetWRDSettings(this->contexts->wrdschema, ["dynamic_registration"]);
+      SetWRDSettings(this->contexts->wrdschema,
+        CELL[ default_sender_mail := ^default_sender_mail->value
+            , default_sender_name := ^default_sender_name->value
+            , dynamic_registration := CELL[ ...cursettings.dynamic_registration,
+                                            enabled := ^dynamic_registration->value
+                                          ]
+          ]);
       this->contexts->wrdschema->UpdateMetadata(CELL[...^wrdschema->value, DELETE creationdate]);
     }
 
