@@ -37,6 +37,12 @@ export type WRDDynamicRegistrationSettings = {
   enabled: boolean;
 };
 
+export type WRDDynamicClientRegistration = {
+  request: Record<string, unknown>;
+  clientIp: string;
+  registrationAccessTokenHash?: string;
+};
+
 export type PrepAuthResult = {
   error: string;
 } | {
