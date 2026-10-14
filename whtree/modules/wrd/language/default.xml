@@ -897,6 +897,8 @@
       <text tid="addressvalidation">Address validation</text>
       <text tid="default_sender_mail">Default sender email</text>
       <text tid="default_sender_name">Default sender name</text>
+      <text tid="dynamic_registration">Dynamic client registrations</text>
+      <text tid="oauth">OAuth</text>
       <text tid="payments">Payments</text>
       <text tid="protect">Protect this schema against imports and deletes</text>
       <text tid="schema">Schema</text>
