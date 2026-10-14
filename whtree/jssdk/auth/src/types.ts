@@ -20,7 +20,7 @@ type ResponseTypesScopes =
 
 export type ResponseModesScopes = "query" | "fragment" | "form_post";
 
-type GrantTypesSupported =
+export type GrantTypesSupported =
   | "implicit"
   | "authorization_code"
   | "refresh_token"
