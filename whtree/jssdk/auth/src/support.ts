@@ -1,8 +1,8 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
-import type { WRDSchema, WRDSchemaLike, WRDSchemaType } from "@webhare/wrd";
+import { wrd, type WRDSchema, type WRDSchemaLike, type WRDSchemaType } from "@webhare/wrd";
 import type { WRDAuthSettings } from "./identity";
-import { db } from "@webhare/whdb";
+import { db, runInWork } from "@webhare/whdb";
 import { tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { getApplyTesterForURL, type WRDAuthPluginSettings } from "@webhare/whfs/src/applytester";
 import { getIdCookieName } from "./cookie-support";
@@ -39,6 +39,28 @@ export type WRDDynamicRegistrationSettings = {
   /** Is dynamic registration currently enabled */
   enabled: boolean;
 };
+
+export type WRDDynamicClientRegistration = {
+  request: Record<string, unknown>;
+  clientIp: string;
+  registrationAccessTokenHash?: string;
+};
+
+export async function cleanupDynamicClients<S extends SchemaTypeDefinition>(authSchema: WRDSchemaType<S>, now = Temporal.Now.instant()) {
+  const idpSchema = wrd<WRDSchemaLike["wrd:idp"]>(authSchema.tag);
+  await runInWork(async () => {
+    for (const status of ["created", "active"] as const) {
+      const cutoff = now.subtract({ hours: status === "created" ? 6 : 14 * 24 });
+      const clientIds = await idpSchema.query("wrdauthApplication")
+        .where("dynamicStatus", "=", status)
+        .where("wrdCreated", "<", cutoff)
+        .select("wrdId")
+        .execute();
+      if (clientIds.length)
+        await idpSchema.delete("wrdauthApplication", clientIds);
+    }
+  });
+}
 
 export type PrepAuthResult = {
   error: string;

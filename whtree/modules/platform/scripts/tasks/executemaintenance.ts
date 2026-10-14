@@ -3,7 +3,7 @@ import { removeObsoleteCacheFolders } from "@mod-platform/js/assetpacks/support"
 import { runAuthMaintenance } from "@mod-platform/js/auth/support";
 import { cleanupOutdatedHttpResources } from "@mod-platform/js/certbot/internal/task";
 import { runAccountExpiration } from "@mod-system/js/internal/userrights/accountexpiration";
-import { getAuthSettings } from "@webhare/auth/src/support";
+import { cleanupDynamicClients, getAuthSettings } from "@webhare/auth/src/support";
 import { wrdGuidToUUID } from "@webhare/hscompat";
 import { backendConfig, toFSPath } from "@webhare/services";
 import { getFetchResourceCacheCleanups } from "@webhare/services/src/fetchresource";
@@ -11,8 +11,16 @@ import { convertWaitPeriodToDate } from "@webhare/std";
 import { deleteRecursive, listDirectory } from "@webhare/system-tools";
 import { beginWork, commitWork, db, runInWork } from "@webhare/whdb";
 import { doRemoveObsoleteDrafts } from "@webhare/whfs/src/maintenance";
-import { listSchemas, wrd } from "@webhare/wrd";
+import { listSchemas, wrd, type WRDSchemaLike } from "@webhare/wrd";
 import { unlink, rm } from "fs/promises";
+
+async function cleanupOldDynamicClients() {
+  for (const schemaInfo of await listSchemas()) {
+    const authSchema = wrd<WRDSchemaLike["wrd:idp"]>(schemaInfo.tag);
+    if (await authSchema.hasType("wrdauthApplication"))
+      await cleanupDynamicClients(authSchema);
+  }
+}
 
 async function expireOldUsers() {
   let schemastofix = await listSchemas();
@@ -116,6 +124,7 @@ async function runMaintenance() {
   //Things that may free up space always go first in case someone runs these maintenance scripts hoping to free up space fast
   await cleanupOldSessions();
   await runAuthMaintenance();
+  await cleanupOldDynamicClients();
   await cleanupOldUploads();
   await cleanupFetchResourceCacheCleanups();
   await removeObsoleteCacheFolders();
