@@ -19,7 +19,7 @@ export async function wellKnownRouter(req: WebRequest): Promise<WebResponse> {
     return createJSONResponse(HTTPErrorCode.NotFound, { error: `No WRD schema defined for this location` });
 
   const authSchema = wrd<WRDSchemaLike["platform:basewrdschema"]>(wrdSchemaTag);
-  const settings = await getSchemaSettings(authSchema, ["issuer", "signingKeys"]);
+  const settings = await getSchemaSettings(authSchema, ["issuer", "signingKeys", "dynamicRegistration"]);
   if (!settings.issuer)
     return createJSONResponse(HTTPErrorCode.NotFound, { error: `WRD schema '${wrdSchemaTag}' is not configured with a JWKS issuer` });
 
@@ -39,6 +39,7 @@ export async function wellKnownRouter(req: WebRequest): Promise<WebResponse> {
     authorization_endpoint: oidc_baseurl + "authorize",
     token_endpoint: oidc_baseurl + "token",
     userinfo_endpoint: oidc_baseurl + "userinfo",
+    ...settings.dynamicRegistration?.enabled === true ? { registration_endpoint: oidc_baseurl + "register" } : {},
     id_token_signing_alg_values_supported,
     token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
     code_challenge_methods_supported: ["S256"],
