@@ -7,12 +7,12 @@
              updatefunction="mod::platform/lib/internal/migrations.whlib#RenameSP" />
 
   <domain tag="wrdauth_application"
-          comment="A registered application that authenticate with us. Also known as client (OAuth2) or relying party (OpenID Connect). Formerly wrdauth_service_provider"
+          comment="A registered application that authenticates users with us. Also known as client (OAuth2) or relying party (OpenID Connect). Formerly wrdauth_service_provider"
           keephistorydays="1100">
     <!-- these are service providers registered to our IDP
          ie everyone who lists this server/application as a login button -->
     <attributes>
-      <free tag="wrd_title" required="true" unique="true" />
+      <free tag="wrd_title" required="true" />
       <array tag="client_secrets">
         <datetime tag="created" required="true" />
         <free tag="secret_hash" required="true" />
@@ -21,6 +21,9 @@
         <free tag="url" />
       </array>
       <free tag="subject_field" />
+      <enum tag="dynamic_status" allowedvalues="created active" />
+      <json tag="dynamic_registration"
+        typedeclaration="@webhare/auth/src/support.ts#WRDDynamicClientRegistration" />
     </attributes>
   </domain>
 
