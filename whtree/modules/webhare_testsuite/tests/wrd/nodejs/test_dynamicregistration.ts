@@ -6,6 +6,7 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { initializeIssuer } from "@webhare/auth";
 import { decompressUUID, hashClientSecret } from "@webhare/auth/src/identity";
 import { getDynamicClientRegistration, registerDynamicClient, type DynamicClientRegistrationParameters } from "@webhare/auth/src/oauth2-client";
+import { createOpenAPIClient } from "@webhare/openapi-client";
 import { broadcast, toResourcePath } from "@webhare/services";
 import { runInWork } from "@webhare/whdb";
 import { updateSchemaSettings, wrd, type WRDSchemaLike } from "@webhare/wrd";
@@ -95,6 +96,59 @@ async function testRegisterDynamicClient() {
     registration_access_token: registeredClient.registration_access_token,
     registration_client_uri: registeredClient.registration_client_uri
   }, registrationDetails);
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Start a login flow with the dynamically registered client
+
+  using browser = await test.openTestPuppeteer();
+  await test.throws(/authorization response from the server is an error/, test.runOpenIDLoginFlow(browser, {
+    metadataUrl: registeredClient.metadataurl,
+    clientId: registeredClient.clientid,
+    clientSecret: registeredClient.clientsecret,
+    callbackUrl: registration.redirect_uris[0],
+    scope: "platform:sysop",
+    async handleConsent(page) {
+      await page.waitForSelector('button[name="approve"][value="no"]');
+      test.eq([/sysop/], await page.$$eval("form ul li", items => items.map(item => item.textContent?.trim())));
+      test.eq("created", (await testSchema.getFields("wrdauthApplication", application.wrdId, ["dynamicStatus"]))?.dynamicStatus);
+      await Promise.all([
+        page.waitForNavigation(),
+        page.click('button[name="approve"][value="no"]')
+      ]);
+      const deniedCallback = new URL(page.url());
+      test.eq("interaction_required", deniedCallback.searchParams.get("error"));
+      test.eq(null, deniedCallback.searchParams.get("code"));
+    }
+  }));
+  test.eq("created", (await testSchema.getFields("wrdauthApplication", application.wrdId, ["dynamicStatus"]))?.dynamicStatus);
+
+  const { tokenSet: tokens } = await test.runOpenIDLoginFlow(browser, {
+    metadataUrl: registeredClient.metadataurl,
+    clientId: registeredClient.clientid,
+    clientSecret: registeredClient.clientsecret,
+    callbackUrl: registration.redirect_uris[0],
+    scope: "platform:sysop",
+    async handleConsent(page) {
+      await page.waitForSelector('button[name="approve"][value="yes"]');
+      test.eq([/sysop/], await page.$$eval("form ul li", items => items.map(item => item.textContent?.trim())));
+      await Promise.all([
+        page.waitForNavigation(),
+        page.click('button[name="approve"][value="yes"]')
+      ]);
+    }
+  });
+  test.assert(tokens?.access_token);
+  test.eq("bearer", tokens.token_type);
+  test.eq(undefined, tokens.id_token);
+  test.assert(tokens.access_token);
+  test.eq("active", (await testSchema.getFields("wrdauthApplication", application.wrdId, ["dynamicStatus"])).dynamicStatus);
+
+  //////////////////////////////////////////////////////////////
+  // STORY: Verify we got a functional bearer token
+  const baseUrl = testsite.webRoot + "testsuiteportal/.wh/api/v1/";
+  const api = createOpenAPIClient<"platform:api">(baseUrl, { bearerToken: tokens.access_token });
+  test.eqPartial({ status: 200, body: { user: { email: test.getUser("sysop").login } } }, await api.get("/meta"));
+
   ////////////////////////////////////////////////////////////////
   // STORY: Verify error handling/edge cases
   const wrongMethodResponse = await fetch(metadata.registration_endpoint);
