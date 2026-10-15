@@ -1,12 +1,8 @@
 name: WebHare CI
 
 on:
-  workflow_dispatch: # Used by scheduled-ci.yml
+  workflow_dispatch:
     inputs:
-      scheduled:
-        description: Skip deployment steps for scheduled CI runs
-        type: boolean
-        default: false
       WEBHARE_WEBSERVER:
         description: 'Webserver override (for example nginxjs)'
         type: string
@@ -34,6 +30,13 @@ on:
       ref: # This will point to the actual PR commit
         type: string
         description: 'Git ref to build'
+      ref_name:
+        type: string
+        description: 'Branch name for scheduled CI runs'
+      scheduled:
+        type: boolean
+        description: Skip deployment steps for scheduled CI runs
+        default: false
       WEBHARE_WEBSERVER:
         type: string
         description: 'Webserver override (for example nginxjs)'
@@ -44,7 +47,7 @@ env:
   CI_COMMIT_SHA: ${{ inputs.ref || github.sha }}
   # Branch name. Used also to detect if we're on the main branch and need to autotag a release/x.y container too
   # Forks setting this to 'main' shouldn't be a risk as deployment will not run unless github.event_name == 'push' (TODO but still cleaner to not set it at all?)
-  CI_COMMIT_REF_NAME: "${{ github.ref_name }}" # Extract ref name (e.g. main or feature/my-branch).
+  CI_COMMIT_REF_NAME: "${{ inputs.ref_name || github.ref_name }}" # Extract ref name (e.g. main or feature/my-branch).
   CI_PIPELINE_ID: "${{ github.run_id }}"
   GIT_SUBMODULE_STRATEGY: recursive
   DOCKERHUB_REGISTRY_USER: ${{ vars.DOCKERHUB_REGISTRY_USER }}
@@ -59,7 +62,7 @@ defaults:
     shell: bash
 
 concurrency: # cancel older workflows when a new push is done on a branch. but workflow_dispatch run shouldn't conflict with normal jobs
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || 'automatic' }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || inputs.ref_name || github.ref }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || 'automatic' }}
   cancel-in-progress: true
 
 jobs:
@@ -115,22 +118,24 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: buildcontainer-artifacts
+          name: buildcontainer-artifacts${{ inputs.scheduled && format('-{0}', needs.prepare.outputs.CI_COMMIT_REF_SLUG) || '' }}
           path: artifacts/
           if-no-files-found: ignore
 
   test-vscode-extension:
     name: VS Code extension tests
+    needs: [prepare]
     runs-on: ${{ github.event.pull_request.head.repo.fork != true && vars.WHBUILD_RUNNER && fromJSON(vars.WHBUILD_RUNNER) || 'ubuntu-26.04' }}
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.ref || github.sha }}
           submodules: recursive
       - run: addons/vscode-extension/scripts/run-extension-tests.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: vscode-extension-artifacts
+          name: vscode-extension-artifacts${{ inputs.scheduled && format('-{0}', needs.prepare.outputs.CI_COMMIT_REF_SLUG) || '' }}
           path: artifacts/
           if-no-files-found: ignore
 
@@ -187,7 +192,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-${{ matrix.name }}-artifacts
+          name: test-${{ matrix.name }}-artifacts${{ inputs.scheduled && format('-{0}', needs.prepare.outputs.CI_COMMIT_REF_SLUG) || '' }}
           path: artifacts/
           if-no-files-found: ignore
 
