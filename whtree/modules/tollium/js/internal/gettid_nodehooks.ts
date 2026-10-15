@@ -156,7 +156,7 @@ export function getCompiledLanguageFile(moduleName: string, langcode: string, re
 export function getGetTidNodeHooks(): GetTidHooks {
   return {
     loader: getCompiledLanguageFile,
-    addResourceChangeListener: (resource, callback) => addResourceChangeListener(module, resource, callback),
+    addResourceChangeListener,
     currentLanguage: (language) => {
       if (language)
         setScopedResource<CodeContextTidStorage>(tidLanguage, { language });
