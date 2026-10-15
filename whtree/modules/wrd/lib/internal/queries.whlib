@@ -2884,6 +2884,18 @@ STATIC OBJECTTYPE WRDDBDateTimeValue EXTEND WRDDBValue
         RETURN [ canhandle := FALSE, canhandlepartially := FALSE, noresults := TRUE ];
     }
 
+    IF (NOT this->isdatetime)
+    {
+      // DATE may be stored as days or days,msecs. Compare decoded dates, narrowing by day when possible.
+      IF (comparetype = "=")
+      {
+        query->AddDeclaredTable(settings_source, wrd.entity_settings, DEFAULT STRING ARRAY);
+        query->AddConstraint(settings_source || ".rawdata", "LIKE", GetDayCount(DATETIME(value)) || "*");
+        RETURN [ canhandle := FALSE, canhandlepartially := TRUE, noresults := FALSE ];
+      }
+      RETURN [ canhandle := FALSE, canhandlepartially := FALSE, noresults := FALSE ];
+    }
+
     // Cannot do ordering on tostring-stored integers.
     IF (comparetype NOT IN [ "=", "!=", "IN", "__INRANGE" ])
       RETURN [ canhandle := FALSE, canhandlepartially := FALSE, noresults := FALSE ];

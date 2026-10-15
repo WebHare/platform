@@ -187,6 +187,34 @@ MACRO TestUnique()
   testfw->CommitWork();
 }
 
+MACRO TestUniqueDates()
+{
+  OBJECT schemaobj := testfw->GetWRDSchema();
+  testfw->BeginWork();
+  OBJECT dom_obj := schemaobj->CreateDomain("TEST_UNIQUE_DATES");
+  dom_obj->CreateAttribute("TEST_DATE", "DATE", [ isunique := TRUE ]);
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  DATETIME date := MakeDate(2025,1,1);
+  OBJECT first := dom_obj->CreateEntity([ test_date := date ]);
+  first->UpdateEntity([ test_date := date ]);
+  TestEq(date, first->GetField("test_date"));
+  TestThrowsLike("*Unique value conflict*", PTR dom_obj->CreateEntity([ test_date := date ]));
+
+  OBJECT second := dom_obj->CreateEntity([ test_date := MakeDate(2025,1,2) ]);
+  TestThrowsLike("*Unique value conflict*", PTR second->UpdateEntity([ test_date := date ]));
+  TestEq(MakeDate(2025,1,2), second->GetField("test_date"));
+
+  // Unset values do not participate in uniqueness checks.
+  dom_obj->CreateEntity(DEFAULT RECORD);
+  dom_obj->CreateEntity(DEFAULT RECORD);
+  first->UpdateEntity([ test_date := MakeDate(2025,1,3) ]);
+  second->UpdateEntity([ test_date := date ]);
+  TestEq(date, second->GetField("test_date"));
+  testfw->CommitWork();
+}
+
 MACRO TestEnsureEntity()
 {
   testfw->BeginWork();
@@ -231,5 +259,6 @@ MACRO TestEnsureEntity()
 
 
 RunTestframework([ PTR TestUnique
+                 , PTR TestUniqueDates
                  , PTR TestEnsureEntity
                  ]);

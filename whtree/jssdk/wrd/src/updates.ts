@@ -987,8 +987,9 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
     if (!isNew && allow_unique_rawdata && "limitdate" in splitData.entity) {
       // recheck and materialize existing unique data
       // materialize all unique data if needed after deleting updated settings
-      const uniqueNonEmailAttrs = [...typeRec.uniqueAttrs].filter(attrId => !typeRec.emailAttrs.has(attrId));
+      const uniqueNonEmailAttrs = [...typeRec.uniqueAttrs].filter(attrId => !typeRec.emailAttrs.has(attrId) && !typeRec.dateAttrs.has(attrId));
       const uniqueEmailAttrs = [...typeRec.uniqueAttrs].filter(attrId => typeRec.emailAttrs.has(attrId));
+      const uniqueDateAttrs = [...typeRec.uniqueAttrs].filter(attrId => typeRec.dateAttrs.has(attrId));
 
       if (uniqueNonEmailAttrs.length) {
         await db<PlatformDB>()
@@ -1006,6 +1007,15 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
           .where("entity", "=", result.entityId)
           // .where("id", "!=", sql`any(${updateres?.updatedSettings) // FIXME if we enable this PG doesn't find anything to update. != doesn't work with any? wrd.nodejs.test_wrd_api will trigger this
           .where("attribute", "in", uniqueEmailAttrs)
+          .execute();
+      }
+      if (uniqueDateAttrs.length) {
+        // HareScript date values may include a time component; restore the same day key as TypeScript.
+        await db<PlatformDB>()
+          .updateTable("wrd.entity_settings")
+          .set({ unique_rawdata: sql`split_part(rawdata, ',', 1)` })
+          .where("entity", "=", result.entityId)
+          .where("attribute", "in", uniqueDateAttrs)
           .execute();
       }
     }
