@@ -56,7 +56,6 @@ const TestImageEditor =
           { down: 0, clientx: coords.left + 4, clienty: coords.top + 4 },
           { up: 0, clientx: coords.left + 156, clienty: coords.top + 257, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
       }
     },
 
@@ -69,7 +68,6 @@ const TestImageEditor =
           { down: 0, clientx: coords.right - 4, clienty: coords.bottom - 4 },
           { up: 0, clientx: coords.right - 258, clienty: coords.bottom - 75, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
 
         //cancel crop
         tt.comp(":Cancel").click();
@@ -109,7 +107,6 @@ const TestImageEditor =
           { down: 0, clientx: coords.left + 4, clienty: coords.top + 4 },
           { up: 0, clientx: coords.left + 156, clienty: coords.top + 257, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
       }
     },
 
@@ -122,7 +119,6 @@ const TestImageEditor =
           { down: 0, clientx: coords.right - 4, clienty: coords.bottom - 4 },
           { up: 0, clientx: coords.right - 258, clienty: coords.bottom - 75, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
         //apply crop
         tt.comp(":OK").click();
         await test.waitForUI();

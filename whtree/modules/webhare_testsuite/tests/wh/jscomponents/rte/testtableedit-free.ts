@@ -70,7 +70,6 @@ test.runTests(
           { doc: doc, down: 0, clientx: coords.left + 1 + 75, clienty: coords.top + 1 + 12 },
           { up: 0, clientx: coords.left + 1 + 65, clienty: coords.top + 1 + 12, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
       }
     },
 
@@ -85,7 +84,6 @@ test.runTests(
           { doc: doc, down: 0, clientx: coords.left + 1 + 65, clienty: coords.top + 1 + 25 + 17 },
           { up: 0, clientx: coords.left + 1 + 55, clienty: coords.top + 1 + 25 + 17, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
       }
     },
 
@@ -100,7 +98,6 @@ test.runTests(
           { doc: doc, down: 0, clientx: coords.left + 1 + 55, clienty: coords.top + 1 + 25 + 35 + 17 },
           { up: 0, clientx: coords.left, clienty: coords.top + 1 + 25 + 35 + 17, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
       }
     },
 
@@ -126,7 +123,6 @@ test.runTests(
           { doc: doc, down: 0, clientx: coords.left + 1 + 150, clienty: coords.top + 10 },
           { up: 0, clientx: coords.left, clienty: coords.top + 1 + 85, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
       }
     },
 
@@ -152,7 +148,6 @@ test.runTests(
           { doc: doc, down: 0, clientx: coords.left + 1 + 225, clienty: coords.top + 1 + 85 },
           { up: 0, clientx: coords.right, clienty: coords.top + 10, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
       }
     },
 
@@ -178,7 +173,6 @@ test.runTests(
           { doc: doc, down: 0, clientx: coords.left + 1 + 300 - 66, clienty: coords.top + 1 + 85 },
           { up: 0, clientx: coords.left, clienty: coords.top + 10, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
       }
     },
     "tableeditor-resize-table-wider/smaller",
@@ -243,7 +237,6 @@ test.runTests(
           { doc: doc, down: 0, clientx: coords.left + 1 + 325, clienty: coords.top + 1 + 85 },
           { up: 0, clientx: coords.left, clienty: coords.top + 10, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
       }
     },
 
@@ -268,7 +261,6 @@ test.runTests(
           { doc: doc, down: 0, clientx: coords.left + 1 + 190, clienty: coords.top + 1 + 95 },
           { up: 0, clientx: coords.left + 1 + 190, clienty: coords.top + 1 + 95 + 50, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
       }
     },
 
@@ -291,7 +283,6 @@ test.runTests(
           { doc: doc, down: 0, clientx: coords.left + 1 + 190, clienty: coords.top + 1 + 25 },
           { up: 0, clientx: coords.left + 10, clienty: coords.bottom, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
       }
     },
 
@@ -315,7 +306,6 @@ test.runTests(
           { doc: doc, down: 0, clientx: coords.left + 1 + 190, clienty: coords.top + 1 + 60 },
           { up: 0, clientx: coords.left + 10, clienty: coords.top, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
       }
     },
 
@@ -337,7 +327,6 @@ test.runTests(
           { doc: doc, down: 0, clientx: coords.left + 10, clienty: coords.top + 1 + 33 },
           { up: 0, clientx: coords.left + 1 + 190, clienty: coords.top, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
       }
     },
 
@@ -361,7 +350,6 @@ test.runTests(
           { doc: doc, down: 0, clientx: coords.left + 1 + 190, clienty: coords.top + 1 + 60 },
           { up: 0, clientx: coords.left + 10, clienty: coords.top, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
       }
     },
 
@@ -385,7 +373,6 @@ test.runTests(
           { doc: doc, down: 0, clientx: coords.left + 10, clienty: coords.top + 1 + 145 },
           { up: 0, clientx: coords.left + 1 + 190, clienty: coords.top, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
       }
     },
 
@@ -431,7 +418,6 @@ test.runTests(
           { doc: doc, down: 0, clientx: coords.left + 100, clienty: coords.top + 1 + 79 + moved.y },
           { up: 0, clientx: coords.left + 100, clienty: coords.top + 1 + 79 + moved.y + 50, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
       }
     },
 
@@ -455,7 +441,6 @@ test.runTests(
           { doc: doc, down: 0, clientx: coords.left + 1 + 200 + moved.x, clienty: coords.top + 100 },
           { up: 0, clientx: coords.left + 1 + 200 + moved.x + 50, clienty: coords.top + 100, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
       }
     },
 
@@ -483,7 +468,6 @@ test.runTests(
         rte.selectNodeInner(div);
         const text = document.createTextNode("aap");
         rte.replaceSelectionWithNode(text);
-        await test.wait("animationframe");
       }
     },
 
@@ -522,7 +506,6 @@ test.runTests(
           { doc: doc, down: 0, clientx: coords.left + 1 + 250 + moved.x, clienty: coords.top + 100 },
           { up: 0, clientx: coords.left + 1 + 200 + moved.x, clienty: coords.top + 100, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
       }
     },
 
