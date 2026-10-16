@@ -6,7 +6,6 @@
     "@xmldom/xmldom": "^0.9.12",
     "openid-client": "^6.8.8",
     "stacktrace-parser": "^0.1.11",
-    "temporal-polyfill": "^0.3.2",
     "testpackage": "file:tests/system/nodejs/data/testpackage",
     "testplugin": "file:tests/publisher/assetpacks/data/testplugin",
     "undici": "^8.12.2"
