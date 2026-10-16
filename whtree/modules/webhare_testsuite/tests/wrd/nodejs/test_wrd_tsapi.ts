@@ -17,8 +17,29 @@ import { buildRTDFromHareScriptRTD, exportRTDToRawHTML, defaultDateTime, maxDate
 import { buildInstance } from "@webhare/services/src/richdocument";
 import type { HSVMObject } from "@webhare/harescript";
 import { whconstant_whfsid_webharebackend } from "@mod-system/js/internal/webhareconstants";
+import { getDatabaseMonitorInfo } from "@webhare/whdb/src/management";
 
 type TestschemaSchemaType = WRDSchemaLike["webhare_testsuite:testschema"];
+
+function createTestTypeSyncWatchdog() {
+  const startedAt = Date.now();
+  let currentStage = "starting";
+  const timeout = setTimeout(() => {
+    const elapsedMs = Date.now() - startedAt;
+    const stageAtTimeout = currentStage;
+    console.error(`[testTypeSync] exceeded 15 seconds after ${elapsedMs}ms; stage: ${stageAtTimeout}`);
+    console.dir({ stage: stageAtTimeout, elapsedMs, memoryUsage: process.memoryUsage() }, { depth: Infinity });
+    void getDatabaseMonitorInfo()
+      .then(info => console.dir(info, { depth: Infinity }))
+      .catch(error => console.error("[testTypeSync] failed to collect database monitor info", error));
+  }, 15_000);
+  timeout.unref();
+
+  return {
+    setStage: (stage: string) => { currentStage = stage; },
+    stop: () => clearTimeout(timeout)
+  };
+}
 
 function cmp(a: unknown, condition: string, b: unknown) {
   if (condition === "in") {
@@ -1280,6 +1301,16 @@ async function testUpsert() {
 }
 
 async function testTypeSync() { //this is WRDType::ImportEntities
+  const watchdog = createTestTypeSyncWatchdog();
+  try {
+    await testTypeSyncBody(watchdog.setStage);
+  } finally {
+    watchdog.stop();
+  }
+}
+
+async function testTypeSyncBody(setStage: (stage: string) => void) { //this is WRDType::ImportEntities
+  setStage("getExtendedWRDSchema");
   const schema = await getExtendedWRDSchema();
 
   async function getDomain1({ withClosed = false } = {}) {
@@ -1290,14 +1321,17 @@ async function testTypeSync() { //this is WRDType::ImportEntities
       .sort((a, b) => a.wrdTag.localeCompare(b.wrdTag));
   }
 
+  setStage("beginWork");
   await whdb.beginWork();
 
+  setStage("read initial domain rows");
   test.eqPartial([
     { "wrdTag": "TEST_DOMAINVALUE_1_1", "wrdTitle": "Domain value 1.1" },
     { "wrdTag": "TEST_DOMAINVALUE_1_2", "wrdTitle": "Domain value 1.2" },
     { "wrdTag": "TEST_DOMAINVALUE_1_3", "wrdTitle": "Domain value 1.3" }
   ], await getDomain1({ withClosed: true }));
 
+  setStage("read current domain entities");
   const oneinfo = await schema.getFields("testDomain_1", (await schema.search("testDomain_1", "wrdTag", "TEST_DOMAINVALUE_1_1"))!, ["wrdId", "wrdCreated"]);
   const twoinfo = await schema.getFields("testDomain_1", (await schema.search("testDomain_1", "wrdTag", "TEST_DOMAINVALUE_1_2"))!, ["wrdId", "wrdCreated"]);
   test.assert(isTemporalInstant(oneinfo.wrdCreated));
@@ -1306,6 +1340,7 @@ async function testTypeSync() { //this is WRDType::ImportEntities
   test.eq(3, persons.length);
 
   //Merge some new domain stuff!
+  setStage("sync domain: create THREE");
   let result = await schema.modify("testDomain_1").sync("wrdTag", [{ wrdTag: "THREE" }]);
   test.eq(1, result.created.length);
   const threeId = result.created[0];
@@ -1319,6 +1354,7 @@ async function testTypeSync() { //this is WRDType::ImportEntities
   ], await getDomain1());
 
   //A sync with dupe values should throw and *not* have any side effects!
+  setStage("sync domain: reject duplicate input");
   await test.throws(/Duplicate/, schema.modify("testDomain_1").sync("wrdTag", [{ wrdTag: "FOUR" }, { wrdTag: "FIVE" }, { wrdTag: "FIVE" }], { unmatched: "delete" }));
 
   test.eqPartial([
@@ -1329,6 +1365,7 @@ async function testTypeSync() { //this is WRDType::ImportEntities
   ], await getDomain1());
 
   //A sync with inconsistent row formats should still work
+  setStage("sync domain: update partial rows");
   await schema.modify("testDomain_1").sync("wrdTag", [{ wrdTag: "TEST_DOMAINVALUE_1_1" }, { wrdTag: "TEST_DOMAINVALUE_1_2", wrdTitle: "Updated Domval" }]);
 
   test.eqPartial([
@@ -1338,12 +1375,14 @@ async function testTypeSync() { //this is WRDType::ImportEntities
     { "wrdTag": "THREE", "wrdTitle": "" }
   ], await getDomain1());
 
+  setStage("sync domain: reject invalid unmatched mode");
   //@ts-expect-error -- TS knows we can't do closeMode
   await test.throws(/Illegal delete mode 'typo'/, schema.modify("testDomain_1").sync("wrdTag", [{ wrdTag: "THREE", wrdTitle: "Third" }], { unmatched: "typo" }));
 
   //FIXME verify identical creation/mod/delete dates for all things happening in a single Import
 
   //Update the tag and close the rest
+  setStage("sync domain: close unmatched rows");
   result = await schema.modify("testDomain_1").sync("wrdTag", [{ wrdTag: "THREE", wrdTitle: "Third" }], { unmatched: "close" });
   test.eq(3, result.unmatched.length);
   test.eq([threeId], result.updated);
@@ -1352,6 +1391,7 @@ async function testTypeSync() { //this is WRDType::ImportEntities
 
   test.eqPartial([{ "wrdTag": "THREE", "wrdTitle": "Third" }], await getDomain1());
   //Simply repeating the action shouldn't do anything
+  setStage("sync domain: repeat close sync");
   result = await schema.modify("testDomain_1").sync("wrdTag", [{ wrdTag: "THREE", wrdTitle: "Third" }], { unmatched: "close" });
   test.eq([], result.unmatched);
   test.eq([], result.updated);
@@ -1359,6 +1399,7 @@ async function testTypeSync() { //this is WRDType::ImportEntities
   test.eq([threeId], result.matched);
 
   //restore TWO to live
+  setStage("sync domain: restore TWO");
   result = await schema.modify("testDomain_1").historyMode("all").sync("wrdTag", [{ wrdTag: "TEST_DOMAINVALUE_1_2", wrdTitle: "Zwei" }]);
   test.eq([twoinfo.wrdId], result.updated);
   test.eq([], result.created);
@@ -1368,6 +1409,7 @@ async function testTypeSync() { //this is WRDType::ImportEntities
   test.eqPartial({ ...twoinfo, wrdTitle: "Zwei", wrdClosed: null }, await schema.getFields("testDomain_1", twoinfo.wrdId, ["wrdCreated", "wrdClosed", "wrdTitle", "wrdId"]));
 
   //restore ONE to live. don't do any other change to make sure a 'no change' optimization doesn't skip us
+  setStage("sync domain: restore ONE");
   result = await schema.modify("testDomain_1").historyMode("all").sync("wrdTag", [{ wrdTag: "TEST_DOMAINVALUE_1_1" }]);
   test.eq([oneinfo.wrdId], result.updated);
   test.eqPartial({ ...oneinfo, wrdTitle: "Domain value 1.1", wrdClosed: null }, await schema.getFields("testDomain_1", oneinfo.wrdId, ["wrdCreated", "wrdClosed", "wrdTitle", "wrdId"]));
@@ -1380,22 +1422,27 @@ async function testTypeSync() { //this is WRDType::ImportEntities
   ], await getDomain1());
 
   //do another destructive delete, but apply a filter that will only apply to TWO and THREE
+  setStage("sync domain: delete filtered unmatched rows");
   result = await schema.modify("testDomain_1").where("wrdTag", "like", "TEST_*").sync("wrdTag", [], { unmatched: "delete" });
   test.eqPartial([{ "wrdTag": "THREE", "wrdTitle": "Third" }], await getDomain1());
 
   //close three
+  setStage("sync domain: close remaining row");
   result = await schema.modify("testDomain_1").sync("wrdTag", [], { unmatched: "close" });
   test.eq([threeId], result.unmatched);
 
   //without historyMode it would be invisible to deletion
+  setStage("sync domain: delete-closereferred on live rows");
   result = await schema.modify("testDomain_1").sync("wrdTag", [], { unmatched: "delete-closereferred" });
   test.eq([], result.unmatched);
   test.eq([], result.matched);
 
   //with historyMode it is in scope for deletion
+  setStage("sync domain: select all historical rows");
   result = await schema.modify("testDomain_1").historyMode({ mode: "all" }).sync("wrdTag", [], { unmatched: "keep" });
   test.eq(2, result.unmatched.length, "Deletes both threeid and the TEST_DOMAINVALUE_1_3 we had");
 
+  setStage("sync domain: delete-closereferred on historical rows");
   result = await schema.modify("testDomain_1").historyMode("all").sync("wrdTag", [], { unmatched: "delete-closereferred" });
   test.eq(2, result.unmatched.length, "Deletes both threeid and the TEST_DOMAINVALUE_1_3 we had");
   test.assert(result.unmatched.includes(threeId));
@@ -1403,17 +1450,21 @@ async function testTypeSync() { //this is WRDType::ImportEntities
 
   // --- sync tests with wrdPerson ---
 
+  setStage("find person unit");
   const firstUnitId = await schema.search("whuserUnit", "wrdTag", "FIRSTUNIT");
   test.assert(firstUnitId);
   const fixedFields = { testJsonRequired: { mixedCase: [1, "yes!"] }, whuserUnit: firstUnitId, wrdauthAccountStatus: { status: "active" } } as const;
 
+  setStage("delete all historical WRD persons");
   await schema.delete("wrdPerson", await schema.query("wrdPerson").select("wrdId").historyMode("all").execute());
 
+  setStage("sync first person row");
   result = await schema.modify("wrdPerson").sync("wrdContactEmail", [{ ...fixedFields, wrdContactEmail: "p.precies@example.net" }]);
 
   const pprecies = result.created[0];
   test.assert(pprecies);
 
+  setStage("sync person array values");
   result = await schema.modify("wrdPerson").sync("wrdContactEmail", [
     {
       ...fixedFields,
@@ -1428,6 +1479,7 @@ async function testTypeSync() { //this is WRDType::ImportEntities
   ], (await schema.getFields("wrdPerson", pprecies, ["testArray"])).testArray);
 
   // A no-op update shouldn't trigger an update
+  setStage("sync unchanged person array values");
   result = await schema.modify("wrdPerson").sync("wrdContactEmail", [
     {
       ...fixedFields,
@@ -1438,6 +1490,7 @@ async function testTypeSync() { //this is WRDType::ImportEntities
   test.eq([pprecies], result.matched);
 
   // Test that arrays overwrite, unmentioned fields should go away
+  setStage("sync replacement person array values");
   result = await schema.modify("wrdPerson").sync("wrdContactEmail", [
     {
       ...fixedFields,
@@ -1451,13 +1504,16 @@ async function testTypeSync() { //this is WRDType::ImportEntities
     { testFree: '' }
   ], (await schema.getFields("wrdPerson", pprecies, ["testArray"])).testArray);
 
+  setStage("sync person with empty input (keep unmatched)");
   result = await schema.modify("wrdPerson").sync("wrdContactEmail", []); //effectively a very inefficient way to count entities..
   test.eq(1, result.unmatched.length);
 
+  setStage("close unmatched WRD persons");
   result = await schema.modify("wrdPerson").sync("wrdContactEmail", [], { unmatched: "close" });
   test.eq(1, result.unmatched.length);
   test.eq([], await schema.query("wrdPerson").select("wrdId").execute());
 
+  setStage("rollback test transaction");
   await whdb.rollbackWork();
 }
 
