@@ -95,7 +95,7 @@ declare global {
   }
 }
 
-export type TestWaitItem = "load" | "pointer" | "ui" | "ui-nocheck" | "animationframe" | "pageload" | (() => Promise<unknown> | unknown) | number;
+export type TestWaitItem = "load" | "ui" | "ui-nocheck" | "animationframe" | "pageload" | (() => Promise<unknown> | unknown) | number;
 
 //An individual step in a test
 export type TestStep = {
@@ -169,13 +169,12 @@ class TestFramework {
   waitstack: Error[] = [];
 
   scriptframe: HTMLIFrameElement | null = null;
-  scriptframewin: Window & { waitForGestures?: (callback: () => void) => void } | null = null;
+  scriptframewin: Window | null = null;
   scriptframedoc: Document | null = null;
 
 
   private exposed = new Map<string, unknown>();
   activeasyncerr?: Error | null;
-  waitforgestures?: boolean;
   testlisturl?: URL;
   haveerror?: boolean;
   currentwaitstack?: Error | null;
@@ -1032,16 +1031,6 @@ class TestFramework {
           void dombusy.waitUIFree().then(() => deferred.resolve());
           void deferred.promise.then(() => this.currentwaitstack = null);
           this.timedReject(deferred, "Timeout when waiting for UI", this.waittimeout);
-        } break;
-
-      case "pointer":
-        {
-          if (!this.scriptframewin!.waitForGestures)
-            throw Error("waitforgestures specified, but no waitForGestures found in scriptframe");
-
-          this.scriptframewin!.waitForGestures(() => deferred.resolve());
-          void deferred.promise.then(() => this.currentwaitstack = null);
-          this.timedReject(deferred, "Timeout when waiting for gestures to finish", this.waittimeout);
         } break;
 
       case "animationframe":

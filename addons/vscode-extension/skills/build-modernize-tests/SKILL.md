@@ -164,8 +164,6 @@ remove any `doc` and `win` parameters accepted by the old test function. Replace
 
 The `'pointer'` element in a `waits:` array can be removed - an `await` should be added to the last `sendMouseGesture`.
 
-`waitforgestures: 1` can be removed - an `await` should be added to the last `sendMouseGesture`.
-
 Tests that are already in the function format but still accept a `(doc,win)` parameter should still be rewritten to remove those two parameters and replace them by calls to `test.getDoc()` and `test.getWin()`.
 
 Don't turn a function into async unless needed because you had to add `await` calls at the end of the test.

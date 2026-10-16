@@ -19,7 +19,6 @@ const default_mousestate =
   samplefreq: 50,
   gesturequeue: [] as MouseGesture[],
   gesturetimeout: null,
-  waitcallbacks: [],
   lastoverel: null,
   cursorel: null,
   lastdoc: null,
@@ -43,22 +42,6 @@ function arrayCombine(a, b) {
     if (a.indexOf(elt) === -1)
       a.push(elt);
   return a;
-}
-
-function localWaitForGestures(callback) {
-  if (mousestate.gesturequeue.length === 0)
-    callback();
-  else
-    mousestate.waitcallbacks.push(callback);
-}
-
-if (typeof window !== "undefined") {
-  if (window.waitForGestures) {
-    console.error("waitForGestures already exists, multiple dompack versions loaded!!");
-    const oldWaitForGestures = window.waitForGestures;
-    window.waitForGestures = callback => localWaitForGestures(() => oldWaitForGestures(callback));
-  } else
-    window.waitForGestures = localWaitForGestures;
 }
 
 export class SimulatedDragDataStore {
@@ -1054,10 +1037,6 @@ function processGestureQueue() {
       mousestate.gesturequeue[0].onexecuted();
     mousestate.gesturequeue.splice(0, 1); //pop front gesture
   }
-
-  const callbacks = mousestate.waitcallbacks;
-  mousestate.waitcallbacks = [];
-  callbacks.forEach(callback => callback());
 }
 
 function getParents(el: Element) {

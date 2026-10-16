@@ -25,8 +25,6 @@ test.runTests(
 
       test.assert(trow.classList.contains('droptarget--hover'));
       await test.sendMouseGesture([{ up: 0 }]);
-
-      await test.wait("pointer");
       await test.waitUIFree();
 
       const textarea = test.compByName('log').querySelector('textarea');

@@ -10,12 +10,11 @@ function getTheKnob() {
 async function moveTheKnob(percentage) {
   const knob = getTheKnob();
   const sliderlength = test.compByName("componentpanel").querySelector(".wh-slider").getBoundingClientRect().width;
-  test.sendMouseGesture([
+  await test.sendMouseGesture([
     { el: knob, down: 0 },
     { relx: sliderlength * percentage, delay: 300, transition: test.dragTransition },
     { up: 0 }
   ]);
-  await test.wait('pointer');
   await test.waitForUI();
 }
 

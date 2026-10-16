@@ -189,13 +189,10 @@ test.runTests(
       test.eq(96, coords.height);
 
       // Resize the table, making it bigger
-      test.sendMouseGesture([
+      await test.sendMouseGesture([
         { doc: doc, down: 0, clientx: coords.left + 1 + 300, clienty: coords.top + 10 },
         { up: 0, clientx: coords.left + 1 + 325, clienty: coords.top + 1 + 85, delay: gesture_time, transition: test.dragTransition }
       ]);
-
-      await test.wait("pointer");
-      await test.wait("animationframe");
 
       // The table should be 25 pixels wider
       coords = getRoundedCoordinates(table);
@@ -203,13 +200,10 @@ test.runTests(
       test.eq(96, coords.height);
 
       // Resize the table, making it bigger than the content area
-      test.sendMouseGesture([
+      await test.sendMouseGesture([
         { doc: doc, down: 0, clientx: coords.left + 1 + 326, clienty: coords.top + 10 },
         { up: 0, clientx: coords.left + 1 + 400, clienty: coords.top + 1 + 10, delay: gesture_time, transition: test.dragTransition }
       ]);
-
-      await test.wait("pointer");
-      await test.wait("animationframe");
 
       // The table should be 25 pixels wider
       coords = getRoundedCoordinates(table);
@@ -217,13 +211,10 @@ test.runTests(
       test.eq(96, coords.height);
 
       // Resize the table, making it smaller again
-      test.sendMouseGesture([
+      await test.sendMouseGesture([
         { doc: doc, down: 0, clientx: coords.left + 1 + 398 - 2, clienty: coords.top + 10 },
         { up: 0, clientx: coords.left + 1 + 326 - 2, clienty: coords.top + 1 + 10, delay: gesture_time, transition: test.dragTransition }
       ]);
-
-      await test.wait("pointer");
-      await test.wait("animationframe");
 
       // The table should be 25 pixels wider
       coords = getRoundedCoordinates(table);
@@ -568,13 +559,10 @@ test.runTests(
         node.textContent = "";
       }
       // Resize first column all the way to 0
-      test.sendMouseGesture([
+      await test.sendMouseGesture([
         { doc: doc, down: 0, clientx: coords.left + 1 + 98, clienty: coords.top + 1 + 10 },
         { up: 0, clientx: coords.left - 20, clienty: coords.top + 1 + 10, delay: gesture_time, transition: test.dragTransition }
       ]);
-
-      await test.wait("pointer");
-      await test.wait("animationframe");
 
       // should be 8 pixels left
       cells = table.querySelectorAll('tr:first-child th');
