@@ -1,7 +1,6 @@
 import * as dompack from 'dompack';
 import { qSA } from 'dompack';
 import * as dombusy from '@webhare/dompack/src/busy';
-import * as browser from 'dompack/extra/browser';
 import * as domfocus from "dompack/browserfix/focus";
 import { reportException, translateTrace, waitForReports } from "@mod-system/js/wh/errorreporting";
 import "./testsuite.css";
@@ -95,7 +94,7 @@ declare global {
   }
 }
 
-export type TestWaitItem = "load" | "pointer" | "ui" | "ui-nocheck" | "animationframe" | "pageload" | (() => Promise<unknown> | unknown) | number;
+export type TestWaitItem = "load" | "ui" | "ui-nocheck" | "pageload" | (() => Promise<unknown> | unknown) | number;
 
 //An individual step in a test
 export type TestStep = {
@@ -169,13 +168,12 @@ class TestFramework {
   waitstack: Error[] = [];
 
   scriptframe: HTMLIFrameElement | null = null;
-  scriptframewin: Window & { waitForGestures?: (callback: () => void) => void } | null = null;
+  scriptframewin: Window | null = null;
   scriptframedoc: Document | null = null;
 
 
   private exposed = new Map<string, unknown>();
   activeasyncerr?: Error | null;
-  waitforgestures?: boolean;
   testlisturl?: URL;
   haveerror?: boolean;
   currentwaitstack?: Error | null;
@@ -1034,25 +1032,6 @@ class TestFramework {
           this.timedReject(deferred, "Timeout when waiting for UI", this.waittimeout);
         } break;
 
-      case "pointer":
-        {
-          if (!this.scriptframewin!.waitForGestures)
-            throw Error("waitforgestures specified, but no waitForGestures found in scriptframe");
-
-          this.scriptframewin!.waitForGestures(() => deferred.resolve());
-          void deferred.promise.then(() => this.currentwaitstack = null);
-          this.timedReject(deferred, "Timeout when waiting for gestures to finish", this.waittimeout);
-        } break;
-
-      case "animationframe":
-        {
-          const framerec = this.getFrameRecord();
-          if (!framerec.win!.requestAnimationFrame)
-            throw new Error("waitforanimationframe specified, but no requestAnimationFrame found in scriptframe");
-          framerec.win!.requestAnimationFrame(() => deferred.resolve());
-          void deferred.promise.then(() => this.currentwaitstack = null);
-          this.timedReject(deferred, "Timeout when waiting for animation frame", this.waittimeout);
-        } break;
 
       case "load":
       case "pageload":
@@ -1086,20 +1065,6 @@ class TestFramework {
 
   executeWaitFinish() {
     qR('#currentwait').style.display = "none";
-  }
-
-  // standardize stacks to 'funcname@http-location:line:col'
-  _standardizeStack(stack: string, oneline?: boolean) {
-    const slicepoint = browser.getName() === "firefox" ? 2 : 3;
-    const items = stack.split("\n").slice(slicepoint);
-    return items.map(line => {
-      line = line.replace("   at ", "");
-      line = line.replace("   at ", "");
-      line = line.replace(" (", "@");
-      if (line.endsWith(")"))
-        line = line.slice(0, -1);
-      return line;
-    }).join("\n");
   }
 
   _recordAssetpacks(wnd: Window) {
@@ -1318,13 +1283,6 @@ class TestSuite {
   skipTest() {
     this.testfw.skipTest();
   }
-
-  /* Probably not used
-  onError(response) {
-    console.error("Function invocation failed", response);
-    alert("test runner failed\n" + response.error.message);
-  }
-  */
 
   openTestFrame() {
     let href = null;

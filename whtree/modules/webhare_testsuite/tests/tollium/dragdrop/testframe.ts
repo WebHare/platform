@@ -85,7 +85,6 @@ test.runTests(
           { doc: test.getDoc(), down: 0, clientx: pos.x + testel_centerx, clienty: pos.y + testel_centery },
           { up: 0, clientx: test_pos.x + testel_centerx, clienty: test_pos.y + testel_centery, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
       }
     },
 
@@ -104,7 +103,6 @@ test.runTests(
           { doc: doc, down: 0, clientx: pos.x + testel_centerx, clienty: pos.y + testel_centery },
           { up: 0, clientx: test_pos.x + testel_centerx, clienty: test_pos.y + testel_centery, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
       }
     },
 
@@ -123,7 +121,6 @@ test.runTests(
           { doc: doc, down: 0, clientx: from_pos.x + testel_centerx, clienty: from_pos.y + testel_centery },
           { up: 0, clientx: to_pos.x, clienty: to_pos.y, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
       }
     },
     {
@@ -145,7 +142,6 @@ test.runTests(
           { doc: doc, down: 0, clientx: from_pos.x + testel_centerx, clienty: from_pos.y + testel_centery },
           { up: 0, clientx: to_pos.x, clienty: to_pos.y, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
       }
     },
     {
@@ -163,7 +159,6 @@ test.runTests(
           { doc: doc, down: 0, clientx: 0, clienty: desktopbounds.bottom - 1 },
           { up: 0, clientx: desktopbounds.right - 1, clienty: desktopbounds.top, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
       }
     },
     {
@@ -181,7 +176,6 @@ test.runTests(
           { doc: doc, down: 0, clientx: desktopbounds.right - 1, clienty: desktopbounds.top + 1 },
           { up: 0, clientx: 300, clienty: 200, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
       }
     },
     {
@@ -202,7 +196,6 @@ test.runTests(
           { el: closebutton, down: 0 },
           { up: 0, rely: 100, delay: gesture_time, transition: test.dragTransition }
         ]);
-        await test.wait("animationframe");
       }
     },
     {

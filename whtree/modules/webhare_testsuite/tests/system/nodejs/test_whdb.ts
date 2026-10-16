@@ -872,6 +872,18 @@ async function testDeadlockDetection() {
     const run1 = ctxt1.run(async () => {
       await runInWork(async () => {
         ++run1_itr;
+        /* If run1 is the deadlock victim, its retry can start before run2 commits. Because run1 uses
+           serializable isolation, its first UPDATE would then establish a snapshot that predates
+           run2's commit. After waiting for run2's row lock, that UPDATE can fail with a serialization
+           error (40001), requiring another retry: four attempts in total instead of the expected three.
+           The retry backoff only makes this race less likely; it does not guarantee commit ordering.
+
+           Wait for run2 to finish before a retry issues its first query and establishes its snapshot.
+           runInWork has already opened the transaction here, but START TRANSACTION alone does not
+           establish that snapshot. Only retries may wait: the first attempts must run concurrently
+           to produce the deadlock this test is intended to exercise. */
+        if (run1_itr > 1)
+          await run2;
         // update row 1
         await db<WebHareTestsuiteDB>().updateTable("webhare_testsuite.exporttest").set({ text: "Record 1 - updated1" }).where("id", "=", 1).execute();
         // wait for the second context to update row 2

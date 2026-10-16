@@ -5,27 +5,42 @@ on:
     - cron: "0 3 * * 1,2,3,4,5" # Run at 03:00 on Monday through Friday
 
 permissions:
-  actions: write
+  contents: read
+  packages: write
+  id-token: write
 
 jobs:
-  dispatch:
-    name: Schedule ${{ matrix.ref }}
+  prepare:
+    name: Resolve scheduled branches
     if: github.repository == 'WebHare/platform'
     runs-on: ${{ vars.WHBUILD_RUNNER && fromJSON(vars.WHBUILD_RUNNER) || 'ubuntu-26.04' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        ref: [main, release/6.1]
+    outputs:
+      matrix: ${{ steps.branches.outputs.result }}
     steps:
       - uses: actions/github-script@v7
-        env:
-          TARGET_REF: ${{ matrix.ref }}
+        id: branches
         with:
           script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'ci.yml',
-              ref: process.env.TARGET_REF,
-              inputs: { scheduled: 'true' },
-            });
+            const branches = ['main', 'release/6.1'];
+            const include = await Promise.all(branches.map(async branch => {
+              const { data } = await github.rest.git.getRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `heads/${branch}`,
+              });
+              return { branch, ref: data.object.sha };
+            }));
+            return { include };
+
+  ci:
+    name: Schedule ${{ matrix.branch }}
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ matrix.ref }}
+      ref_name: ${{ matrix.branch }}
+      scheduled: true
+    secrets: inherit
