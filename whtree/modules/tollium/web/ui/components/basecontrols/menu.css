@@ -37,10 +37,12 @@
 {
   display:inline-block;
 }
-.wh-menulist.open
+.wh-menulist:popover-open
 {
   display:block;
   position: absolute;
+  inset: auto;
+  margin: 0;
 }
 .wh-menu li.divider:before
 {

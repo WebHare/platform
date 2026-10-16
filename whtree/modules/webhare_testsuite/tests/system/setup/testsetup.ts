@@ -106,7 +106,7 @@ test.runTests(
     test.testSelectListRow('unitcontents!userandrolelist', 'jantje', { rightclick: true, name: "Select jantje" }),
     {
       test: async function () {
-        test.click(test.qSA('.wh-menulist.open li').filter(node => node.textContent?.includes("Grant right"))[0]);
+        test.click(test.qSA('.wh-menulist:popover-open li').filter(node => node.textContent?.includes("Grant right"))[0]);
         await test.waitForUI();
       }
     },

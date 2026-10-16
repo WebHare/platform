@@ -221,7 +221,7 @@ export async function pressKey(key: string | string[], options?: keyboard.Keyboa
 }
 
 export function getOpenMenu() {
-  return qSA('ul:last-of-type.wh-menulist.open')[0] || null;
+  return qSA('ul:last-of-type.wh-menulist:popover-open')[0] || null;
 }
 export function getOpenMenuItem(containstext: string) {
   const menu = getOpenMenu();

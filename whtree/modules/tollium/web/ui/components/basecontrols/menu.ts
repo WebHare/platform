@@ -821,6 +821,7 @@ class MenuList extends MenuBase {
       console.log("[men] initialize MenuList called");
 
     this.el.classList.add("wh-menulist");
+    this.el.setAttribute("popover", "manual");
   }
 
   // ---------------------------------------------------------------------------
@@ -1001,7 +1002,7 @@ class MenuList extends MenuBase {
       @param preferreddirection - 'right', 'left', 'up', 'down'
       @param parentmenu
 -       @param preferredalign - left/right (only used when preferreddirection is 'up' or 'down')
-      @param exitdirection - '', 'top', 'left' - cursor direction in which the selection can be removed
+      @param exitdirection - '', 'top', 'left' - cursor directio in nwhich the selection can be removed
   */
   _openMenu(coords: dompack.Rect, preferreddirection: PreferredDirection, parentmenu: MenuBase | null, preferredalign: PreferredDirection | null, exitdirection: ExitDirection, minwidth: number, options?: MenuOptions) {
     if (dompack.debugflags.men)
@@ -1015,7 +1016,6 @@ class MenuList extends MenuBase {
       this.substitutionnode = this.el.cloneNode(false) as HTMLElement; //create a copy with the same style/class, to avoid the ul snapping to block mode
       this.el.replaceWith(this.substitutionnode!);
     }
-    this.el.classList.add("open");
 
     this.parentmenu = parentmenu;
     this.el.classList.remove('level-' + this.depth);
@@ -1026,6 +1026,7 @@ class MenuList extends MenuBase {
     this.exitdirection = exitdirection || 'notspecified';
 
     document.body.appendChild(this.el);
+    this.el.showPopover();
 
     // Reset sizes before measuring
     dompack.setStyles(this.el,
@@ -1119,17 +1120,15 @@ class MenuList extends MenuBase {
       console.log("[men] dispatching wh-menu-closed for menu ", this.el, " to ", cureventnode, " in tree ", getParents(cureventnode));
     dompack.dispatchCustomEvent(cureventnode, "wh:menu-closed", { bubbles: true, cancelable: false, detail: { menu: this.el } });
 
-    if (!dompack.debugflags.meo) {
-      this.el.classList.remove("open");
+    this.el.hidePopover();
 
-      if (this.substitutionnode) {
-        this.substitutionnode.replaceWith(this.el);
-      } else {
-        this.el.remove();
-      }
-
-      this.substitutionnode = null;
+    if (this.substitutionnode) {
+      this.substitutionnode.replaceWith(this.el);
+    } else {
+      this.el.remove();
     }
+
+    this.substitutionnode = null;
   }
 }
 
