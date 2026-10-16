@@ -1164,8 +1164,12 @@ STATIC OBJECTTYPE TestFramework <
       FOREVERY(MACRO PTR runbeforetest FROM this->beforeeachtest)
         runbeforetest();
 
-      IF(this->debug)
-        Print("Running " || item.name || "\n");
+      STRING testname := `test ${#item + 1}/${Length(serie)}: ${item.name}`;
+      DATETIME teststart := GetCurrentDatetime();
+      STRING testheader := `---- ${FormatDatetime("%Y-%m-%dT%H:%M:%S.%QZ", teststart)} --- ${testname} ----`;
+      IF(Length(testheader) < 78)
+        testheader := testheader || RepeatText("-", 78 - Length(testheader));
+      Print(testheader || "\n");
 
       DATETIME start;
       IF(this->profile)
@@ -1196,6 +1200,7 @@ STATIC OBJECTTYPE TestFramework <
       }
       CATCH(OBJECT e)
       {
+        Print(`❌ Failed: ${testname} (${GetDatetimeDifference(teststart, GetCurrentDatetime()).totalmsecs} ms)\n\n`);
         LogHarescriptException(e, [ addcurrentstack := FALSE ]);
 
         IF(IsRequest()) //we were invoked from a RPC or something.. just handle normally
@@ -1236,6 +1241,8 @@ STATIC OBJECTTYPE TestFramework <
 
       IF(this->usedatabase AND GetPrimary()->IsWorkOpen())
         THROW NEW Exception(`Test '${item.name}' didn't close opened work. It must testfw->CommitWork or testfw->RollbackWork (we used to automatically rollback when a test ended)`);
+
+      Print(`✅ Success: ${testname} (${GetDatetimeDifference(teststart, GetCurrentDatetime()).totalmsecs} ms)\n\n`);
     }
 
     // Run the beforetest stuff again
