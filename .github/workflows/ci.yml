@@ -113,7 +113,7 @@ jobs:
         run: whtree/bin/wh buildcontainer --podman
       - name: Upload artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: buildcontainer-artifacts
           path: artifacts/
@@ -127,7 +127,7 @@ jobs:
         with:
           submodules: recursive
       - run: addons/vscode-extension/scripts/run-extension-tests.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: vscode-extension-artifacts
@@ -184,7 +184,7 @@ jobs:
           password: ${{ secrets.cache_password }}
       - name: Run test container
         run: BUILD_IMAGE="$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA" ${{ matrix.command }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-${{ matrix.name }}-artifacts
@@ -232,7 +232,7 @@ jobs:
         env:
           PUSH_BUILD_IMAGES: "1"
           USEPODMAN: "1"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: deploy-artifacts

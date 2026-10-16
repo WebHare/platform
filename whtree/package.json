@@ -31,7 +31,7 @@
     "@types/semver": "^7.7.1",
     "@types/ws": "^8.18.1",
     "@typescript-eslint/parser": "^8.61.1",
-    "@xmldom/xmldom": "^0.9.10",
+    "@xmldom/xmldom": "^0.9.12",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "country-list-js": "^3.1.8",
@@ -70,7 +70,7 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.61.1",
     "typescript-json-schema": "^0.67.4",
-    "undici": "^8.5.0",
+    "undici": "^8.12.2",
     "ws": "^8.21.0",
     "yaml": "^2.9.0"
   },

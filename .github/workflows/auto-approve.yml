@@ -51,7 +51,7 @@ jobs:
       - name: Generate Bot Token
         if: env.WEBHARE_BOT_APPID != '' && (github.event_name == 'workflow_run' || steps.check-ci.outputs.passed == 'true')
         id: generate-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.WEBHARE_BOT_APPID }}
           private-key: ${{ secrets.WEBHARE_BOT_PRIVATEKEY }}
