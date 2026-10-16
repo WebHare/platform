@@ -70,7 +70,7 @@ class ScreenProxy {
       const hamburger_img = this.win.node.querySelector(`t-toolbar .t-toolbar-buttongroup__right button.ismenubutton img[data-toddimg="tollium:actions/menu|24|24|w,b"]`);
       if (hamburger_img) {
         test.click(hamburger_img.closest(`button`)!);
-        curitem = this.win.node.ownerDocument.querySelectorAll<HTMLElement>('.wh-menulist.open')[0];
+        curitem = this.win.node.ownerDocument.querySelectorAll<HTMLElement>('.wh-menulist:popover-open')[0];
       }
     }
     if (levels)
@@ -84,7 +84,7 @@ class ScreenProxy {
             test.click(curitem);
 
           // Get the relevant detached menu
-          curitem = this.win.node.ownerDocument.querySelectorAll<HTMLElement>('.wh-menulist.open')[i - 1];
+          curitem = curitem.querySelector<HTMLElement>(":scope > ul.wh-menulist:popover-open");
           if (!curitem)
             throw new Error('Could not find detached menu');
         }
@@ -354,7 +354,7 @@ function clickToddToolbarButton(buttonlabel, submenulabel?) {
     throw new Error("Cannot find toolbar button with text '" + buttonlabel + "'");
   test.click(elt);
   if (submenulabel) {
-    elt = test.qSA('.wh-menulist.open li').filter(li => li.textContent.includes(submenulabel));
+    elt = test.qSA('.wh-menulist:popover-open li').filter(li => li.textContent.includes(submenulabel));
     if (!elt.length)
       throw new Error("Cannot find toolbar button menu item with text '" + submenulabel + "'");
     test.click(elt[0]);

@@ -216,15 +216,15 @@ function _gotGlobalMouseDown(htmlevent: Event) {
 function _gotGlobalKeyPressed(htmlevent: KeyboardEvent) {
   // INV: this.activemenus.length > 0
 
-  const keydata = dompack.normalizeKeyboardEventData(htmlevent);
+  const key = htmlevent.key;
   //Function key or possible shortcut (ctrl/alt/meta is pressed and none of the composing or arrow keys is triggering us), then close and let it be handled
-  if (keydata.key.match(/^F.+/) || ((keydata.ctrlKey || keydata.altKey || keydata.metaKey) && !keydata.key.match(/^(Control$|Alt$|Meta$|Shift$|Arrow)/))) {
+  if (key.match(/^F.+/) || ((htmlevent.ctrlKey || htmlevent.altKey || htmlevent.metaKey) && !key.match(/^(Control$|Alt$|Meta$|Shift$|Arrow)/))) {
     closeAll();
     return;
   }
 
   // Global key handling
-  if (keydata.key === "Escape") {
+  if (key === "Escape") {
     closeAll();
     htmlevent.preventDefault();
     htmlevent.stopPropagation();
@@ -396,14 +396,14 @@ function openSubMenu(parentmenu: MenuBase, horizontalsubs: boolean, li: HTMLLIEl
     @param minwidth - Minimum menu width
     @param options - options.forcenooverlap Whether to disallow overlap of the reference element
 */
-function openAsList(submenu: MenuList, coords: dompack.Rect, preferreddirection: PreferredDirection, preferredalign: PreferredDirection, exitdirection: ExitDirection, minwidth: number, options: MenuOptions) {
+function openAsList(submenu: MenuList, coords: dompack.Rect, preferreddirection: PreferredDirection, preferredalign: PreferredDirection, exitdirection: ExitDirection, minwidth: number, options: MenuOptions, owner?: HTMLLIElement) {
   if (dompack.debugflags.men)
     console.log("[men] openAsList called");
   if (!submenu._fireOpenCloseEvent(true))
     return;
 
   closingmenus = []; //if we're back to opening menus, forget about the close list
-  submenu._openMenu(coords, preferreddirection, null, preferredalign, exitdirection, minwidth, options);
+  submenu._openMenu(coords, preferreddirection, null, preferredalign, exitdirection, minwidth, options, owner);
   recomputeSubSelection();
   takeSemiFocus();
 }
@@ -451,7 +451,7 @@ class MenuBase {
   depth = 0;
   parentmenu: MenuBase | null = null;
   exitdirection = '';
-  selecteditem: HTMLElement | null = null;
+  selecteditem: HTMLLIElement | null = null;
   currentalign: PreferredDirection | null;
 
   constructor(el: HTMLElement, openonhover: boolean) {
@@ -502,40 +502,33 @@ class MenuBase {
     return this.horizontalsubs;
   }
 
-  // _selectRelativeItem(position: Position, scroll: boolean)
-  // {
-  //   const items = this._getSelectableItems(this.el);
-  //   let pos = this.selecteditem ? items.indexOf(this.selecteditem) : -1;
-  //   if (!items.length)
-  //     return;
+  private getSelectableItems() {
+    return this._getMenuItems().filter(item => !item.matches('.divider, .disabled, .hidden'));
+  }
 
-  //   switch (position)
-  //   {
-  //   case "first":       pos = 0; break;
-  //   case "last":        pos = items.length - 1; break;
-  //   case "next":        pos = pos + 1; break;
-  //   case "previous":    pos = pos - 1; break;
-  //   }
+  private selectRelativeItem(position: "first" | "last" | "previous" | "next", scroll: boolean) {
+    const items = this.getSelectableItems();
+    if (!items.length)
+      return;
 
-  //   if (pos >= items.length)
-  //     return;
+    let pos = this.selecteditem ? items.indexOf(this.selecteditem) : -1;
+    switch (position) {
+      case "first": pos = 0; break;
+      case "last": pos = items.length - 1; break;
+      case "next": ++pos; break;
+      case "previous": --pos; break;
+    }
 
-  //   if (pos < 0)
-  //   {
-  //     if (this.exitdirection === (this._isOrientationVertical() ? "top" : "left"))
-  //       this._selectItem(null);
+    if (pos >= items.length)
+      return;
 
-  //     return;
-  //   }
+    if (pos < 0) {
+      if (this.exitdirection === (this._isOrientationVertical() ? "top" : "left"))
+        this._selectItem(null);
+      return;
+    }
 
-  //   this._selectItem(items[pos], scroll);
-  // }
-
-  _getSelectableItems() {
-    // const node = this.el;
-    //    return Array.from(node.childNodes).filter(node => dompack.matches(node,"li:not(.divider,.disabled,.hidden)"));
-    // return node.getElements('>li:not(.divider,.disabled,.hidden)');
-    throw new Error(`This code must have been unreachable? tried to Moo node.getElements...`);
+    this._selectItem(items[pos], scroll);
   }
 
   _fireOpenCloseEvent(isopen: boolean) {
@@ -608,7 +601,7 @@ class MenuBase {
 
   _onMouseDownOnItem(event: Event) {
     const li = (event.target as HTMLElement).closest("li");
-    if (!li)
+    if (!li || li.parentElement !== this.el)
       return;
 
     event.preventDefault(); //avoid focus theft
@@ -636,7 +629,7 @@ class MenuBase {
 
   _onMouseMove(event: Event) {
     const li = (event.target as HTMLElement).closest("li");
-    if (!li)
+    if (!li || li.parentElement !== this.el)
       return;
 
     // Need to select item if hovering above non-selected item, or have item selected in submenu
@@ -663,15 +656,13 @@ class MenuBase {
       return false;
 
     switch (event.key) {
-      case 'enter': return this._handleKeyEnter(event);
-      case 'up': return this._handleKeyUp(event, topmenu);
-      case 'down': return this._handleKeyDown(event, topmenu);
-      case 'left': return this._handleKeyLeft(event, topmenu);
-      case 'right': return this._handleKeyRight(event, topmenu);
-      case "home": return this._handleKeyHome(event, topmenu);
-      case "end": return this._handleKeyEnd(event, topmenu);
-      case "meta+up": return this._handleKeyHome(event, topmenu);
-      case "meta+down": return this._handleKeyEnd(event, topmenu);
+        case "Enter": return this._handleKeyEnter(event);
+        case "ArrowUp": return event.metaKey ? this._handleKeyHome(event, topmenu) : this._handleKeyUp(event, topmenu);
+        case "ArrowDown": return event.metaKey ? this._handleKeyEnd(event, topmenu) : this._handleKeyDown(event, topmenu);
+        case "ArrowLeft": return this._handleKeyLeft(event, topmenu);
+        case "ArrowRight": return this._handleKeyRight(event, topmenu);
+        case "Home": return this._handleKeyHome(event, topmenu);
+        case "End": return this._handleKeyEnd(event, topmenu);
       default: return false;
     }
   }
@@ -684,7 +675,7 @@ class MenuBase {
       if (!this.selecteditem && !topmenu)
         return false;
 
-      // this._selectRelativeItem("previous", true);
+      this.selectRelativeItem("previous", true);
       return true;
     } else {
       if (this.selecteditem && this.exitdirection === "top") {
@@ -704,11 +695,11 @@ class MenuBase {
       if (!this.selecteditem && !topmenu)
         return false;
 
-      // this._selectRelativeItem("next", true);
+      this.selectRelativeItem("next", true);
       return true;
     } else {
       if (this.openedsubmenu && !this.openedsubmenu.selecteditem) {
-        // this.openedsubmenu._selectRelativeItem("first", true);
+        this.openedsubmenu.selectRelativeItem("first", true);
         return true;
       }
     }
@@ -729,7 +720,7 @@ class MenuBase {
       if (!this.selecteditem && !topmenu)
         return false;
 
-      // this._selectRelativeItem("previous", true);
+      this.selectRelativeItem("previous", true);
       return true;
     }
 
@@ -742,14 +733,14 @@ class MenuBase {
 
     if (this._isOrientationVertical()) {
       if (this.openedsubmenu && !this.openedsubmenu.selecteditem) {
-        // this.openedsubmenu._selectRelativeItem("first", true);
+        this.openedsubmenu.selectRelativeItem("first", true);
         return true;
       }
     } else {
       if (!this.selecteditem && !topmenu)
         return false;
 
-      // this._selectRelativeItem("next", true);
+      this.selectRelativeItem("next", true);
       return true;
     }
 
@@ -763,7 +754,7 @@ class MenuBase {
     if (!this.selecteditem && !topmenu)
       return false;
 
-    // this._selectRelativeItem("first", true);
+    this.selectRelativeItem("first", true);
     return true;
   }
 
@@ -774,7 +765,7 @@ class MenuBase {
     if (!this.selecteditem && !topmenu)
       return false;
 
-    // this._selectRelativeItem("last", true);
+    this.selectRelativeItem("last", true);
     return true;
   }
 
@@ -808,6 +799,7 @@ export class MenuBar extends MenuBase {
 class MenuList extends MenuBase {
   substitutionnode: HTMLElement | null;
   position: { x: number; y: number } | null;
+  removeOnClose: boolean;
   preferreddirection: PreferredDirection;
 
   constructor(el: HTMLElement) {
@@ -815,12 +807,14 @@ class MenuList extends MenuBase {
 
     this.position = null;
     this.substitutionnode = null;
+    this.removeOnClose = false;
     this.currentalign = '';
     this.preferreddirection = '';
     if (dompack.debugflags.men)
       console.log("[men] initialize MenuList called");
 
     this.el.classList.add("wh-menulist");
+    this.el.setAttribute("popover", "manual");
   }
 
   // ---------------------------------------------------------------------------
@@ -859,8 +853,8 @@ class MenuList extends MenuBase {
     @param coords Coordinates to place the menu around (left/right/top/bottom)
     @param size Size of the menu (x/y)
     @param bounds Soft bounds to place the menu in (left/right/top/bottom)
-    @param viewport Position of the viewport relative to the body (left/right/top/bottom)
-    @param bodybounds Size of the body (x/y)
+    @param viewport The viewport bounds
+    @param containingblock The positioning containing block bounds
     @param sizeattr Name of attribute in which size is kepy ('x' or 'y')
     @param minattr Name of attribute with lowest coordinates ('left' or 'top')
     @param maxattr Name of attribute with lowest coordinates ('left' or 'top')
@@ -869,7 +863,7 @@ class MenuList extends MenuBase {
     @param forcenooverlap Whether to disallow overlap if menu doesn't fit at all (only when overlapcoords is false)
   */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we shouldn't even be returning data through a oty parameter
-  _calculatePosition(styles: any, coords: dompack.Rect, size: { x: number; y: number }, bounds: dompack.Rect, viewport: dompack.Rect, bodybounds: dompack.Rect, horizontal: boolean, preferfirst: boolean, overlapcoords: boolean) {
+  _calculatePosition(styles: any, coords: dompack.Rect, size: { x: number; y: number }, bounds: dompack.Rect, viewport: dompack.Rect, containingblock: dompack.Rect, horizontal: boolean, preferfirst: boolean, overlapcoords: boolean) {
     // Calc the style attrs that
     const sizeattr = horizontal ? "x" : "y";
     const minattr = horizontal ? "left" : "top";
@@ -908,9 +902,9 @@ class MenuList extends MenuBase {
     for (let i = 0; i < 2; ++i) {
       if (preferfirst && bounded_space_before >= size[sizeattr]) {
         if (dompack.debugflags.men)
-          console.log(`[men] setting maxattr '${maxattr}' sizeattr '${csssizeattr}' to ${(bodybounds[csssizeattr] - before_coords)}`);
+          console.log(`[men] setting maxattr '${maxattr}' sizeattr '${csssizeattr}' to ${(containingblock[csssizeattr] - before_coords)}`);
 
-        styles[maxattr] = (bodybounds[csssizeattr] - before_coords) + "px";
+        styles[maxattr] = (containingblock[csssizeattr] - before_coords) + "px";
         return false;
       } else if (!preferfirst && bounded_space_after >= size[sizeattr]) {
         if (dompack.debugflags.men)
@@ -933,9 +927,9 @@ class MenuList extends MenuBase {
     for (let i = 0; i < 2; ++i) {
       if (preferfirst && space_before >= size[sizeattr]) {
         if (dompack.debugflags.men)
-          console.log("[men] setting maxattr", maxattr, 'sizeattr', sizeattr, bodybounds, before_coords);
+          console.log("[men] setting maxattr", maxattr, 'sizeattr', sizeattr, containingblock, before_coords);
 
-        styles[maxattr] = (bodybounds[csssizeattr] - before_coords) + "px";
+        styles[maxattr] = (containingblock[csssizeattr] - before_coords) + "px";
         return false;
       } else if (!preferfirst && space_after >= size[sizeattr]) {
         if (dompack.debugflags.men)
@@ -961,7 +955,7 @@ class MenuList extends MenuBase {
       if (preferfirst)
         styles[minattr] = bounds[minattr] + "px";
       else
-        styles[maxattr] = (bodybounds[csssizeattr] - bounds[maxattr]) + "px";
+        styles[maxattr] = (containingblock[csssizeattr] - bounds[maxattr]) + "px";
     } else if ((viewport[maxattr] - viewport[minattr]) >= size[sizeattr]) {
       if (dompack.debugflags.men)
         console.log("[men] Fits within view - honour direction, stick to view border");
@@ -969,7 +963,7 @@ class MenuList extends MenuBase {
       if (preferfirst)
         styles[minattr] = viewport[minattr] + "px";
       else
-        styles[maxattr] = (bodybounds[csssizeattr] - viewport[maxattr]) + "px";
+        styles[maxattr] = (containingblock[csssizeattr] - viewport[maxattr]) + "px";
     } else {
       if (dompack.debugflags.men)
         console.log("[men] Doesn't fit at all - stick to top. Force the max size to force scroll");
@@ -1001,9 +995,9 @@ class MenuList extends MenuBase {
       @param preferreddirection - 'right', 'left', 'up', 'down'
       @param parentmenu
 -       @param preferredalign - left/right (only used when preferreddirection is 'up' or 'down')
-      @param exitdirection - '', 'top', 'left' - cursor direction in which the selection can be removed
+      @param exitdirection - '', 'top', 'left' - cursor directio in nwhich the selection can be removed
   */
-  _openMenu(coords: dompack.Rect, preferreddirection: PreferredDirection, parentmenu: MenuBase | null, preferredalign: PreferredDirection | null, exitdirection: ExitDirection, minwidth: number, options?: MenuOptions) {
+  _openMenu(coords: dompack.Rect, preferreddirection: PreferredDirection, parentmenu: MenuBase | null, preferredalign: PreferredDirection | null, exitdirection: ExitDirection, minwidth: number, options?: MenuOptions, owner?: HTMLLIElement) {
     if (dompack.debugflags.men)
       console.log("[men] openMenu called, prefdir:", preferreddirection, "prefalign:", preferreddirection, "exitdir", exitdirection);
 
@@ -1011,11 +1005,18 @@ class MenuList extends MenuBase {
 
     this._fixupDividers();
 
-    if (document.body.contains(this.el)) {
-      this.substitutionnode = this.el.cloneNode(false) as HTMLElement; //create a copy with the same style/class, to avoid the ul snapping to block mode
-      this.el.replaceWith(this.substitutionnode!);
+    const wasConnected = this.el.isConnected;
+    this.removeOnClose = !wasConnected && !parentmenu;
+    const destination = owner && this.el.parentElement !== owner && !this.el.contains(owner) ? owner : !parentmenu && !owner ? document.body : null;
+    if (destination && this.el.parentElement !== destination) {
+      if (wasConnected) {
+        this.substitutionnode = this.el.cloneNode(false) as HTMLElement;
+        this.el.replaceWith(this.substitutionnode);
+      }
+      destination.appendChild(this.el);
+    } else if (!wasConnected) {
+      document.body.appendChild(this.el);
     }
-    this.el.classList.add("open");
 
     this.parentmenu = parentmenu;
     this.el.classList.remove('level-' + this.depth);
@@ -1025,7 +1026,7 @@ class MenuList extends MenuBase {
     this.preferreddirection = preferreddirection;
     this.exitdirection = exitdirection || 'notspecified';
 
-    document.body.appendChild(this.el);
+    this.el.showPopover();
 
     // Reset sizes before measuring
     dompack.setStyles(this.el,
@@ -1048,19 +1049,8 @@ class MenuList extends MenuBase {
     size.x = Math.ceil(Math.max(size.x, minwidth || 0)); //round up, because we need 110 pixels for a 109.007 wide menu.
     size.y = Math.ceil(size.y); //round up, because we need 110 pixels for a 109.007 wide menu.
 
-    // Calculate the viewport relative to the body
-    let bodybounds = document.body.getBoundingClientRect();
-    bodybounds = { left: bodybounds.left, top: bodybounds.top, right: bodybounds.right, bottom: bodybounds.bottom, height: bodybounds.height, width: bodybounds.width, x: bodybounds.x, y: bodybounds.y } as DOMRect;
     const viewsize = { x: window.innerWidth, y: window.innerHeight };
-    const viewport =
-    {
-      left: -bodybounds.left,
-      top: -bodybounds.top,
-      right: -bodybounds.left + viewsize.x,
-      bottom: -bodybounds.top + viewsize.y,
-      width: 0,
-      height: 0
-    };
+    const viewport: dompack.Rect = { left: 0, top: 0, right: viewsize.x, bottom: viewsize.y, width: viewsize.x, height: viewsize.y };
 
     const bounds = { ...viewport };
 
@@ -1081,21 +1071,21 @@ class MenuList extends MenuBase {
       console.log("[men]  menu size", size);
       console.log("[men]  bounds", bounds);
       console.log("[men]  viewport ", viewport, viewsize);
-      console.log("[men]  body bounds", { ...bodybounds });
+      console.log("[men]  viewport bounds", { ...viewport });
     }
 
     // ADDME: maybe save the resulting direction and alignment in this.currentdirection and this.currentalign
     if (preferreddirection === "left" || preferreddirection === "right" || !preferreddirection) {
       // Right is preferred direction
-      this._calculatePosition(styles, coords, size, bounds, viewport, bodybounds, true, preferreddirection === "left", false);
+      this._calculatePosition(styles, coords, size, bounds, viewport, viewport, true, preferreddirection === "left", false);
 
       // Down is preferred alignment
-      this._calculatePosition(styles, coords, size, bounds, viewport, bodybounds, false, preferredalign === "up", true);
+      this._calculatePosition(styles, coords, size, bounds, viewport, viewport, false, preferredalign === "up", true);
     } else {
-      this._calculatePosition(styles, coords, size, bounds, viewport, bodybounds, false, preferreddirection === "up", false);
+      this._calculatePosition(styles, coords, size, bounds, viewport, viewport, false, preferreddirection === "up", false);
 
       // Left is preferred alignment
-      this._calculatePosition(styles, coords, size, bounds, viewport, bodybounds, true, preferredalign === "right", true);
+      this._calculatePosition(styles, coords, size, bounds, viewport, viewport, true, preferredalign === "right", true);
     }
 
     if (dompack.debugflags.men)
@@ -1119,17 +1109,16 @@ class MenuList extends MenuBase {
       console.log("[men] dispatching wh-menu-closed for menu ", this.el, " to ", cureventnode, " in tree ", getParents(cureventnode));
     dompack.dispatchCustomEvent(cureventnode, "wh:menu-closed", { bubbles: true, cancelable: false, detail: { menu: this.el } });
 
-    if (!dompack.debugflags.meo) {
-      this.el.classList.remove("open");
+    this.el.hidePopover();
 
-      if (this.substitutionnode) {
-        this.substitutionnode.replaceWith(this.el);
-      } else {
-        this.el.remove();
-      }
-
-      this.substitutionnode = null;
+    if (this.substitutionnode) {
+      this.substitutionnode.replaceWith(this.el);
+    } else if (this.removeOnClose) {
+      this.el.remove();
     }
+
+    this.substitutionnode = null;
+    this.removeOnClose = false;
   }
 }
 
@@ -1146,21 +1135,25 @@ export function openAt(el: HTMLElement, at: Pick<MouseEvent, "pageX" | "pageY" |
     throw new Error("openAt requires an object, not an #id");
 
   let coords: dompack.Rect;
+  const opener = 'target' in at ? at.target : at;
+  const owner = opener instanceof Element ? opener.closest("li") || undefined : undefined;
   if ('pageX' in at && 'pageY' in at) {
     options!.direction = "right";
-    coords = { left: at.pageX || 0, right: at.pageX || 0, top: at.pageY || 0, bottom: at.pageY || 0, width: 0, height: 0 };
+    const x = (at.pageX || 0) - window.scrollX;
+    const y = (at.pageY || 0) - window.scrollY;
+    coords = { left: x, right: x, top: y, bottom: y, width: 0, height: 0 };
     if (!options!.eventnode)
       options!.eventnode = at.target as HTMLElement; //make sure events are injected at the click location
   } else {
-    //@ts-expect-error FIXME cleanup calling synatx
-    coords = dompack.getRelativeBounds(at.target || at);
+    if (!(opener instanceof Element))
+      throw new Error("openAt requires an element or an event with an element target");
+    coords = dompack.getRelativeBounds(opener);
     if (!options!.direction) {
       options!.direction = "right";
       coords = { left: coords.left, right: coords.left, top: coords.top, bottom: coords.bottom, width: 0, height: 0 };
     }
     if (!options!.eventnode)
-      //@ts-expect-error FIXME cleanup calling synatx
-      options!.eventnode = at.target || at;
+      options!.eventnode = opener as HTMLElement;
   }
 
   const openoptions =
@@ -1181,7 +1174,7 @@ export function openAt(el: HTMLElement, at: Pick<MouseEvent, "pageX" | "pageY" |
     openaslistoptions.forcenooverlap = options!.forcenooverlap;
 
   eventnode = cureventnode || null;
-  openAsList(ml, coords, openoptions.direction, openoptions.align || '', openoptions.exitdirection as ExitDirection, 0, openaslistoptions);
+  openAsList(ml, coords, openoptions.direction, openoptions.align || '', openoptions.exitdirection as ExitDirection, 0, openaslistoptions, owner);
 
   return ml;
 }

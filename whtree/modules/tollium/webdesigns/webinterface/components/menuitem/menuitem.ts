@@ -131,6 +131,9 @@ export default class ObjMenuItem extends ComponentBase {
   }
 
   _onSelectItem(node: HTMLElement, evt: Event, ascontextmenu: boolean) {
+    if (evt.target !== node)
+      return;
+
     let submenu = node.querySelector('ul');
     const subnodes = this.cloneItems(ascontextmenu);
 

@@ -119,10 +119,10 @@ test.runTests(
       const iframe = test.qSA<HTMLIFrameElement>('iframe')[0];
       const showMenuButton = test.qR(iframe.contentWindow!.document, 'button');
 
-      test.assert(!await test.findElement(["ul.wh-menu.open li", /T01/]));
+      test.assert(!await test.findElement(["ul.wh-menu:popover-open li", /T01/]));
       test.click(showMenuButton);
       // Ensure menuitem T01 is visible
-      const menuItem = await test.waitForElement(["ul.wh-menu.open", /T01/]);
+      const menuItem = await test.waitForElement(["ul.wh-menu:popover-open", /T01/]);
     },
 
     "iframe blobcontent",

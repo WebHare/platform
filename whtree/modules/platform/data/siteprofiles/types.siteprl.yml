@@ -449,8 +449,6 @@ apply:
         flags:
           men:
             title: wh.menu debugging
-          meo:
-            title: wh.menu/pulldown keep open
           rte:
             title: wh.rich debugging
           upl:

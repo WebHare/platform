@@ -33,14 +33,16 @@
 {
   position:relative;
 }
-.wh-menubar li
+.wh-menubar > li
 {
   display:inline-block;
 }
-.wh-menulist.open
+.wh-menulist:popover-open
 {
-  display:block;
-  position: absolute;
+  display:inline-block;
+  position: fixed;
+  inset: auto;
+  margin: 0;
 }
 .wh-menu li.divider:before
 {

@@ -1,17 +1,16 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from '@mod-tollium/js/testframework';
 import * as tt from '@mod-webhare_testsuite/js/tolliumtest-wts';
+import type { IndyShell } from '@mod-tollium/web/ui/js/shell';
+import type { ObjFrame } from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 
 
-function getDividers(menu) {
-  return Array.from(menu.querySelectorAll("li.divider")).filter(el => el.offsetHeight > 0);
+function getDividers(menu: ParentNode): HTMLLIElement[] {
+  return Array.from(menu.querySelectorAll<HTMLLIElement>("li.divider")).filter(el => el.offsetHeight > 0);
 }
 
-let lastcustomactioninfo = null;
+let lastcustomactioninfo: { action: string; screen: ObjFrame } | null = null;
 
-function myCustomAction(info) {
+function myCustomAction(info: { action: string; screen: ObjFrame }) {
   lastcustomactioninfo = info;
   info.screen.sendFrameMessage({ msg: "removecustomaction" }, true);
 }
@@ -22,274 +21,259 @@ test.runTests(
       await tt.loadWTSTestScreen("tests/basecomponents.menutest");
     },
 
-    {
-      name: 'dummyaction',
-      test: async function () {
-        const X01 = test.getMenu(['X01']);
-        test.click(X01);
-        test.assert(X01.classList.contains("selected"));
+    'dummyaction',
+    async function () {
+      const X01 = test.getMenu(['X01']);
+      test.click(X01);
+      test.assert(X01.classList.contains("selected"));
 
-        const X09 = test.getMenu(['X01', 'X09']);
-        test.sendMouseGesture([{ el: X09 }]);
+      const X09 = test.getMenu(['X01', 'X09']);
+      await test.sendMouseGesture([{ el: X09 }]);
 
-        test.assert(X01.classList.contains("selected"));
-        test.assert(X09.classList.contains("selected"));
-        test.assert(!test.getCurrentApp().isBusy());
-        test.click(X09);
-        test.assert(test.getCurrentApp().isBusy());
-        await test.wait("ui");
-      }
+      test.assert(X01.classList.contains("selected"));
+      test.assert(X09.classList.contains("selected"));
+      test.assert(!test.getCurrentApp().isBusy());
+      const X02 = X09.previousElementSibling as HTMLLIElement;
+      await test.pressKey('ArrowUp');
+      test.assert(X02.classList.contains("selected"));
+      await test.pressKey('ArrowDown');
+      test.assert(X09.classList.contains("selected"));
+      await test.pressKey('Enter');
+      test.assert(test.getCurrentApp().isBusy());
+      await test.waitForUI();
     },
 
-    {
-      name: 'triggerquickaction',
-      test: async function () {
-        test.assert(!test.getCurrentApp().isBusy());
+    'triggerquickaction',
+    async function () {
+      test.assert(!test.getCurrentApp().isBusy());
 
-        // After clicking a menu item, ensure the menu is closed
-        const X01 = test.getMenu(['X01']);
-        test.assert(!X01.classList.contains("selected"));
+      // After clicking a menu item, ensure the menu is closed
+      const X01 = test.getMenu(['X01']);
+      test.assert(!X01.classList.contains("selected"));
 
-        test.click(X01);
-        const X03 = test.getMenu(['X03']);
+      test.click(X01);
+      const X03 = test.getMenu(['X03']);
 
-        //hover to the click action via the opened menu
-        const X09 = test.getMenu(['X01', 'X09']);
-        test.sendMouseGesture([
-          { el: X09 },
-          { relx: 500 },
-          { el: X03 }
-        ]);
+      //hover to the click action via the opened menu
+      const X09 = test.getMenu(['X01', 'X09']);
+      await test.sendMouseGesture([
+        { el: X09 },
+        { relx: 500 },
+        { el: X03 }
+      ]);
 
-        //should have hover and selected status (menu was already open)
-        test.assert(X03.classList.contains("selected"));
-        test.assert(!X01.classList.contains("selected"));
+      //should have hover and selected status (menu was already open)
+      test.assert(X03.classList.contains("selected"));
+      test.assert(!X01.classList.contains("selected"));
 
-        //click outside the menu to close it
-        await test.sendMouseGesture([
-          { rely: 150, down: 0 },
-          { up: 0 }
-        ]);
-      }
+      //click outside the menu to close it
+      await test.sendMouseGesture([
+        { rely: 150, down: 0 },
+        { up: 0 }
+      ]);
     },
 
-    {
-      name: 'verify X03',
-      test: async function () {
-        //hover to the click action
-        const X03 = test.getMenu(['X03']);
-        //should have hover and status, but not selected
-        test.assert(!X03.classList.contains("selected"), 'X03 should not have selected state yet');
+    'verify X03',
+    async function () {
+      //hover to the click action
+      const X03 = test.getMenu(['X03']);
+      //should have hover and status, but not selected
+      test.assert(!X03.classList.contains("selected"), 'X03 should not have selected state yet');
 
-        //hover to the click action
-        test.sendMouseGesture([{ el: X03 }]);
+      //hover to the click action
+      await test.sendMouseGesture([{ el: X03 }]);
 
-        //test simply clicking on the direct action
-        test.eq('0', test.compByName("action1count").textContent);
-        test.click(X03);
+      //test simply clicking on the direct action
+      test.eq('0', test.compByName("action1count").textContent);
+      test.click(X03);
 
-        //should still have hover status but not selected
-        await test.sleep(1);
-        test.assert(!X03.classList.contains("selected"));
-        await test.wait("ui");
-      }
+      //should still have hover status but not selected
+      await test.sleep(1);
+      test.assert(!X03.classList.contains("selected"));
+      await test.waitForUI();
     },
 
-    {
-      name: 'visibility checks',
-      test: async function () {
-        let menu = test.qSA('.wh-menubar')[0];
-        const X03 = test.qSA(menu, "*").filter(item => item.textContent.includes('X03'))[0];
-        const X01 = test.qSA(menu, "*").filter(item => item.textContent.includes('X01'))[0];
-        let X04 = menu.querySelector("li[data-menuitem$=':x04menu']");
-        let X07 = test.qSA(X04, "ul li").filter(item => item.textContent.includes('X07'))[0];
-        //var X08 = test.qSA(X04,"ul li").filter(item=>item.textContent.includes('X08'));
+    'visibility checks',
+    async function () {
+      let menu = test.qR('.wh-menubar');
+      const X03 = test.qSA(menu, "*").filter(item => item.textContent.includes('X03'))[0];
+      const X01 = test.qSA(menu, "*").filter(item => item.textContent.includes('X01'))[0];
+      let X04 = test.qR<HTMLLIElement>(menu, "li[data-menuitem$=':x04menu']");
+      let X07 = test.qSA(X04, "ul li").filter(item => item.textContent.includes('X07'))[0];
+      //var X08 = test.qSA(X04,"ul li").filter(item=>item.textContent.includes('X08'));
 
-        test.eq('1', test.compByName("action1count").textContent);
+      test.eq('1', test.compByName("action1count").textContent);
 
-        //should still have hover status but not selected, as our mouse is still here
-        test.assert(!X03.classList.contains("selected"));
+      //should still have hover status but not selected, as our mouse is still here
+      test.assert(!X03.classList.contains("selected"));
 
-        //move the mouse to the first menu item
-        test.sendMouseGesture([{ el: X01 }]);
-        test.assert(!X01.classList.contains("selected")); //should be false, or the menu didn't lose semifocus after the click!
+      //move the mouse to the first menu item
+      await test.sendMouseGesture([{ el: X01 }]);
+      test.assert(!X01.classList.contains("selected")); //should be false, or the menu didn't lose semifocus after the click!
 
-        //click the menu item
-        test.click(X01);
-        test.assert(X01.classList.contains("selected"));
+      //click the menu item
+      test.click(X01);
+      test.assert(X01.classList.contains("selected"));
 
-        //to the 3rdmenu
-        test.sendMouseGesture([{ el: X04 }]);
+      //to the 3rdmenu
+      await test.sendMouseGesture([{ el: X04 }]);
+      const X04submenu = test.qR<HTMLUListElement>(X04, "ul");
+      test.assert(X04submenu.matches(":popover-open"));
+      test.eq(X04, X04submenu.parentElement);
+      const openSubmenu = test.getOpenMenu();
+      X07 = test.qSA(openSubmenu, "li").filter(item => item.textContent.includes('X07'))[0];
+      const X08 = test.qSA(openSubmenu, "li").filter(item => item.textContent.includes('X08'))[0];
+      test.assert(X01.getBoundingClientRect().top === X04.getBoundingClientRect().top, "menubar items should stay on one row");
+      test.assert(X08.getBoundingClientRect().top > X07.getBoundingClientRect().top, "submenu items should be vertically stacked");
+      test.assert(getComputedStyle(X07).paddingTop === "0px", "submenu text should not inherit menubar padding");
 
-        //verify that only X07, X08, and the divider between them are visible
-        test.assert(!test.qSA(test.getOpenMenu(), "li").filter(li => li.textContent.includes('X05'))[0]);
-        test.assert(!test.qSA(test.getOpenMenu(), "li").filter(li => li.textContent.includes('X06'))[0]);
-        test.assert(test.qSA(test.getOpenMenu(), "li").filter(li => li.textContent.includes('X07'))[0]);
-        test.assert(test.qSA(test.getOpenMenu(), "li").filter(li => li.textContent.includes('X08'))[0]);
-        test.assert(!test.qSA(test.getOpenMenu(), "li").filter(li => li.textContent.includes('X07'))[0].classList.contains("disabled"));
-        test.assert(test.qSA(test.getOpenMenu(), "li").filter(li => li.textContent.includes('X08'))[0].classList.contains("disabled"));
+      //verify that only X07, X08, and the divider between them are visible
+      test.assert(!test.qSA(test.getOpenMenu(), "li").filter(li => li.textContent.includes('X05'))[0]);
+      test.assert(!test.qSA(test.getOpenMenu(), "li").filter(li => li.textContent.includes('X06'))[0]);
+      test.assert(test.qSA(test.getOpenMenu(), "li").filter(li => li.textContent.includes('X07'))[0]);
+      test.assert(test.qSA(test.getOpenMenu(), "li").filter(li => li.textContent.includes('X08'))[0]);
+      test.assert(!test.qSA(test.getOpenMenu(), "li").filter(li => li.textContent.includes('X07'))[0].classList.contains("disabled"));
+      test.assert(test.qSA(test.getOpenMenu(), "li").filter(li => li.textContent.includes('X08'))[0].classList.contains("disabled"));
 
-        const visibledividers = getDividers(test.getOpenMenu());
-        test.eq(1, visibledividers.length);
-        test.eq('X07 item', visibledividers[0].previousSibling.textContent);
+      const visibledividers = getDividers(test.getOpenMenu());
+      test.eq(1, visibledividers.length);
+      const previousElementSibling = visibledividers[0].previousElementSibling;
+      test.assert(previousElementSibling);
+      test.eq('X07 item', previousElementSibling.textContent);
 
-        //Click the last menu item
-        test.click(test.qSA(test.getOpenMenu(), "li").filter(li => li.textContent.includes('X08'))[0]);
+      //Click the last menu item
+      test.click(test.qSA(test.getOpenMenu(), "li").filter(li => li.textContent.includes('X08'))[0]);
 
-        test.eq('1', test.compByName("action1count").textContent); //action was disabled, so nothing should have happened
+      test.eq('1', test.compByName("action1count").textContent); //action was disabled, so nothing should have happened
 
-        menu = test.qSA('.wh-menubar')[0];
-        X04 = menu.querySelector("li[data-menuitem$=':x04menu']");
-        test.click(X04);
-        X07 = test.qSA("li").filter(item => item.textContent.includes('X07'))[0];
-        test.click(X07);
-        await test.wait("ui");
-      }
+      menu = test.qR('.wh-menubar');
+      X04 = test.qR<HTMLLIElement>(menu, "li[data-menuitem$=':x04menu']");
+      test.click(X04);
+      X07 = test.qSA(test.getOpenMenu(), "li").filter(item => item.textContent.includes('X07'))[0];
+      test.click(X07);
+      await test.waitForUI();
     },
 
-    {
-      test: function () {
-        test.eq('1', test.compByName("action1count").textContent); //we didn't even touch it...
-        const menu = test.qSA('.wh-menubar')[0];
-        const X04 = menu.querySelector("li[data-menuitem$=':x04menu']");
-        test.click(X04);
-        const X05 = test.qSA(test.getOpenMenu(), "li").filter(li => li.textContent.includes('X05'))[0];
-        test.assert(!X05.classList.contains("hidden"));
-        test.eq(2, getDividers(test.qSA(".wh-menu.open").slice(-1)[0]).length);
+    function () {
+      test.eq('1', test.compByName("action1count").textContent); //we didn't even touch it...
+      const menu = test.qR('.wh-menubar');
+      const X04 = test.qR<HTMLLIElement>(menu, "li[data-menuitem$=':x04menu']");
+      test.click(X04);
+      const X05 = test.qSA(test.getOpenMenu(), "li").filter(li => li.textContent.includes('X05'))[0];
+      test.assert(!X05.classList.contains("hidden"));
+      test.eq(2, getDividers(test.qSA(".wh-menu:popover-open").slice(-1)[0]).length);
 
-      }
     },
 
-    {
-      name: 'disableaction',
-      test: async function () {
-        test.assert(!test.getMenu(['X01', 'X11']).classList.contains('disabled'));
-        const X12 = test.getMenu(['X01', 'X12']);
-        test.click(X12);
-        await test.wait("ui");
-      }
+    'disableaction',
+    async function () {
+      test.assert(!test.getMenu(['X01', 'X11']).classList.contains('disabled'));
+      const X12 = test.getMenu(['X01', 'X12']);
+      test.click(X12);
+      await test.waitForUI();
     },
 
-    {
-      name: 'disableaction2',
-      test: async function () {
-        test.assert(test.getMenu(['X01', 'X11']).classList.contains('disabled'));
-        const X12 = test.getMenu(['X01', 'X12']);
-        test.click(X12);
-        await test.wait("ui");
-      }
+    'disableaction2',
+    async function () {
+      test.assert(test.getMenu(['X01', 'X11']).classList.contains('disabled'));
+      const X12 = test.getMenu(['X01', 'X12']);
+      test.click(X12);
+      await test.waitForUI();
     },
 
-    {
-      name: 'customaction',
-      test: async function () {
-        test.getWin().$shell.registerCustomAction("webhare_testsuite:customaction", myCustomAction);
+    'customaction',
+    async function () {
+      //@ts-expect-error $shell doesn't offer a public API for this
+      const shell = test.getWin().$shell as IndyShell;
+      shell.registerCustomAction("webhare_testsuite:customaction", myCustomAction);
 
-        test.assert(!test.getMenu(['X01', 'X11']).classList.contains('disabled'));
-        const X11 = test.getMenu(['X01', 'X11']);
+      test.assert(!test.getMenu(['X01', 'X11']).classList.contains('disabled'));
+      const X11 = test.getMenu(['X01', 'X11']);
 
-        test.eq(null, lastcustomactioninfo);
-        test.click(X11);
-        test.assert(lastcustomactioninfo !== null);
-        test.eq(/:customaction$/, lastcustomactioninfo.action);
-        test.eq(test.getCurrentScreen().win, lastcustomactioninfo.screen);
-        await test.wait("ui");
-      }
-    },
-
-    {
-      name: 'customaction2',
-      test: function () {
-        test.assert(test.getMenu(['X01', 'X11']).classList.contains('disabled'));
-      }
+      test.eq(null, lastcustomactioninfo);
+      test.click(X11);
+      test.assert(lastcustomactioninfo !== null);
+      test.eq(/:customaction$/, lastcustomactioninfo.action);
+      test.eq(test.getCurrentScreen().win, lastcustomactioninfo.screen);
+      await test.waitForUI();
     },
 
-    {
-      name: 'switchbar',
-      test: async function () {
-        //Verify that the form properly accounted for the presence of the menubar
-        const screennode = test.getCurrentScreen().getNode();
-        const testbottom = test.getCurrentScreen().getToddElement('testbottom');
-        test.assert(testbottom.getBoundingClientRect().bottom < screennode.getBoundingClientRect().bottom, "'test bottom' is outside the t-screen");
-
-        const X10 = test.getMenu(['X01', 'X10']);
-        test.assert(X10 !== null);
-        test.click(X10);
-        await test.wait("ui");
-      }
-    },
-    {
-      name: 'switchbar2',
-      test: async function () {
-        //Verify that the form properly accounted for the presence of the menubar
-        const screennode = test.getCurrentScreen().getNode();
-        const testbottom = test.getCurrentScreen().getToddElement('testbottom');
-        test.assert(testbottom.getBoundingClientRect().bottom < screennode.getBoundingClientRect().bottom, "'test bottom' is outside the t-screen");
-
-        test.assert(!test.getMenu(['X01'], { allowMissing: true }) !== null);
-        const X22 = test.getMenu(['X21', 'x22']);
-        test.assert(X22 !== null);
-        test.click(X22);
-        await test.wait("ui");
-      }
-    },
-    {
-      name: 'switchbar3',
-      test: async function () {
-        //Verify that the form properly accounted for the presence of the menubar
-        const screennode = test.getCurrentScreen().getNode();
-        const testbottom = test.getCurrentScreen().getToddElement('testbottom');
-        test.assert(testbottom.getBoundingClientRect().bottom < screennode.getBoundingClientRect().bottom, "'test bottom' is outside the t-screen");
-
-        test.assert(!test.getMenu([], { allowMissing: true }));
-        test.assert(test.compByName('b02_togglebutton') !== null);
-        test.click(test.compByName('b01_switchbar'));
-        await test.wait("ui");
-      }
+    'customaction2',
+    function () {
+      test.assert(test.getMenu(['X01', 'X11']).classList.contains('disabled'));
     },
 
-    {
-      name: 'toolbarbuttonvisible',
-      test: async function () {
-        const X13 = test.getMenu(['X01', 'X13']);
-        test.assert(X13 !== null);
-        test.click(X13);
-        await test.wait("ui");
-      }
+    'switchbar',
+    async function () {
+      //Verify that the form properly accounted for the presence of the menubar
+      const screennode = test.getCurrentScreen().getNode();
+      test.assert(screennode);
+      const testbottom = test.getCurrentScreen().getToddElement('testbottom');
+      test.assert(testbottom.getBoundingClientRect().bottom < screennode.getBoundingClientRect().bottom, "'test bottom' is outside the t-screen");
+
+      const X10 = test.getMenu(['X01', 'X10']);
+      test.assert(X10 !== null);
+      test.click(X10);
+      await test.waitForUI();
     },
-    {
-      name: 'toolbarbuttonvisible2 - now use keyboard',
-      test: async function () {
-        await test.pressKey('b', { ctrlKey: true });
-        await test.wait("ui");
-      }
+    'switchbar2',
+    async function () {
+      //Verify that the form properly accounted for the presence of the menubar
+      const screennode = test.getCurrentScreen().getNode();
+      test.assert(screennode);
+      const testbottom = test.getCurrentScreen().getToddElement('testbottom');
+      test.assert(testbottom.getBoundingClientRect().bottom < screennode.getBoundingClientRect().bottom, "'test bottom' is outside the t-screen");
+
+      test.assert(!test.getMenu(['X01'], { allowMissing: true }));
+      const X22 = test.getMenu(['X21', 'x22']);
+      test.assert(X22 !== null);
+      test.click(X22);
+      await test.waitForUI();
     },
-    {
-      name: 'toolbarbuttonvisible3',
-      test: function () {
-        test.assert(test.compByName('b02_togglebutton') !== null);
-      }
+    'switchbar3',
+    async function () {
+      //Verify that the form properly accounted for the presence of the menubar
+      const screennode = test.getCurrentScreen().getNode();
+      test.assert(screennode);
+      const testbottom = test.getCurrentScreen().getToddElement('testbottom');
+      test.assert(testbottom.getBoundingClientRect().bottom < screennode.getBoundingClientRect().bottom, "'test bottom' is outside the t-screen");
+
+      test.assert(!test.getMenu([], { allowMissing: true }));
+      test.assert(test.compByName('b02_togglebutton') !== null);
+      test.click(test.compByName('b01_switchbar'));
+      await test.waitForUI();
     },
 
-    {
-      name: 'toolbarbuttonenable',
-      test: async function () {
-        test.assert(test.compByName('b03_menubutton').classList.contains("todd--disabled"));
-        test.click(test.getMenu(['X01', 'X15']));
-        await test.wait("ui");
-      }
+    'toolbarbuttonvisible',
+    async function () {
+      const X13 = test.getMenu(['X01', 'X13']);
+      test.assert(X13 !== null);
+      test.click(X13);
+      await test.waitForUI();
     },
-    {
-      test: async function () {
-        test.assert(!test.compByName('b03_menubutton').classList.contains("todd--disabled"));
-        test.click(test.getMenu(['X01', 'X15']));
-        await test.wait("ui");
-      }
+    'toolbarbuttonvisible2 - now use keyboard',
+    async function () {
+      await test.pressKey('b', { ctrlKey: true });
+      await test.waitForUI();
     },
-    {
-      test: function () {
-        test.assert(test.compByName('b03_menubutton').classList.contains("todd--disabled"));
-      }
+    'toolbarbuttonvisible3',
+    function () {
+      test.assert(test.compByName('b02_togglebutton') !== null);
+    },
+
+    'toolbarbuttonenable',
+    async function () {
+      test.assert(test.compByName('b03_menubutton').classList.contains("todd--disabled"));
+      test.click(test.getMenu(['X01', 'X15']));
+      await test.waitForUI();
+    },
+    async function () {
+      test.assert(!test.compByName('b03_menubutton').classList.contains("todd--disabled"));
+      test.click(test.getMenu(['X01', 'X15']));
+      await test.waitForUI();
+    },
+    function () {
+      test.assert(test.compByName('b03_menubutton').classList.contains("todd--disabled"));
     }
 
   ]);

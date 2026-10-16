@@ -35,7 +35,9 @@ test.runTests(
         // Insert a 2-by-2 table
         test.click(rtenode.querySelector('span[data-button="table"]'));
         const menu = test.getOpenMenu();
-        test.click(menu.querySelector('li[data-col="2"][data-row="2"]'));
+        test.assert(menu && menu.getBoundingClientRect().height > 0, "Table menu should have a measurable height");
+        const tablecell = menu.querySelector('li[data-col="2"][data-row="2"]');
+        test.click(tablecell);
 
         const table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
         test.assert(table, "A 2x2 table should be created");
