@@ -12,7 +12,7 @@
   /** A slightly shaded background color */
   --tollium-background-shaded: #f8f8f8;
   /** The section toggle (summary) background color */
-  --tollium-background-details-summary: #f0f0f0;
+  --tollium-background-details-summary: #e8f0f8;
   /** The footer background color */
   --tollium-background-footer: #e5e5e5;
   /** The background color of selected items when focused */
