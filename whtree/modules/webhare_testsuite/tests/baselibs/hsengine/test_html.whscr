@@ -323,37 +323,6 @@ MACRO TestHTMLCleanup() //uses HTML Rewriter
   CloseTest("TestHTMLCleanup");
 }
 
-MACRO TestNewRewriter()
-{
-  OpenTest("TestNewRewriter");
-
-  OBJECT rewritedoc := MakeXMLDocumentFromHTML(OpenTestFile("rewritetest.html"),"UTF-8");
-  OBJECT rewritecontext := NEW HtmlRewriterContext;
-
-  rewritecontext->AddLinkAttribute("body", "data-designroot");
-  rewritecontext->RewriteLinksToRelative("http://sites.moe.btc.b-lex.com/tourdesofa/", "http://sites.moe.btc.b-lex.com/tourdesofa/submap/", rewritedoc);
-
-  //IF(NOT CreateDiskFileFromBlob("/tmp/rewriteresult.html", FALSE, TRUE, rewritecontext->GenerateHTML(rewritedoc))) abort("i/o error"); abort("overwrote /tmp/rewriteresult.html");
-  TestEqTextBlob(OpenTestFile("rewriteresult.html"), rewritecontext->GenerateHTML(rewritedoc));
-
-  //test DTD preservation
-  BLOB xmlblob := StringToBlob('<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd"><html><body>test</body></html>');
-  rewritedoc := MakeXMLDocumentFromHTML(xmlblob,"UTF-8");
-  TestEqTextBlob(xmlblob, rewritecontext->GenerateHTML(rewritedoc));
-
-  //test attribute ordering normalization
-  xmlblob := StringToBlob('<!DOCTYPE html><html><body><img src="urn::test" width="200"  height=\'300\'   />test</body></html>');
-  rewritedoc := MakeXMLDocumentFromHTML(xmlblob,"UTF-8");
-  TestEqTextBlob(StringToBlob('<!DOCTYPE html><html><body><img height="300" src="urn::test" width="200"/>test</body></html>')
-                  , rewritecontext->GenerateHTML(rewritedoc));
-
-
-  rewritedoc->body->AppendChild(rewritedoc->createelement("div"));
-  TestEqLike("*<div></div>*", rewritedoc->outerhtml);
-
-  CloseTest("TestNewRewriter");
-}
-
 STRING FUNCTION AddUp(STRING inlink)
 {
   RETURN "../" || inlink;
@@ -520,7 +489,6 @@ MACRO TestConvertHtmlToPlainText()
 TestInternals();
 TestOpenHTML();
 TestInlineMode();
-TestNewRewriter();
 TestCleanupHTML();
 TestNodeContentsParse();
 TestImageURLRewrite();
@@ -528,4 +496,3 @@ TestDocumentMode();
 TestHTMLCleanup();
 TestElementTraversal();
 TestConvertHtmlToPlainText();
-

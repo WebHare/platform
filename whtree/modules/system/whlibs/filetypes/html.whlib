@@ -1817,12 +1817,6 @@ PUBLIC STATIC OBJECTTYPE HtmlRewriter EXTEND XmlCallbackParser
 
 >;
 
-MACRO RewriteLinksToRelative(STRING baseurl, STRING currenturl, OBJECT checkattr)
-{
-  IF(Left(checkattr->nodevalue, Length(baseurl)) = baseurl)
-    checkattr->nodevalue := MakeRelativeLinkFromURL(currenturl, checkattr->nodevalue);
-}
-
 PUBLIC OBJECTTYPE HtmlRewriterContext
 <
   RECORD ARRAY customrewrites;
@@ -1854,12 +1848,6 @@ PUBLIC OBJECTTYPE HtmlRewriterContext
     RETURN rewrites;
   }
 
-  //Add custom tag/attribute pairs to the list of links to rewrite
-  PUBLIC MACRO AddLinkAttribute(STRING tagname, STRING attributename)
-  {
-    INSERT [ type := "href", linkclass := "link", tagname := tagname, attributename := attributename ] INTO this->customrewrites AT END;
-  }
-
   //Update all links using a custom function
   PUBLIC MACRO RewriteAllLinks(OBJECT startnode, FUNCTION PTR rewriter) //DEPRECATED!  We need a cleaner API, this one is difficult to use
   {
@@ -1875,12 +1863,6 @@ PUBLIC OBJECTTYPE HtmlRewriterContext
             IF(ToUppercase(rewriteattr.attributename) = ToUppercase(checkattr->nodename))
               rewriter(tag, checkattr);
       }
-  }
-
-  //Convert all links inside the 'baseurl' space to relative links based on currenturl
-  PUBLIC MACRO RewriteLinksToRelative(STRING baseurl, STRING currenturl, OBJECT node)
-  {
-    this->RewriteAllLinks(node, PTR RewriteLinksToRelative(baseurl, currenturl, #2));
   }
 
   MACRO DoRewriteLinks(OBJECT startnode, FUNCTION PTR rewriter, RECORD options, BOOLEAN alllinks)

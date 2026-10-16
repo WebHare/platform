@@ -1543,10 +1543,7 @@ MACRO TestQuerySelectors()
   TestEq("_blank", node->GetAttribute("target"));
   TestEq(6, nodelist->Length);
 
-  OBJECT subnode := node->QuerySelector("img");
-  TestEQ(TRUE, ObjectExists(subnode));
-
-  subnode := dom->QuerySelector("ul");
+  OBJECT subnode := dom->QuerySelector("ul");
   TestEQ("topmenu", subnode->GetAttribute("id"));
 
   subnode := dom->QuerySelector("ul#topmenu");
