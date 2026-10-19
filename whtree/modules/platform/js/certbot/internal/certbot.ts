@@ -201,7 +201,7 @@ export async function getProviderForDomains(domains: string[], staging?: boolean
     .query("certificateProvider")
     .select([
       "wrdId", "issuerDomain", "acmeDirectory", "accountPrivatekey", "eabKid", "eabHmackey", "email", "allowlist",
-      "keyPairAlgorithm", "acmeChallengeHandler", "skipConnectivityCheck", "wrdOrdering"
+      "keyPairAlgorithm", "acmeChallengeHandler", "skipConnectivityCheck", "wrdOrder"
     ])
     .execute();
   // Split the allowlist into separate domain masks
@@ -210,7 +210,7 @@ export async function getProviderForDomains(domains: string[], staging?: boolean
     allowlist: provider.allowlist
       .split(" ").filter(_ => _) // split into separate masks
       .map(_ => regExpFromWildcards(_)), // convert to regexp
-  })).sort((a, b) => a.wrdOrdering - b.wrdOrdering); // sort by ordering
+  })).sort((a, b) => a.wrdOrder - b.wrdOrder); // sort by ordering
   // Find the first matching provider
   let provider: typeof providersWithMasks[0] | null = null;
   for (const prov of providersWithMasks) {

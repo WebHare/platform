@@ -399,11 +399,13 @@ export async function generateWRDDefs(context: GenerateContext, cache: WRDSchema
       def += `type ${type.typeNameModern} = WRDTypeBaseSettingsModern`;
 
       const attrlines = [];
-      for (const [name, attrdef] of Object.entries(type.attrdefs)) {
+      for (let [name, attrdef] of Object.entries(type.attrdefs)) {
         if (attrdef.isBase)
           continue; //the ones with null are in WRDTypeBaseSettings
         if (name === "wrdTitle" && (tag === "wrdPerson" || tag === "wrdOrganization"))
           continue; //these are aliases for wrdFullName or wrdOrgName and just complicate things - let's limit wrdTitle to explicit creations or domain types
+        if (name === "wrdOrdering")
+          name = "wrdOrder"; //renamed in modern APIs
 
         attrlines.push(`  ${name}: ${createTypeDef(attrdef, "  ", addTypeDeclImport, true)}`);
       }
