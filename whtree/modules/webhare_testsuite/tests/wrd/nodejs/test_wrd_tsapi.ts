@@ -263,6 +263,10 @@ async function testNewAPI() {
   //this should be fine:
   wrd<"*">("webhare_testsuite:unknownschema");
 
+  //@ts-expect-error should not be able to select wrdOrdering from certificateProvider in modern API, only wrdOrder should work
+  test.throws(/Cannot use legacy field.*wrdOrdering/, () => wrd("system:config").query("certificateProvider").select(["wrdOrdering"]));
+  wrd("system:config").query("certificateProvider").select(["wrdOrder"]);
+
   const schema = wrd<Combine<[WRDSchemaLike["wrd:testschema"], CustomExtensionsModern, Extensions]>>(testSchemaTag);
   // FIXME: make this work:
   // wrd<Combine<["wrd:testschema", CustomExtensionsModern, Extensions]>>(testSchemaTag) satisfies typeof schema;
