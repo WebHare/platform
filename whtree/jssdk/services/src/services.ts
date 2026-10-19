@@ -51,6 +51,8 @@ export { IntExtLink } from "./intextlink";
 
 export { matchesThisServer, type IfWebHare } from "@mod-system/js/internal/generation/shared.ts";
 
+export { createQRCode } from "./qrcode.ts";
+
 /** Extend this interface to register broadcast event formats */
 export interface BackendEvents {
   "platform:assetpackcontrol.update": { assetpacks: string[] };

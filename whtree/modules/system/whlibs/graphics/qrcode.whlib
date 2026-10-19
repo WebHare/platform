@@ -1409,6 +1409,7 @@ PUBLIC OBJECTTYPE QRCode
     @cell(integer) options.logosize Override the logo size if the QR code doesn't work with the automatically determined logo
         size (the size is in modules (blocks), the logo is rendered with a padding of 1 module on each side within this size)
     @return A drawlib canvas object containing the QR code. The caller will need to close it
+    @deprecated Switch to GenerateQRCode in WH 6.2
 */
 PUBLIC OBJECT FUNCTION CreateQRCode(STRING intext, RECORD options DEFAULTSTO DEFAULT RECORD)
 {

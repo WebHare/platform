@@ -4,7 +4,6 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::graphics/qrcode.whlib";
 LOADLIB "wh::util/otp.whlib";
 
 LOADLIB "mod::tollium/lib/componentbase.whlib";
@@ -651,7 +650,6 @@ PUBLIC STATIC OBJECTTYPE SetupTOTP EXTEND TolliumScreenBase <
     STRING issuer := (ObjectExists(this->_valuekeeper->wrdschema) ? GetWRDSetting(this->_valuekeeper->wrdschema, "password_totp_issuer") : "") ?? "WebHare"; // Issuer may be shown in the authenticator app
     this->newtotp := PrepareTOTPForUser(this->tolliumuser->login, issuer);
 
-    OBJECT qrcode := CreateQRCode(this->newtotp.url, [ size := 250, correctlevel := "L" ]);
     RECORD qrdata := ScanBlob(this->newtotp.qrpng, "qr.png");
     ^qrcode->width := qrdata.width || "px";
     ^qrcode->height := qrdata.height || "px";
