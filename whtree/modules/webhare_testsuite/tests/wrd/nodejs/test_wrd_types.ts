@@ -1,11 +1,17 @@
 import * as test from "@webhare/test";
-import { type IsGenerated, type IsNonUpdatable, type IsRequired, type WRDBaseAttributeTypeId, type WRDAttributeTypeId, recordizeOutputMap, combineRecordOutputMaps, type OutputMap, type RecordizeOutputMap, type MapRecordOutputMap, type WRDInsertable, type WRDGender, type TypeDefinition, type WRDAttr } from "@webhare/wrd/src/types";
+import { type IsGenerated, type IsNonUpdatable, type IsRequired, type WRDBaseAttributeTypeId, type WRDAttributeTypeId, recordizeOutputMap, combineRecordOutputMaps, type OutputMap, type RecordizeOutputMap, type MapRecordOutputMap, type WRDInsertable, type WRDGender, type TypeDefinition, type WRDAttr, type MatchObjectQueryable } from "@webhare/wrd/src/types";
 import type { ResourceDescriptor } from "@webhare/services";
 import type { ExportedResource, ResourceSource } from "@webhare/services/src/descriptor";
+import type { WRDEntityMatch, WRDSchemaLike, WRDSchemaType } from "@webhare/wrd";
 
 type MapOutput<T extends TypeDefinition, O extends OutputMap<T>, Export extends boolean> = MapRecordOutputMap<T, RecordizeOutputMap<T, O>, Export>;
 
 function testTypes() {
+
+  test.typeAssert<test.Equals<WRDEntityMatch<"system:usermgmt", "wrdPerson">,
+    number | MatchObjectQueryable<WRDSchemaLike["system:usermgmt"]["wrdPerson"]>>>();
+  test.typeAssert<test.Equals<WRDEntityMatch<WRDSchemaType<WRDSchemaLike["system:usermgmt"]>, "wrdPerson">,
+    WRDEntityMatch<"system:usermgmt", "wrdPerson">>>();
 
   type System_Usermgmt_WRDPerson = {
     wrd_id: IsNonUpdatable<typeof WRDBaseAttributeTypeId.Base_Integer>;

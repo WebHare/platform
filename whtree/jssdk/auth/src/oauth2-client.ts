@@ -1,7 +1,7 @@
 import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import jwt, { type JwtPayload } from "jsonwebtoken";
 import { verifyJWT, type JWKS } from "./identity";
-import type { AnyWRDSchema, WRDSchema, WRDSchemaLike, WRDSchemaType } from "@webhare/wrd";
+import type { AnyWRDSchema, WRDEntityMatch, WRDSchema, WRDSchemaLike, WRDSchemaType } from "@webhare/wrd";
 import { encodeString, pick, throwError, toCamelCase, toSnakeCase, type ToSnakeCase } from "@webhare/std";
 import type { NavigateInstruction } from "@webhare/env";
 import { backendConfig, createServerSession, getServerSession, logNotice, subscribe, updateServerSession, type SessionScopes } from "@webhare/services";
@@ -237,10 +237,9 @@ export class OAuth2Client {
   }
 }
 
-export async function createOAuth2Client<S extends SchemaTypeDefinition>(wrdSchemaIn: WRDSchemaType<S>, provider: number | string) {
+export async function createOAuth2Client<S extends SchemaTypeDefinition>(wrdSchemaIn: WRDSchemaType<S>, server: WRDEntityMatch<"system:usermgmt", "wrdauthServer">) {
   const wrdSchema = wrdSchemaIn as unknown as WRDSchema<WRDSchemaLike["system:usermgmt"]>; //TODO better schema type but at least this one has the OIDC Client
-  const providerId = typeof provider === "number" ? provider : await wrdSchema.find("wrdauthServer", { wrdTag: provider }) ?? throwError(`No wrdauthServer with tag ${provider} found`);
-  const spData = await wrdSchema.getFields("wrdauthServer", providerId, ["metadataurl", "clientid", "clientsecret", "additionalscopes", "redirectUri", "clientSigning", "extraParams"]) ?? throwError(`wrdauthServer #${providerId} not found`);
+  const spData = await wrdSchema.getFields("wrdauthServer", server, ["wrdId", "metadataurl", "clientid", "clientsecret", "additionalscopes", "redirectUri", "clientSigning", "extraParams"]);
 
   return new OAuth2Client({
     metadataUrl: spData.metadataurl,
@@ -250,7 +249,7 @@ export async function createOAuth2Client<S extends SchemaTypeDefinition>(wrdSche
     clientSecret: spData.clientsecret,
     clientSigning: spData.clientSigning || undefined,
     additionalScopes: spData.additionalscopes.split(" ").map(s => s.trim()).filter(s => s),
-    clientWrdId: providerId,
+    clientWrdId: spData.wrdId,
     extraParams: spData.extraParams
   });
 }
@@ -405,12 +404,11 @@ export async function handleOAuth2LandingPage(req: WebRequest): Promise<WebRespo
 
 /** Get user details from the userinfo endpoint
  * @param wrdSchema - WRD Schema containing the provider
- * @param provider - Provider (wrdId or wrdTag)
+ * @param server - Provider entity ID or field-value match
  * @param accessToken - Access token to use for the userinfo request
 */
-export async function fetchUserInfo(wrdSchema: AnyWRDSchema, provider: number | string, accessToken: string) {
-  const providerId = typeof provider === "number" ? provider : await wrdSchema.find("wrdauthServer", { wrdTag: provider }) ?? throwError(`No authentication server with tag ${provider} found`);
-  const spData = await wrdSchema.getFields("wrdauthServer", providerId, ["metadataurl"]);
+export async function fetchUserInfo(wrdSchema: AnyWRDSchema, server: WRDEntityMatch<"system:usermgmt", "wrdauthServer">, accessToken: string) {
+  const spData = await wrdSchema.getFields("wrdauthServer", server, ["metadataurl"]);
   const providerInfo = await getOpenIDConnectMetadata(spData.metadataurl);
   if (!providerInfo.config.userinfo_endpoint)
     throw new Error(`Authentication server at ${spData.metadataurl} has no userinfo_endpoint, can't fetch user info`);

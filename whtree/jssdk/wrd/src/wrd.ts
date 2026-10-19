@@ -7,7 +7,7 @@ export { AuthenticationSettings } from "./authsettings";
 export { isValidWRDTag } from "./wrdsupport";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { broadcastOnCommit, db } from "@webhare/whdb";
-import type { WRDAttributeType, WRDMetaType, WRDInsertable, WRDUpdatable, AnySchemaType, SchemaTypeDefinitionModern } from "./types";
+import type { WRDAttributeType, WRDMetaType, WRDInsertable, WRDUpdatable, AnySchemaType, SchemaTypeDefinitionModern, MatchObjectQueryable } from "./types";
 import { encodeWRDGuid } from "./accessors";
 import { isValidWRDSchemaTag, tagToJS } from "./wrdsupport";
 import { wrdFinishHandler } from "./finishhandler";
@@ -34,6 +34,23 @@ import type { } from "wh:ts/wrd.ts";
 export interface WRDSchemaLike {
   "*": AnySchemaType;
 }
+
+type EntityMatchSchema<Schema extends keyof WRDSchemaLike | AnyWRDSchema> =
+  Schema extends keyof WRDSchemaLike ? WRDSchemaLike[Schema] : Schema extends WRDSchemaType<infer Definition> ? Definition : never;
+
+/** Select an entity by its numeric wrdId or by an object of field-value pairs matched using equality.
+ * Used by APIs such as `update` and `getFields`; the consuming API determines how many matching entities are allowed.
+ * @typeParam Schema - A schema name registered in WRDSchemaLike, or a schema object type such as `typeof usermgmtSchema`.
+ * @typeParam TypeName - An entity type tag in the selected schema.
+ * @example
+ * ```typescript
+ * const usermgmtSchema = wrd("system:usermgmt");
+ * const byTag: WRDEntityMatch<typeof usermgmtSchema, "wrdPerson"> = { wrdTag: "SYSOP" };
+ * await usermgmtSchema.getFields("wrdPerson", byTag, ["wrdFirstName", "wrdLastName"]);
+ * ```
+ */
+export type WRDEntityMatch<Schema extends keyof WRDSchemaLike | AnyWRDSchema, TypeName extends keyof EntityMatchSchema<Schema> & string> =
+  number | MatchObjectQueryable<EntityMatchSchema<Schema>[TypeName]>;
 
 export interface DescribedEntity {
   /** Entity's tag */
