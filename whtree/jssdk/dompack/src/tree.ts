@@ -101,7 +101,12 @@ export function isElement(node: unknown): node is Element {
 
 /** Test whether node is a HTMLElement, even if it's in a different iframe */
 export function isHTMLElement(node: unknown): node is HTMLElement {
-  return isElement(node) && "accessKey" in node;
+  return isElement(node) && node.namespaceURI === "http://www.w3.org/1999/xhtml";
+}
+
+/** Test whether node is a SVGElement, even if it's in a different iframe */
+export function isSVGElement(node: unknown): node is SVGElement {
+  return isElement(node) && node.namespaceURI === "http://www.w3.org/2000/svg";
 }
 
 /**

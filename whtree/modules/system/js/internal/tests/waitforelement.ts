@@ -72,12 +72,12 @@ function evaluateSelectSingle(start: Element | Document, selector: Selector, opt
     return null;
 
   if (options?.expectSVG) {
-    if (!("ownerSVGElement" in currentmatch)) {
+    if (!dompack.isSVGElement(currentmatch)) {
       console.error(`Matched a non-SVGElement: %o`, currentmatch);
       throw new Error("Matched a non-SVGElement");
     }
   } else { //Our API is much more convenient to typed users if we always return a HTMLElement, so enforce that
-    if (!("accessKey" in currentmatch) || !("writingSuggestions" in currentmatch)) {
+    if (!dompack.isHTMLElement(currentmatch)) {
       console.error(`Matched a non-HTMLElement: %o`, currentmatch);
       throw new Error("Matched a non-HTMLElement");
     }
