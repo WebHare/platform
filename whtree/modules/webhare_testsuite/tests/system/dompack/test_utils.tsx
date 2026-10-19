@@ -173,8 +173,10 @@ test.runTests(
 
     "Tree",
     async function () {
-      test.getWin().document.body.replaceChildren(<div id="div1">A div</div>, <iframe srcdoc="<div id='div2'>a second div</div>"></iframe>);
-      await test.wait(() => test.qR<HTMLIFrameElement>("iframe").contentDocument?.getElementById("div2")); //wait for the iframe
+      const svg = test.getDoc().createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.id = "svg1";
+      test.getWin().document.body.replaceChildren(<div id="div1">A div</div>, svg, <iframe srcdoc="<div id='div2'>a second div</div><svg id='svg2'></svg>"></iframe>);
+      await test.wait(() => test.qR<HTMLIFrameElement>("iframe").contentDocument?.getElementById("svg2")); //wait for the iframe
       test.assert(!webhare_dompack.isElement(null));
       test.assert(!webhare_dompack.isElement(undefined));
       test.assert(webhare_dompack.isElement(test.qR("#div1")));
@@ -186,6 +188,11 @@ test.runTests(
       test.assert(webhare_dompack.isHTMLElement(test.qR("#div1")));
       test.assert(webhare_dompack.isHTMLElement(test.qR("iframe")));
       test.assert(webhare_dompack.isHTMLElement(test.qR<HTMLIFrameElement>("iframe").contentDocument?.getElementById("div2")));
+      test.assert(!webhare_dompack.isHTMLElement(test.qR("#svg1")));
+      test.assert(!webhare_dompack.isHTMLElement(test.qR<HTMLIFrameElement>("iframe").contentDocument?.getElementById("svg2")));
+      test.assert(webhare_dompack.isSVGElement(test.qR("#svg1")));
+      test.assert(webhare_dompack.isSVGElement(test.qR<HTMLIFrameElement>("iframe").contentDocument?.getElementById("svg2")));
+      test.assert(test.findElement<SVGSVGElement>("#svg1", { expectSVG: true }));
 
       // https://datatracker.ietf.org/doc/html/rfc5646#appendix-A
       test.eq({ tag: "de", language: "de" }, parseLanguageTag("de"));
