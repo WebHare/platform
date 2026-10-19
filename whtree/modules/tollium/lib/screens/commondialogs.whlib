@@ -8,9 +8,11 @@ LOADLIB "wh::money.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::devsupport.whlib";
-LOADLIB "wh::graphics/qrcode.whlib";
+
+LOADLIB "mod::platform/lib/graphics.whlib";
 
 LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/webserver/errors.whlib";
 
@@ -568,15 +570,13 @@ PUBLIC OBJECTTYPE QRCallback EXTEND TolliumScreenBase <
   PUBLIC MACRO Init(RECORD data) {
     this->data := data;
     STRING qrurl := data.options.autoclose ? this->callbacklistener->GetCallbackURL(data.options.data) : data.url;
-    OBJECT qrcode := CreateQRCode(qrurl, [ size := 500, correctlevel := "L" ]);
-    BLOB qrpng := qrcode->ExportAsPalettedPNG(TRUE);
-    RECORD qrdata := ScanBlob(qrpng, "qr.png");
+    RECORD qrdata := GenerateQRCode(qrurl, [ size := 500, correctlevel := "L" ]);
 
-    this->qrcodeimage := CELL[ data := qrpng, ...qrdata ]; // store in case the user wants to download
+    this->qrcodeimage := qrdata; // store in case the user wants to download
 
     this->qrcode->width := qrdata.width || "px";
     this->qrcode->height := qrdata.height || "px";
-    this->qrcode->SetImage(qrpng, "qr.png");
+    this->qrcode->SetImage(qrdata.data, qrdata.filename);
 
     this->frame->title := data.options.title ?? this->frame->title;
     this->description->value := data.options.description ?? this->description->value;
@@ -589,9 +589,12 @@ PUBLIC OBJECTTYPE QRCallback EXTEND TolliumScreenBase <
   //
 
   MACRO DoDownload(OBJECT obj) {
-    OBJECT realqrcode := CreateQRCode(this->data.url, [ size := 500, correctlevel := "L" ]);
-    BLOB qrpng := realqrcode->ExportAsPalettedPNG(TRUE);
-    obj->SendFile(qrpng, "image/png", "qrcode.png");
+    IF (this->data.options.autoclose) {
+      // Generate a QR code for the actual url
+      RECORD qrdata := GenerateQRCode(this->data.url, [ size := 500, correctlevel := "L" ]);
+      obj->SendFile(qrdata.data, "image/png", qrdata.filename);
+    } ELSE
+      obj->SendFile(this->qrcodeimage.data, "image/png", this->qrcodeimage.filename);
   }
 
   MACRO OnQRCallback(OBJECT handler)

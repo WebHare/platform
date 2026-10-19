@@ -7,34 +7,47 @@
 
 LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::graphics/qrcode.whlib";
 LOADLIB "wh::internal/graphics.whlib" EXPORT GfxCreateColor, GfxCreateColorFromCSS, GfxColorAlpha, GfxRGB2HSV, GfxHSV2RGB,
                                              GfxHSL2RGB, GfxUnpackColor;
 LOADLIB "wh::graphics/canvas.whlib" EXPORT ColorBlackTransparent, ColorWhiteTransparent, ColorBlack, ColorWhite;
 
-PUBLIC RECORD FUNCTION GenerateQRCode(STRING intext, RECORD options) {
-  //which can we support cross platform?
-  options := ValidateOptions(
-      CELL[
-       size := 256
-      // , margin := 4
-      // , colordark := ColorBlack
-      // , colorlight := ColorWhite
-      , correctlevel := "H"
-      // , logo := DEFAULT BLOB
-      // , logosize := 0
-      ], options
-      // [ enums :=
-      //     [ correctlevel := [ "L", "M", "Q", "H" ] ]
-      // ]
-      );
 
-  IF(IsWasm()) {
-    RETURN WrapBlob(DEFAULT BLOB, "qr.png");;//FIXME
-  } ELSE {
-    OBJECT qrcode := CreateQRCode(intext, options);
-    BLOB qrpng := qrcode->ExportAsPalettedPNG(TRUE);
-    RECORD qrdata := WrapBlob(qrpng, "qr.png");
-    RETURN qrdata;
-  }
+/** @short Generate a QR code
+    @param intext The text to encode
+    @param options Encoding options
+    @cell(integer) options.size Max output size in pixels, defaults to 256 (=256x256 pixels)
+    @cell(integer) options.margin QR code margin in modules, defaults to 4 modules
+    @cell(string) options.colordark Draw color (CSS color value), defaults to black
+    @cell(string) options.colorlight Background color (CSS color value), defaults to white
+    @cell(string) options.correctlevel Error correction level, one of "L", "M", "Q" or "H", defaults to "H" (=highest)
+    @cell(blob) options.logo A logo to add to the QR code. Adding a logo may require you to tune the QR code size or error correction
+    @cell(integer) options.logosize Override the logo size if the QR code doesn't work with the automatically determined logo
+        size (the size is in modules (blocks), the logo is rendered with a padding of 1 module on each side within this size)
+    @return The QR code as a wrapped PNG blob @includecelldef wh::files.whlib#WrapBlob.return
+*/
+PUBLIC RECORD FUNCTION GenerateQRCode(STRING intext, RECORD options) {
+  options := ValidateOptions(CELL[
+    size := 256,
+    margin := 4,
+    colordark := "#000000",
+    colorlight := "#ffffff",
+    correctlevel := "H",
+    logo := DEFAULT BLOB,
+    logosize := 0,
+  ], options, [
+    enums := [
+      correctlevel := [ "L", "M", "Q", "H" ],
+    ]
+  ]);
+
+  BLOB qrpng := CallJS([ camelcase := TRUE ], "@webhare/services#createQRCode", intext, CELL[
+    options.size,
+    options.margin,
+    color_dark := options.colordark,
+    color_light := options.colorlight,
+    correct_level := options.correctlevel,
+    options.logo,
+    logo_size := options.logosize,
+  ]);
+  RETURN WrapBlob(qrpng, "qr.png");
 }
