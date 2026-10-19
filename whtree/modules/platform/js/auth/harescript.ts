@@ -318,13 +318,13 @@ export async function preparePublicAuthDataCookie(targetUrl: WRDAuthPluginSettin
 }
 
 export async function createOAuth2LoginRequest(wrdschema: string, provider: string, redirectTo: string, options?: ToSnakeCase<OAuth2AuthorizeRequestOptions>): Promise<NavigateInstruction> {
-  const providerId = provider.startsWith('#') ? parseInt(provider.slice(1)) : provider;
+  const providerId = provider.startsWith('#') ? parseInt(provider.slice(1)) : { wrdTag: provider };
   const client = await createOAuth2Client(new WRDSchema(wrdschema), providerId);
   return await client.createLoginRequest(redirectTo, toCamelCase(options));
 }
 
 export async function createOAuth2AuthorizeRequest(wrdschema: string, provider: string, redirectTo: string, options?: ToSnakeCase<OAuth2AuthorizeRequestOptions>): Promise<NavigateInstruction> {
-  const providerId = provider.startsWith('#') ? parseInt(provider.slice(1)) : provider;
+  const providerId = provider.startsWith('#') ? parseInt(provider.slice(1)) : { wrdTag: provider };
   const client = await createOAuth2Client(new WRDSchema(wrdschema), providerId);
   return await client.createAuthorizeLink(redirectTo, toCamelCase(options));
 }

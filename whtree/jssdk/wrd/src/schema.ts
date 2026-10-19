@@ -15,6 +15,7 @@ import whbridge from "@mod-system/js/internal/whmanager/bridge";
 import { nameToCamelCase } from "@webhare/std/src/types";
 import { wrdFinishHandler } from "./finishhandler";
 import type { ExportOptions } from "@webhare/services/src/descriptor";
+import type { WRDEntityMatch } from "./wrd";
 
 const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible by friend WRDType
 
@@ -516,7 +517,7 @@ export class WRDSchemaType<S extends SchemaTypeDefinition = AnySchemaType> {
    * const result = await schema.search("wrdPerson", "wrdFirstName", "John");
    * ```
    */
-  update<T extends keyof S & string>(type: T, entity: number | MatchObjectQueryable<S[T]>, value: WRDUpdatable<S[T]>, options?: { importMode?: boolean }): Promise<void> {
+  update<T extends keyof S & string>(type: T, entity: WRDEntityMatch<WRDSchemaType<S>, T>, value: WRDUpdatable<S[T]>, options?: { importMode?: boolean }): Promise<void> {
     return this.getType(type).updateEntity(entity, value, options);
   }
 
@@ -555,14 +556,14 @@ export class WRDSchemaType<S extends SchemaTypeDefinition = AnySchemaType> {
 
   // Overloads: allowMisisng controls null or not, export controls export flag setting
 
-  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number | MatchObjectQueryable<S[T]>, mapping: M, options: GetFieldsOptions & { allowMissing: true; export: true }): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>, true> | null>;
-  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number | MatchObjectQueryable<S[T]>, mapping: M, options: GetFieldsOptions & { allowMissing: true; export?: false | undefined }): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>, false> | null>;
-  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number | MatchObjectQueryable<S[T]>, mapping: M, options: GetFieldsOptions & { export: true }): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>, true>>;
-  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number | MatchObjectQueryable<S[T]>, mapping: M, options: GetFieldsOptions & { export?: false | undefined }): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>, false>>;
-  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number | MatchObjectQueryable<S[T]>, mapping: M): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>, false>>;
-  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string, Export extends boolean>(type: T, id: number | MatchObjectQueryable<S[T]>, mapping: M, options?: GetFieldsOptions): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>, Export> | null>;
+  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: WRDEntityMatch<WRDSchemaType<S>, T>, mapping: M, options: GetFieldsOptions & { allowMissing: true; export: true }): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>, true> | null>;
+  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: WRDEntityMatch<WRDSchemaType<S>, T>, mapping: M, options: GetFieldsOptions & { allowMissing: true; export?: false | undefined }): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>, false> | null>;
+  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: WRDEntityMatch<WRDSchemaType<S>, T>, mapping: M, options: GetFieldsOptions & { export: true }): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>, true>>;
+  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: WRDEntityMatch<WRDSchemaType<S>, T>, mapping: M, options: GetFieldsOptions & { export?: false | undefined }): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>, false>>;
+  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: WRDEntityMatch<WRDSchemaType<S>, T>, mapping: M): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>, false>>;
+  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string, Export extends boolean>(type: T, id: WRDEntityMatch<WRDSchemaType<S>, T>, mapping: M, options?: GetFieldsOptions): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>, Export> | null>;
 
-  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string, Export extends boolean>(type: T, id: number | MatchObjectQueryable<S[T]>, mapping: M, options?: GetFieldsOptions): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>, Export> | null> {
+  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string, Export extends boolean>(type: T, id: WRDEntityMatch<WRDSchemaType<S>, T>, mapping: M, options?: GetFieldsOptions): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>, Export> | null> {
     const baseQuery = this.query(type).select(mapping);
     const selector = typeof id === "number" ? baseQuery.where("wrdId", "=" as any, id as any) : baseQuery.match(id);
     const rows: Array<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>, Export>> = await selector
