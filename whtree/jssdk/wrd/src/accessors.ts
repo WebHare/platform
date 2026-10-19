@@ -756,8 +756,12 @@ class WRDDBBaseIntegerValue extends WRDAttributeValueBase<number, number, number
       return null;
 
     switch (this.attr.tag) {
-      case "wrdOrdering": query = query.where("ordering", cv.condition, cv.value); break;
-      default: throw new Error(`Unhandled base integer attribute ${JSON.stringify(this.attr.tag)}`);
+      case "wrdOrdering":
+      case "wrdOrder":
+        query = query.where("ordering", cv.condition, cv.value);
+        break;
+      default:
+        throw new Error(`Unhandled base integer attribute ${JSON.stringify(this.attr.tag)}`);
     }
 
     return {

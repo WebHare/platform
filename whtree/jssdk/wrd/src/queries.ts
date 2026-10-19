@@ -72,7 +72,7 @@ function createSelectMap<S extends SchemaTypeDefinition, T extends keyof S & str
     map = createSelectMapRecursive(type, selects, fieldset);
   const accessors = [];
   for (const field of fieldset) {
-    const attrrec = rootattrs.get(field);
+    const attrrec = rootattrs.get(field === "wrdOrder" ? "wrdOrdering" : field);
     if (!attrrec) {
       throw new Error(`Could not find attribute '${field}' in type '${type.tag}'`);
     }
