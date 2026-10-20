@@ -89,6 +89,12 @@ paths:
               schema:
                 type: object
                 additionalProperties: false
+        "409":
+          description: A file or folder with the requested name already exists in the parent folder (case-insensitive)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/defaulterror"
       x-webhare-implementation: "whfs.ts#createWHFSObject"
 
     patch:

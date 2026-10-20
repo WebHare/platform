@@ -173,6 +173,28 @@ async function testWHFSAPI() {
 
   const newFilePath = tempPath + "/newfolder/newfile";
 
+  for (const name of ["newfile", "NEWFILE"]) {
+    const duplicateFileCreated = await api.post("/whfs/object", {
+      ...simpleTestDoc,
+      name
+    }, { params: { path: tempPath + "/newfolder" } });
+    test.eq(409, duplicateFileCreated.status);
+    test.eqPartial({
+      status: 409,
+      error: /already exists/
+    }, duplicateFileCreated.body);
+  }
+
+  const duplicateFolderCreated = await api.post("/whfs/object", {
+    name: "newfolder",
+    type: "platform:foldertypes.default"
+  }, { params: { path: tempPath } });
+  test.eq(409, duplicateFolderCreated.status);
+  test.eqPartial({
+    status: 409,
+    error: /already exists/
+  }, duplicateFolderCreated.body);
+
   // Update file content
   const fish = readFileSync(toFSPath("mod::system/web/tests/goudvis.png"));
   const badUpdateResult = await api.patch("/whfs/object", {

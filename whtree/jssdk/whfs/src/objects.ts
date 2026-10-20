@@ -22,6 +22,9 @@ import { lookupWHFSObject } from "./database";
 
 export type WHFSObject = WHFSFile | WHFSFolder;
 
+export class WHFSObjectExistsError extends Error {
+}
+
 export interface FsObjectRow extends Selectable<PlatformDB, "system.fs_objects"> {
   link: string;
   fullpath: string;
@@ -641,7 +644,7 @@ export class WHFSFolder extends WHFSBaseObject {
       executeTakeFirst();
 
     if (exists)
-      throw new Error(`A ${exists.isfolder ? "folder" : "file"} named '${name}' (#${exists.id}) already exists in folder '${this.whfsPath}'`);
+      throw new WHFSObjectExistsError(`A ${exists.isfolder ? "folder" : "file"} named '${name}' (#${exists.id}) already exists in folder '${this.whfsPath}'`);
 
     const id = await createWHFSObject({ id: this.id, parentSite: this.parentSite }, name, type, metadata);
 

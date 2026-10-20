@@ -9,11 +9,12 @@ import { exportFileAsFetch, type ExportOptions, type ImportOptions } from "@webh
 import { resolveVirtualMetadata, type ImportedVirtualMetadata } from "@webhare/whfs/src/import";
 import { dirname } from "path";
 import { SetDataError } from "@webhare/services/src/codec-support";
+import { WHFSObjectExistsError } from "@webhare/whfs/src/objects";
 
 class WHFSAPIError extends Error {
-  statusCode: 400 | 403 | 404;
+  statusCode: 400 | 403 | 404 | 409;
 
-  constructor(message: string, statusCode: 400 | 403 | 404) {
+  constructor(message: string, statusCode: 400 | 403 | 404 | 409) {
     super(message);
     this.statusCode = statusCode;
   }
@@ -158,7 +159,8 @@ export async function createWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUse
       await applyInstanceUpdates(newObj, req.body.instances);
       return req.createJSONResponse(201, {});
     });
-  } catch (e) {
+  } catch (error) {
+    const e = error instanceof WHFSObjectExistsError ? new WHFSAPIError(error.message, 409) : error;
     if (e instanceof SetDataError) {
       return req.createErrorResponse(400, { error: e.message + e.getPathErrorSuffix() });
     }
