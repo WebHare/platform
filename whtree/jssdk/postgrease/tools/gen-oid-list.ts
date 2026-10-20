@@ -9,7 +9,7 @@ runCli({
   description: "Generate OID list from PostgreSQL source install pg_type.dat file",
   arguments: [
     {
-      name: "<pgTypeDatFile>",
+      name: "<pg_type_dat-file>",
       description: "Path to pg_type.dat file",
     }
   ],

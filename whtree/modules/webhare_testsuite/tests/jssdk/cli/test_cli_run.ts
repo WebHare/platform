@@ -37,6 +37,10 @@ async function testCLIMainParse() {
     //@ts-expect-error Mixed case options are rejected at compile-time
     options: { "dryRunOpt": { description: "Dry run opt" } },
   }, []);
+  //@ts-expect-error Mixed case options are rejected at compile-time
+  await parse({
+    arguments: [{ name: "<dryRunOpt>", description: "Dry run opt" }],
+  }, ["a"]);
 
   // After the first argument flags and options are not parsed
   await test.throws(/too many arguments/i, () => parse({
@@ -571,6 +575,38 @@ async function testCLITypes() {
         },
       }
     }, []);
+
+    {
+      const res = await parse({
+        flags: {
+          "f-f": "",
+        },
+        options: {
+          "o-o": "",
+        },
+        arguments: [{ name: "<a-a>" }, { name: "[b-b]" }, { name: "[c-c...]" }],
+      }, []);
+      void res;
+
+      test.typeAssert<test.Equals<{
+        args: {
+          aA: string;
+          cC: string[];
+          bB?: string | undefined;
+        };
+        opts: {
+          oO?: string | undefined;
+          fF: boolean;
+        };
+        specifiedOpts: ("fF" | "oO")[];
+        cmd?: undefined;
+        globalOpts: {
+          oO?: string | undefined;
+          fF: boolean;
+        };
+        specifiedGlobalOpts: ("fF" | "oO")[];
+      }, typeof res>>();
+    }
   });
 }
 
@@ -627,6 +663,29 @@ async function testCLIRun() {
         }
       }
     }, { argv: ["c", "-a", "a"] });
+    await waitRunDone(res);
+    test.assert(executed);
+  }
+  {
+    let executed = false;
+    const res = runCli({
+      name: "test",
+      description: "Test command",
+      flags: {
+        "f-f": "",
+      },
+      options: {
+        "o-o": "",
+      },
+      arguments: [{ name: "<a-a>" }, { name: "[b-b]" }, { name: "[c-c...]" }],
+      async main(data) {
+        executed = true;
+        test.typeAssert<test.Equals<{ args: { aA: string; bB?: string; cC: string[] }; opts: { fF: boolean; oO?: string }; specifiedOpts: ("fF" | "oO")[]; cmd?: undefined }, typeof data>>();
+        test.eq({ args: { aA: "a", bB: "b", cC: ["c1", "c2"] }, opts: { fF: true, oO: "o" }, specifiedOpts: ["fF", "oO"], cmd: undefined }, data);
+        test.typeAssert<test.Equals<{ onDone?: () => void; global: Promise<{ globalOpts: { fF: boolean; oO?: string }; specifiedGlobalOpts: ("fF" | "oO")[] }> }, typeof res>>();
+        test.eqPartial({ globalOpts: { fF: true, oO: "o" }, specifiedGlobalOpts: ["fF", "oO"] }, await res.global);
+      }
+    }, { argv: ["--f-f", "--o-o", "o", "a", "b", "c1", "c2"] });
     await waitRunDone(res);
     test.assert(executed);
   }

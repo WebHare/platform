@@ -1,11 +1,11 @@
-/// activate the tollium modality layer
+/// activate the tollium modality layer, without visual feedback
 @mixin tolliummodalitylayer-activate {
-  .tolliummodalitylayer {
+  .tolliummodalitylayer,&.tolliummodalitylayer {
     display: block;
   }
 }
 
-/// show the tollium modality layer busy state
+/// activate the tollium modality layer and show the busy state
 @mixin tolliummodalitylayer-showbusy {
   .tolliummodalitylayer,&.tolliummodalitylayer {
     display: block;
@@ -20,9 +20,10 @@
   }
 }
 
-// show the loader 200ms after showing the busy state
+// delay the loader & background darkening 200ms after showing the busy state. Include after -showbusy
 @mixin tolliummodalitylayer-delayshow {
   .tolliummodalitylayer,&.tolliummodalitylayer {
+    transition: background-color 200ms 200ms;
     > .tolliummodalitylayer__loader {
       transition: opacity 0s 200ms;
       @starting-style {

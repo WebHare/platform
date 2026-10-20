@@ -30,8 +30,8 @@
 
 //* Active modality layer */
 .appcanvas.appcanvas--isbusy {
-  @include tolliummodalitylayer-activate;
   @include tolliummodalitylayer-showbusy;
+  @include tolliummodalitylayer-delayshow;
 }
 
 .appcanvas

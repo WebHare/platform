@@ -4,7 +4,7 @@ import { registerRun } from "./run-autocomplete";
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /// Type that can be returned by main() functions
-type CommandReturn = void | number | Promise<void> | Promise<number>;
+type CommandReturn = void | number | Promise<void | number>;
 
 export class CLIError extends Error {
   command?: string[];
@@ -77,7 +77,7 @@ type FlagTemplate = {
 
 /** An arguments, with an optional type */
 type Argument<J> = {
-  name: `<${string}>` | `[${string}]` | `[${string}...]` | `<${string}...>`;
+  name: `<${Lowercase<string>}>` | `[${Lowercase<string>}]` | `[${Lowercase<string>}...]` | `<${Lowercase<string>}...>`;
   description?: string;
   type?: CLIArgumentType<J>;
 };
@@ -144,7 +144,7 @@ type GetArgumentTypeType<O extends { type: CLIArgumentType<any> }> = Awaited<Ret
 type TypeOfArgument<A extends Argument<unknown>> = A["name"] extends `<${string}...>` | `[${string}...]` ? GetParsedType<A, string, true> : GetParsedType<A, string, false>;
 
 /// Determine the name of an argument (stripping `...`, `[]` and `<>`)
-type NameOfArgument<A extends Argument<unknown>> = A["name"] extends `[${infer S}...]` ? S : A["name"] extends `<${infer S2}...>` ? S2 : A["name"] extends `[${infer S}]` ? S : A["name"] extends `<${infer S}>` ? S : never;
+type NameOfArgument<A extends Argument<unknown>> = CamelCase<A["name"] extends `[${infer S}...]` ? S : A["name"] extends `<${infer S2}...>` ? S2 : A["name"] extends `[${infer S}]` ? S : A["name"] extends `<${infer S}>` ? S : never>;
 
 type GetMultiple<Type, Multiple extends boolean | undefined> = Multiple extends true ? Type[] : Type;
 
@@ -552,18 +552,18 @@ async function parseInternal(data: OptArgBase, argv: string[]): Promise<any> {
           .map(value => arg.type?.parseValue(value, { argName: `argument ${JSON.stringify(name)}`, command: command }) ?? value));
       if (parsed.length < minRequired)
         throw new CLISyntaxError(`Missing required argument: ${name}`, command);
-      parsedArgs[name] = parsed;
+      parsedArgs[nameToCamelCase(name)] = parsed;
     } else if (arg.name.startsWith("<")) {
       const name = arg.name.slice(1, -1);
       if (!argList.length)
         throw new CLISyntaxError(`Missing required argument: ${name}`, command);
       const value = argList.shift()!;
-      parsedArgs[name] = await arg.type?.parseValue(value, { argName: `argument ${JSON.stringify(name)}`, command: command }) ?? value;
+      parsedArgs[nameToCamelCase(name)] = await arg.type?.parseValue(value, { argName: `argument ${JSON.stringify(name)}`, command: command }) ?? value;
     } else if (arg.name.startsWith("[")) {
       const name = arg.name.slice(1, -1);
       const value = argList.length > trailingRequired ? argList.shift() : undefined;
       if (value !== undefined)
-        parsedArgs[name] = await arg.type?.parseValue(value, { argName: `argument ${JSON.stringify(name)}`, command: command }) ?? value;
+        parsedArgs[nameToCamelCase(name)] = await arg.type?.parseValue(value, { argName: `argument ${JSON.stringify(name)}`, command: command }) ?? value;
     } else
       throw new CLIConfigError(`Invalid argument name: ${arg.name}`, command);
   }
