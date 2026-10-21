@@ -10,7 +10,8 @@ import type { WebServerPort } from "@mod-platform/js/webserver/webserver";
 import type { WebRequestInfo, WebResponseInfo } from "@mod-system/js/internal/types";
 import { newWebRequestFromInfo } from "./request";
 import { isLitty, litty, littyToString } from "@webhare/litty";
-import { runHareScriptPage } from "./hswebdesigndriver";
+import { getTid } from "@webhare/gettid";
+import { runHareScriptPage, type HareScripErrorInfo } from "./hswebdesigndriver";
 import { whfsType } from "@webhare/whfs";
 import { Timings, asServerTimingHeader } from "@mod-platform/js/logging/timings";
 import { getCodeContext } from "@webhare/services/src/codecontexts";
@@ -120,10 +121,55 @@ export async function executeSHTMLRequestHS(webreq: WebRequestInfo, webdesignurl
   return (await runHareScriptPage(whfsreq, { pageRouter: { funcname, args } })).asWebResponseInfo();
 }
 
+async function handleErrorPage(whfsreq: ContentPageRequest, options: {
+  errorcode: number;
+  harescriptinfo?: HareScripErrorInfo;
+  webreq?: WebRequestInfo;
+}): Promise<WebResponse> {
+  let errorTitle: string;
+  let errorText: string;
+  switch (options.errorcode) {
+    case 401:
+      errorTitle = getTid("platform:frontend.worldwide.errors.error401-title");
+      errorText = getTid("platform:frontend.worldwide.errors.error401-text");
+      break;
+    case 403:
+      errorTitle = getTid("platform:frontend.worldwide.errors.error403-title");
+      errorText = getTid("platform:frontend.worldwide.errors.error403-text");
+      break;
+    case 404:
+      errorTitle = getTid("platform:frontend.worldwide.errors.error404-title");
+      errorText = getTid("platform:frontend.worldwide.errors.error404-text");
+      break;
+    case 500:
+      errorTitle = getTid("platform:frontend.worldwide.errors.error500-title");
+      errorText = getTid("platform:frontend.worldwide.errors.error500-text");
+      break;
+    default:
+      errorTitle = getTid("platform:frontend.worldwide.errors.error_unknown-title");
+      errorText = getTid("platform:frontend.worldwide.errors.error_unknown-text");
+      break;
+  }
+  const infoForManager = getTid("platform:frontend.worldwide.errors.infoformanager");
+  whfsreq.pageMetadata.title = errorTitle;
+  whfsreq.pageMetadata.htmlClasses.push("wh-errorpage", `wh-errorpage--${options.errorcode}`);
+
+  const idStr = options.harescriptinfo?.groupid ? `ID: ${options.harescriptinfo.groupid}, ` : "";
+  const errorPage = litty`
+    <p>${errorText}</p>
+    <div class="wh-errorinfo" style="margin-top:30px; font-size:80%">
+      <p>${infoForManager} ${idStr}code ${options.errorcode}, ${new Date().toISOString()}</p>
+    </div>
+  `;
+
+  return await whfsreq.buildWebPage(errorPage);
+}
+
 /** Invoked by HareScript's whfsexecute (dynamic) or publishwebdesign (static) to render a page */
 export async function executeContentPageRequestHS(targetId: number, options?: {
   errorcode?: number;
   webreq?: WebRequestInfo;
+  harescriptinfo?: HareScripErrorInfo;
   ispublisherpreview?: boolean;
 }): Promise<WebResponseInfo> {
   const timings = new Timings();
@@ -143,8 +189,7 @@ export async function executeContentPageRequestHS(targetId: number, options?: {
   const whfsreq = await createContentPageRequest(targetObject, { webRequest, statusCode: options?.errorcode, isPublisherPreview: options?.ispublisherpreview, timings });
   whfsreq.applyToCurrentContext();
   if (options?.errorcode) {
-    //FIXME We need to create proper error page body. Pass sufficient info to the webdesign?
-    const resp = await whfsreq.buildWebPage(litty`Errorcode ${options.errorcode}`);
+    const resp = await handleErrorPage(whfsreq, { errorcode: options.errorcode, harescriptinfo: options.harescriptinfo, webreq: options.webreq });
     return resp.asWebResponseInfo();
   }
 

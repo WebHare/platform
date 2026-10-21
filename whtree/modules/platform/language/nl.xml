@@ -27,6 +27,19 @@
           <text tid="unknown-account">Onbekend account</text>
         </textgroup>
       </textgroup>
+      <textgroup gid="errors">   <!-- frontend.worldwide.errors -->
+        <text tid="error401-text">De opgevraagde pagina vereist dat u inlogt.</text>
+        <text tid="error401-title">Autorisatie vereist</text>
+        <text tid="error403-text">De opgevraagde pagina is niet toegankelijk.</text>
+        <text tid="error403-title">Toegang geweigerd</text>
+        <text tid="error404-text">De opgevraagde pagina is niet gevonden.</text>
+        <text tid="error404-title">Pagina niet gevonden</text>
+        <text tid="error500-text">De opgevraagde pagina is momenteel niet beschikbaar. Probeert u het later nog eens.</text>
+        <text tid="error500-title">Pagina niet beschikbaar</text>
+        <text tid="error_unknown-text">Er heeft een onbekende fout plaatsgevonden op deze pagina. Probeert u het later nog eens.</text>
+        <text tid="error_unknown-title">Onbekende fout</text>
+        <text tid="infoformanager">Informatie voor de webmaster:</text>
+      </textgroup>
     </textgroup>
   </textgroup>
   <textgroup gid="module">   <!-- module -->

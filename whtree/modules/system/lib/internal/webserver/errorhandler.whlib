@@ -6,9 +6,9 @@ LOADLIB "wh::internet/urls.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
-LOADLIB "mod::system/lib/internal/language.whlib";
 LOADLIB "mod::system/lib/webserver/errors.whlib";
 LOADLIB "mod::system/lib/internal/remoting/transports.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
@@ -25,16 +25,37 @@ PUBLIC BOOLEAN FUNCTION IsRobotURLPath(STRING path)
          OR path LIKE "apple-touch-icon-*.png";
 }
 
-PUBLIC RECORD FUNCTION GetErrorMessages(STRING langcode, INTEGER errorcode)
-{
-  RECORD basetexts := langcode LIKE "nl*" ? langtexts.nl : langtexts.en;
+PUBLIC RECORD FUNCTION GetErrorMessages(STRING langcode, INTEGER errorcode) {
   RECORD retval;
-  IF(errorcode IN [401,403,404,500])
-    retval := GetCell(basetexts,"error" || errorcode);
-  ELSE
-    retval := basetexts.error_unknown;
+  SWITCH(errorcode) {
+    CASE 401 {
+      retval := [ title := GetTidForLanguage(langcode, "platform:frontend.worldwide.errors.error401-title")
+                , text := GetTidForLanguage(langcode, "platform:frontend.worldwide.errors.error401-text")
+                ];
+    }
+    CASE 403 {
+      retval := [ title := GetTidForLanguage(langcode, "platform:frontend.worldwide.errors.error403-title")
+                , text := GetTidForLanguage(langcode, "platform:frontend.worldwide.errors.error403-text")
+                ];
+    }
+    CASE 404 {
+      retval := [ title := GetTidForLanguage(langcode, "platform:frontend.worldwide.errors.error404-title")
+                , text := GetTidForLanguage(langcode, "platform:frontend.worldwide.errors.error404-text")
+                ];
+    }
+    CASE 500 {
+      retval := [ title := GetTidForLanguage(langcode, "platform:frontend.worldwide.errors.error500-title")
+                , text := GetTidForLanguage(langcode, "platform:frontend.worldwide.errors.error500-text")
+                ];
+    }
+    DEFAULT {
+      retval := [ title := GetTidForLanguage(langcode, "platform:frontend.worldwide.errors.error_unknown-title")
+                , text := GetTidForLanguage(langcode, "platform:frontend.worldwide.errors.error_unknown-text")
+                ];
+    }
+  }
 
-  INSERT CELL infoformanager := basetexts.infoformanager
+  INSERT CELL infoformanager := GetTidForLanguage(langcode, "platform:frontend.worldwide.errors.infoformanager")
          INTO retval;
   RETURN retval;
 }
@@ -169,7 +190,7 @@ PUBLIC MACRO GenerateHTTPErrorPage(INTEGER errorcode, RECORD harescriptinfo)
     }
 
     IF(webdesigninfo.js) {
-      MakeFunctionPtr("mod::system/lib/internal/webserver/whfsexecute.whlib#DoWHFSExecuteJS")(urlinfo.site, [ errorcode := errorcode ]); //FIXME version selection
+      MakeFunctionPtr("mod::system/lib/internal/webserver/whfsexecute.whlib#DoWHFSExecuteJS")(urlinfo.site, CELL[ errorcode, harescriptinfo ]);
       RETURN;
     }
 

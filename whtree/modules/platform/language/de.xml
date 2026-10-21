@@ -18,6 +18,19 @@
           <text tid="incorrectlogin-username">Die Kombination aus Benutzername und Passwort ist falsch</text>
         </textgroup>
       </textgroup>
+      <textgroup gid="errors">   <!-- frontend.worldwide.errors -->
+        <text tid="error401-text">Die von Ihnen angeforderte Seite erfordert Autorisierung.</text>
+        <text tid="error401-title">Autorisierung erforderlich</text>
+        <text tid="error403-text">Die von Ihnen angeforderte Seite ist nicht zugänglich.</text>
+        <text tid="error403-title">Zugang gesperrt</text>
+        <text tid="error404-text">Die von Ihnen angeforderte Seite wurde nicht gefunden.</text>
+        <text tid="error404-title">Seite nicht gefunden</text>
+        <text tid="error500-text">Die von Ihnen angeforderte Seite ist zurzeit nicht verfügbar. Bitte versuchen Sie es später noch einmal.</text>
+        <text tid="error500-title">Seite nicht verfügbar</text>
+        <text tid="error_unknown-text">Es war ein unbekannter Fehler aufgetreten auf dieser Seite. Bitte versuchen Sie es später noch einmal.</text>
+        <text tid="error_unknown-title">Unbekannter Fehler</text>
+        <text tid="infoformanager">Informationen für den Webmaster:</text>
+      </textgroup>
     </textgroup>
   </textgroup>
 </language>

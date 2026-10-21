@@ -49,7 +49,7 @@ export class GenerateContext {
 
   parseYMLTid<AttrName extends string>(mod: LoadedModuleDefs, el: TidElementsForAttr<AttrName>, attrname: AttrName) {
     if ((el as Record<string, string | undefined>)[attrname])
-      return ((el as Record<string, string>)[attrname]);
+      return `:${(el as Record<string, string>)[attrname]}`;
 
     //TODO have modYmls use TrackedYAML so we can trace exact line locations
     const tid = ((el as Record<string, string | undefined>)[attrname === "title" ? "tid" : `${attrname}Tid`]);
