@@ -27,6 +27,19 @@
           <text tid="unknown-account">Unknown account</text>
         </textgroup>
       </textgroup>
+      <textgroup gid="errors">   <!-- frontend.worldwide.errors -->
+        <text tid="error401-text">The requested page requires you to log in.</text>
+        <text tid="error401-title">Authorization required</text>
+        <text tid="error403-text">The requested page is not accessible.</text>
+        <text tid="error403-title">Access denied</text>
+        <text tid="error404-text">The requested page could not be found.</text>
+        <text tid="error404-title">Page not found</text>
+        <text tid="error500-text">The requested page is currently unavailable. Please try again later.</text>
+        <text tid="error500-title">Page unavailable</text>
+        <text tid="error_unknown-text">An unknown error occured on this page. Please try again later.</text>
+        <text tid="error_unknown-title">Unknown error</text>
+        <text tid="infoformanager">Information for the webmaster:</text>
+      </textgroup>
     </textgroup>
   </textgroup>
   <textgroup gid="module" limitlanguages="en nl">   <!-- module -->

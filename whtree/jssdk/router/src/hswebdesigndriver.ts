@@ -13,10 +13,19 @@ import type { ListItem, Thing } from "schema-dts";
 import { getCodeContextHSVM } from "@webhare/harescript/src/contextvm";
 import type { PageMetadata } from "./metadata";
 import type { ExportedTSDescriptor } from "@webhare/hscompat";
+import type { MessageList } from "@webhare/harescript/src/wasm-hsvm";
 
 type RunPageResultCommon = {
   headers: Array<{ header: string; data: string; always_add: boolean }>;
 };
+
+export type HareScripErrorInfo = {
+  allerrors: MessageList;
+  groupid: string;
+  erorrcode: number;
+  resources?: string[];
+};
+
 
 /** hs-pagehost.whlib description of a captured page, applied to the ContentPageRequest by setupRequestFromResult  */
 export type RunPageResultContent = {

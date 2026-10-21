@@ -1,5 +1,6 @@
 import { gatherManagedServicesFromModDef } from "@mod-platform/js/bootstrap/servicemanager/gatherservices";
-import { getApplicabilityError, getMyApplicabilityInfo, readApplicableToWebHareNode } from "@mod-system/js/internal/generation/shared";
+import { GenerateContext, getApplicabilityError, getMyApplicabilityInfo, readApplicableToWebHareNode, type LoadedModuleDefs } from "@mod-system/js/internal/generation/shared";
+import { generateWebDesigns, type WebDesignsExtract } from "@mod-system/js/internal/generation/webdesigns";
 import { parseAndValidateModuleDefYMLText } from "@mod-webhare_testsuite/js/config/testhelpers";
 import * as test from "@webhare/test";
 import type { Element } from "@xmldom/xmldom";
@@ -113,7 +114,39 @@ function testApplicabilityXML() {
   test.eq(null, getApplicabilityError(baseApplicability, readMockXML({ unlessenvironset: "WEBHARE_PLATFORM=dummy TESTDUMMY=x" })));
 }
 
+async function testYMLTitles() {
+  const moduledef: LoadedModuleDefs = {
+    name: "publisher",
+    resourceBase: "mod::publisher/",
+    modXml: null,
+    modYml: {
+      module: "publisher",
+      baseResourcePath: "mod::publisher/",
+      webDesigns: {
+        nodesign: { title: "No webdesign", siteProfile: "mod::webhare_testsuite/dummy.siteprl.yml", }
+      },
+      webFeatures: {
+        literal: { title: "Literal feature" },
+        translated: { tid: "features.translated" },
+        untitled: {}
+      }
+    }
+  };
+  const context = new GenerateContext([moduledef], false);
+  test.eq(":No webdesign", context.parseYMLTid(moduledef, { title: "No webdesign" }, "title"));
+  test.eq(":Literal: title", context.parseYMLTid(moduledef, { title: "Literal: title" }, "title"));
+  test.eq("publisher:titles.translated", context.parseYMLTid(moduledef, { tid: "titles.translated" }, "title"));
+  test.eq("other:titles.translated", context.parseYMLTid(moduledef, { tid: "other:titles.translated" }, "title"));
+  test.eq(":Description", context.parseYMLTid(moduledef, { description: "Description" }, "description"));
+  test.eq("", context.parseYMLTid(moduledef, {}, "title"));
+
+  const extract: WebDesignsExtract = JSON.parse(await generateWebDesigns(context));
+  test.eq(":No webdesign", extract.webDesigns[0].title);
+  test.eq([":Literal feature", "publisher:features.translated", ":publisher:untitled"], extract.webFeatures.map(feature => feature.title));
+}
+
 test.runTests([
+  testYMLTitles,
   testApplicability,
   testApplicabilityXML
 ]);
