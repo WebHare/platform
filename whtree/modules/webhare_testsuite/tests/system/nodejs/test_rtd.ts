@@ -1341,8 +1341,92 @@ async function testRTDOutput() {
   }
 }
 
+async function testExcerpt() {
+  test.eq("", new RichTextDocument().getExcerpt());
+  test.eq("", new RichTextDocument().getExcerpt({ maxLength: 10 }));
+  test.eq("", (await buildRTD([{ p: " \n\t " }, { p: "" }])).getExcerpt());
+  const paragraphs = await buildRTD([{ h2: "Heading" }, { p: "First paragraph" }, { p: "Second paragraph" }]);
+  test.eq("Heading\nFirst paragraph\nSecond paragraph", paragraphs.getExcerpt());
+  test.eq("Heading\nFirst", paragraphs.getExcerpt({ maxLength: 13 }));
+
+  const widget = await buildInstance({ whfsType: "platform:widgets.html", data: { html: "<b>Widget text</b>" } });
+  const doc = await buildRTD([
+    { h1: "  Heading\n" },
+    {
+      p: [
+        "A ",
+        { text: "styled", bold: true },
+        { text: " link", link: "https://example.com/" },
+        " with <literal> & text.",
+        { externalImage: "https://example.com/image.png", alt: "Image text" },
+        { inlineWidget: widget }
+      ]
+    },
+    { widget },
+    {
+      tag: "ul",
+      listItems: [
+        {
+          li: [
+            { items: ["First", { text: " item", italic: true }] },
+            { tag: "ol", listItems: [{ li: [{ items: ["Nested\titem"] }] }] }
+          ]
+        },
+        { li: [{ p: "Second item" }, { p: "Another paragraph" }] }
+      ]
+    },
+    {
+      tag: "table",
+      caption: "Table caption",
+      colGroups: [{ cols: [{ width: 50 }, { width: 50 }] }],
+      rowGroups: [
+        {
+          rows: [
+            {
+              cells: [
+                { cellItems: [{ p: "First cell" }, { p: "More cell text" }] },
+                { cellItems: [{ tag: "ul", listItems: [{ li: [{ items: ["Cell list"] }] }] }] }
+              ]
+            },
+            { cells: [{ cellItems: [{ p: "Next row" }] }] }
+          ]
+        },
+        { rows: [{ cells: [{ cellItems: [{ p: "Last group" }] }] }] }
+      ]
+    },
+    { p: "  End.  " }
+  ]);
+  const expected = "Heading\nA styled link with <literal> & text.\nFirst item\nNested item\nSecond item\nAnother paragraph\nTable caption\nFirst cell\nMore cell text\nCell list\nNext row\nLast group\nEnd.";
+  test.eq(expected, doc.getExcerpt());
+  test.eq(expected, doc.getExcerpt({}));
+  test.eq("", doc.getExcerpt({ maxLength: 0 }));
+  test.eq("H", doc.getExcerpt({ maxLength: 1 }));
+  test.eq("Heading", doc.getExcerpt({ maxLength: 8 }));
+  test.eq(expected, doc.getExcerpt({ maxLength: expected.length }));
+  test.eq(expected, doc.getExcerpt({ maxLength: expected.length + 10 }));
+  for (let maxLength = 0; maxLength <= expected.length + 1; ++maxLength) {
+    const excerpt = doc.getExcerpt({ maxLength });
+    test.eq(expected.slice(0, maxLength).trimEnd(), excerpt);
+    test.assert(excerpt.length <= maxLength);
+  }
+
+  const unicodeDoc = await buildRTD([{ p: "A\u{1F600}B" }]);
+  test.eq("A", unicodeDoc.getExcerpt({ maxLength: 2 }));
+  test.eq("A\u{1F600}", unicodeDoc.getExcerpt({ maxLength: 3 }));
+  test.eq("A\u{1F600}B", unicodeDoc.getExcerpt());
+  for (const maxLength of [-1, 1.5, NaN, Infinity, -Infinity, Number.MAX_SAFE_INTEGER + 1])
+    test.throws(/maxLength must be a non-negative safe integer/, () => doc.getExcerpt({ maxLength }));
+
+  const mediaDoc = await buildRTD([
+    { widget },
+    { p: [{ inlineWidget: widget }, { externalImage: "https://example.com/image.png", alt: "Image text" }] }
+  ]);
+  test.eq("", mediaDoc.getExcerpt());
+}
+
 test.runTests(
   [
+    testExcerpt,
     testReader,
     testHSReader,
     testHSReaderTables,

@@ -366,6 +366,53 @@ export class RichTextDocument {
     return this.#blocks.length === 0;
   }
 
+  /** Returns plain text with blocks separated by linefeeds and whitespace within each block collapsed to single spaces.
+   * Includes table captions and cells, but omits images and widgets.
+   * @param options.maxLength Maximum string length (UTF-16 code units), without an ellipsis. Must be a non-negative safe integer.
+   * If omitted, returns all text. Truncation never splits a surrogate pair.
+   */
+  getExcerpt(options?: { maxLength?: number }): string {
+    const maxLength = options?.maxLength;
+    if (maxLength !== undefined && (!Number.isSafeInteger(maxLength) || maxLength < 0))
+      throw new RangeError("maxLength must be a non-negative safe integer");
+
+    if (maxLength === 0)
+      return "";
+
+    const parts: string[] = [];
+    function collectText(blocks: Array<RTDBlock | RTDAnonymousParagraph>): void {
+      for (const block of blocks) {
+        if ("items" in block)
+          parts.push(block.items.map(item => "text" in item ? item.text : "").join(""));
+        else if ("listItems" in block) {
+          for (const item of block.listItems)
+            collectText(item.li);
+        } else if ("widget" in block) {
+          continue;
+        } else if (block.tag === "table") {
+          if (block.caption)
+            parts.push(block.caption);
+          for (const group of block.rowGroups)
+            for (const row of group.rows)
+              for (const cell of row.cells)
+                collectText(cell.cellItems);
+        } else
+          block satisfies never;
+      }
+    }
+
+    collectText(this.#blocks);
+    const text = parts.map(part => part.replace(/\s+/g, " ").trim()).join("\n").trim();
+    if (maxLength === undefined || text.length <= maxLength)
+      return text;
+
+    let end = maxLength;
+    // If the cutoff falls between a UTF-16 high and low surrogate, omit the whole pair to avoid a broken character.
+    if (/[\uD800-\uDBFF]/.test(text[end - 1]) && /[\uDC00-\uDFFF]/.test(text[end]))
+      --end;
+    return text.slice(0, end).trimEnd();
+  }
+
   private async fixLink<T>(item: T & RTDBaseLink<"build">, options: ImportOptions): Promise<T & RTDBaseLink<"inMemory">> {
     if (typeof item.link === "string")  // convert to IntExtLink
       item = { ...item, link: new IntExtLink(item.link) };
