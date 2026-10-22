@@ -24,7 +24,7 @@ export async function initializeIssuer<S extends SchemaTypeDefinition>(wrdSchema
   await updateSchemaSettings(wrdSchema as unknown as WRDSchema<WRDSchemaLike["wrd:idp"]>, { issuer });
 }
 
-export async function registerRelyingParty<S extends SchemaTypeDefinition>(wrdSchemaIn: WRDSchemaType<S>, spSettings: RelyingProviderInit): Promise<RelyingPartyConfig> {
+export async function registerOAuthApplication<S extends SchemaTypeDefinition>(wrdSchemaIn: WRDSchemaType<S>, spSettings: RelyingProviderInit): Promise<RelyingPartyConfig> {
   const wrdSchema = wrdSchemaIn as unknown as WRDSchema<WRDSchemaLike["wrd:idp"]>;
 
   const clientId = generateRandomId("uuidv4");
