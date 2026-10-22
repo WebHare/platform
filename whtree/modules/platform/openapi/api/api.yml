@@ -343,7 +343,20 @@ components:
     ## Global types
     defaulterror: # This schema must be declared to use TypedRestRequest.createErrorResponse in TypeScript
       type: object
+      required:
+        - error
       properties:
+        code:
+          type: string
+          oneOf:
+            - const: "invalid-argument"
+              description: The argument provided is invalid. This is a catch-all error and specific messages may be given a different code in the future
+            - const: "object-exists"
+              description: The object already exists
+            - const: "object-not-found"
+              description: The object was not found
+            - const: "access-denied"
+              description: Access to the object was denied
         error:
           type: string
         status:

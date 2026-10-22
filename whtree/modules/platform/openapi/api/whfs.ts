@@ -1,7 +1,7 @@
 import type { TypedRestRequest } from "@mod-platform/generated/openapi/platform/api";
-import type { AuthorizedWRDAPIUser, HTTPSuccessCode, OpenAPIResponse, OpenAPIResponseType } from "@webhare/openapi-service";
+import type { AuthorizedWRDAPIUser, HTTPErrorCode, HTTPSuccessCode, OpenAPIResponse, OpenAPIResponseType } from "@webhare/openapi-service";
 import { getAuthorizationInterface } from "@webhare/auth";
-import { listInstances, lookupURL, openFileOrFolder, whfsType, type WHFSObject } from "@webhare/whfs";
+import { listInstances, lookupURL, openFileOrFolder, WHFSError, whfsType, type WHFSObject } from "@webhare/whfs";
 import { getVirtualObjectData } from "@webhare/whfs/src/export";
 import { runInWork } from "@webhare/whdb";
 import { getType } from "@webhare/whfs/src/describe";
@@ -9,23 +9,13 @@ import { exportFileAsFetch, type ExportOptions, type ImportOptions } from "@webh
 import { resolveVirtualMetadata, type ImportedVirtualMetadata } from "@webhare/whfs/src/import";
 import { dirname } from "path";
 import { SetDataError } from "@webhare/services/src/codec-support";
-import { WHFSObjectExistsError } from "@webhare/whfs/src/objects";
-
-class WHFSAPIError extends Error {
-  statusCode: 400 | 403 | 404 | 409;
-
-  constructor(message: string, statusCode: 400 | 403 | 404 | 409) {
-    super(message);
-    this.statusCode = statusCode;
-  }
-}
 
 export async function resolvePath(req: { params: { path?: string }; authorization: { userId: number } }): Promise<WHFSObject> {
   const target = await openFileOrFolder(req.params.path || "/", { allowRoot: true, allowMissing: true });
   if (!target)
-    throw new WHFSAPIError(`Path not found: ${req.params.path || "/"}`, 404);
+    throw new WHFSError("object-not-found", `Path not found: ${req.params.path || "/"}`);
   if (!await getAuthorizationInterface(req.authorization.userId).hasRightOn("system:fs_browse", target.id || "all"))
-    throw new WHFSAPIError(`Access denied to path: ${req.params.path || "/"}`, 403);
+    throw new WHFSError("access-denied", `Access denied to path: ${req.params.path || "/"}`);
   return target;
 }
 
@@ -73,7 +63,7 @@ export async function exportWHSFObject(targetObj: WHFSObject, instances: string,
 export async function getWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUser, "get /whfs/object">): Promise<OpenAPIResponse> {
   try {
     if (req.params.instances && req.params.instances !== "*")
-      return req.createErrorResponse(400, { error: "instances parameter must be '*' if set" });
+      return req.createErrorResponse(400, { code: "invalid-argument", error: "instances parameter must be '*' if set" });
 
     const targetObj = await resolvePath(req);
     const result = await exportWHSFObject(targetObj, req.params.instances || '', { export: true, exportFile: exportFileAsFetch });
@@ -89,8 +79,8 @@ export async function getWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUser, 
     }
     return req.createJSONResponse(200, result);
   } catch (e) {
-    if (e instanceof WHFSAPIError) {
-      return req.createErrorResponse(e.statusCode, { error: e.message });
+    if (e instanceof WHFSError) {
+      return createAPIError(req, e);
     }
     throw e;
   }
@@ -101,7 +91,7 @@ export async function resolveWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUs
   try {
     url = new URL(req.params.url);
   } catch (e) {
-    return req.createErrorResponse(400, { error: `Invalid URL: ${req.params.url}` });
+    return req.createErrorResponse(400, { code: "invalid-argument", error: `Invalid URL: ${req.params.url}` });
   }
   const resolveRes = await lookupURL(url, { matchProduction: req.params.match_production || false });
   const target = resolveRes.file || resolveRes.folder;
@@ -111,13 +101,13 @@ export async function resolveWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUs
       return req.createJSONResponse(200, { whfsPath: obj.whfsPath });
   }
 
-  return req.createErrorResponse(404, { error: `No WHFS object found for URL: ${req.params.url}` });
+  return req.createErrorResponse(404, { code: "invalid-argument", error: `No WHFS object found for URL: ${req.params.url}` });
 }
 
 async function mapVirtualMetadata(target: WHFSObject | null, data: Record<string, unknown>, importOptions?: ImportOptions): Promise<ImportedVirtualMetadata | null> {
   const result = await resolveVirtualMetadata(target, data, importOptions);
   if (result.errors.length > 0)
-    throw new WHFSAPIError(`Invalid virtual metadata: ${result.errors.join("; ")}`, 400);
+    throw new WHFSError("invalid-argument", `Invalid virtual metadata: ${result.errors.join("; ")}`);
 
   return result.data;
 }
@@ -137,20 +127,41 @@ async function applyInstanceUpdates(obj: WHFSObject, instances: TypedRestRequest
   }
 }
 
+function createAPIError(req: TypedRestRequest<AuthorizedWRDAPIUser, "*">, e: WHFSError) {
+  let statusCode: HTTPErrorCode;
+  switch (e.code) {
+    case "object-exists":
+      statusCode = 409; //Conflict
+      break;
+    case "invalid-argument":
+      statusCode = 400; // Bad Request
+      break;
+    case "access-denied":
+      statusCode = 403; // Forbidden
+      break;
+    case "object-not-found":
+      statusCode = 404; // Not Found
+      break;
+    default:
+      throw new Error(`Unhandled WHFS error code: ${e.code satisfies never}`);
+  }
+  return req.createErrorResponse(statusCode, { code: e.code, error: e.message });
+}
+
 export async function createWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUser, "post /whfs/object">): Promise<OpenAPIResponse> {
   try {
     const parentFolder = await resolvePath(req);
     if (!parentFolder.isFolder) {
-      return req.createErrorResponse(400, { error: `Cannot create object inside a file: ${parentFolder.whfsPath}` });
+      return req.createErrorResponse(400, { code: "invalid-argument", error: `Cannot create object inside a file: ${parentFolder.whfsPath}` });
     }
 
     return await runInWork(async () => {
       const virtualMetadata = req.body.instances?.find(_ => _.whfsType === "platform:virtual.objectdata")?.data;
       const typeinfo = getType(req.body.type);
       if (!typeinfo)
-        return req.createErrorResponse(400, { error: `Unknown type: ${req.body.type}` });
+        return req.createErrorResponse(400, { code: "invalid-argument", error: `Unknown type: ${req.body.type}` });
       if (!typeinfo.filetype && !typeinfo.foldertype)
-        return req.createErrorResponse(400, { error: `Type is neither a file nor a folder type: ${req.body.type}` });
+        return req.createErrorResponse(400, { code: "invalid-argument", error: `Type is neither a file nor a folder type: ${req.body.type}` });
 
       const newObj = await parentFolder[typeinfo.foldertype ? "createFolder" : "createFile"](req.body.name, {
         type: typeinfo.scopedtype || typeinfo.namespace,
@@ -159,13 +170,12 @@ export async function createWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUse
       await applyInstanceUpdates(newObj, req.body.instances);
       return req.createJSONResponse(201, {});
     });
-  } catch (error) {
-    const e = error instanceof WHFSObjectExistsError ? new WHFSAPIError(error.message, 409) : error;
+  } catch (e) {
     if (e instanceof SetDataError) {
-      return req.createErrorResponse(400, { error: e.message + e.getPathErrorSuffix() });
+      return req.createErrorResponse(400, { code: "invalid-argument", error: e.message + e.getPathErrorSuffix() });
     }
-    if (e instanceof WHFSAPIError) {
-      return req.createErrorResponse(e.statusCode, { error: e.message });
+    if (e instanceof WHFSError) {
+      return createAPIError(req, e);
     }
     throw e;
   }
@@ -209,10 +219,10 @@ export async function updateWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUse
     });
   } catch (e) {
     if (e instanceof SetDataError) {
-      return req.createErrorResponse(400, { error: e.message + e.getPathErrorSuffix() });
+      return req.createErrorResponse(400, { code: "invalid-argument", error: e.message + e.getPathErrorSuffix() });
     }
-    if (e instanceof WHFSAPIError) {
-      return req.createErrorResponse(e.statusCode, { error: e.message });
+    if (e instanceof WHFSError) {
+      return createAPIError(req, e);
     }
     throw e;
   }

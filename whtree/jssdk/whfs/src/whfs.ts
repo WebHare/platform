@@ -32,3 +32,4 @@ export { importIntoWHFS, type ImportWHFSOptions, type ImportWHFSResult, type Imp
 export { parseYamlPluginConfig } from "./applytester";
 
 export { lookupInWHFSRegister, setWHFSRegisterSlot } from "./register";
+export { WHFSError, type WHFSErrorCode } from "./error";

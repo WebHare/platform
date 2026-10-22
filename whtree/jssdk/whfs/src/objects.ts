@@ -19,6 +19,7 @@ import { decodeHSONorJSONRecord } from "@webhare/hscompat";
 import type { AuthorizationInterface } from "@webhare/auth";
 import { __getAuthorizationInterfaceForUser, ensureAuthObject } from "@webhare/auth/src/userrights";
 import { lookupWHFSObject } from "./database";
+import { WHFSError } from "./error";
 
 export type WHFSObject = WHFSFile | WHFSFolder;
 
@@ -644,7 +645,7 @@ export class WHFSFolder extends WHFSBaseObject {
       executeTakeFirst();
 
     if (exists)
-      throw new WHFSObjectExistsError(`A ${exists.isfolder ? "folder" : "file"} named '${name}' (#${exists.id}) already exists in folder '${this.whfsPath}'`);
+      throw new WHFSError("object-exists", `A ${exists.isfolder ? "folder" : "file"} named '${name}' (#${exists.id}) already exists in folder '${this.whfsPath}'`);
 
     const id = await createWHFSObject({ id: this.id, parentSite: this.parentSite }, name, type, metadata);
 
