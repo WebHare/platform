@@ -23,9 +23,6 @@ import { WHFSError } from "./error";
 
 export type WHFSObject = WHFSFile | WHFSFolder;
 
-export class WHFSObjectExistsError extends Error {
-}
-
 export interface FsObjectRow extends Selectable<PlatformDB, "system.fs_objects"> {
   link: string;
   fullpath: string;
