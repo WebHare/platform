@@ -6,6 +6,7 @@ import { beginWork, commitWork, uploadBlob } from "@webhare/whdb";
 import { ResourceDescriptor, WebHareBlob, lockMutex } from "@webhare/services";
 import { isInFreePool } from "@webhare/harescript/src/wasm-hsvm";
 import { determineType, getTypedArray, HareScriptType } from "@webhare/hscompat/src/hson";
+import { Money } from "@webhare/std";
 import { startNestingHandler } from "./testwasmlib";
 
 function testTypeAPIs() {
@@ -104,6 +105,10 @@ async function testCalls() {
   test.eq(new Date("2024-01-01T11:13:14Z"), await vm.loadlib("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib").Echo(Temporal.ZonedDateTime.from("2024-01-01T12:13:14[Europe/Amsterdam]")));
   test.eq(new Date("2024-01-01T00:00:00Z"), await vm.loadlib("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib").Echo(Temporal.PlainDate.from("2024-01-01")));
   test.eq(new Date("2024-01-01T12:13:14Z"), await vm.loadlib("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib").Echo(Temporal.PlainDateTime.from("2024-01-01T12:13:14")));
+
+  const system = vm.loadlib("wh::system.whlib");
+  test.eq(new Money("-0.00458"), await system.ToMoney("-0.00458", 0));
+  test.eq({ value: [new Money("-0.00458")] }, await vm.loadlib("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib").Echo({ value: [new Money("-0.00458")] }));
 
   test.eq([17, 42, 999], await vm.loadlib("wh::util/algorithms.whlib").GetSortedSet([42, 17, 999]));
   const err = await test.throws(/We're throwing it/, vm.loadlib("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib").ThrowIt());
