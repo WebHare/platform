@@ -6,7 +6,7 @@ import { getSchemaSettings, wrd, type WRDSchema, type WRDSchemaLike, type WRDSch
 import { listSites, openFileOrFolder, openFolder, openSite } from "@webhare/whfs";
 import { decompressUUID, hashClientSecret, IdentityProvider, listTokens, type AuthTokenOptions } from "@webhare/auth/src/identity";
 import { closeServerSession, createServerSession, encryptForThisServer, getServerSession, importJSObject, updateServerSession } from "@webhare/services";
-import { registerRelyingParty, type AuthCustomizer, type JWTPayload } from "@webhare/auth";
+import { registerOAuthApplication, type AuthCustomizer, type JWTPayload } from "@webhare/auth";
 import { getCookieBasedUser } from "@webhare/auth/src/authfrontend";
 import { runInWork } from "@webhare/whdb";
 import type { AnySchemaType, SchemaTypeDefinition } from "@webhare/wrd/src/types";
@@ -533,7 +533,7 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
     const clientName = "client_name" in registration ? registration.client_name as string : "Dynamic client";
     const registrationAccessToken = crypto.randomBytes(32).toString("base64url");
     const client = await runInWork(async () => {
-      const relyingParty = await registerRelyingParty(wrdschema, {
+      const relyingParty = await registerOAuthApplication(wrdschema, {
         // WRD titles must be unique, but submitted client names need not be.
         title: `${clientName} (${crypto.randomUUID()})`,
         callbackUrls
