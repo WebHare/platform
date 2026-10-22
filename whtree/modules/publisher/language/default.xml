@@ -2454,7 +2454,7 @@
       <text tid="folderwithoutindex">The selected folder '<param p="1"/>' does not have an index document.</text>
       <text tid="hasnopreview">The selected file has no preview.</text>
       <text tid="internallink">This internal link links to file '<param p="1"/>'.</text>
-      <text tid="internallink-broken">This external link does not seem to be linked to an existing file.</text>
+      <text tid="internallink-broken">This internal link does not seem to be linked to an existing file.</text>
       <text tid="internallink-cachedversion">Because errors occurred while publishing the linked file, the last correctly published version is displayed.</text>
       <text tid="internallink-unpublished">This internal link links to unpublished file '<param p="1"/>'.</text>
       <text tid="nonsecuresite">The site is unsecure and cannot be displayed within the secure WebHare environment.</text>
