@@ -1,4 +1,5 @@
-import * as dompack from 'dompack';
+import * as dompack from '@webhare/dompack';
+import { debugFlags } from '@webhare/env';
 import './menu.css';
 
 const MenuController = Symbol("wh-tollium-menucontroller");
@@ -194,7 +195,7 @@ function _gotGlobalMouseDown(htmlevent: Event) {
   if (htmlevent.target) {
     //as a global handler we *cannot* assume the event.target to be a HTMLElement - it can be window!
     const menu = getActiveMenus().find(openmenu => openmenu.isInMenu(htmlevent.target));
-    if (dompack.debugflags.men)
+    if (debugFlags.men)
       console.log('[men] globalMouseDown handler captured mousedown (semifocus) and detected menu: ', menu, htmlevent);
 
     if (menu)
@@ -225,7 +226,7 @@ function _gotGlobalKeyPressed(htmlevent: KeyboardEvent) {
 
   for (let i = activeMenus.length - 1; i >= 0; --i) {
     if (activeMenus[i]._handleKey(htmlevent, i === 0)) {
-      if (dompack.debugflags.men)
+      if (debugFlags.men)
         console.log("[men] globalKeyDown handler captured keyboard event that was handled by a menu, cancelling the event", activeMenus[i], htmlevent);
 
       htmlevent.stopPropagation();
@@ -255,7 +256,7 @@ function takeSemiFocus() {
   if (tookfocus)
     return;
 
-  if (dompack.debugflags.men)
+  if (debugFlags.men)
     console.log('[men] takeSemiFocus');
 
   tookfocus = true;
@@ -264,7 +265,7 @@ function takeSemiFocus() {
 /** Releases the mouse and keyboard
 */
 function releaseSemiFocus() {
-  if (dompack.debugflags.men)
+  if (debugFlags.men)
     console.log('[men] releaseSemiFocus');
 
   tookfocus = false;
@@ -317,7 +318,7 @@ export function closeAll() {
 }
 
 function openSubMenu(parentmenu: MenuList, li: HTMLLIElement): MenuList | null {
-  if (dompack.debugflags.men)
+  if (debugFlags.men)
     console.log("[men] openSubMenu called");
 
   const ul = li.querySelector<HTMLUListElement>('ul');
@@ -344,7 +345,7 @@ function openSubMenu(parentmenu: MenuList, li: HTMLLIElement): MenuList | null {
     @param options - options.forcenooverlap Whether to disallow overlap of the reference element
 */
 function openAsList(submenu: MenuList, coords: dompack.Rect, preferreddirection: PreferredDirection, preferredalign: PreferredDirection, exitdirection: ExitDirection, minwidth: number, options: MenuOptions, owner?: HTMLLIElement) {
-  if (dompack.debugflags.men)
+  if (debugFlags.men)
     console.log("[men] openAsList called");
   if (!submenu._fireOpenCloseEvent(true))
     return;
@@ -355,7 +356,7 @@ function openAsList(submenu: MenuList, coords: dompack.Rect, preferreddirection:
 }
 
 function ensureSubMenu(ul: MenuCandidateElement): MenuList {
-  if (dompack.debugflags.men)
+  if (debugFlags.men)
     console.log("[men] createSubMenu called");
 
   return (ul[MenuController] || (ul[MenuController] = new MenuList(ul))) as MenuList;
@@ -385,7 +386,7 @@ class MenuList {
 
   constructor(el: HTMLElement) {
     this.currentalign = '';
-    if (dompack.debugflags.men)
+    if (debugFlags.men)
       console.log("[men] initialize MenuList called");
 
     this.el = el;
@@ -413,7 +414,7 @@ class MenuList {
   //
 
   _getMenuItems() {
-    if (dompack.debugflags.men)
+    if (debugFlags.men)
       console.log("[men] _getMenuItems called");
 
     return dompack.qSA<HTMLLIElement>(this.el, "li").filter(e => e.parentNode === this.el);
@@ -451,7 +452,7 @@ class MenuList {
   _fireOpenCloseEvent(isopen: boolean) {
     const eventname = isopen ? "wh:menu-open" : "wh:menu-close";
     const cureventnode = getEventNode();
-    if (dompack.debugflags.men)
+    if (debugFlags.men)
       console.log("[men] dispatching " + eventname + " for ", this.el, " to ", cureventnode, " tree ", getParents(cureventnode));
     return dompack.dispatchCustomEvent(cureventnode, eventname, { bubbles: true, cancelable: isopen, detail: { menu: this.el, depth: this.depth } });
   }
@@ -559,7 +560,7 @@ class MenuList {
   }
 
   _handleKeyUp(event: Event, topmenu: boolean) {
-    if (dompack.debugflags.men)
+    if (debugFlags.men)
       console.log("[men] _handleKeyUp");
 
     if (!this.selecteditem && !topmenu)
@@ -570,7 +571,7 @@ class MenuList {
   }
 
   _handleKeyDown(event: Event, topmenu: boolean) {
-    if (dompack.debugflags.men)
+    if (debugFlags.men)
       console.log("[men] _handleKeyDown");
 
     if (!this.selecteditem && !topmenu)
@@ -581,7 +582,7 @@ class MenuList {
   }
 
   _handleKeyLeft(event: Event) {
-    if (dompack.debugflags.men)
+    if (debugFlags.men)
       console.log("[men] _handleKeyLeft");
 
     if (this.selecteditem && this.exitdirection === "left") {
@@ -593,7 +594,7 @@ class MenuList {
   }
 
   _handleKeyRight(event: Event, topmenu: boolean) {
-    if (dompack.debugflags.men)
+    if (debugFlags.men)
       console.log("[men] _handleKeyRight");
 
     if (this.openedsubmenu && !this.openedsubmenu.selecteditem) {
@@ -604,7 +605,7 @@ class MenuList {
   }
 
   _handleKeyHome(event: Event, topmenu: boolean) {
-    if (dompack.debugflags.men)
+    if (debugFlags.men)
       console.log("[men] _handleKeyHome");
 
     if (!this.selecteditem && !topmenu)
@@ -615,7 +616,7 @@ class MenuList {
   }
 
   _handleKeyEnd(event: Event, topmenu: boolean) {
-    if (dompack.debugflags.men)
+    if (debugFlags.men)
       console.log("[men] _handleKeyEnd");
 
     if (!this.selecteditem && !topmenu)
@@ -626,7 +627,7 @@ class MenuList {
   }
 
   _handleKeyEnter(event: Event) {
-    if (dompack.debugflags.men)
+    if (debugFlags.men)
       console.log("[men] _handleKeyEnter");
 
     if (!this.selecteditem)
@@ -644,7 +645,7 @@ class MenuList {
   /** Calculate which dividers should be visible (only between visible elements, and at most one between visible elements)
   */
   _fixupDividers() {
-    if (dompack.debugflags.men)
+    if (debugFlags.men)
       console.log("[men] fixupDividers called");
 
     let lastdivider: HTMLLIElement | null = null;
@@ -689,7 +690,7 @@ class MenuList {
     const maxattr = horizontal ? "right" : "bottom";
     const csssizeattr = horizontal ? "width" : "height";
 
-    if (dompack.debugflags.men)
+    if (debugFlags.men)
       console.log("[men] _calculatePosition", horizontal ? "horizontal" : "vertical");
 
     // Get the coordinates to use for before/after placement
@@ -704,14 +705,14 @@ class MenuList {
     const min_bound = Math.max(bounds[minattr], viewport[minattr]);
     const max_bound = Math.min(bounds[maxattr], viewport[maxattr]);
 
-    if (dompack.debugflags.men)
+    if (debugFlags.men)
       console.log("[men] corrected bounds", min_bound, max_bound);
 
     // See how much space is available (within the soft boundary)
     const bounded_space_before = before_coords - min_bound;
     const bounded_space_after = max_bound - after_coords;
 
-    if (dompack.debugflags.men)
+    if (debugFlags.men)
       console.log("[men] bounded space", bounded_space_before, bounded_space_after);
 
     // Store the menu size (will be adjusted when the space isn't enough to fit the menu)
@@ -720,13 +721,13 @@ class MenuList {
     // See if the bounded space is enough for the preferred direction (else try the other direction)
     for (let i = 0; i < 2; ++i) {
       if (preferfirst && bounded_space_before >= size[sizeattr]) {
-        if (dompack.debugflags.men)
+        if (debugFlags.men)
           console.log(`[men] setting maxattr '${maxattr}' sizeattr '${csssizeattr}' to ${(containingblock[csssizeattr] - before_coords)}`);
 
         styles[maxattr] = (containingblock[csssizeattr] - before_coords) + "px";
         return false;
       } else if (!preferfirst && bounded_space_after >= size[sizeattr]) {
-        if (dompack.debugflags.men)
+        if (debugFlags.men)
           console.log(`[men] setting minattr '${minattr}' to ${after_coords}`);
 
         styles[minattr] = after_coords + "px";
@@ -739,19 +740,19 @@ class MenuList {
     const space_before = before_coords - viewport[minattr];
     const space_after = viewport[maxattr] - after_coords;
 
-    if (dompack.debugflags.men)
+    if (debugFlags.men)
       console.log("[men] view spaces", space_before, space_after);
 
     // See if the bounded space is enough for the preferred direction (else try the other direction)
     for (let i = 0; i < 2; ++i) {
       if (preferfirst && space_before >= size[sizeattr]) {
-        if (dompack.debugflags.men)
+        if (debugFlags.men)
           console.log("[men] setting maxattr", maxattr, 'sizeattr', sizeattr, containingblock, before_coords);
 
         styles[maxattr] = (containingblock[csssizeattr] - before_coords) + "px";
         return false;
       } else if (!preferfirst && space_after >= size[sizeattr]) {
-        if (dompack.debugflags.men)
+        if (debugFlags.men)
           console.log("[men] setting minattr", minattr, after_coords);
 
         styles[minattr] = after_coords + "px";
@@ -760,15 +761,15 @@ class MenuList {
       preferfirst = !preferfirst;
     }
 
-    if (dompack.debugflags.men)
+    if (debugFlags.men)
       console.log("[men] no fit on both sides");
 
-    if (dompack.debugflags.men)
+    if (debugFlags.men)
       console.log("[men] minattr: ", minattr, " maxattr", maxattr, "sizeattr", sizeattr, bounds, size);
 
     // We may overlap the coords. See if we fit within the soft boundary
     if (bounds[maxattr] - bounds[minattr] >= size[sizeattr]) {
-      if (dompack.debugflags.men)
+      if (debugFlags.men)
         console.log("[men] Honour direction, stick to bound border");
 
       if (preferfirst)
@@ -776,7 +777,7 @@ class MenuList {
       else
         styles[maxattr] = (containingblock[csssizeattr] - bounds[maxattr]) + "px";
     } else if ((viewport[maxattr] - viewport[minattr]) >= size[sizeattr]) {
-      if (dompack.debugflags.men)
+      if (debugFlags.men)
         console.log("[men] Fits within view - honour direction, stick to view border");
 
       if (preferfirst)
@@ -784,7 +785,7 @@ class MenuList {
       else
         styles[maxattr] = (containingblock[csssizeattr] - viewport[maxattr]) + "px";
     } else {
-      if (dompack.debugflags.men)
+      if (debugFlags.men)
         console.log("[men] Doesn't fit at all - stick to top. Force the max size to force scroll");
 
       styles[minattr] = viewport[minattr] + "px";
@@ -798,7 +799,7 @@ class MenuList {
   /** Dispatch menu open events, handle open animations
 */
   _handleMenuOpen() {
-    if (dompack.debugflags.men)
+    if (debugFlags.men)
       console.log("[men] dispatching wh-menu-opened to ", this.el, " in tree ", getParents(this.el));
     dompack.dispatchCustomEvent(this.el, "wh:menu-opened", { bubbles: true, cancelable: true, detail: { menu: this.el } });
   }
@@ -817,7 +818,7 @@ class MenuList {
       @param exitdirection - '', 'top', 'left' - cursor direction in which the selection can be removed
   */
   _openMenu(coords: dompack.Rect, preferreddirection: PreferredDirection, parentmenu: MenuList | null, preferredalign: PreferredDirection | null, exitdirection: ExitDirection, minwidth: number, options?: MenuOptions, owner?: HTMLLIElement) {
-    if (dompack.debugflags.men)
+    if (debugFlags.men)
       console.log("[men] openMenu called, prefdir:", preferreddirection, "prefalign:", preferreddirection, "exitdir", exitdirection);
 
     options = options || {};
@@ -848,17 +849,14 @@ class MenuList {
     this.el.showPopover();
 
     // Reset sizes before measuring
-    dompack.setStyles(this.el,
-      {
-        "height": "auto",
-        "width": "auto",
-        "left": "0px",
-        "top": "0px",
-        "bottom": "auto",
-        "right": "auto",
-        "max-height": "inherit",
-        "max-width": "inherit"
-      });
+    this.el.style.height = "auto";
+    this.el.style.width = "auto";
+    this.el.style.left = "0px";
+    this.el.style.top = "0px";
+    this.el.style.bottom = "auto";
+    this.el.style.right = "auto";
+    this.el.style.maxHeight = "inherit";
+    this.el.style.maxWidth = "inherit";
 
     const menubounds = this.el.getBoundingClientRect();
     this.position = { x: menubounds.x, y: menubounds.y };
@@ -878,13 +876,14 @@ class MenuList {
       "bottom": "auto",
       "top": "auto",
       "left": "auto",
+      "right": "auto",
       "height": "auto",
       "width": "auto",
       "max-height": "inherit",
       "max-width": "inherit"
     };
 
-    if (dompack.debugflags.men) {
+    if (debugFlags.men) {
       console.log("[men] Menu coordinate data");
       console.log("[men]  target element", coords);
       console.log("[men]  menu size", size);
@@ -907,10 +906,17 @@ class MenuList {
       this._calculatePosition(styles, coords, size, bounds, viewport, viewport, true, preferredalign === "right", true);
     }
 
-    if (dompack.debugflags.men)
+    if (debugFlags.men)
       console.log("[men] result style:", styles, this.el);
 
-    dompack.setStyles(this.el, styles);
+    this.el.style.bottom = styles.bottom;
+    this.el.style.top = styles.top;
+    this.el.style.left = styles.left;
+    this.el.style.right = styles.right;
+    this.el.style.height = styles.height;
+    this.el.style.width = styles.width;
+    this.el.style.maxHeight = styles["max-height"];
+    this.el.style.maxWidth = styles["max-width"];
 
     updateGlobalMenuEventListeners(this, true);
     this.active = true;
@@ -929,7 +935,7 @@ class MenuList {
     setTimeout(cleanClosingMenus, 0);
 
     const cureventnode = getEventNode();
-    if (dompack.debugflags.men)
+    if (debugFlags.men)
       console.log("[men] dispatching wh-menu-closed for menu ", this.el, " to ", cureventnode, " in tree ", getParents(cureventnode));
     dompack.dispatchCustomEvent(cureventnode, "wh:menu-closed", { bubbles: true, cancelable: false, detail: { menu: this.el } });
 
