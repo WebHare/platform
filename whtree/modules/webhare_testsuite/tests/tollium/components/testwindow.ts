@@ -15,11 +15,10 @@ test.runTests(
         test.eq(1, activewindow.length);
         test.eq(2, test.qSA('#mainarea .t-screen').length);
 
-        //Find the close button. There should be only one button in the window, so it should be easy to find..
-        const buttons = activewindow[0].querySelectorAll('button');
+        //Find the regular screen button, ignoring the menu button.
+        const buttons = activewindow[0].querySelectorAll('button:not(.ismenubutton)');
         test.eq(1, buttons.length);
 
-        //var menu = activewindow[0].getElement('.wh-menubar');
         const N01 = test.getMenu(['N01', 'B02']);
         test.click(N01);
         await test.waitForUI();
@@ -97,12 +96,11 @@ test.runTests(
         test.eq(1, activewindow.length);
         test.eq(3, test.qSA('#mainarea .t-screen').length); //if this test returns '4', the intermediate window wasn't killed
 
-        const menu = test.qR(activewindow[0], '.wh-menubar');
-        test.assert(!menu.textContent?.includes("M01 Actions"), "M01 shouldn't be here, N01 should. Did the window close? ");
-        test.assert(menu.textContent?.includes("N01 Actions"));
+        test.assert(!test.getMenu(['M01'], { allowMissing: true }), "M01 shouldn't be here. Did the window close? ");
+        test.assert(test.getMenu(['N01']));
 
         //Find the close button. There should be only one button in the window, so it should be easy to find..
-        const buttons = activewindow[0].querySelectorAll('button');
+        const buttons = activewindow[0].querySelectorAll('button:not(.ismenubutton)');
         test.eq(1, buttons.length);
         test.click(buttons[0]);
         await test.waitForUI();
@@ -115,7 +113,7 @@ test.runTests(
         test.eq(1, activewindow.length);
         test.eq(2, test.qSA('#mainarea .t-screen').length);
 
-        const buttons = activewindow[0].querySelectorAll('button');
+        const buttons = activewindow[0].querySelectorAll('button:not(.ismenubutton)');
         test.eq(1, buttons.length);
         test.click(buttons[0]);
         await test.waitForUI();

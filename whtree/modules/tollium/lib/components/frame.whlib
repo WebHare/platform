@@ -680,8 +680,7 @@ PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase <
 
     IF (this->dirtyflags.fully)
     {
-      RECORD frameinfo := [ menubar := ObjectExists(this->menubar) AND NOT ObjectExists(this->currentmenubutton) ? GetComponentName(this->menubar) : ""
-                          , unmasked_events := MemberExists(this,"CANCEL") ? [ "cancel" ] : DEFAULT STRING ARRAY
+      RECORD frameinfo := [ unmasked_events := MemberExists(this,"CANCEL") ? [ "cancel" ] : DEFAULT STRING ARRAY
                           , allowresize := this->allowresize
                           , allowclose := this->allowclose
                           , badge := GetComponentName(this->badge)

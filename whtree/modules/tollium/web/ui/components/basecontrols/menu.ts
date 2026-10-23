@@ -56,11 +56,6 @@ interface MenuCandidateElement extends HTMLUListElement {
    - Open menus have a class 'level-$DEPTH' added, where $DEPTH is their opening depth (top menu is depth 1)
    - When a menu has a submenu with an active selection, the parent menu will have the class 'hassubselect'
 
-   Menu bar
-   - the classes 'wh-menu' and 'wh-menubar' are added to the UL
-       <ul class="wh-menu wh-menubar">
-         ...
-
    Menu list:
    - The class 'wh-menu' and 'wh-menulist' are added
    - The UL is removed from the original location in the DOM, and replaced by a placeholder
@@ -132,7 +127,7 @@ interface MenuCandidateElement extends HTMLUListElement {
     }
 
    EVENTS:
-   - Fired at node responsible for triggering a menu (the menubar, openAt element)
+  - Fired at node responsible for triggering a menu (the openAt element)
      wh-menu-activateitem - cancellable
      wh-menu-open - cancellable when a menu is about to open
      wh-menu-close - not cancellable
@@ -352,8 +347,6 @@ function mouseLeftMenu(menu: MenuBase) {
 function getEventNode() {
   if (eventnode)
     return eventnode;
-  if (activemenus.length > 0 && activemenus[0] instanceof MenuBar)
-    return activemenus[0].el;
   return document.documentElement;
 }
 
@@ -368,7 +361,7 @@ export function closeAll() {
   eventnode = null;
 }
 
-function openSubMenu(parentmenu: MenuBase, horizontalsubs: boolean, li: HTMLLIElement): MenuList | null {
+function openSubMenu(parentmenu: MenuBase, li: HTMLLIElement): MenuList | null {
   if (dompack.debugflags.men)
     console.log("[men] openSubMenu called");
 
@@ -381,7 +374,7 @@ function openSubMenu(parentmenu: MenuBase, horizontalsubs: boolean, li: HTMLLIEl
     return null;
 
   closingmenus = []; //if we're back to opening menus, forget about the close list
-  submenu._openMenu(dompack.getRelativeBounds(li), horizontalsubs ? parentmenu.currentalign === 'right' ? 'left' : 'right' : 'down', parentmenu, horizontalsubs ? parentmenu.currentalign : null, horizontalsubs ? "left" : "top", 0);
+  submenu._openMenu(dompack.getRelativeBounds(li), parentmenu.currentalign === 'right' ? 'left' : 'right', parentmenu, parentmenu.currentalign, "left", 0);
   recomputeSubSelection();
 
   return submenu;
@@ -411,9 +404,6 @@ function openAsList(submenu: MenuList, coords: dompack.Rect, preferreddirection:
 function ensureSubMenu(ul: MenuCandidateElement): MenuList {
   if (dompack.debugflags.men)
     console.log("[men] createSubMenu called");
-
-  if (ul[MenuController] instanceof MenuBar)
-    throw new Error("Cannot create a submenu from a menubar");
 
   return (ul[MenuController] || (ul[MenuController] = new MenuList(ul))) as MenuList;
 }
@@ -446,7 +436,6 @@ class MenuBase {
   openonhover: boolean;
   /// Whether this menu is active
   active = false;
-  horizontalsubs = true;
   openedsubmenu: MenuList | null = null;
   depth = 0;
   parentmenu: MenuBase | null = null;
@@ -457,7 +446,6 @@ class MenuBase {
   constructor(el: HTMLElement, openonhover: boolean) {
     this.active = false;
     this.selecteditem = null;
-    this.horizontalsubs = true;
     this.openedsubmenu = null;
     this.depth = 0;
     this.parentmenu = null;
@@ -469,8 +457,8 @@ class MenuBase {
 
     this.el = el;
     if (!this.el) {
-      console.error("No such menubar node:", el);
-      throw new Error("No such menubar node");
+      console.error("No such menu node:", el);
+      throw new Error("No such menu node");
     }
     this.el.classList.add("wh-menu");
 
@@ -498,10 +486,6 @@ class MenuBase {
     return dompack.qSA<HTMLLIElement>(this.el, "li").filter(e => e.parentNode === this.el);
   }
 
-  _isOrientationVertical() {
-    return this.horizontalsubs;
-  }
-
   private getSelectableItems() {
     return this._getMenuItems().filter(item => !item.matches('.divider, .disabled, .hidden'));
   }
@@ -523,7 +507,7 @@ class MenuBase {
       return;
 
     if (pos < 0) {
-      if (this.exitdirection === (this._isOrientationVertical() ? "top" : "left"))
+      if (this.exitdirection === "top")
         this._selectItem(null);
       return;
     }
@@ -570,7 +554,7 @@ class MenuBase {
       li.scrollIntoView();
 
     if (li.classList.contains("hassubmenu")) {
-      this.openedsubmenu = openSubMenu(this, this.horizontalsubs, li);
+      this.openedsubmenu = openSubMenu(this, li);
     }
 
     recomputeSubSelection();
@@ -637,9 +621,8 @@ class MenuBase {
     if (!must_select)
       return;
 
-    /* Only select when in right mode
-       When taken focus, menu must be active (prevent menubar from reacting when contextmenu is open)
-       Otherwise, react only when openonhover is set
+    /* Only select when in right mode. When taken focus, the menu must be active;
+      otherwise, react only when openonhover is set.
     */
     if (tookfocus ? this.active : this.openonhover)
       this._selectItem(li);
@@ -656,13 +639,13 @@ class MenuBase {
       return false;
 
     switch (event.key) {
-        case "Enter": return this._handleKeyEnter(event);
-        case "ArrowUp": return event.metaKey ? this._handleKeyHome(event, topmenu) : this._handleKeyUp(event, topmenu);
-        case "ArrowDown": return event.metaKey ? this._handleKeyEnd(event, topmenu) : this._handleKeyDown(event, topmenu);
-        case "ArrowLeft": return this._handleKeyLeft(event, topmenu);
-        case "ArrowRight": return this._handleKeyRight(event, topmenu);
-        case "Home": return this._handleKeyHome(event, topmenu);
-        case "End": return this._handleKeyEnd(event, topmenu);
+      case "Enter": return this._handleKeyEnter(event);
+      case "ArrowUp": return event.metaKey ? this._handleKeyHome(event, topmenu) : this._handleKeyUp(event, topmenu);
+      case "ArrowDown": return event.metaKey ? this._handleKeyEnd(event, topmenu) : this._handleKeyDown(event, topmenu);
+      case "ArrowLeft": return this._handleKeyLeft(event);
+      case "ArrowRight": return this._handleKeyRight(event, topmenu);
+      case "Home": return this._handleKeyHome(event, topmenu);
+      case "End": return this._handleKeyEnd(event, topmenu);
       default: return false;
     }
   }
@@ -671,56 +654,30 @@ class MenuBase {
     if (dompack.debugflags.men)
       console.log("[men] _handleKeyUp");
 
-    if (this._isOrientationVertical()) {
-      if (!this.selecteditem && !topmenu)
-        return false;
+    if (!this.selecteditem && !topmenu)
+      return false;
 
-      this.selectRelativeItem("previous", true);
-      return true;
-    } else {
-      if (this.selecteditem && this.exitdirection === "top") {
-        this._selectItem(null);
-        return true;
-      }
-    }
-
-    return false;
+    this.selectRelativeItem("previous", true);
+    return true;
   }
 
   _handleKeyDown(event: Event, topmenu: boolean) {
     if (dompack.debugflags.men)
       console.log("[men] _handleKeyDown");
 
-    if (this._isOrientationVertical()) {
-      if (!this.selecteditem && !topmenu)
-        return false;
+    if (!this.selecteditem && !topmenu)
+      return false;
 
-      this.selectRelativeItem("next", true);
-      return true;
-    } else {
-      if (this.openedsubmenu && !this.openedsubmenu.selecteditem) {
-        this.openedsubmenu.selectRelativeItem("first", true);
-        return true;
-      }
-    }
-
-    return false;
+    this.selectRelativeItem("next", true);
+    return true;
   }
 
-  _handleKeyLeft(event: Event, topmenu: boolean) {
+  _handleKeyLeft(event: Event) {
     if (dompack.debugflags.men)
       console.log("[men] _handleKeyLeft");
 
-    if (this._isOrientationVertical()) {
-      if (this.selecteditem && this.exitdirection === "left") {
-        this._selectItem(null);
-        return true;
-      }
-    } else {
-      if (!this.selecteditem && !topmenu)
-        return false;
-
-      this.selectRelativeItem("previous", true);
+    if (this.selecteditem && this.exitdirection === "left") {
+      this._selectItem(null);
       return true;
     }
 
@@ -731,19 +688,10 @@ class MenuBase {
     if (dompack.debugflags.men)
       console.log("[men] _handleKeyRight");
 
-    if (this._isOrientationVertical()) {
-      if (this.openedsubmenu && !this.openedsubmenu.selecteditem) {
-        this.openedsubmenu.selectRelativeItem("first", true);
-        return true;
-      }
-    } else {
-      if (!this.selecteditem && !topmenu)
-        return false;
-
-      this.selectRelativeItem("next", true);
+    if (this.openedsubmenu && !this.openedsubmenu.selecteditem) {
+      this.openedsubmenu.selectRelativeItem("first", true);
       return true;
     }
-
     return false;
   }
 
@@ -778,21 +726,6 @@ class MenuBase {
 
     this.selecteditem.click();
     return true;
-  }
-}
-
-export class MenuBar extends MenuBase {
-  constructor(el: HTMLElement) {
-    super(el, false);
-
-    if ((el as MenuCandidateElement)[MenuController])
-      throw new Error("Menu already initialized");
-    (el as MenuCandidateElement)[MenuController] = this;
-
-    this.horizontalsubs = false;
-    if (dompack.debugflags.men)
-      console.error("[men] initialize MenuBar called");
-    this.el.classList.add("wh-menubar");
   }
 }
 

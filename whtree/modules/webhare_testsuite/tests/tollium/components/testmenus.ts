@@ -94,8 +94,6 @@ test.runTests(
       test.assert(openSubmenu);
       const X08 = test.qSA(openSubmenu, "li").filter(item => item.textContent.includes('X08'))[0];
       test.assert(X08.getBoundingClientRect().top > X07.getBoundingClientRect().top, "submenu items should be vertically stacked");
-      test.assert(getComputedStyle(X07).paddingTop === "0px", "submenu text should not inherit menubar padding");
-
       //verify that only X07, X08, and the divider between them are visible
       test.assert(!test.qSA(openSubmenu, "li").filter(li => li.textContent.includes('X05'))[0]);
       test.assert(!test.qSA(openSubmenu, "li").filter(li => li.textContent.includes('X06'))[0]);
@@ -166,7 +164,7 @@ test.runTests(
 
     'switchbar',
     async function () {
-      //Verify that the form properly accounted for the presence of the menubar
+      //Verify that the form fits within the screen when its menu is open
       const screennode = test.getCurrentScreen().getNode();
       test.assert(screennode);
       const testbottom = test.getCurrentScreen().getToddElement('testbottom');
@@ -179,7 +177,7 @@ test.runTests(
     },
     'switchbar2',
     async function () {
-      //Verify that the form properly accounted for the presence of the menubar
+      //Verify that the form fits within the screen when its menu is open
       const screennode = test.getCurrentScreen().getNode();
       test.assert(screennode);
       const testbottom = test.getCurrentScreen().getToddElement('testbottom');
@@ -193,7 +191,7 @@ test.runTests(
     },
     'switchbar3',
     async function () {
-      //Verify that the form properly accounted for the presence of the menubar
+      //Verify that the form fits within the screen when its menu is open
       const screennode = test.getCurrentScreen().getNode();
       test.assert(screennode);
       const testbottom = test.getCurrentScreen().getToddElement('testbottom');
@@ -353,11 +351,10 @@ test.runTests(
         const parentscreen = test.getCurrentScreen().getParent();
         const lastbutton = parentscreen.qR('t-toolbar .t-toolbar-buttongroup__right button:last-child');
         test.assert(lastbutton.classList.contains("ismenubutton"));
-        test.assert(!parentscreen.qS("ul.wh-menubar"));
       }
     },
 
-    "Verify a toolbar appears if there is a menubar",
+    "Verify a toolbar appears for a menu",
     async function () {
       await tt.loadWTSTestScreen("tests/basecomponents.menutest_notoolbar");
       test.eq(1, test.qSA('t-toolbar').length);

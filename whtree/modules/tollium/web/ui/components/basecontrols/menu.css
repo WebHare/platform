@@ -5,7 +5,7 @@
   list-style-type: none;
   cursor: pointer;
 }
-.wh-menu:not(.wh-scrollableview):not(.wh-menubar)
+.wh-menu:not(.wh-scrollableview)
 {
   overflow-x:hidden;
   overflow-y:auto;
@@ -28,14 +28,6 @@
 , .wh-menulist
 {
   display:none;
-}
-.wh-menubar
-{
-  position:relative;
-}
-.wh-menubar > li
-{
-  display:inline-block;
 }
 .wh-menulist:popover-open
 {
