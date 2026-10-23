@@ -177,21 +177,26 @@ PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase <
   }
 
   MACRO UpdateMenuBarAndButton() {
-    BOOLEAN placeontoolbar := Length(this->toolbars) > 0 AND ObjectExists(this->menubar) AND NOT this->forcemenubar;
-
-    IF(NOT placeontoolbar)
-    {
-      this->ExtUpdatedComponent(); //update the 'menubar' memner
+    IF(NOT ObjectExists(this->menubar)) {
+      //we're not going to delete a dynamic toolbar, but remove our button from the toolbar if needed
       IF(NOT ObjectExists(this->currentmenubutton))
         RETURN;
 
       this->currentmenubutton->DeleteComponent();
       this->currentmenubutton := DEFAULT OBJECT;
+      this->ExtUpdatedComponent();
       RETURN;
     }
 
-    IF(ObjectExists(this->currentmenubutton))
-    {
+    IF(ObjectExists(this->menubar) AND Length(this->toolbars) = 0) {
+      OBJECT newtoolbar := this->owner->CreateTolliumComponent("toolbar");
+      newtoolbar->pvt_parent := this;
+      newtoolbar->RecursiveUpdateIsNowVisible();
+      INSERT newtoolbar INTO this->toolbars AT END;
+      this->ExtUpdatedComponent();
+    }
+
+    IF(ObjectExists(this->currentmenubutton)) {
       //just update the menu, it'll extupdatecomp itself
       this->currentmenubutton->menu := this->menubar;
       RETURN;

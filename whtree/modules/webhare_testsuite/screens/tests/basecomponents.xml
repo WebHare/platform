@@ -116,6 +116,19 @@
     </footer>
   </screen>
 
+  <screen name="menutest_notoolbar" footerbuttons="close" menubar="menubar" implementation="none">
+    <actions>
+      <action name="nothing" onexecute="@notimplemented" />
+    </actions>
+    <menus>
+      <menu name="menubar">
+        <item name="x0b1" action="nothing" title="X0B1" />
+      </menu>
+    </menus>
+    <body>
+    </body>
+  </screen>
+
   <screen name="windowtest" width="400px" height="250px" menubar="menubar" title="Window Test">
     <actions>
       <action name="opensubwindow" onexecute="doopensubwindow" title="A01 Open sub window" />

@@ -356,4 +356,14 @@ test.runTests(
         test.assert(!parentscreen.qS("ul.wh-menubar"));
       }
     },
+
+    "Verify a toolbar appears if there is a menubar",
+    async function () {
+      await tt.loadWTSTestScreen("tests/basecomponents.menutest_notoolbar");
+      test.eq(1, test.qSA('t-toolbar').length);
+      test.click(test.getMenu(['X0B1'])); //should popup @notimplemented screen
+      await test.waitForUI();
+
+      test.eq(/This feature has not yet been implemented/, test.getCurrentScreen().getNode()?.textContent);
+    }
   ]);
