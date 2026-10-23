@@ -175,8 +175,9 @@ export class HSVMVar {
   getMoney() {
     this.checkType(HareScriptType.HSMoney);
     const nrvalue = this.vm.wasmmodule._HSVM_MoneyGet(this.vm.hsvm, this.id);
-    const strval = nrvalue.toString().padStart(6, "0");
-    return new Money(`${strval.substring(0, strval.length - 5)}.${strval.substring(strval.length - 5)}`);
+    const isNegative = nrvalue < 0n;
+    const strval = (isNegative ? -nrvalue : nrvalue).toString().padStart(6, "0");
+    return new Money(`${isNegative ? "-" : ""}${strval.substring(0, strval.length - 5)}.${strval.substring(strval.length - 5)}`);
   }
   setMoney(value: Money) {
     const strval = value.toString();
