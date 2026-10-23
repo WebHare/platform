@@ -92,6 +92,12 @@ test.runTests(
       const X07 = test.getMenu(['X04', 'X07']);
       const openSubmenu = test.getOpenMenu();
       test.assert(openSubmenu);
+      const rootMenu = test.qSA<HTMLUListElement>(".wh-menulist:popover-open")[0];
+      const submenuAnchor = test.qSA<HTMLLIElement>(rootMenu, "li").filter(item => item.parentElement === rootMenu && item.textContent?.includes("X04"))[0];
+      test.assert(submenuAnchor);
+      const submenuBounds = openSubmenu.getBoundingClientRect();
+      const submenuAnchorBounds = submenuAnchor.getBoundingClientRect();
+      test.assert(Math.abs(submenuBounds.right - submenuAnchorBounds.left) <= 2 || Math.abs(submenuBounds.left - submenuAnchorBounds.right) <= 2, "submenu should open beside its parent item");
       const X08 = test.qSA(openSubmenu, "li").filter(item => item.textContent.includes('X08'))[0];
       test.assert(X08.getBoundingClientRect().top > X07.getBoundingClientRect().top, "submenu items should be vertically stacked");
       //verify that only X07, X08, and the divider between them are visible
@@ -274,6 +280,7 @@ test.runTests(
         const burgerbuttonrect = burgerbutton.getBoundingClientRect();
         const burgermenurect = topmenu.getBoundingClientRect();
         test.eq(Math.ceil(burgerbuttonrect.right), Math.ceil(burgermenurect.right), "burgermenu should right align with button");
+        test.eq(Math.ceil(burgerbuttonrect.bottom), Math.ceil(burgermenurect.top), "burgermenu should open below the button");
 
         test.click(test.getCurrentScreen().getNode()!, { x: 0, y: 0 });
         test.assert(!burgerbutton.classList.contains("active"));

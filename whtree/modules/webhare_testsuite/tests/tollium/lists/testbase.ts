@@ -264,12 +264,20 @@ test.runTests(
         let ctxtmenu = test.qS('.toddContextMenu');
         test.assert(ctxtmenu === null);
 
-        test.sendMouseGesture([
-          { el: test.getCurrentScreen().getListRow('staticlist', 'Row #2|'), down: 2 },
+        const contextTarget = test.getCurrentScreen().getListRow('staticlist', 'Row #2|');
+        const contextTargetRect = contextTarget.getBoundingClientRect();
+        const clickX = contextTargetRect.left + contextTargetRect.width / 2;
+        const clickY = contextTargetRect.top + contextTargetRect.height / 2;
+        await test.sendMouseGesture([
+          { el: contextTarget, down: 2 },
           { up: 2 }
         ]);
         ctxtmenu = test.getOpenMenu();
         test.assert(ctxtmenu);
+
+        const contextMenuRect = ctxtmenu.getBoundingClientRect();
+        test.assert(Math.abs(contextMenuRect.top - clickY) <= 1, "context menu should anchor to the pointer's vertical position");
+        test.assert(Math.abs(contextMenuRect.left - clickX) <= 1 || Math.abs(contextMenuRect.right - clickX) <= 1, "context menu should open beside the pointer");
 
         //odd and something should be available (note: failing these test may also point to focus issues, if the list isn't receiving focus at contextmenu click)
         const MC01 = test.qSA(ctxtmenu, "li").filter(li => li.textContent.includes('MC01'))[0];
