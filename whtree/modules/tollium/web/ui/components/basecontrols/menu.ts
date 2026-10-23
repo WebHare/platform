@@ -54,8 +54,6 @@ interface MenuCandidateElement extends HTMLUListElement {
    - The class 'hassubmenu' is added to an LI with a submenu
    - Open menus have the class 'open' added to their UL
    - Open menus have a class 'level-$DEPTH' added, where $DEPTH is their opening depth (top menu is depth 1)
-   - When a menu has a submenu with an active selection, the parent menu will have the class 'hassubselect'
-
    Menu list:
    - The class 'wh-menu' and 'wh-menulist' are added
    - The UL is removed from the original location in the DOM, and replaced by a placeholder
@@ -95,8 +93,8 @@ interface MenuCandidateElement extends HTMLUListElement {
       color: #ffffff;
     }
 
-    # selected menu items in parentmenus
-    ul.wh-menu.hassubselect li.selected
+    # selected menu items with an open submenu
+    ul.wh-menu:has(> li.selected > ul.wh-menulist:popover-open) > li.selected
     {
       background: #b3b3b3;
     }
@@ -138,10 +136,6 @@ interface MenuCandidateElement extends HTMLUListElement {
 
 
    FIXMEs:
-   - In tollium, when opening a menu bar when the submenu doesn't fit, the menu will
-     be placed over the menu bar item. A mouseleave is fired, but no mouseenter
-     for the submenu - and then the autoclose callback kicks in and closes all menus.
-
    - rewrite?
      - either store info on each level (virtualtree) in an array of let them have their own class
      - if a keypress has no result for the current level/orientation, determine whether it does one level higher
@@ -185,8 +179,6 @@ function getParents(node: HTMLElement) {
 }
 
 let tookfocus = false;
-/// List of currently active menus
-const activemenus: MenuList[] = [];
 /// List of menus the mouse is in
 const mousemenus: MenuList[] = [];
 /// Close check callback id
@@ -195,10 +187,20 @@ let checkclosedelay: NodeJS.Timeout | null = null;
 // Node that was responsible for opening the first menu (and will receive the events)
 let eventnode: HTMLElement | null = null;  //
 
+function getActiveMenus(): MenuList[] {
+  const menus: MenuList[] = [];
+  for (const node of document.querySelectorAll<HTMLUListElement>(".wh-menulist:popover-open")) {
+    const menu = (node as MenuCandidateElement)[MenuController];
+    if (menu)
+      menus.push(menu);
+  }
+  return menus;
+}
+
 function _gotGlobalMouseDown(htmlevent: Event) {
   if (htmlevent.target) {
     //as a global handler we *cannot* assume the event.target to be a HTMLElement - it can be window!
-    const menu = activemenus.find(openmenu => openmenu.isInMenu(htmlevent.target));
+    const menu = getActiveMenus().find(openmenu => openmenu.isInMenu(htmlevent.target));
     if (dompack.debugflags.men)
       console.log('[men] globalMouseDown handler captured mousedown (semifocus) and detected menu: ', menu, htmlevent);
 
@@ -209,7 +211,7 @@ function _gotGlobalMouseDown(htmlevent: Event) {
 }
 
 function _gotGlobalKeyPressed(htmlevent: KeyboardEvent) {
-  // INV: this.activemenus.length > 0
+  // INV: at least one menu popover is open
 
   const key = htmlevent.key;
   //Function key or possible shortcut (ctrl/alt/meta is pressed and none of the composing or arrow keys is triggering us), then close and let it be handled
@@ -226,10 +228,11 @@ function _gotGlobalKeyPressed(htmlevent: KeyboardEvent) {
     return;
   }
 
-  for (let i = activemenus.length - 1; i >= 0; --i) {
-    if (activemenus[i]._handleKey(htmlevent, i === 0)) {
+  const activeMenus = getActiveMenus();
+  for (let i = activeMenus.length - 1; i >= 0; --i) {
+    if (activeMenus[i]._handleKey(htmlevent, i === 0)) {
       if (dompack.debugflags.men)
-        console.log("[men] globalKeyDown handler captured keyboard event that was handled by a menu, cancelling the event", activemenus[i], htmlevent);
+        console.log("[men] globalKeyDown handler captured keyboard event that was handled by a menu, cancelling the event", activeMenus[i], htmlevent);
 
       htmlevent.stopPropagation();
       htmlevent.preventDefault();
@@ -288,43 +291,36 @@ function mouseEnteredMenu(menu: MenuList) {
   clearCloseTimeout();
 }
 
-function setMenuActive(menu: MenuList, active: boolean) {
-  const activeidx = activemenus.indexOf(menu);
-  if (active === (activeidx !== -1))
+function updateGlobalMenuEventListeners(menu: MenuList, active: boolean) {
+  const activeMenus = getActiveMenus();
+  if (activeMenus.length !== 1 || activeMenus[0] !== menu)
     return;
 
-  if (active)
-    activemenus.push(menu);
-  else
-    activemenus.splice(activeidx, 1);
+  if (active) {
+    window.addEventListener("mousedown", _gotGlobalMouseDown, true); //capture if possible
+    window.addEventListener("keydown", _gotGlobalKeyPressed, true);
 
-  if (activemenus.length === (active ? 1 : 0)) { // did we change from/tone no active menus?
-    if (active) { // First active menu
-      window.addEventListener("mousedown", _gotGlobalMouseDown, true); //capture if possible
-      window.addEventListener("keydown", _gotGlobalKeyPressed, true);
-
-      if (document.activeElement?.nodeName === 'IFRAME') {
-        //note: IE ingnores 'blur' and firefox seems to have problems with window.focus
-        (document.activeElement as HTMLIFrameElement).blur();//remove focus from iframe
-        if (!document.activeElement || document.activeElement.nodeName === 'IFRAME')
-          window.focus();
-      }
-
-      window.addEventListener('blur', _gotGlobalMouseDown, false);
-      window.addEventListener("touchstart", _gotGlobalMouseDown, true);
-    } else {
-      window.removeEventListener("mousedown", _gotGlobalMouseDown, true);
-      window.removeEventListener("keydown", _gotGlobalKeyPressed, true);
-
-      window.removeEventListener('blur', _gotGlobalMouseDown, false);
-      window.removeEventListener("touchstart", _gotGlobalMouseDown, true);
-
-      // All menu's are gone, no need for the close timeout anymore
-      clearCloseTimeout();
-
-      if (tookfocus)
-        releaseSemiFocus();
+    if (document.activeElement?.nodeName === 'IFRAME') {
+      //note: IE ingnores 'blur' and firefox seems to have problems with window.focus
+      (document.activeElement as HTMLIFrameElement).blur();//remove focus from iframe
+      if (!document.activeElement || document.activeElement.nodeName === 'IFRAME')
+        window.focus();
     }
+
+    window.addEventListener('blur', _gotGlobalMouseDown, false);
+    window.addEventListener("touchstart", _gotGlobalMouseDown, true);
+  } else {
+    window.removeEventListener("mousedown", _gotGlobalMouseDown, true);
+    window.removeEventListener("keydown", _gotGlobalKeyPressed, true);
+
+    window.removeEventListener('blur', _gotGlobalMouseDown, false);
+    window.removeEventListener("touchstart", _gotGlobalMouseDown, true);
+
+    // All menus are gone, no need for the close timeout anymore
+    clearCloseTimeout();
+
+    if (tookfocus)
+      releaseSemiFocus();
   }
 }
 
@@ -337,7 +333,7 @@ function mouseLeftMenu(menu: MenuList) {
   if (mousemenuidx !== -1)
     mousemenus.splice(mousemenuidx, 1);
 
-  if (mousemenus.length === 0 && activemenus.length && !tookfocus) { //left all menus, and not taken focus?
+  if (mousemenus.length === 0 && getActiveMenus().length && !tookfocus) { //left all menus, and not taken focus?
     // Reset the close timeout, and set a new one
     clearCloseTimeout();
     checkclosedelay = setTimeout(() => _checkMenuClose(), hoverclosetimeout);
@@ -351,11 +347,12 @@ function getEventNode() {
 }
 
 export function closeAll() {
-  if (activemenus.length)
-    activemenus[0]._selectItem(null);
+  let activeMenus = getActiveMenus();
+  if (activeMenus.length)
+    activeMenus[0]._selectItem(null);
 
-  while (activemenus.length)
-    activemenus[0]._closeMenu();
+  while ((activeMenus = getActiveMenus()).length)
+    activeMenus[0]._closeMenu();
 
   mousemenus.length = 0;
   eventnode = null;
@@ -375,7 +372,6 @@ function openSubMenu(parentmenu: MenuList, li: HTMLLIElement): MenuList | null {
 
   closingmenus = []; //if we're back to opening menus, forget about the close list
   submenu._openMenu(dompack.getRelativeBounds(li), parentmenu.currentalign === 'right' ? 'left' : 'right', parentmenu, parentmenu.currentalign, "left", 0);
-  recomputeSubSelection();
 
   return submenu;
 }
@@ -397,7 +393,6 @@ function openAsList(submenu: MenuList, coords: dompack.Rect, preferreddirection:
 
   closingmenus = []; //if we're back to opening menus, forget about the close list
   submenu._openMenu(coords, preferreddirection, null, preferredalign, exitdirection, minwidth, options, owner);
-  recomputeSubSelection();
   takeSemiFocus();
 }
 
@@ -418,17 +413,6 @@ function _checkMenuClose() {
     return;
 
   closeAll();
-}
-
-/** Recompute which menus have subselections
-*/
-function recomputeSubSelection() {
-  let foundselection = false;
-  for (let i = activemenus.length - 1; i >= 0; --i) {
-    activemenus[i].el.classList.toggle('hassubselect', foundselection);
-    if (activemenus[i].selecteditem)
-      foundselection = true;
-  }
 }
 
 class MenuList {
@@ -524,10 +508,8 @@ class MenuList {
   }
 
   _selectItem(li: HTMLLIElement | null, scroll?: boolean) {
-    if (li && !activemenus.includes(this)) {
-      setMenuActive(this, true);
+    if (li)
       this.active = true;
-    }
     if (li && !mousemenus.includes(this))
       mousemenus.push(this);
 
@@ -540,7 +522,6 @@ class MenuList {
       this.selecteditem = null;
     }
     if (!li || li.classList.contains('disabled')) { //cannot be selected
-      recomputeSubSelection();
       return;
     }
 
@@ -557,7 +538,6 @@ class MenuList {
       this.openedsubmenu = openSubMenu(this, li);
     }
 
-    recomputeSubSelection();
   }
 
   // ---------------------------------------------------------------------------
@@ -994,7 +974,7 @@ class MenuList {
 
     dompack.setStyles(this.el, styles);
 
-    setMenuActive(this, true);
+    updateGlobalMenuEventListeners(this, true);
     this.active = true;
 
     this._handleMenuOpen();
@@ -1004,9 +984,7 @@ class MenuList {
     this._fireOpenCloseEvent(false);
     this.active = false;
 
-    setMenuActive(this, false);
-    recomputeSubSelection();
-
+    updateGlobalMenuEventListeners(this, false);
     this._selectItem(null);
 
     closingmenus.push(this.el);

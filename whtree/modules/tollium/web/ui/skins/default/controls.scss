@@ -60,7 +60,7 @@ ul.wh-menu li.selected
   background-color: #95cdfe !important;
 }
 
-ul.wh-menu.hassubselect li.selected
+ul.wh-menu:has(> li.selected > ul.wh-menulist:popover-open) > li.selected
 {
   background: #b3b3b3;
 }
