@@ -1,5 +1,5 @@
 import { create, toDataURL } from "qrcode";
-import { createSharpImageFromBlob } from "./descriptor";
+import { createSharpImageFromBlob } from "@webhare/services/src/descriptor";
 
 /**
  * QR code encoding options

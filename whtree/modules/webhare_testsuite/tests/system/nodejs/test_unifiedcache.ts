@@ -10,6 +10,7 @@ import { createSharpImage } from "@webhare/deps/src/deps";
 import { promises as fs } from "node:fs";
 import { listDirectory } from "@webhare/system-tools";
 import { compareSharpImages, fetchUCLink } from "./data/image-fetch";
+import { throwError } from "@webhare/std";
 
 async function clearUnifiedCache() {
   const ucCacheDir = backendConfig.dataRoot + "caches/platform/uc/";
@@ -26,11 +27,16 @@ async function clearUnifiedCache() {
 }
 
 async function testLosslessDetection() {
-  test.eq(true, await isImageLossless("image/avif", toFSPath("mod::webhare_testsuite/tests/system/nodejs/data/images/hdr_cosmos01000_cicp9-16-9_yuv444_full_qp10.avif")));
-  test.eq(false, await isImageLossless("image/avif", toFSPath("mod::webhare_testsuite/tests/system/nodejs/data/images/hdr_cosmos01000_cicp9-16-9_yuv420_limited_qp10.avif")));
-
-  test.eq(true, await isImageLossless("image/webp", toFSPath("mod::webhare_testsuite/tests/system/nodejs/data/images/webp_lossless.webp")));
-  test.eq(false, await isImageLossless("image/webp", toFSPath("mod::webhare_testsuite/tests/system/nodejs/data/images/webp_lossy_alpha.webp")));
+  for (const [mimetype, filename, lossless] of [
+    ["image/avif", "hdr_cosmos01000_cicp9-16-9_yuv444_full_qp10.avif", true],
+    ["image/avif", "hdr_cosmos01000_cicp9-16-9_yuv420_limited_qp10.avif", false],
+    ["image/webp", "webp_lossless.webp", true],
+    ["image/webp", "webp_lossy_alpha.webp", false]
+  ] as const) {
+    const path = toFSPath("mod::webhare_testsuite/tests/system/nodejs/data/images/" + filename);
+    test.eq(lossless, await isImageLossless(mimetype, path));
+    test.eq(lossless, await isImageLossless(mimetype, new Blob([await fs.readFile(path)])));
+  }
 }
 
 async function testResizeMethods() {
@@ -612,7 +618,7 @@ async function testWRDImgCache() {
 
   const wrappedGoldfish = await schema.getFields("wrdPerson", personid, ["testImage"]);
   test.assert(wrappedGoldfish);
-  const imgFishPng = await createSharpImage(await wrappedGoldfish.testImage?.file.arrayBuffer());
+  const imgFishPng = await createSharpImage(await wrappedGoldfish.testImage?.file.arrayBuffer() ?? throwError("Failed to load test image"));
 
   const fetchedGoldFishLink = wrappedGoldfish.testImage!.toResized({ method: "none", format: "keep" }).link;
   test.eq(/goudvis\.png$/, fetchedGoldFishLink);

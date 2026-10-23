@@ -12,6 +12,50 @@ LOADLIB "wh::internal/graphics.whlib" EXPORT GfxCreateColor, GfxCreateColorFromC
 LOADLIB "wh::graphics/canvas.whlib" EXPORT ColorBlackTransparent, ColorWhiteTransparent, ColorBlack, ColorWhite;
 
 
+/** Resize a wrapped image using @webhare/graphics. Replaces GfxResizeWrappedImageWithMethod since WH6.1
+    @param infile Wrapped input image blob
+    @param resizemethod Resize method properties @includecelldef wh::internal/graphics.whlib#ValidateResizeMethod.method
+    @return Output image
+    @throws If the input is not an image
+    @cell(blob) return.data Image data
+    @cell(integer) return.width Image width in pixels
+    @cell(integer) return.height Image height in pixels
+    @cell(string) return.mimetype Image MIME type
+*/
+PUBLIC RECORD FUNCTION ResizeImage(RECORD infile, RECORD resizemethod)
+{
+  IF(infile.height = 0)
+    THROW NEW Exception("Input is not an image");
+
+  resizemethod := ValidateResizeMethod(CELL[format := "keep", ...resizemethod]);
+  IF(resizemethod.method = "fitcanvas")
+    resizemethod.method := "fitCanvas";
+  ELSE IF(resizemethod.method = "scalecanvas")
+    resizemethod.method := "scaleCanvas";
+
+  BLOB data := CallJS([ camelcase := TRUE ], "@webhare/graphics#resizeImage", [
+    file := infile.data,
+    file_name := CellExists(infile, "filename") ? infile.filename : "image",
+    media_type := infile.mimetype,
+    width := infile.width,
+    height := infile.height,
+    ref_point := CellExists(infile, "refpoint") ? infile.refpoint : DEFAULT RECORD
+  ], [
+    method := resizemethod.method,
+    width := CellExists(resizemethod, "setwidth") ? resizemethod.setwidth : 0,
+    height := CellExists(resizemethod, "setheight") ? resizemethod.setheight : 0,
+    format := resizemethod.format,
+    bg_color := resizemethod.bgcolor,
+    no_force := resizemethod.noforce,
+    grayscale := resizemethod.grayscale,
+    quality := resizemethod.quality,
+    blur := resizemethod.hblur < resizemethod.vblur ? resizemethod.hblur : resizemethod.vblur
+  ]);
+  RECORD scanned := ScanBlob(data);
+  RETURN [ data := data, width := scanned.width, height := scanned.height, mimetype := scanned.mimetype ];
+}
+
+
 /** @short Generate a QR code
     @param intext The text to encode
     @param options Encoding options
@@ -40,7 +84,7 @@ PUBLIC RECORD FUNCTION GenerateQRCode(STRING intext, RECORD options) {
     ]
   ]);
 
-  BLOB qrpng := CallJS([ camelcase := TRUE ], "@webhare/services#createQRCode", intext, CELL[
+  BLOB qrpng := CallJS([ camelcase := TRUE ], "@webhare/graphics#createQRCode", intext, CELL[
     options.size,
     options.margin,
     color_dark := options.colordark,
