@@ -23,9 +23,6 @@ PUBLIC STATIC OBJECTTYPE Prefs EXTEND TolliumScreenBase
       DELETE FROM ^opts->options WHERE rowkey = "showforeignfolders";
     }
 
-    IF(this->tolliumuser->GetRegistryKey("publisher.prefs.showmenubar", FALSE))
-      INSERT "showmenubar" INTO opts AT END;
-
     ^opts->value := opts;
 
     ^tweaks->visible := this->tolliumuser->HasRight("system:sysop");
@@ -50,7 +47,6 @@ PUBLIC STATIC OBJECTTYPE Prefs EXTEND TolliumScreenBase
     this->tolliumuser->SetRegistryKey("publisher.prefs.nouploadrename", "nouploadrename" IN opts);
     this->tolliumuser->SetRegistryKey("publisher.prefs.groupfolders", "groupfolders" IN opts);
     this->tolliumuser->SetRegistryKey("publisher.prefs.showforeignfolders", "showforeignfolders" IN opts);
-    this->tolliumuser->SetRegistryKey("publisher.prefs.showmenubar", "showmenubar" IN opts);
 
     IF(^tweaks->visible)
     {
