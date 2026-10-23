@@ -158,9 +158,6 @@ interface MenuCandidateElement extends HTMLUListElement {
    - oninput event (for realtime reacting during hover or keyboard navigation)
 */
 
-const hoverclosetimeout = 500;
-
-
 // Menu options for components
 //var componentmenuoptions = {};
 
@@ -179,10 +176,6 @@ function getParents(node: HTMLElement) {
 }
 
 let tookfocus = false;
-/// List of menus the mouse is in
-const mousemenus: MenuList[] = [];
-/// Close check callback id
-let checkclosedelay: NodeJS.Timeout | null = null;
 
 // Node that was responsible for opening the first menu (and will receive the events)
 let eventnode: HTMLElement | null = null;  //
@@ -211,7 +204,9 @@ function _gotGlobalMouseDown(htmlevent: Event) {
 }
 
 function _gotGlobalKeyPressed(htmlevent: KeyboardEvent) {
-  // INV: at least one menu popover is open
+  const activeMenus = getActiveMenus();
+  if (!activeMenus.length)
+    return;
 
   const key = htmlevent.key;
   //Function key or possible shortcut (ctrl/alt/meta is pressed and none of the composing or arrow keys is triggering us), then close and let it be handled
@@ -228,7 +223,6 @@ function _gotGlobalKeyPressed(htmlevent: KeyboardEvent) {
     return;
   }
 
-  const activeMenus = getActiveMenus();
   for (let i = activeMenus.length - 1; i >= 0; --i) {
     if (activeMenus[i]._handleKey(htmlevent, i === 0)) {
       if (dompack.debugflags.men)
@@ -248,16 +242,12 @@ function _gotGlobalKeyPressed(htmlevent: KeyboardEvent) {
   htmlevent.preventDefault();
 }
 
+window.addEventListener("keydown", _gotGlobalKeyPressed, true);
+
 // ---------------------------------------------------------------------------
 //
 // Helper functions
 //
-
-function clearCloseTimeout() {
-  if (checkclosedelay)
-    clearTimeout(checkclosedelay);
-  checkclosedelay = null;
-}
 
 /** Takes over mouse and keyboard to control the menu
 */
@@ -268,8 +258,6 @@ function takeSemiFocus() {
   if (dompack.debugflags.men)
     console.log('[men] takeSemiFocus');
 
-  // With semifocus taken, no auto-closing of the menu anymore
-  clearCloseTimeout();
   tookfocus = true;
 }
 
@@ -282,15 +270,6 @@ function releaseSemiFocus() {
   tookfocus = false;
 }
 
-/// Called by a menu when the mouse enters it
-function mouseEnteredMenu(menu: MenuList) {
-  if (mousemenus.indexOf(menu) === -1)
-    mousemenus.push(menu);
-
-  // Cancel close delay, we have a new opened menu
-  clearCloseTimeout();
-}
-
 function updateGlobalMenuEventListeners(menu: MenuList, active: boolean) {
   const activeMenus = getActiveMenus();
   if (activeMenus.length !== 1 || activeMenus[0] !== menu)
@@ -298,7 +277,6 @@ function updateGlobalMenuEventListeners(menu: MenuList, active: boolean) {
 
   if (active) {
     window.addEventListener("mousedown", _gotGlobalMouseDown, true); //capture if possible
-    window.addEventListener("keydown", _gotGlobalKeyPressed, true);
 
     if (document.activeElement?.nodeName === 'IFRAME') {
       //note: IE ingnores 'blur' and firefox seems to have problems with window.focus
@@ -311,32 +289,12 @@ function updateGlobalMenuEventListeners(menu: MenuList, active: boolean) {
     window.addEventListener("touchstart", _gotGlobalMouseDown, true);
   } else {
     window.removeEventListener("mousedown", _gotGlobalMouseDown, true);
-    window.removeEventListener("keydown", _gotGlobalKeyPressed, true);
 
     window.removeEventListener('blur', _gotGlobalMouseDown, false);
     window.removeEventListener("touchstart", _gotGlobalMouseDown, true);
 
-    // All menus are gone, no need for the close timeout anymore
-    clearCloseTimeout();
-
     if (tookfocus)
       releaseSemiFocus();
-  }
-}
-
-/// Called by a menu when the mouse exits it
-function mouseLeftMenu(menu: MenuList) {
-  /* When the mouse exists all menus, in openonhover mode (but no clicks in menu!), the close delay kicks in
-      A click takes semifocus, and prevents the close delay
-  */
-  const mousemenuidx = mousemenus.indexOf(menu);
-  if (mousemenuidx !== -1)
-    mousemenus.splice(mousemenuidx, 1);
-
-  if (mousemenus.length === 0 && getActiveMenus().length && !tookfocus) { //left all menus, and not taken focus?
-    // Reset the close timeout, and set a new one
-    clearCloseTimeout();
-    checkclosedelay = setTimeout(() => _checkMenuClose(), hoverclosetimeout);
   }
 }
 
@@ -354,7 +312,6 @@ export function closeAll() {
   while ((activeMenus = getActiveMenus()).length)
     activeMenus[0]._closeMenu();
 
-  mousemenus.length = 0;
   eventnode = null;
 }
 
@@ -403,16 +360,10 @@ function ensureSubMenu(ul: MenuCandidateElement): MenuList {
   return (ul[MenuController] || (ul[MenuController] = new MenuList(ul))) as MenuList;
 }
 
-function _checkMenuClose() {
-  checkclosedelay = null;
-
-  if (dompack.debugflags.men)
-    console.log("[men] checkMenuClose, menu active: ", mousemenus.length ? "yes" : "no");
-
-  if (mousemenus.length > 0) //still a menu active
-    return;
-
-  closeAll();
+export function onMenuItemMouseEnter(item: HTMLLIElement) {
+  const menuElement = item.parentElement;
+  if (menuElement instanceof HTMLUListElement)
+    (menuElement as MenuCandidateElement)[MenuController]?.onMouseEnterItem(item);
 }
 
 class MenuList {
@@ -445,9 +396,6 @@ class MenuList {
 
     this.el.addEventListener("mousedown", event => this._onMouseDownOnItem(event));
     this.el.addEventListener("click", event => this._closeAfterClick(event), true); //capture
-    this.el.addEventListener("mouseenter", event => this._onMouseEnter(event));
-    this.el.addEventListener("mouseleave", event => this._onMouseLeave(event));
-    this.el.addEventListener("mousemove", event => this._onMouseMove(event));
     this.el.addEventListener("contextmenu", event => this._onContextMenu(event));
 
     this.el.classList.add("wh-menulist");
@@ -510,8 +458,6 @@ class MenuList {
   _selectItem(li: HTMLLIElement | null, scroll?: boolean) {
     if (li)
       this.active = true;
-    if (li && !mousemenus.includes(this))
-      mousemenus.push(this);
 
     if (this.selecteditem) {
       if (this.openedsubmenu) {
@@ -545,14 +491,6 @@ class MenuList {
   // Callbacks & events
   //
 
-  _onMouseEnter(event: Event) {
-    mouseEnteredMenu(this);
-  }
-
-  _onMouseLeave(event: Event) {
-    mouseLeftMenu(this);
-  }
-
   _onMouseDownOnItem(event: Event) {
     const li = (event.target as HTMLElement).closest("li");
     if (!li || li.parentElement !== this.el)
@@ -581,13 +519,12 @@ class MenuList {
     setTimeout(() => closeAll());
   }
 
-  _onMouseMove(event: Event) {
-    const li = (event.target as HTMLElement).closest("li");
-    if (!li || li.parentElement !== this.el)
+  onMouseEnterItem(item: HTMLLIElement) {
+    if (item.parentElement !== this.el)
       return;
 
     // Need to select item if hovering above non-selected item, or have item selected in submenu
-    const must_select = (li !== this.selecteditem) || (this.openedsubmenu && this.openedsubmenu.selecteditem);
+    const must_select = (item !== this.selecteditem) || (this.openedsubmenu && this.openedsubmenu.selecteditem);
     if (!must_select)
       return;
 
@@ -595,7 +532,7 @@ class MenuList {
       otherwise, react only when openonhover is set.
     */
     if (tookfocus ? this.active : this.openonhover)
-      this._selectItem(li);
+      this._selectItem(item);
   }
 
   // ---------------------------------------------------------------------------
