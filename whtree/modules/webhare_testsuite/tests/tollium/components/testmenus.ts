@@ -283,9 +283,10 @@ test.runTests(
         test.eq(Math.ceil(burgerbuttonrect.right), Math.ceil(burgermenurect.right), "burgermenu should right align with button");
         test.eq(Math.ceil(burgerbuttonrect.bottom), Math.ceil(burgermenurect.top), "burgermenu should open below the button");
 
-        test.click(test.getCurrentScreen().getNode()!, { x: 0, y: 0 });
+        test.eq("auto", topmenu.getAttribute("popover"));
+        topmenu.hidePopover();
+        await test.wait(() => !test.getOpenMenu());
         test.assert(!burgerbutton.classList.contains("active"));
-        test.assert(!test.getOpenMenu());
 
       }
     },

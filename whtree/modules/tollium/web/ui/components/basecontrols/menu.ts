@@ -67,19 +67,6 @@ function getActiveMenus(): MenuList[] {
   return menus;
 }
 
-function _gotGlobalMouseDown(htmlevent: Event) {
-  if (htmlevent.target) {
-    //as a global handler we *cannot* assume the event.target to be a HTMLElement - it can be window!
-    const menu = getActiveMenus().find(openmenu => openmenu.isInMenu(htmlevent.target));
-    if (debugFlags.men)
-      console.log('[men] globalMouseDown handler captured mousedown (semifocus) and detected menu: ', menu, htmlevent);
-
-    if (menu)
-      return true; //inside our menus. let it pass
-  }
-  closeAll();
-}
-
 function _gotGlobalKeyPressed(htmlevent: KeyboardEvent) {
   const activeMenus = getActiveMenus();
   if (!activeMenus.length)
@@ -145,27 +132,6 @@ function releaseSemiFocus() {
     console.log('[men] releaseSemiFocus');
 
   tookfocus = false;
-}
-
-function updateGlobalMenuEventListeners(menu: MenuList, active: boolean) {
-  const activeMenus = getActiveMenus();
-  if (activeMenus.length !== 1 || activeMenus[0] !== menu)
-    return;
-
-  if (active) {
-    window.addEventListener("mousedown", _gotGlobalMouseDown, true); //capture if possible
-
-    window.addEventListener('blur', _gotGlobalMouseDown, false);
-    window.addEventListener("touchstart", _gotGlobalMouseDown, true);
-  } else {
-    window.removeEventListener("mousedown", _gotGlobalMouseDown, true);
-
-    window.removeEventListener('blur', _gotGlobalMouseDown, false);
-    window.removeEventListener("touchstart", _gotGlobalMouseDown, true);
-
-    if (tookfocus)
-      releaseSemiFocus();
-  }
 }
 
 function getEventNode() {
@@ -259,9 +225,13 @@ class MenuList {
     this.el.addEventListener("mousedown", event => this._onMouseDownOnItem(event));
     this.el.addEventListener("click", event => this._closeAfterClick(event), true); //capture
     this.el.addEventListener("contextmenu", event => this._onContextMenu(event));
+    this.el.addEventListener("toggle", event => {
+      if ((event as ToggleEvent).newState === "closed" && this.active)
+        this._closeMenu();
+    });
 
     this.el.classList.add("wh-menulist");
-    this.el.setAttribute("popover", "manual");
+    this.el.setAttribute("popover", "auto");
   }
 
   isInMenu(node: EventTarget | null) {
@@ -627,7 +597,6 @@ class MenuList {
 
     this.el.showPopover();
 
-    updateGlobalMenuEventListeners(this, true);
     this.active = true;
 
     this._handleMenuOpen();
@@ -637,7 +606,6 @@ class MenuList {
     this._fireOpenCloseEvent(false);
     this.active = false;
 
-    updateGlobalMenuEventListeners(this, false);
     this._selectItem(null);
 
     closingmenus.push(this.el);
@@ -648,8 +616,11 @@ class MenuList {
       console.log("[men] dispatching wh-menu-closed for menu ", this.el, " to ", cureventnode, " in tree ", getParents(cureventnode));
     dompack.dispatchCustomEvent(cureventnode, "wh:menu-closed", { bubbles: true, cancelable: false, detail: { menu: this.el } });
 
-    this.el.hidePopover();
+    if (this.el.matches(":popover-open"))
+      this.el.hidePopover();
     this.clearMenuAnchor();
+    if (!getActiveMenus().length && tookfocus)
+      releaseSemiFocus();
 
     if (this.substitutionnode) {
       this.substitutionnode.replaceWith(this.el);
