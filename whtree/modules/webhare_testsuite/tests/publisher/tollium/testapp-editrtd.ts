@@ -52,7 +52,7 @@ test.runTests(
       await test.wait("ui");
 
       // Ensure an empty line between them
-      test.click(test.getCurrentScreen().qR(`.wh-rtd-navunderbutton`));
+      test.click(test.getCurrentScreen().qSA(`.wh-rtd-navunderbutton`)[0]);
 
       // Ensure an empty line between them
       test.click(test.compByTitle("Save"));
