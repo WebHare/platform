@@ -20,7 +20,6 @@
       <action name="customaction" customaction="webhare_testsuite:customaction" />
       <action name="togglecustomaction" onexecute="dotogglecustomaction" />
       <action name="togglebuttonbarbutton" onexecute="dotogglebuttonbarbutton" shortcut="ctrl+b" />
-      <action name="toggleforcemenubar" onexecute="dotoggleforcemenubar" />
       <action name="toggleb03" onexecute="dotoggleb03" />
       <action name="togglex16" onexecute="dotogglex16" />
       <action name="openwithinitialburger" onexecute="doopenwithinitialburger" />
@@ -74,7 +73,6 @@
           <item name="customactionitem" action="customaction" title="X11 customaction" />
           <item name="togglecustomactionitem" action="togglecustomaction" title="X12 togglecustomaction" />
           <item name="x13" action="togglebuttonbarbutton" title="X13 togglebuttonbarbutton" />
-          <item action="toggleforcemenubar" title="X14 toggleforcemenubar" />
           <item action="toggleb03" title="X15 toggleB03" />
           <item name="x16" action="togglex16" title="X16 toggleX16" />
           <item name="x17" action="openwithinitialburger" title="X17 open with initial burger" />
@@ -107,7 +105,6 @@
       <button name="b02_togglebutton" action="togglecustomaction" title="B02 Toggle" />
       <button name="b03_menubutton" enabled="false" menu="x04menu" title="B03 Bar" />
       <button name="b04_submenubutton" menu="x01menu" title="B04 Submenu" />
-      <button name="b14_toggleforcemenubar" action="toggleforcemenubar" title="B14 Burger" />
     </toolbar>
 
     <body name="body">

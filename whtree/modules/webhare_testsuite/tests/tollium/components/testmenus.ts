@@ -2,7 +2,6 @@ import * as test from '@mod-tollium/js/testframework';
 import * as tt from '@mod-webhare_testsuite/js/tolliumtest-wts';
 import type { IndyShell } from '@mod-tollium/web/ui/js/shell';
 import type { ObjFrame } from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
-import { throwError } from '@webhare/std';
 
 
 function getDividers(menu: ParentNode): HTMLLIElement[] {
@@ -31,7 +30,6 @@ test.runTests(
       const X09 = test.getMenu(['X01', 'X09']);
       await test.sendMouseGesture([{ el: X09 }]);
 
-      test.assert(X01.classList.contains("selected"));
       test.assert(X09.classList.contains("selected"));
       test.assert(!test.getCurrentApp().isBusy());
       const X02 = X09.previousElementSibling as HTMLLIElement;
@@ -51,21 +49,14 @@ test.runTests(
       // After clicking a menu item, ensure the menu is closed
       const X01 = test.getMenu(['X01']);
       test.assert(!X01.classList.contains("selected"));
-
       test.click(X01);
-      const X03 = test.getMenu(['X03']);
 
       //hover to the click action via the opened menu
       const X09 = test.getMenu(['X01', 'X09']);
       await test.sendMouseGesture([
         { el: X09 },
         { relx: 500 },
-        { el: X03 }
       ]);
-
-      //should have hover and selected status (menu was already open)
-      test.assert(X03.classList.contains("selected"));
-      test.assert(!X01.classList.contains("selected"));
 
       //click outside the menu to close it
       await test.sendMouseGesture([
@@ -96,36 +87,12 @@ test.runTests(
 
     'visibility checks',
     async function () {
-      let menu = test.qR('.wh-menubar');
-      const X03 = test.qSA(menu, "*").filter(item => item.textContent.includes('X03'))[0];
-      const X01 = test.qSA(menu, "*").filter(item => item.textContent.includes('X01'))[0];
-      let X04 = test.qR<HTMLLIElement>(menu, "li[data-menuitem$=':x04menu']");
-      let X07 = test.qSA(X04, "ul li").filter(item => item.textContent.includes('X07'))[0];
-      //var X08 = test.qSA(X04,"ul li").filter(item=>item.textContent.includes('X08'));
-
       test.eq('1', test.compByName("action1count").textContent);
 
-      //should still have hover status but not selected, as our mouse is still here
-      test.assert(!X03.classList.contains("selected"));
-
-      //move the mouse to the first menu item
-      await test.sendMouseGesture([{ el: X01 }]);
-      test.assert(!X01.classList.contains("selected")); //should be false, or the menu didn't lose semifocus after the click!
-
-      //click the menu item
-      test.click(X01);
-      test.assert(X01.classList.contains("selected"));
-
-      //to the 3rdmenu
-      await test.sendMouseGesture([{ el: X04 }]);
-      const X04submenu = test.qR<HTMLUListElement>(X04, "ul");
-      test.assert(X04submenu.matches(":popover-open"));
-      test.eq(X04, X04submenu.parentElement);
+      const X07 = test.getMenu(['X04', 'X07']);
       const openSubmenu = test.getOpenMenu();
       test.assert(openSubmenu);
-      X07 = test.qSA(openSubmenu, "li").filter(item => item.textContent.includes('X07'))[0];
       const X08 = test.qSA(openSubmenu, "li").filter(item => item.textContent.includes('X08'))[0];
-      test.assert(X01.getBoundingClientRect().top === X04.getBoundingClientRect().top, "menubar items should stay on one row");
       test.assert(X08.getBoundingClientRect().top > X07.getBoundingClientRect().top, "submenu items should be vertically stacked");
       test.assert(getComputedStyle(X07).paddingTop === "0px", "submenu text should not inherit menubar padding");
 
@@ -148,21 +115,13 @@ test.runTests(
 
       test.eq('1', test.compByName("action1count").textContent); //action was disabled, so nothing should have happened
 
-      menu = test.qR('.wh-menubar');
-      X04 = test.qR<HTMLLIElement>(menu, "li[data-menuitem$=':x04menu']");
-      test.click(X04);
-      X07 = test.qSA(openSubmenu, "li").filter(item => item.textContent.includes('X07'))[0];
-      test.click(X07);
+      test.click(test.getMenu(['X04', 'X07']));
       await test.waitForUI();
     },
 
     function () {
       test.eq('1', test.compByName("action1count").textContent); //we didn't even touch it...
-      const menu = test.qR('.wh-menubar');
-      const X04 = test.qR<HTMLLIElement>(menu, "li[data-menuitem$=':x04menu']");
-      test.click(X04);
-      const X05 = test.qSA(test.getOpenMenu() ?? throwError("Missing menu"), "li").filter(li => li.textContent.includes('X05'))[0];
-      test.assert(!X05.classList.contains("hidden"));
+      test.click(test.getMenu(['X04']));
       test.eq(2, getDividers(test.qSA(".wh-menu:popover-open").slice(-1)[0]).length);
 
     },
@@ -276,6 +235,125 @@ test.runTests(
     },
     function () {
       test.assert(test.compByName('b03_menubutton').classList.contains("todd--disabled"));
-    }
+    },
+    {
+      test: function () {
+        test.eq(1, test.qSA('t-toolbar').length);
+        test.click(test.getCurrentScreen().qR("button.ismenubutton"));
+        test.assert(test.isElementClickable(test.qSA('li[data-menuitem$=":x01menu"]')[0]), "X01 Menu is already gone!");
 
+        test.click(test.compByName('b04_submenubutton'));
+        test.click(test.compByName('b04_submenubutton'));
+        test.click(test.getCurrentScreen().qR("button.ismenubutton"));
+        test.assert(test.isElementClickable(test.qSA('li[data-menuitem$=":x01menu"]')[0]), "X01 Menu disappeared from the hamburger button after opening it from B04");
+      }
+    },
+
+    {
+      name: 'openburger',
+      test: async function () {
+        const burgerbutton = test.getCurrentScreen().qR('t-toolbar .t-toolbar-buttongroup__right button:last-child');
+        test.click(burgerbutton);
+        test.assert(burgerbutton.classList.contains("button--active"), "button should remain highlighted with open menu");
+        test.assert(burgerbutton.classList.contains("ismenubutton"));
+
+        const topmenu = test.getOpenMenu();
+        test.assert(topmenu);
+        test.assert(!topmenu.querySelector('li[data-menuitem$=":x0b1"]'));
+        test.assert(topmenu.querySelector('li[data-menuitem$=":x0b2"]'));
+
+        await test.sendMouseGesture([{ el: test.qSA(topmenu, "li").filter(li => li.textContent?.includes("X01"))[0] }]);
+        const x13item = test.qS('li[data-menuitem$=x13]');
+        test.assert(x13item);
+        test.assert(x13item.hasAttribute("data-menushortcut"));
+        test.assert(x13item.closest('ul')?.classList.contains('showshortcuts'), 'shortcuts class missing in hamburger, needed to make data-shortcuts appear');
+
+        await test.sendMouseGesture([{ el: test.qSA(topmenu, "li").filter(li => li.textContent?.includes("X03"))[0] }]);
+
+        test.assert(burgerbutton.classList.contains("button--active"));
+        test.assert(test.getOpenMenu());
+
+        const burgerbuttonrect = burgerbutton.getBoundingClientRect();
+        const burgermenurect = topmenu.getBoundingClientRect();
+        test.eq(Math.ceil(burgerbuttonrect.right), Math.ceil(burgermenurect.right), "burgermenu should right align with button");
+
+        test.click(test.getCurrentScreen().getNode()!, { x: 0, y: 0 });
+        test.assert(!burgerbutton.classList.contains("active"));
+        test.assert(!test.getOpenMenu());
+
+      }
+    },
+
+    async function () {
+      await tt.loadWTSTestScreen("tests/basecomponents.menutest");
+    },
+
+    {
+      name: 'initialburger',
+      test: async function () {
+        test.click(test.getMenu(['X01', 'X17']));
+        await test.waitForUI();
+      }
+    },
+
+    {
+      name: 'test burger',
+      test: async function () {
+        console.error(test.getCurrentScreen());
+        const burgerbutton = test.getCurrentScreen().qS('t-toolbar .t-toolbar-buttongroup__right button:last-child');
+        test.assert(burgerbutton);
+        test.assert(burgerbutton.classList.contains("ismenubutton"));
+        test.assert(!test.getMenu(['X01'], { allowMissing: true, autoClickHamburger: false }));
+
+        test.click(burgerbutton);
+        test.assert(test.getOpenMenu());
+      }
+    },
+    {
+      name: 'add menuitems',
+      test: async function () {
+        //check if the ismenubutton is back
+        const lastbutton = test.getCurrentScreen().qR('t-toolbar .t-toolbar-buttongroup__right button:last-child');
+        test.assert(lastbutton.classList.contains("ismenubutton"));
+        test.click(lastbutton);
+        const menu = test.getOpenMenu();
+        test.assert(menu);
+        test.click(test.qR(menu, 'li[data-menuitem$=":x01menu"]'));
+        test.click(test.qR(menu, 'li[data-menuitem$=":x18"]'));
+        await test.waitForUI();
+      }
+    },
+    {
+      name: 'check added menuitems',
+      test: function () {
+        const lastbutton = test.getCurrentScreen().qR('t-toolbar .t-toolbar-buttongroup__right button:last-child');
+        test.click(lastbutton);
+
+        const menu = test.getOpenMenu();
+        test.assert(menu);
+        test.assert(test.qS('li[data-menuitem$=":x07"]'));
+      }
+    },
+
+    async function () {
+      await tt.loadWTSTestScreen("tests/basecomponents.menutest");
+    },
+
+    {
+      name: 'initialburger-withpopup',
+      test: async function () {
+        test.click(test.getMenu(['X01', 'X19']));
+        await test.waitForUI();
+      }
+    },
+
+    {
+      name: "Check if menubar isn't visible in parent",
+      test: function () {
+        const parentscreen = test.getCurrentScreen().getParent();
+        const lastbutton = parentscreen.qR('t-toolbar .t-toolbar-buttongroup__right button:last-child');
+        test.assert(lastbutton.classList.contains("ismenubutton"));
+        test.assert(!parentscreen.qS("ul.wh-menubar"));
+      }
+    },
   ]);

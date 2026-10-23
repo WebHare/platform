@@ -15,8 +15,8 @@ PUBLIC INTEGER windowcounter;
 
 /** @short The screen's frame (represents the <screen> node itself)
 */
-PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase
-< // ---------------------------------------------------------------------------
+PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -24,7 +24,6 @@ PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase
   //STRING pvt_module;
   //STRING pvt_pagefile;
   OBJECT pvt_menubar;
-  BOOLEAN pvt_forcemenubar;
   OBJECT realbody;
   OBJECT __bodynode;
   OBJECT __footernode;
@@ -78,7 +77,8 @@ PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase
   PUBLIC FUNCTION PTR onshow;
   PUBLIC FUNCTION PTR onunload;
   PUBLIC FUNCTION PTR onmessage;
-  PUBLIC PROPERTY forcemenubar(pvt_forcemenubar, SetForceMenuBar);
+  /** Has no effect since WH6.2 */
+  PUBLIC BOOLEAN forcemenubar;
 
   /** @short Files currently being dragged in
       @cell(string) draggedfiles.filename File name supplied by client
@@ -154,7 +154,6 @@ PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase
     this->onshow := definition.onshow;
     this->onunload := definition.onunload;
     this->onmessage:= definition.onmessage;
-    this->forcemenubar := definition.forcemenubar;
 
     IF ("position" IN definition.savestate)
       INSERT "position" INTO this->savestate AT END;
@@ -177,8 +176,7 @@ PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase
     RETURN this->pvt_visible AND ObjectExists(this->pvt_owner);
   }
 
-  MACRO UpdateMenuBarAndButton()
-  {
+  MACRO UpdateMenuBarAndButton() {
     BOOLEAN placeontoolbar := Length(this->toolbars) > 0 AND ObjectExists(this->menubar) AND NOT this->forcemenubar;
 
     IF(NOT placeontoolbar)
@@ -859,15 +857,6 @@ PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase
       RETURN;
 
     this->pvt_menubar := newbar;
-    this->UpdateMenuBarAndButton();
-  }
-
-  PUBLIC MACRO SetForceMenuBar(BOOLEAN newforcebar)
-  {
-    IF(this->pvt_forcemenubar = newforcebar)
-      RETURN;
-
-    this->pvt_forcemenubar := newforcebar;
     this->UpdateMenuBarAndButton();
   }
 
