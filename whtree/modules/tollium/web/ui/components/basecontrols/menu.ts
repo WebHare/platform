@@ -278,12 +278,13 @@ function updateGlobalMenuEventListeners(menu: MenuList, active: boolean) {
   if (active) {
     window.addEventListener("mousedown", _gotGlobalMouseDown, true); //capture if possible
 
-    if (document.activeElement?.nodeName === 'IFRAME') {
-      //note: IE ingnores 'blur' and firefox seems to have problems with window.focus
-      (document.activeElement as HTMLIFrameElement).blur();//remove focus from iframe
-      if (!document.activeElement || document.activeElement.nodeName === 'IFRAME')
-        window.focus();
-    }
+    // TODO do we still need this with popover ?
+    // if (document.activeElement?.nodeName === 'IFRAME') {
+    //   //note: IE ingnores 'blur' and firefox seems to have problems with window.focus
+    //   (document.activeElement as HTMLIFrameElement).blur();//remove focus from iframe
+    //   if (!document.activeElement || document.activeElement.nodeName === 'IFRAME')
+    //     window.focus();
+    // }
 
     window.addEventListener('blur', _gotGlobalMouseDown, false);
     window.addEventListener("touchstart", _gotGlobalMouseDown, true);
