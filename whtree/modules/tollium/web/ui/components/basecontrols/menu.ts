@@ -24,7 +24,7 @@ export interface MenuOptions {
 }
 
 interface MenuCandidateElement extends HTMLUListElement {
-  [MenuController]?: MenuBase;
+  [MenuController]?: MenuList;
 }
 
 /* Display and handle menus.
@@ -186,9 +186,9 @@ function getParents(node: HTMLElement) {
 
 let tookfocus = false;
 /// List of currently active menus
-const activemenus: MenuBase[] = [];
+const activemenus: MenuList[] = [];
 /// List of menus the mouse is in
-const mousemenus: MenuBase[] = [];
+const mousemenus: MenuList[] = [];
 /// Close check callback id
 let checkclosedelay: NodeJS.Timeout | null = null;
 
@@ -280,7 +280,7 @@ function releaseSemiFocus() {
 }
 
 /// Called by a menu when the mouse enters it
-function mouseEnteredMenu(menu: MenuBase) {
+function mouseEnteredMenu(menu: MenuList) {
   if (mousemenus.indexOf(menu) === -1)
     mousemenus.push(menu);
 
@@ -288,7 +288,7 @@ function mouseEnteredMenu(menu: MenuBase) {
   clearCloseTimeout();
 }
 
-function setMenuActive(menu: MenuBase, active: boolean) {
+function setMenuActive(menu: MenuList, active: boolean) {
   const activeidx = activemenus.indexOf(menu);
   if (active === (activeidx !== -1))
     return;
@@ -329,7 +329,7 @@ function setMenuActive(menu: MenuBase, active: boolean) {
 }
 
 /// Called by a menu when the mouse exits it
-function mouseLeftMenu(menu: MenuBase) {
+function mouseLeftMenu(menu: MenuList) {
   /* When the mouse exists all menus, in openonhover mode (but no clicks in menu!), the close delay kicks in
       A click takes semifocus, and prevents the close delay
   */
@@ -361,7 +361,7 @@ export function closeAll() {
   eventnode = null;
 }
 
-function openSubMenu(parentmenu: MenuBase, li: HTMLLIElement): MenuList | null {
+function openSubMenu(parentmenu: MenuList, li: HTMLLIElement): MenuList | null {
   if (dompack.debugflags.men)
     console.log("[men] openSubMenu called");
 
@@ -431,29 +431,26 @@ function recomputeSubSelection() {
   }
 }
 
-class MenuBase {
+class MenuList {
   el: HTMLElement;
-  openonhover: boolean;
+  openonhover = true;
   /// Whether this menu is active
   active = false;
   openedsubmenu: MenuList | null = null;
   depth = 0;
-  parentmenu: MenuBase | null = null;
+  parentmenu: MenuList | null = null;
   exitdirection = '';
   selecteditem: HTMLLIElement | null = null;
   currentalign: PreferredDirection | null;
+  substitutionnode: HTMLElement | null = null;
+  position: { x: number; y: number } | null = null;
+  removeOnClose = false;
+  preferreddirection: PreferredDirection = '';
 
-  constructor(el: HTMLElement, openonhover: boolean) {
-    this.active = false;
-    this.selecteditem = null;
-    this.openedsubmenu = null;
-    this.depth = 0;
-    this.parentmenu = null;
-    this.exitdirection = '';
+  constructor(el: HTMLElement) {
     this.currentalign = '';
-    this.openonhover = openonhover;
     if (dompack.debugflags.men)
-      console.log("[men] initialize $wh.MenuBase called");
+      console.log("[men] initialize MenuList called");
 
     this.el = el;
     if (!this.el) {
@@ -468,6 +465,9 @@ class MenuBase {
     this.el.addEventListener("mouseleave", event => this._onMouseLeave(event));
     this.el.addEventListener("mousemove", event => this._onMouseMove(event));
     this.el.addEventListener("contextmenu", event => this._onContextMenu(event));
+
+    this.el.classList.add("wh-menulist");
+    this.el.setAttribute("popover", "manual");
   }
 
   isInMenu(node: EventTarget | null) {
@@ -558,16 +558,6 @@ class MenuBase {
     }
 
     recomputeSubSelection();
-  }
-
-  _closeMenu() {
-    this._fireOpenCloseEvent(false);
-    this.active = false;
-
-    setMenuActive(this, false);
-    recomputeSubSelection();
-
-    this._selectItem(null);
   }
 
   // ---------------------------------------------------------------------------
@@ -726,28 +716,6 @@ class MenuBase {
 
     this.selecteditem.click();
     return true;
-  }
-}
-
-class MenuList extends MenuBase {
-  substitutionnode: HTMLElement | null;
-  position: { x: number; y: number } | null;
-  removeOnClose: boolean;
-  preferreddirection: PreferredDirection;
-
-  constructor(el: HTMLElement) {
-    super(el, true);
-
-    this.position = null;
-    this.substitutionnode = null;
-    this.removeOnClose = false;
-    this.currentalign = '';
-    this.preferreddirection = '';
-    if (dompack.debugflags.men)
-      console.log("[men] initialize MenuList called");
-
-    this.el.classList.add("wh-menulist");
-    this.el.setAttribute("popover", "manual");
   }
 
   // ---------------------------------------------------------------------------
@@ -930,7 +898,7 @@ class MenuList extends MenuBase {
 -       @param preferredalign - left/right (only used when preferreddirection is 'up' or 'down')
       @param exitdirection - '', 'top', 'left' - cursor direction in which the selection can be removed
   */
-  _openMenu(coords: dompack.Rect, preferreddirection: PreferredDirection, parentmenu: MenuBase | null, preferredalign: PreferredDirection | null, exitdirection: ExitDirection, minwidth: number, options?: MenuOptions, owner?: HTMLLIElement) {
+  _openMenu(coords: dompack.Rect, preferreddirection: PreferredDirection, parentmenu: MenuList | null, preferredalign: PreferredDirection | null, exitdirection: ExitDirection, minwidth: number, options?: MenuOptions, owner?: HTMLLIElement) {
     if (dompack.debugflags.men)
       console.log("[men] openMenu called, prefdir:", preferreddirection, "prefalign:", preferreddirection, "exitdir", exitdirection);
 
@@ -1033,7 +1001,14 @@ class MenuList extends MenuBase {
   }
 
   _closeMenu() {
-    super._closeMenu();
+    this._fireOpenCloseEvent(false);
+    this.active = false;
+
+    setMenuActive(this, false);
+    recomputeSubSelection();
+
+    this._selectItem(null);
+
     closingmenus.push(this.el);
     setTimeout(cleanClosingMenus, 0);
 
