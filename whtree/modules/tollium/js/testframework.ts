@@ -64,8 +64,8 @@ class ScreenProxy {
   getMenu(levels: string[], options?: { allowMissing: true; autoClickHamburger?: boolean } = {}): HTMLElement | null;
 
   getMenu(levels: string[], { allowMissing = false, autoClickHamburger = true } = {}): HTMLElement | null {
-    let curitem: HTMLElement | null = this.win.node.querySelector('.wh-menubar');
-    if (!curitem && autoClickHamburger) {
+    let curitem: HTMLElement | null = null;
+    if (autoClickHamburger) {
       // test clicking the hamburger menu
       const hamburger_img = this.win.node.querySelector(`t-toolbar .t-toolbar-buttongroup__right button.ismenubutton img[data-toddimg="tollium:actions/menu|24|24|w,b"]`);
       if (hamburger_img) {

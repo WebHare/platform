@@ -7,7 +7,6 @@
         <option rowkey="nouploadrename" />
         <option rowkey="groupfolders" />
         <option rowkey="showforeignfolders" />
-        <option rowkey="showmenubar" />
       </select>
       <box name="tweaks" hr="false" layout="left">
         <checkbox name="showwebharebackend" labeltid=".showwebharebackend" title="" />

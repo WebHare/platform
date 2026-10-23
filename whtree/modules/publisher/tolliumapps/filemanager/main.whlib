@@ -672,15 +672,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase <
 
     ^previewbrowserpart->visible := ^togglepreviewitem->checked;
     ^utilitiesmenu->visible := this->UpdateExtensionVisibility(this->extensions.actionsmenuitems) OR this->frame->flags.issupervisor;
-
-    this->frame->forcemenubar := this->tolliumuser->GetRegistryKey("publisher.prefs.showmenubar", FALSE);
-    RECORD ARRAY menubar := this->original_menubar;
-    IF(this->frame->forcemenubar)
-      DELETE FROM menubar WHERE ObjectExists(menuitem) AND menuitem->action IN OBJECT[ ^prefs, ^addtostartmenu, ^help, ^exit ];
-    ELSE
-      DELETE FROM menubar AT 0;
-
-    ^menubar->items := menubar;
   }
 
   MACRO DoTogglePreview()

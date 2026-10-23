@@ -5,7 +5,7 @@
   list-style-type: none;
   cursor: pointer;
 }
-.wh-menu:not(.wh-scrollableview):not(.wh-menubar)
+.wh-menu:not(.wh-scrollableview)
 {
   overflow-x:hidden;
   overflow-y:auto;
@@ -29,20 +29,34 @@
 {
   display:none;
 }
-.wh-menubar
-{
-  position:relative;
-}
-.wh-menubar > li
-{
-  display:inline-block;
-}
 .wh-menulist:popover-open
 {
   display:inline-block;
   position: fixed;
   inset: auto;
   margin: 0;
+}
+.wh-menulist-anchor
+{
+  position: fixed;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.wh-menulist--anchored:popover-open
+{
+  width: max-content;
+  max-width: calc(100vw - 8px);
+  max-height: calc(100vh - 8px);
+  position-try-fallbacks: flip-block;
+}
+.wh-menulist--anchored-submenu:popover-open
+{
+  width: max-content;
+  max-width: calc(100vw - 8px);
+  max-height: calc(100vh - 8px);
+  position-try-fallbacks: flip-inline, flip-block, flip-inline flip-block;
 }
 .wh-menu li.divider:before
 {
