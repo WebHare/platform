@@ -40,7 +40,7 @@
 {
   width: max-content;
   max-width: calc(100vw - 8px);
-  max-height: 100vh;
+  max-height: calc(100vh - 8px);
   position-try-fallbacks: flip-block;
 }
 .wh-menulist--anchored-submenu:popover-open

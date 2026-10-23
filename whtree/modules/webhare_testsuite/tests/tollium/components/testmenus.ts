@@ -1,5 +1,6 @@
 import * as test from '@mod-tollium/js/testframework';
 import * as tt from '@mod-webhare_testsuite/js/tolliumtest-wts';
+import * as tolliumMenu from '@mod-tollium/web/ui/components/basecontrols/menu';
 import type { IndyShell } from '@mod-tollium/web/ui/js/shell';
 import type { ObjFrame } from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 
@@ -287,6 +288,34 @@ test.runTests(
         test.assert(!test.getOpenMenu());
 
       }
+    },
+
+    'anchored menu overflow',
+    function () {
+      const anchor = document.createElement("button");
+      anchor.style.position = "fixed";
+      anchor.style.right = "4px";
+      anchor.style.bottom = "4px";
+      anchor.style.width = "20px";
+      anchor.style.height = "20px";
+      anchor.style.opacity = "0";
+      document.body.append(anchor);
+
+      const overflowmenu = document.createElement("ul");
+      for (let index = 0; index < 60; ++index) {
+        const item = document.createElement("li");
+        item.textContent = index === 0 ? `Very long menu item ${"label ".repeat(20)}` : `Item ${index}`;
+        overflowmenu.append(item);
+      }
+
+      tolliumMenu.openAt(overflowmenu, anchor, { direction: "down", align: "right", eventnode: anchor });
+      const bounds = overflowmenu.getBoundingClientRect();
+      test.assert(bounds.left >= 0 && bounds.right <= window.innerWidth, "oversized menu should stay within the viewport horizontally");
+      test.assert(bounds.top >= 0 && bounds.bottom <= window.innerHeight, "oversized menu should stay within the viewport vertically");
+      test.assert(overflowmenu.clientHeight > 0 && overflowmenu.scrollHeight > overflowmenu.clientHeight, "oversized menu should scroll when it cannot fit beside its anchor");
+
+      tolliumMenu.closeAll();
+      anchor.remove();
     },
 
     async function () {
