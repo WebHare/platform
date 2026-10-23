@@ -38,8 +38,17 @@
 }
 .wh-menulist--anchored:popover-open
 {
+  width: max-content;
+  max-width: calc(100vw - 8px);
   max-height: 100vh;
   position-try-fallbacks: flip-block;
+}
+.wh-menulist--anchored-submenu:popover-open
+{
+  width: max-content;
+  max-width: calc(100vw - 8px);
+  max-height: calc(100vh - 8px);
+  position-try-fallbacks: flip-inline, flip-block, flip-inline flip-block;
 }
 .wh-menu li.divider:before
 {

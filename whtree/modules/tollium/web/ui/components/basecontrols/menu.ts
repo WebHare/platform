@@ -338,7 +338,7 @@ function openSubMenu(parentmenu: MenuList, li: HTMLLIElement): MenuList | null {
     return null;
 
   closingmenus = []; //if we're back to opening menus, forget about the close list
-  submenu._openMenu(dompack.getRelativeBounds(li), parentmenu.currentalign === 'right' ? 'left' : 'right', parentmenu, parentmenu.currentalign, "left", 0);
+  submenu._openMenu(dompack.getRelativeBounds(li), parentmenu.currentalign === 'right' ? 'left' : 'right', parentmenu, parentmenu.currentalign, "left", 0, undefined, undefined, li);
 
   return submenu;
 }
@@ -417,7 +417,7 @@ class MenuList {
     return node && node instanceof HTMLElement && this.el.contains(node);
   }
 
-  private setMenuAnchor(element: HTMLElement, align: PreferredDirection | null) {
+  private setMenuAnchor(element: HTMLElement, direction: PreferredDirection, align: PreferredDirection | null) {
     this.clearMenuAnchor();
 
     const originalName = element.style.getPropertyValue("anchor-name");
@@ -425,8 +425,17 @@ class MenuList {
     const name = `--tollium-menu-anchor-${++menuAnchorCounter}`;
     element.style.setProperty("anchor-name", [...existingNames, name].join(" "));
     this.el.style.setProperty("position-anchor", name);
-    this.el.style.setProperty("position-area", "bottom center");
-    this.el.style.setProperty("justify-self", align === "right" ? "end" : "start");
+    if (direction === "left" || direction === "right") {
+      this.el.style.setProperty("position-area", "none");
+      this.el.style.left = direction === "right" ? "anchor(right)" : "auto";
+      this.el.style.right = direction === "left" ? "anchor(left)" : "auto";
+      this.el.style.top = align === "up" ? "auto" : "anchor(top)";
+      this.el.style.bottom = align === "up" ? "anchor(bottom)" : "auto";
+      this.el.classList.add("wh-menulist--anchored-submenu");
+    } else {
+      this.el.style.setProperty("position-area", "bottom center");
+      this.el.style.setProperty("justify-self", align === "right" ? "end" : "start");
+    }
     this.el.classList.add("wh-menulist--anchored");
     this.menuAnchor = { element, name, originalName };
   }
@@ -443,7 +452,9 @@ class MenuList {
     this.el.style.removeProperty("position-anchor");
     this.el.style.removeProperty("position-area");
     this.el.style.removeProperty("justify-self");
+    this.el.style.removeProperty("align-self");
     this.el.classList.remove("wh-menulist--anchored");
+    this.el.classList.remove("wh-menulist--anchored-submenu");
   }
 
   // ---------------------------------------------------------------------------
@@ -884,85 +895,86 @@ class MenuList {
     this.preferreddirection = preferreddirection;
     this.exitdirection = exitdirection || 'notspecified';
 
-    const useCSSAnchorPositioning = Boolean(anchorElement && !parentmenu && preferreddirection === "down" &&
-      CSS.supports("position-anchor: --tollium-menu-anchor") && CSS.supports("position-area: bottom"));
+    const supportsCSSAnchorPositioning = CSS.supports("position-anchor: --tollium-menu-anchor") && CSS.supports("position-area: bottom");
+    const useCSSAnchorPositioning = Boolean(anchorElement && supportsCSSAnchorPositioning &&
+      ((!parentmenu && preferreddirection === "down") || (parentmenu && (preferreddirection === "left" || preferreddirection === "right"))));
     if (useCSSAnchorPositioning)
-      this.setMenuAnchor(anchorElement!, preferredalign);
+      this.setMenuAnchor(anchorElement!, preferreddirection, preferredalign);
     else
       this.clearMenuAnchor();
 
     this.el.showPopover();
 
     if (!useCSSAnchorPositioning) {
-    // Reset sizes before measuring
-    this.el.style.height = "auto";
-    this.el.style.width = "auto";
-    this.el.style.left = "0px";
-    this.el.style.top = "0px";
-    this.el.style.bottom = "auto";
-    this.el.style.right = "auto";
-    this.el.style.maxHeight = "inherit";
-    this.el.style.maxWidth = "inherit";
+      // Reset sizes before measuring
+      this.el.style.height = "auto";
+      this.el.style.width = "auto";
+      this.el.style.left = "0px";
+      this.el.style.top = "0px";
+      this.el.style.bottom = "auto";
+      this.el.style.right = "auto";
+      this.el.style.maxHeight = "inherit";
+      this.el.style.maxWidth = "inherit";
 
-    const menubounds = this.el.getBoundingClientRect();
-    this.position = { x: menubounds.x, y: menubounds.y };
-    const size = { x: menubounds.width, y: menubounds.height };
+      const menubounds = this.el.getBoundingClientRect();
+      this.position = { x: menubounds.x, y: menubounds.y };
+      const size = { x: menubounds.width, y: menubounds.height };
 
 
-    size.x = Math.ceil(Math.max(size.x, minwidth || 0)); //round up, because we need 110 pixels for a 109.007 wide menu.
-    size.y = Math.ceil(size.y); //round up, because we need 110 pixels for a 109.007 wide menu.
+      size.x = Math.ceil(Math.max(size.x, minwidth || 0)); //round up, because we need 110 pixels for a 109.007 wide menu.
+      size.y = Math.ceil(size.y); //round up, because we need 110 pixels for a 109.007 wide menu.
 
-    const viewsize = { x: window.innerWidth, y: window.innerHeight };
-    const viewport: dompack.Rect = { left: 0, top: 0, right: viewsize.x, bottom: viewsize.y, width: viewsize.x, height: viewsize.y };
+      const viewsize = { x: window.innerWidth, y: window.innerHeight };
+      const viewport: dompack.Rect = { left: 0, top: 0, right: viewsize.x, bottom: viewsize.y, width: viewsize.x, height: viewsize.y };
 
-    const bounds = { ...viewport };
+      const bounds = { ...viewport };
 
-    const styles =
-    {
-      "bottom": "auto",
-      "top": "auto",
-      "left": "auto",
-      "right": "auto",
-      "height": "auto",
-      "width": "auto",
-      "max-height": "inherit",
-      "max-width": "inherit"
-    };
+      const styles =
+      {
+        "bottom": "auto",
+        "top": "auto",
+        "left": "auto",
+        "right": "auto",
+        "height": "auto",
+        "width": "auto",
+        "max-height": "inherit",
+        "max-width": "inherit"
+      };
 
-    if (debugFlags.men) {
-      console.log("[men] Menu coordinate data");
-      console.log("[men]  target element", coords);
-      console.log("[men]  menu size", size);
-      console.log("[men]  bounds", bounds);
-      console.log("[men]  viewport ", viewport, viewsize);
-      console.log("[men]  viewport bounds", { ...viewport });
-    }
+      if (debugFlags.men) {
+        console.log("[men] Menu coordinate data");
+        console.log("[men]  target element", coords);
+        console.log("[men]  menu size", size);
+        console.log("[men]  bounds", bounds);
+        console.log("[men]  viewport ", viewport, viewsize);
+        console.log("[men]  viewport bounds", { ...viewport });
+      }
 
-    // ADDME: maybe save the resulting direction and alignment in this.currentdirection and this.currentalign
-    if (preferreddirection === "left" || preferreddirection === "right" || !preferreddirection) {
-      // Right is preferred direction
-      this._calculatePosition(styles, coords, size, bounds, viewport, viewport, true, preferreddirection === "left", false);
+      // ADDME: maybe save the resulting direction and alignment in this.currentdirection and this.currentalign
+      if (preferreddirection === "left" || preferreddirection === "right" || !preferreddirection) {
+        // Right is preferred direction
+        this._calculatePosition(styles, coords, size, bounds, viewport, viewport, true, preferreddirection === "left", false);
 
-      // Down is preferred alignment
-      this._calculatePosition(styles, coords, size, bounds, viewport, viewport, false, preferredalign === "up", true);
-    } else {
-      this._calculatePosition(styles, coords, size, bounds, viewport, viewport, false, preferreddirection === "up", false);
+        // Down is preferred alignment
+        this._calculatePosition(styles, coords, size, bounds, viewport, viewport, false, preferredalign === "up", true);
+      } else {
+        this._calculatePosition(styles, coords, size, bounds, viewport, viewport, false, preferreddirection === "up", false);
 
-      // Left is preferred alignment
-      this._calculatePosition(styles, coords, size, bounds, viewport, viewport, true, preferredalign === "right", true);
-    }
+        // Left is preferred alignment
+        this._calculatePosition(styles, coords, size, bounds, viewport, viewport, true, preferredalign === "right", true);
+      }
 
-    if (debugFlags.men)
-      console.log("[men] result style:", styles, this.el);
+      if (debugFlags.men)
+        console.log("[men] result style:", styles, this.el);
 
-    this.el.style.bottom = styles.bottom;
-    this.el.style.top = styles.top;
-    this.el.style.left = styles.left;
-    this.el.style.right = styles.right;
-    this.el.style.height = styles.height;
-    this.el.style.width = styles.width;
-    this.el.style.maxHeight = styles["max-height"];
-    this.el.style.maxWidth = styles["max-width"];
+      this.el.style.bottom = styles.bottom;
+      this.el.style.top = styles.top;
+      this.el.style.left = styles.left;
+      this.el.style.right = styles.right;
+      this.el.style.height = styles.height;
+      this.el.style.width = styles.width;
+      this.el.style.maxHeight = styles["max-height"];
+      this.el.style.maxWidth = styles["max-width"];
     }
 
     updateGlobalMenuEventListeners(this, true);
