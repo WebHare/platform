@@ -24,6 +24,14 @@ export interface MenuOptions {
   exitdirection?: ExitDirection;
 }
 
+interface MenuAnchorState {
+  element: HTMLElement;
+  name: string;
+  originalName: string;
+}
+
+let menuAnchorCounter = 0;
+
 interface MenuCandidateElement extends HTMLUListElement {
   [MenuController]?: MenuList;
 }
@@ -344,14 +352,14 @@ function openSubMenu(parentmenu: MenuList, li: HTMLLIElement): MenuList | null {
     @param minwidth - Minimum menu width
     @param options - options.forcenooverlap Whether to disallow overlap of the reference element
 */
-function openAsList(submenu: MenuList, coords: dompack.Rect, preferreddirection: PreferredDirection, preferredalign: PreferredDirection, exitdirection: ExitDirection, minwidth: number, options: MenuOptions, owner?: HTMLLIElement) {
+function openAsList(submenu: MenuList, coords: dompack.Rect, preferreddirection: PreferredDirection, preferredalign: PreferredDirection, exitdirection: ExitDirection, minwidth: number, options: MenuOptions, owner?: HTMLLIElement, anchorElement?: HTMLElement) {
   if (debugFlags.men)
     console.log("[men] openAsList called");
   if (!submenu._fireOpenCloseEvent(true))
     return;
 
   closingmenus = []; //if we're back to opening menus, forget about the close list
-  submenu._openMenu(coords, preferreddirection, null, preferredalign, exitdirection, minwidth, options, owner);
+  submenu._openMenu(coords, preferreddirection, null, preferredalign, exitdirection, minwidth, options, owner, anchorElement);
   takeSemiFocus();
 }
 
@@ -381,6 +389,7 @@ class MenuList {
   currentalign: PreferredDirection | null;
   substitutionnode: HTMLElement | null = null;
   position: { x: number; y: number } | null = null;
+  private menuAnchor: MenuAnchorState | null = null;
   removeOnClose = false;
   preferreddirection: PreferredDirection = '';
 
@@ -406,6 +415,35 @@ class MenuList {
 
   isInMenu(node: EventTarget | null) {
     return node && node instanceof HTMLElement && this.el.contains(node);
+  }
+
+  private setMenuAnchor(element: HTMLElement, align: PreferredDirection | null) {
+    this.clearMenuAnchor();
+
+    const originalName = element.style.getPropertyValue("anchor-name");
+    const existingNames = originalName.split(/\s+/).filter(name => name && name !== "none");
+    const name = `--tollium-menu-anchor-${++menuAnchorCounter}`;
+    element.style.setProperty("anchor-name", [...existingNames, name].join(" "));
+    this.el.style.setProperty("position-anchor", name);
+    this.el.style.setProperty("position-area", "bottom center");
+    this.el.style.setProperty("justify-self", align === "right" ? "end" : "start");
+    this.el.classList.add("wh-menulist--anchored");
+    this.menuAnchor = { element, name, originalName };
+  }
+
+  private clearMenuAnchor() {
+    if (this.menuAnchor) {
+      if (this.menuAnchor.originalName)
+        this.menuAnchor.element.style.setProperty("anchor-name", this.menuAnchor.originalName);
+      else
+        this.menuAnchor.element.style.removeProperty("anchor-name");
+      this.menuAnchor = null;
+    }
+
+    this.el.style.removeProperty("position-anchor");
+    this.el.style.removeProperty("position-area");
+    this.el.style.removeProperty("justify-self");
+    this.el.classList.remove("wh-menulist--anchored");
   }
 
   // ---------------------------------------------------------------------------
@@ -817,7 +855,7 @@ class MenuList {
 -       @param preferredalign - left/right (only used when preferreddirection is 'up' or 'down')
       @param exitdirection - '', 'top', 'left' - cursor direction in which the selection can be removed
   */
-  _openMenu(coords: dompack.Rect, preferreddirection: PreferredDirection, parentmenu: MenuList | null, preferredalign: PreferredDirection | null, exitdirection: ExitDirection, minwidth: number, options?: MenuOptions, owner?: HTMLLIElement) {
+  _openMenu(coords: dompack.Rect, preferreddirection: PreferredDirection, parentmenu: MenuList | null, preferredalign: PreferredDirection | null, exitdirection: ExitDirection, minwidth: number, options?: MenuOptions, owner?: HTMLLIElement, anchorElement?: HTMLElement) {
     if (debugFlags.men)
       console.log("[men] openMenu called, prefdir:", preferreddirection, "prefalign:", preferreddirection, "exitdir", exitdirection);
 
@@ -846,8 +884,16 @@ class MenuList {
     this.preferreddirection = preferreddirection;
     this.exitdirection = exitdirection || 'notspecified';
 
+    const useCSSAnchorPositioning = Boolean(anchorElement && !parentmenu && preferreddirection === "down" &&
+      CSS.supports("position-anchor: --tollium-menu-anchor") && CSS.supports("position-area: bottom"));
+    if (useCSSAnchorPositioning)
+      this.setMenuAnchor(anchorElement!, preferredalign);
+    else
+      this.clearMenuAnchor();
+
     this.el.showPopover();
 
+    if (!useCSSAnchorPositioning) {
     // Reset sizes before measuring
     this.el.style.height = "auto";
     this.el.style.width = "auto";
@@ -917,6 +963,7 @@ class MenuList {
     this.el.style.width = styles.width;
     this.el.style.maxHeight = styles["max-height"];
     this.el.style.maxWidth = styles["max-width"];
+    }
 
     updateGlobalMenuEventListeners(this, true);
     this.active = true;
@@ -940,6 +987,7 @@ class MenuList {
     dompack.dispatchCustomEvent(cureventnode, "wh:menu-closed", { bubbles: true, cancelable: false, detail: { menu: this.el } });
 
     this.el.hidePopover();
+    this.clearMenuAnchor();
 
     if (this.substitutionnode) {
       this.substitutionnode.replaceWith(this.el);
@@ -965,6 +1013,7 @@ export function openAt(el: HTMLElement, at: Pick<MouseEvent, "pageX" | "pageY" |
     throw new Error("openAt requires an object, not an #id");
 
   let coords: dompack.Rect;
+  let anchorElement: HTMLElement | undefined;
   const opener = 'target' in at ? at.target : at;
   const owner = opener instanceof Element ? opener.closest("li") || undefined : undefined;
   if ('pageX' in at && 'pageY' in at) {
@@ -977,6 +1026,7 @@ export function openAt(el: HTMLElement, at: Pick<MouseEvent, "pageX" | "pageY" |
   } else {
     if (!(opener instanceof Element))
       throw new Error("openAt requires an element or an event with an element target");
+    anchorElement = opener as HTMLElement;
     coords = dompack.getRelativeBounds(opener);
     if (!options!.direction) {
       options!.direction = "right";
@@ -1004,7 +1054,7 @@ export function openAt(el: HTMLElement, at: Pick<MouseEvent, "pageX" | "pageY" |
     openaslistoptions.forcenooverlap = options!.forcenooverlap;
 
   eventnode = cureventnode || null;
-  openAsList(ml, coords, openoptions.direction, openoptions.align || '', openoptions.exitdirection as ExitDirection, 0, openaslistoptions, owner);
+  openAsList(ml, coords, openoptions.direction, openoptions.align || '', openoptions.exitdirection as ExitDirection, 0, openaslistoptions, owner, anchorElement);
 
   return ml;
 }

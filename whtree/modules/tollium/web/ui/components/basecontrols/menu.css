@@ -36,6 +36,11 @@
   inset: auto;
   margin: 0;
 }
+.wh-menulist--anchored:popover-open
+{
+  max-height: 100vh;
+  position-try-fallbacks: flip-block;
+}
 .wh-menu li.divider:before
 {
   display:inline;
