@@ -316,6 +316,23 @@ test.runTests(
 
       tolliumMenu.closeAll();
       anchor.remove();
+
+      const pointMenu = document.createElement("ul");
+      const pointMenuItem = document.createElement("li");
+      pointMenuItem.textContent = "Point anchored menu";
+      pointMenu.append(pointMenuItem);
+      const pointX = window.innerWidth - 4;
+      const pointY = window.innerHeight - 4;
+      tolliumMenu.openAt(pointMenu, {
+        pageX: pointX + window.scrollX,
+        pageY: pointY + window.scrollY,
+        target: null
+      });
+
+      const pointMenuBounds = pointMenu.getBoundingClientRect();
+      test.assert(pointMenuBounds.left >= 0 && pointMenuBounds.right <= window.innerWidth, "point-anchored menu should stay within viewport width");
+      test.assert(pointMenuBounds.top >= 0 && pointMenuBounds.bottom <= window.innerHeight, "point-anchored menu should flip into the viewport");
+      tolliumMenu.closeAll();
     },
 
     async function () {

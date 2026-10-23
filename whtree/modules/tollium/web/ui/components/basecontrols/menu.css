@@ -36,6 +36,14 @@
   inset: auto;
   margin: 0;
 }
+.wh-menulist-anchor
+{
+  position: fixed;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
 .wh-menulist--anchored:popover-open
 {
   width: max-content;

@@ -17,17 +17,19 @@ type ExitDirection = '' | 'left' | 'top';
 // type Position = "first" | "last" | "previous" | "next";
 
 export interface MenuOptions {
-  forcenooverlap?: boolean;
   direction?: PreferredDirection;
   eventnode?: HTMLElement;
   align?: PreferredDirection;
   exitdirection?: ExitDirection;
 }
 
+type MenuPositionAnchor = { type: "element"; element: HTMLElement } | { type: "point"; x: number; y: number };
+
 interface MenuAnchorState {
   element: HTMLElement;
   name: string;
   originalName: string;
+  removeElementOnClose: boolean;
 }
 
 let menuAnchorCounter = 0;
@@ -338,28 +340,20 @@ function openSubMenu(parentmenu: MenuList, li: HTMLLIElement): MenuList | null {
     return null;
 
   closingmenus = []; //if we're back to opening menus, forget about the close list
-  submenu._openMenu(dompack.getRelativeBounds(li), parentmenu.currentalign === 'right' ? 'left' : 'right', parentmenu, parentmenu.currentalign, "left", 0, undefined, undefined, li);
+  submenu._openMenu({ type: "element", element: li }, parentmenu.currentalign === 'right' ? 'left' : 'right', parentmenu, parentmenu.currentalign, "left", li);
 
   return submenu;
 }
 
-/** Open a submenu as a list
-    @param submenu - Menu to open
-    @param coords - Reference element coordinates (.top, .bottom, .right, .left)
-    @param preferreddirection - 'right', 'left', 'up', 'down'
-    @param preferredalign - left/right (only used when preferreddirection is 'up' or 'down')
-    @param exitdirection - '', 'top', 'left' - cursor direction in which the selection can be removed
-    @param minwidth - Minimum menu width
-    @param options - options.forcenooverlap Whether to disallow overlap of the reference element
-*/
-function openAsList(submenu: MenuList, coords: dompack.Rect, preferreddirection: PreferredDirection, preferredalign: PreferredDirection, exitdirection: ExitDirection, minwidth: number, options: MenuOptions, owner?: HTMLLIElement, anchorElement?: HTMLElement) {
+/** Open an anchored menu. */
+function openAsList(submenu: MenuList, anchor: MenuPositionAnchor, preferreddirection: PreferredDirection, preferredalign: PreferredDirection, exitdirection: ExitDirection, owner?: HTMLLIElement) {
   if (debugFlags.men)
     console.log("[men] openAsList called");
   if (!submenu._fireOpenCloseEvent(true))
     return;
 
   closingmenus = []; //if we're back to opening menus, forget about the close list
-  submenu._openMenu(coords, preferreddirection, null, preferredalign, exitdirection, minwidth, options, owner, anchorElement);
+  submenu._openMenu(anchor, preferreddirection, null, preferredalign, exitdirection, owner);
   takeSemiFocus();
 }
 
@@ -388,7 +382,6 @@ class MenuList {
   selecteditem: HTMLLIElement | null = null;
   currentalign: PreferredDirection | null;
   substitutionnode: HTMLElement | null = null;
-  position: { x: number; y: number } | null = null;
   private menuAnchor: MenuAnchorState | null = null;
   removeOnClose = false;
   preferreddirection: PreferredDirection = '';
@@ -417,7 +410,7 @@ class MenuList {
     return node && node instanceof HTMLElement && this.el.contains(node);
   }
 
-  private setMenuAnchor(element: HTMLElement, direction: PreferredDirection, align: PreferredDirection | null) {
+  private setMenuAnchor(element: HTMLElement, direction: PreferredDirection, align: PreferredDirection | null, removeElementOnClose = false) {
     this.clearMenuAnchor();
 
     const originalName = element.style.getPropertyValue("anchor-name");
@@ -437,7 +430,16 @@ class MenuList {
       this.el.style.setProperty("justify-self", align === "right" ? "end" : "start");
     }
     this.el.classList.add("wh-menulist--anchored");
-    this.menuAnchor = { element, name, originalName };
+    this.menuAnchor = { element, name, originalName, removeElementOnClose };
+  }
+
+  private setPointMenuAnchor(point: { x: number; y: number }, direction: PreferredDirection, align: PreferredDirection | null) {
+    const anchor = document.createElement("span");
+    anchor.className = "wh-menulist-anchor";
+    anchor.style.left = `${point.x}px`;
+    anchor.style.top = `${point.y}px`;
+    document.body.append(anchor);
+    this.setMenuAnchor(anchor, direction, align, true);
   }
 
   private clearMenuAnchor() {
@@ -446,6 +448,8 @@ class MenuList {
         this.menuAnchor.element.style.setProperty("anchor-name", this.menuAnchor.originalName);
       else
         this.menuAnchor.element.style.removeProperty("anchor-name");
+      if (this.menuAnchor.removeElementOnClose)
+        this.menuAnchor.element.remove();
       this.menuAnchor = null;
     }
 
@@ -717,136 +721,7 @@ class MenuList {
   }
 
 
-  /* Calculate the position for one dimension
-    @param styles Object to place the styles in
-    @param coords Coordinates to place the menu around (left/right/top/bottom)
-    @param size Size of the menu (x/y)
-    @param bounds Soft bounds to place the menu in (left/right/top/bottom)
-    @param viewport The viewport bounds
-    @param containingblock The positioning containing block bounds
-    @param sizeattr Name of attribute in which size is kepy ('x' or 'y')
-    @param minattr Name of attribute with lowest coordinates ('left' or 'top')
-    @param maxattr Name of attribute with lowest coordinates ('left' or 'top')
-    @param preferfirst Whether to prefer placement in the lower range
-    @param overlapcoords Whether to fully overlap the coordinates (eg for the left/rigth coords when placing the menu below an element)
-    @param forcenooverlap Whether to disallow overlap if menu doesn't fit at all (only when overlapcoords is false)
-  */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we shouldn't even be returning data through a oty parameter
-  _calculatePosition(styles: any, coords: dompack.Rect, size: { x: number; y: number }, bounds: dompack.Rect, viewport: dompack.Rect, containingblock: dompack.Rect, horizontal: boolean, preferfirst: boolean, overlapcoords: boolean) {
-    // Calc the style attrs that
-    const sizeattr = horizontal ? "x" : "y";
-    const minattr = horizontal ? "left" : "top";
-    const maxattr = horizontal ? "right" : "bottom";
-    const csssizeattr = horizontal ? "width" : "height";
-
-    if (debugFlags.men)
-      console.log("[men] _calculatePosition", horizontal ? "horizontal" : "vertical");
-
-    // Get the coordinates to use for before/after placement
-    let before_coords = overlapcoords ? coords[maxattr] : coords[minattr];
-    let after_coords = overlapcoords ? coords[minattr] : coords[maxattr];
-
-    // Don't allow aligning outside of screen
-    before_coords = Math.min(before_coords, viewport[maxattr]);
-    after_coords = Math.max(after_coords, viewport[minattr]);
-
-    // Make sure the bounds are within the screen
-    const min_bound = Math.max(bounds[minattr], viewport[minattr]);
-    const max_bound = Math.min(bounds[maxattr], viewport[maxattr]);
-
-    if (debugFlags.men)
-      console.log("[men] corrected bounds", min_bound, max_bound);
-
-    // See how much space is available (within the soft boundary)
-    const bounded_space_before = before_coords - min_bound;
-    const bounded_space_after = max_bound - after_coords;
-
-    if (debugFlags.men)
-      console.log("[men] bounded space", bounded_space_before, bounded_space_after);
-
-    // Store the menu size (will be adjusted when the space isn't enough to fit the menu)
-    styles[csssizeattr] = size[sizeattr] + "px";
-
-    // See if the bounded space is enough for the preferred direction (else try the other direction)
-    for (let i = 0; i < 2; ++i) {
-      if (preferfirst && bounded_space_before >= size[sizeattr]) {
-        if (debugFlags.men)
-          console.log(`[men] setting maxattr '${maxattr}' sizeattr '${csssizeattr}' to ${(containingblock[csssizeattr] - before_coords)}`);
-
-        styles[maxattr] = (containingblock[csssizeattr] - before_coords) + "px";
-        return false;
-      } else if (!preferfirst && bounded_space_after >= size[sizeattr]) {
-        if (debugFlags.men)
-          console.log(`[men] setting minattr '${minattr}' to ${after_coords}`);
-
-        styles[minattr] = after_coords + "px";
-        return false;
-      }
-      preferfirst = !preferfirst;
-    }
-
-    // Calc the space in the entire view
-    const space_before = before_coords - viewport[minattr];
-    const space_after = viewport[maxattr] - after_coords;
-
-    if (debugFlags.men)
-      console.log("[men] view spaces", space_before, space_after);
-
-    // See if the bounded space is enough for the preferred direction (else try the other direction)
-    for (let i = 0; i < 2; ++i) {
-      if (preferfirst && space_before >= size[sizeattr]) {
-        if (debugFlags.men)
-          console.log("[men] setting maxattr", maxattr, 'sizeattr', sizeattr, containingblock, before_coords);
-
-        styles[maxattr] = (containingblock[csssizeattr] - before_coords) + "px";
-        return false;
-      } else if (!preferfirst && space_after >= size[sizeattr]) {
-        if (debugFlags.men)
-          console.log("[men] setting minattr", minattr, after_coords);
-
-        styles[minattr] = after_coords + "px";
-        return false;
-      }
-      preferfirst = !preferfirst;
-    }
-
-    if (debugFlags.men)
-      console.log("[men] no fit on both sides");
-
-    if (debugFlags.men)
-      console.log("[men] minattr: ", minattr, " maxattr", maxattr, "sizeattr", sizeattr, bounds, size);
-
-    // We may overlap the coords. See if we fit within the soft boundary
-    if (bounds[maxattr] - bounds[minattr] >= size[sizeattr]) {
-      if (debugFlags.men)
-        console.log("[men] Honour direction, stick to bound border");
-
-      if (preferfirst)
-        styles[minattr] = bounds[minattr] + "px";
-      else
-        styles[maxattr] = (containingblock[csssizeattr] - bounds[maxattr]) + "px";
-    } else if ((viewport[maxattr] - viewport[minattr]) >= size[sizeattr]) {
-      if (debugFlags.men)
-        console.log("[men] Fits within view - honour direction, stick to view border");
-
-      if (preferfirst)
-        styles[minattr] = viewport[minattr] + "px";
-      else
-        styles[maxattr] = (containingblock[csssizeattr] - viewport[maxattr]) + "px";
-    } else {
-      if (debugFlags.men)
-        console.log("[men] Doesn't fit at all - stick to top. Force the max size to force scroll");
-
-      styles[minattr] = viewport[minattr] + "px";
-      styles[csssizeattr] = (viewport[maxattr] - viewport[minattr]) + "px";
-      return true;
-    }
-
-    return false;
-  }
-
-  /** Dispatch menu open events, handle open animations
-*/
+  /** Dispatch menu-open events for listeners. */
   _handleMenuOpen() {
     if (debugFlags.men)
       console.log("[men] dispatching wh-menu-opened to ", this.el, " in tree ", getParents(this.el));
@@ -859,18 +734,10 @@ class MenuList {
   //
 
 
-  /** Opens a menu
-      @param coords - Reference element coordinates (.top, .bottom, .right, .left)
-      @param preferreddirection - 'right', 'left', 'up', 'down'
-      @param parentmenu
--       @param preferredalign - left/right (only used when preferreddirection is 'up' or 'down')
-      @param exitdirection - '', 'top', 'left' - cursor direction in which the selection can be removed
-  */
-  _openMenu(coords: dompack.Rect, preferreddirection: PreferredDirection, parentmenu: MenuList | null, preferredalign: PreferredDirection | null, exitdirection: ExitDirection, minwidth: number, options?: MenuOptions, owner?: HTMLLIElement, anchorElement?: HTMLElement) {
+  /** Opens a menu relative to its element or point anchor. */
+  _openMenu(anchor: MenuPositionAnchor, preferreddirection: PreferredDirection, parentmenu: MenuList | null, preferredalign: PreferredDirection | null, exitdirection: ExitDirection, owner?: HTMLLIElement) {
     if (debugFlags.men)
       console.log("[men] openMenu called, prefdir:", preferreddirection, "prefalign:", preferreddirection, "exitdir", exitdirection);
-
-    options = options || {};
 
     this._fixupDividers();
 
@@ -895,87 +762,12 @@ class MenuList {
     this.preferreddirection = preferreddirection;
     this.exitdirection = exitdirection || 'notspecified';
 
-    const supportsCSSAnchorPositioning = CSS.supports("position-anchor: --tollium-menu-anchor") && CSS.supports("position-area: bottom");
-    const useCSSAnchorPositioning = Boolean(anchorElement && supportsCSSAnchorPositioning &&
-      ((!parentmenu && preferreddirection === "down") || (parentmenu && (preferreddirection === "left" || preferreddirection === "right"))));
-    if (useCSSAnchorPositioning)
-      this.setMenuAnchor(anchorElement!, preferreddirection, preferredalign);
+    if (anchor.type === "point")
+      this.setPointMenuAnchor(anchor, preferreddirection, preferredalign);
     else
-      this.clearMenuAnchor();
+      this.setMenuAnchor(anchor.element, preferreddirection, preferredalign);
 
     this.el.showPopover();
-
-    if (!useCSSAnchorPositioning) {
-      // Reset sizes before measuring
-      this.el.style.height = "auto";
-      this.el.style.width = "auto";
-      this.el.style.left = "0px";
-      this.el.style.top = "0px";
-      this.el.style.bottom = "auto";
-      this.el.style.right = "auto";
-      this.el.style.maxHeight = "inherit";
-      this.el.style.maxWidth = "inherit";
-
-      const menubounds = this.el.getBoundingClientRect();
-      this.position = { x: menubounds.x, y: menubounds.y };
-      const size = { x: menubounds.width, y: menubounds.height };
-
-
-      size.x = Math.ceil(Math.max(size.x, minwidth || 0)); //round up, because we need 110 pixels for a 109.007 wide menu.
-      size.y = Math.ceil(size.y); //round up, because we need 110 pixels for a 109.007 wide menu.
-
-      const viewsize = { x: window.innerWidth, y: window.innerHeight };
-      const viewport: dompack.Rect = { left: 0, top: 0, right: viewsize.x, bottom: viewsize.y, width: viewsize.x, height: viewsize.y };
-
-      const bounds = { ...viewport };
-
-      const styles =
-      {
-        "bottom": "auto",
-        "top": "auto",
-        "left": "auto",
-        "right": "auto",
-        "height": "auto",
-        "width": "auto",
-        "max-height": "inherit",
-        "max-width": "inherit"
-      };
-
-      if (debugFlags.men) {
-        console.log("[men] Menu coordinate data");
-        console.log("[men]  target element", coords);
-        console.log("[men]  menu size", size);
-        console.log("[men]  bounds", bounds);
-        console.log("[men]  viewport ", viewport, viewsize);
-        console.log("[men]  viewport bounds", { ...viewport });
-      }
-
-      // ADDME: maybe save the resulting direction and alignment in this.currentdirection and this.currentalign
-      if (preferreddirection === "left" || preferreddirection === "right" || !preferreddirection) {
-        // Right is preferred direction
-        this._calculatePosition(styles, coords, size, bounds, viewport, viewport, true, preferreddirection === "left", false);
-
-        // Down is preferred alignment
-        this._calculatePosition(styles, coords, size, bounds, viewport, viewport, false, preferredalign === "up", true);
-      } else {
-        this._calculatePosition(styles, coords, size, bounds, viewport, viewport, false, preferreddirection === "up", false);
-
-        // Left is preferred alignment
-        this._calculatePosition(styles, coords, size, bounds, viewport, viewport, true, preferredalign === "right", true);
-      }
-
-      if (debugFlags.men)
-        console.log("[men] result style:", styles, this.el);
-
-      this.el.style.bottom = styles.bottom;
-      this.el.style.top = styles.top;
-      this.el.style.left = styles.left;
-      this.el.style.right = styles.right;
-      this.el.style.height = styles.height;
-      this.el.style.width = styles.width;
-      this.el.style.maxHeight = styles["max-height"];
-      this.el.style.maxWidth = styles["max-width"];
-    }
 
     updateGlobalMenuEventListeners(this, true);
     this.active = true;
@@ -1017,56 +809,39 @@ class MenuList {
     at: Location where to open. Either an element or a mouse event
     options
     options.direction 'down', 'right', 'up'
-    options.forcenooverlap
 */
 export function openAt(el: HTMLElement, at: Pick<MouseEvent, "pageX" | "pageY" | "target"> | HTMLElement, options?: MenuOptions) {
   options = { ...options };
   if (typeof el !== 'object')
     throw new Error("openAt requires an object, not an #id");
 
-  let coords: dompack.Rect;
-  let anchorElement: HTMLElement | undefined;
+  let anchor: MenuPositionAnchor;
   const opener = 'target' in at ? at.target : at;
   const owner = opener instanceof Element ? opener.closest("li") || undefined : undefined;
   if ('pageX' in at && 'pageY' in at) {
     options!.direction = "right";
     const x = (at.pageX || 0) - window.scrollX;
     const y = (at.pageY || 0) - window.scrollY;
-    coords = { left: x, right: x, top: y, bottom: y, width: 0, height: 0 };
+    anchor = { type: "point", x, y };
     if (!options!.eventnode)
       options!.eventnode = at.target as HTMLElement; //make sure events are injected at the click location
   } else {
     if (!(opener instanceof Element))
       throw new Error("openAt requires an element or an event with an element target");
-    anchorElement = opener as HTMLElement;
-    coords = dompack.getRelativeBounds(opener);
-    if (!options!.direction) {
+    anchor = { type: "element", element: opener as HTMLElement };
+    if (!options!.direction)
       options!.direction = "right";
-      coords = { left: coords.left, right: coords.left, top: coords.top, bottom: coords.bottom, width: 0, height: 0 };
-    }
     if (!options!.eventnode)
       options!.eventnode = opener as HTMLElement;
   }
-
-  const openoptions =
-  {
-    direction: options!.direction,
-    align: options!.align,
-    exitdirection: options!.exitdirection
-    //, minwidth:         options!.minwidth
-  };
 
   const cureventnode = options!.eventnode;
 
   const ml = ensureSubMenu(el as MenuCandidateElement);
   closeAll();
 
-  const openaslistoptions: MenuOptions = {};
-  if ("forcenooverlap" in options!)
-    openaslistoptions.forcenooverlap = options!.forcenooverlap;
-
   eventnode = cureventnode || null;
-  openAsList(ml, coords, openoptions.direction, openoptions.align || '', openoptions.exitdirection as ExitDirection, 0, openaslistoptions, owner, anchorElement);
+  openAsList(ml, anchor, options!.direction || "right", options!.align || '', options!.exitdirection as ExitDirection, owner);
 
   return ml;
 }
