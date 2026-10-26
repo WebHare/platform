@@ -25,6 +25,7 @@
     <runonce script="migrations/6.0/scripts/import_api_keys.ts" tag="import_api_keys" when="poststart" />
     <runonce script="migrations/6.0/scripts/migrate_language.ts" tag="migrate_language" when="poststart" />
     <runonce script="migrations/6.0/scripts/migrate_whfs_versioning.ts" tag="migrate_whfs_versioning" when="poststart" />
+    <runonce script="migrations/6.1/scripts/fix_tag_uppercase.ts" tag="fix_tag_uppercase" when="poststart" />
 
     <managedtask type="requestcertificate"
                  priority="background"
