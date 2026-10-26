@@ -285,10 +285,21 @@ export async function resizeImageData(resource: Pick<ResourceMetadata, "width" |
     img.grayscale();
 
   if (format === "jpeg") {
-    // Sharp flattens before resize/extend, so flatten the completed canvas in a separate pipeline.
-    const { data, info } = await img.raw().toBuffer({ resolveWithObject: true });
-    img = await createSharpImage(data, { raw: { width: info.width, height: info.height, channels: info.channels } });
-    img.flatten({ background: "#ffffff" });
+    let paddingHasAlpha = false;
+    if (extend || resize?.fit === "contain") {
+      const explain = explainImageProcessing(resource, method);
+      const background = method.bgColor === "transparent" ? 0x00ffffff : method.bgColor ?? 0x00ffffff;
+      paddingHasAlpha = ((background >>> 24) & 0xff) < 255
+        && (explain.renderWidth < explain.outWidth || explain.renderHeight < explain.outHeight);
+    }
+    const needsFlatten = paddingHasAlpha
+      || (resource.mediaType !== "image/jpeg" && (await img.metadata()).hasAlpha);
+    if (needsFlatten) {
+      // Sharp flattens before resize/extend, so flatten the completed canvas in a separate pipeline.
+      const { data, info } = await img.raw().toBuffer({ resolveWithObject: true });
+      img = await createSharpImage(data, { raw: { width: info.width, height: info.height, channels: info.channels } });
+      img.flatten({ background: "#ffffff" });
+    }
   }
 
   img.toFormat(format, formatOptions as SharpJpegOptions | SharpPngOptions | SharpWebpOptions | SharpAvifOptions | SharpGifOptions || undefined);

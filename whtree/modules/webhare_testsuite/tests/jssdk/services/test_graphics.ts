@@ -92,6 +92,28 @@ test.runTests([
     await test.throws(/not supported for resizing/, resizeImage(text, { method: "none" }));
   },
 
+  "Opaque JPEG renders avoid raw materialization",
+  async function () {
+    const source = await createSharpImage({ create: { width: 80, height: 40, channels: 3, background: "#ff0000" } });
+    for (const sourceFormat of ["jpeg", "png"] as const) {
+      const resource = await ResourceDescriptor.from(await source.clone().toFormat(sourceFormat).toBuffer(), { getImageMetadata: true });
+      for (const method of [
+        { method: "none" },
+        { method: "fit", width: 40, height: 40 },
+        { method: "fitCanvas", width: 160, height: 120, bgColor: 0xffff0000 },
+        { method: "scaleCanvas", width: 160, height: 120, bgColor: 0xffff0000 },
+        { method: "fitCanvas", width: 40, height: 20 },
+        { method: "scaleCanvas", width: 160, height: 80 }
+      ] as const) {
+        const image = await createdResizedSharpImage(resource, { ...method, format: "image/jpeg" });
+        test.eq(sourceFormat, (await image.metadata()).format, "The pipeline must retain the encoded source rather than a materialized raw input");
+        test.eq("jpeg", (await image.toBuffer({ resolveWithObject: true })).info.format);
+      }
+      const padded = await createdResizedSharpImage(resource, { method: "fitCanvas", width: 160, height: 120, format: "image/jpeg" });
+      test.eq("raw", (await padded.metadata()).format, "Transparent padding requires flattening the completed canvas");
+    }
+  },
+
   "JPEG transparency is flattened onto white after canvas padding",
   async function () {
     for (const alpha of [0, 0.5, 1]) {
