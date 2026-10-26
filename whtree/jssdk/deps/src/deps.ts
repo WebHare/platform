@@ -20,7 +20,7 @@ export { default as YAML } from "yaml";
 
 ////////////////////////////// SHARP //////////////////////////
 import type sharp from "sharp";
-import type { Sharp } from "sharp";
+import type { Sharp, SharpInput, SharpOptions } from "sharp";
 
 let sharppromise: Promise<typeof sharp> | undefined = undefined;
 
@@ -32,11 +32,15 @@ export async function loadSharp(): Promise<typeof sharp> {
 }
 
 /** Load an image (loading sharp as needed) */
-export async function createSharpImage(...args: Parameters<typeof sharp>): Promise<Sharp> {
+export async function createSharpImage(options?: SharpOptions): Promise<Sharp>;
+export async function createSharpImage(input: SharpInput | Array<SharpInput>, options?: SharpOptions,): Promise<Sharp>;
+
+export async function createSharpImage(...args: unknown[]): Promise<Sharp> {
   const lib = await loadSharp();
   lib.cache(false); //disable sharp's cache
   lib.concurrency(1); //we manage workers
-  return lib(...args);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return lib(...args as any[]);
 }
 
 export type {
