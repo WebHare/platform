@@ -1,7 +1,7 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { WorkerPool } from "@mod-system/js/internal/openapi/workerpool";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
-import type { SharpResizeOptions, SharpAvifOptions, SharpColor, SharpExtendOptions, SharpGifOptions, SharpJpegOptions, SharpPngOptions, SharpRegion, SharpWebpOptions, Sharp } from "@webhare/deps";
+import { createSharpImage, type SharpResizeOptions, type SharpAvifOptions, type SharpColor, type SharpExtendOptions, type SharpGifOptions, type SharpJpegOptions, type SharpPngOptions, type SharpRegion, type SharpWebpOptions, type Sharp } from "@webhare/deps";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { BackendServiceConnection, LocalCache, logError, readLogLines, readRegistryKey, runBackendService, writeRegistryKey } from "@webhare/services";
 import type { ResizeMethod, WebHareService } from "@webhare/services";
@@ -169,12 +169,13 @@ export function getSharpResizeOptions(infile: Pick<ResourceMetadata, "width" | "
   let extract: SharpRegion | null = null;
   let resize: SharpResizeOptions | null = null;
   let extend: SharpExtendOptions | null = null;
-  const bgColor: SharpColor | undefined = method.bgColor !== undefined && method.bgColor !== "transparent" ? {
-    r: (method.bgColor >> 16) & 0xff,
-    g: (method.bgColor >> 8) & 0xff,
-    b: method.bgColor & 0xff,
-    alpha: ((method.bgColor >> 24) & 0xff) / 255
-  } : undefined;
+  const background = method.bgColor === "transparent" ? 0x00ffffff : method.bgColor ?? 0x00ffffff;
+  const bgColor: SharpColor = {
+    r: (background >> 16) & 0xff,
+    g: (background >> 8) & 0xff,
+    b: background & 0xff,
+    alpha: ((background >> 24) & 0xff) / 255
+  };
 
   const explain = explainImageProcessing(infile, method);
   const lossless = options?.lossless ?? infile.mediaType !== "image/jpeg";
@@ -194,14 +195,12 @@ export function getSharpResizeOptions(infile: Pick<ResourceMetadata, "width" | "
       resize = { width: explain.outWidth, height: explain.outHeight, fit: 'cover' };
     } else if (method.method === "fitcanvas" && explain.renderWidth === infile.width && explain.renderHeight === infile.height) {
       // fitcanvas without any renderchange should not resize
-      extend = { top: explain.renderY, left: explain.renderX, bottom: explain.renderY, right: explain.renderX };
-      if (bgColor)
-        extend.background = bgColor;
+      extend = { top: explain.renderY, left: explain.renderX, bottom: explain.renderY, right: explain.renderX, background: bgColor };
     } else if (method.method === "fit" && explain.outWidth === infile.width && explain.outHeight === infile.height) {
       // don't touch image if nothing changed
     } else if (["scalecanvas", "fitcanvas", "fit", "scale"].includes(method.method)) {
       resize = { width: explain.outWidth, height: explain.outHeight, fit: method.method.endsWith('canvas') ? 'contain' : 'cover' };
-      if (bgColor)
+      if (resize.fit === "contain" || (method.bgColor !== undefined && method.bgColor !== "transparent"))
         resize.background = bgColor;
     } else if (method.method !== 'none')
       throw new Error("Unsupported resize method for avif/webp: " + method.method);
@@ -267,7 +266,7 @@ export async function resizeImageData(resource: Pick<ResourceMetadata, "width" |
   if (!resizeOptions)
     return null;
 
-  const img = await createSharpImageFromBlob(sourceimage, { mediaType: resource.mediaType, unsafe: options?.unsafe });
+  let img = await createSharpImageFromBlob(sourceimage, { mediaType: resource.mediaType, unsafe: options?.unsafe });
   const { extract, extend, resize, format, formatOptions } = resizeOptions;
 
   img.rotate(); //Fix rotation/mirroring
@@ -284,6 +283,13 @@ export async function resizeImageData(resource: Pick<ResourceMetadata, "width" |
     img.blur({ sigma: method.blur });
   if (method.grayscale)
     img.grayscale();
+
+  if (format === "jpeg") {
+    // Sharp flattens before resize/extend, so flatten the completed canvas in a separate pipeline.
+    const { data, info } = await img.raw().toBuffer({ resolveWithObject: true });
+    img = await createSharpImage(data, { raw: { width: info.width, height: info.height, channels: info.channels } });
+    img.flatten({ background: "#ffffff" });
+  }
 
   img.toFormat(format, formatOptions as SharpJpegOptions | SharpPngOptions | SharpWebpOptions | SharpAvifOptions | SharpGifOptions || undefined);
   return img;

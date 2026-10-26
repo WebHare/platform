@@ -92,6 +92,43 @@ test.runTests([
     await test.throws(/not supported for resizing/, resizeImage(text, { method: "none" }));
   },
 
+  "JPEG transparency is flattened onto white after canvas padding",
+  async function () {
+    for (const alpha of [0, 0.5, 1]) {
+      const source = await createSharpImage({ create: { width: 80, height: 40, channels: 4, background: { r: 255, g: 0, b: 0, alpha } } });
+      const resource = await ResourceDescriptor.from(await source.png().toBuffer(), { getImageMetadata: true });
+
+      for (const [method, width, height] of [
+        ["fitCanvas", 160, 120],
+        ["fitCanvas", 40, 40],
+        ["scaleCanvas", 160, 120]
+      ] as const) {
+        for (const bgColor of [undefined, "transparent", 0x00ffffff, 0xffff0000, 0x80ff0000] as const) {
+          const file = await resizeImage(resource, { method, width, height, bgColor, format: "image/jpeg", quality: 100 });
+          const image = await createSharpImage(await file.bytes());
+          const { data, info } = await image.raw().toBuffer({ resolveWithObject: true });
+          test.eqPartial({ width, height, channels: 3 }, info);
+          const background = bgColor === 0xffff0000 ? [255, 0, 0] : bgColor === 0x80ff0000 ? [255, 127, 127] : [255, 255, 255];
+          for (let channel = 0; channel < 3; ++channel)
+            test.assert(Math.abs(data[channel] - background[channel]) <= 2, `JPEG padding should blend onto white (${method}, ${bgColor}, ${alpha}): expected ${background}, got ${Array.from(data.subarray(0, 3))}`);
+        }
+      }
+
+      const jpeg = await resizeImage(resource, { method: "none", format: "image/jpeg" });
+      const jpegPixels = await (await createSharpImage(await jpeg.bytes())).raw().toBuffer();
+      const blended = Math.round(255 * (1 - alpha));
+      for (const [channel, expected] of [255, blended, blended].entries())
+        test.assert(Math.abs(jpegPixels[channel] - expected) <= 2, "Transparent source pixels should blend onto white");
+
+      const png = await resizeImage(resource, { method: "fitCanvas", width: 160, height: 120, format: "image/png", bgColor: "transparent" });
+      const { data, info } = await (await createSharpImage(await png.bytes())).raw().toBuffer({ resolveWithObject: true });
+      test.eqPartial({ width: 160, height: 120, channels: 4 }, info);
+      test.eq(0, data[3]);
+      const center = (60 * info.width + 80) * info.channels;
+      test.eq(Math.round(alpha * 255), data[center + 3]);
+    }
+  },
+
   "Create QR codes",
   async function () {
     const logo = (await getResource("mod::tollium/webdesigns/webinterface/web/img/favicon/apple-touch-icon.png")).file;

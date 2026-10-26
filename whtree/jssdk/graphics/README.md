@@ -12,3 +12,6 @@ Server-side image resizing using WebHare's image-cache processing rules and QR-c
 If `method.format` is omitted or `"keep"`, the source format is preserved where
 supported (BMP is converted to PNG and TIFF to JPEG). The resource must contain
 image metadata, for example by loading it with `{ getImageMetadata: true }`.
+
+JPEG output blends transparency, including canvas padding, onto white. Output
+formats that support transparency retain it.

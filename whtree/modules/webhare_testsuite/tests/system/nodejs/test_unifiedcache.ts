@@ -542,6 +542,27 @@ async function testImgCache() {
   await compareSharpImages(landscapeSharp, await createSharpImage(dlLandscape5.fetchBuffer), { maxMSE: 80 });
 }
 
+async function testFitCanvasJpegBackground() {
+  const testsite = await test.getTestSiteJS();
+  const snowbeagle = await testsite.openFile("photoalbum/snowbeagle.jpg");
+  test.assert(snowbeagle.data);
+  test.eq(428, snowbeagle.data.width);
+  test.eq(284, snowbeagle.data.height);
+
+  const wrapped = snowbeagle.data.toResized({ method: "fitcanvas", width: 800, height: 600, format: "keep" });
+  const fetched = await fetchUCLink(wrapped.link, "image/jpeg");
+  const image = await createSharpImage(fetched.fetchBuffer);
+  const { data, info } = await image.raw().toBuffer({ resolveWithObject: true });
+  test.eq(800, info.width);
+  test.eq(600, info.height);
+  test.eq(3, info.channels);
+
+  for (const [x, y] of [[0, 0], [400, 0], [799, 0], [0, 300], [799, 300], [0, 599], [400, 599], [799, 599]]) {
+    const offset = (y * info.width + x) * info.channels;
+    test.eq([255, 255, 255], Array.from(data.subarray(offset, offset + info.channels)), `Default JPEG canvas background at (${x}, ${y}) should be white`);
+  }
+}
+
 async function testFileCache() {
   await beginWork();
   const testsite = await test.getTestSiteJS();
@@ -642,6 +663,7 @@ test.runTests([
   testImgMethodPacking,
   testImgCacheTokens,
   testImgCache,
+  testFitCanvasJpegBackground,
   testFileCache,
   testWHFSSettingsImgCache,
   testWRDImgCache
