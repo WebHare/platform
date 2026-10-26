@@ -1137,7 +1137,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="forcemenubar" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          Require the menubar to be shown as a separate bar (never integrate into the toolbar)
+          Deprecated since WH6.2, has no effect.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>

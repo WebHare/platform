@@ -28,7 +28,6 @@
   <jstest file="testinlineblock.ts" />
   <jstest file="testlistedit.ts" />
   <jstest file="testmenus.ts" />
-  <jstest file="testmenus-hamburger.ts" />
   <test script="testpasswordfield.whscr" />
   <jstest file="testprogress.ts" />
   <jstest file="testradiogroup.ts" />

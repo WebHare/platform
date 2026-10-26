@@ -343,11 +343,6 @@
 
     <menus gid=".menus">
       <menu name="menubar">
-        <item name="publishermenuitem" tid="filemanager.main.app.apptitle">
-          <item action="prefs" />
-          <item action="addtostartmenu" />
-          <item action="exit" />
-        </item>
         <item name="filemenu" tid="tollium:common.menus.file">
           <item name="newitemmenu" tid=".new">
             <item action="newfile" tid=".newfile" />

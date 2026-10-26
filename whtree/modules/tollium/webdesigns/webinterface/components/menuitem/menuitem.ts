@@ -120,6 +120,7 @@ export default class ObjMenuItem extends ComponentBase {
       },
       on: { click: evt => this.onClick(evt) }
     });
+    node.addEventListener("mouseenter", () => menu.onMenuItemMouseEnter(node));
     // The '--indent' variable is used to calculate the left padding
     if (this.indent)
       node.style.setProperty("--indent", (this.indent * 6) + "px");

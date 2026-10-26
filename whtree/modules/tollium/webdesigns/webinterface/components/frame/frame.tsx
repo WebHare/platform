@@ -8,12 +8,10 @@ import * as scrollmonitor from '@mod-tollium/js/internal/scrollmonitor';
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import * as domfocus from 'dompack/browserfix/focus';
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
-import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
 import type { ApplicationBase, BackendApplication } from '@mod-tollium/web/ui/js/application';
 import { ToddCompBase, type ComponentStandardAttributes, type ComponentBaseUpdate } from '@mod-tollium/web/ui/js/componentbase';
 import { isTruthy, throwError, toCamelCase } from '@webhare/std';
 import ActionForwardBase, { type ActionForwardAttributes } from '../action/actionforwardbase';
-import type ObjMenuItem from '../menuitem/menuitem';
 import type { AcceptType, DropLocation, EnableOnRule, FlagSet, TolliumMessage } from '@mod-tollium/web/ui/js/types';
 import type ObjAction from '../action/action';
 import { debugFlags } from '@webhare/env';
@@ -115,9 +113,6 @@ export class ObjFrame extends ToddCompBase {
   // Nodes to call destroy on after current round of message processing
   leftovernodes: HTMLElement[] = [];
 
-  menubarcomponent: ObjMenuItem | null = null;
-  menubarhandler: menu.MenuBar | null = null;
-
   // names of currently focused components with focusin/focusout handlers
   private focusedComponentNames = new Set<string>;
 
@@ -128,8 +123,6 @@ export class ObjFrame extends ToddCompBase {
   private readonly objectMap = new Map<string, ToddCompBase>;
 
   bodynode: ToddCompBase | null = null;
-  menubarnode: HTMLUListElement | null = null;
-
   active = false;
   allowclose = true;
   resizable = false;
@@ -314,29 +307,6 @@ export class ObjFrame extends ToddCompBase {
     }
   }
 
-  setMenuBar(newmenuname: string, rebuildnode?: false) {
-    const comp = newmenuname ? this.addComponent(this, newmenuname) : null;
-    if (comp === this.menubarcomponent) //already have it in its place
-      return;
-
-    if (this.menubarcomponent) { //remove current menubar
-      this.menubarhandler = null;
-      this.menubarnode = null;
-    }
-
-    this.menubarcomponent = comp as ObjMenuItem | null;
-    if (this.menubarcomponent) { //add new menubar
-      this.menubarnode = dompack.create('ul', {
-        childNodes: this.menubarcomponent.cloneItems(false),
-        className: "showshortcuts"
-      });
-      this.menubarhandler = new menu.MenuBar(this.menubarnode);
-    }
-
-    if (rebuildnode !== false)
-      this.rebuildContentNode();
-  }
-
   private setBodyNode(newbodyname: string, rebuildnode?: false) {
     const newbody = newbodyname ? this.addComponent(this, newbodyname) : null;
     if (this.bodynode === newbody) //nothing new there
@@ -493,15 +463,14 @@ export class ObjFrame extends ToddCompBase {
     //console.log("frame: received readdComponent for ",comp);
     if (this.bodynode && comp.name === this.bodynode.name) {
       this.setBodyNode(comp.name);
-    } else if (this.menubarcomponent && this.menubarcomponent.name === comp.name) {
-      //console.log("Replacing menubar",comp.name);
-      this.setMenuBar(comp.name);
     } else if (this.specials.includes(comp.name)) {
       //console.log("Ignoring update to special",comp.name);
       this.addComponent(this, comp.name); //no need to register it anywhere in frame
     } else if (this.toolbar && this.toolbar.name === comp.name) {
       this.toolbar = this.addComponent(this, comp.name);
       this.rebuildContentNode();
+    } else if (comp.parentcomp === this) {
+      this.addComponent(this, comp.name);
     } else {
       console.error("frame: received readdComponent for unrecognized component ", comp);
     }
@@ -957,7 +926,7 @@ export class ObjFrame extends ToddCompBase {
     this.setupSpecials(data.specials || []);
 
     this.setResizable(data.allowresize); // References titlebarnode
-    this.setMenuBar(data.menubar, false);
+    this.addComponent(this, data.menubar);
     this.setBodyNode(data.bodynode, false);
     this.rebuildContentNode();
     this.node.dataset.toddDefaultButton = data.defaultbutton;
@@ -975,7 +944,7 @@ export class ObjFrame extends ToddCompBase {
   }
 
   rebuildContentNode() {
-    const newnodes = [this.menubarnode, this.toolbar ? this.toolbar.getNode() : null, this.bodynode?.getNode()].filter(isTruthy);
+    const newnodes = [this.toolbar ? this.toolbar.getNode() : null, this.bodynode?.getNode()].filter(isTruthy);
     this.nodes.contentnode.replaceChildren(...newnodes);
     this.updateFocusable(); //repair focus if it was inside us (but now replaced)
   }
@@ -1156,10 +1125,7 @@ export class ObjFrame extends ToddCompBase {
     return [this.toolbar, this.bodynode].filter(isTruthy);
   }
   getHeightOverhead() {
-    let contentheight = this.headerheight; // Counter extra border width and header height as content height
-    //Fallback for applications without toolbar
-    if (this.menubarnode)
-      contentheight += this.menubarnode.offsetHeight;
+    const contentheight = this.headerheight; // Counter extra border width and header height as content height
     return contentheight;
   }
 

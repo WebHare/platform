@@ -9,17 +9,13 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 
-PUBLIC OBJECTTYPE MenuTest EXTEND TolliumScreenBase
-<
-  MACRO Init(RECORD data)
-  {
-    IF(NOT CellExists(data,'withburger'))
-      this->frame->forcemenubar := TRUE;
+PUBLIC OBJECTTYPE MenuTest EXTEND TolliumScreenBase <
+  MACRO Init(RECORD data) {
     IF(CellExists(data,'withpopup'))
       this->RunMessageBox(".mbox");
 
-    this->x0b1->visible := this->frame->forcemenubar;
-    this->x0b2->visible := NOT this->frame->forcemenubar;
+    this->x0b1->visible := FALSE;
+    this->x0b2->visible := TRUE;
   }
   MACRO onmessage(RECORD msg)
   {
@@ -65,12 +61,6 @@ PUBLIC OBJECTTYPE MenuTest EXTEND TolliumScreenBase
   MACRO DoToggleBUttonBarButton()
   {
     this->b02_togglebutton->visible := NOT this->b02_togglebutton->visible;
-  }
-  MACRO DoToggleForceMenuBar()
-  {
-    this->frame->forcemenubar := NOT this->frame->forcemenubar;
-    this->x0b1->visible := this->frame->forcemenubar;
-    this->x0b2->visible := NOT this->frame->forcemenubar;
   }
   MACRO DoToggleB03()
   {

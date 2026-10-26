@@ -214,7 +214,7 @@ html.dompack--debug-tollium-focus *:focus {
   }
   */
 /****************************************************************************************************************************
- * Menus and menubar
+ * Menus
  */
 /* line 268, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
 .wh-scroller-vertical {
@@ -249,16 +249,6 @@ html.dompack--debug-tollium-focus *:focus {
 /* line 287, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
 .wh-menu-detached.wh-scrollableview-canscroll-v .wh-menu {
   padding-right: 15px;
-}
-ul.wh-menubar
-{
-  overflow: hidden;
-  height: 28px;
-}
-html ul.wh-menubar > li
-{
-  padding: 6px 8px 4px 8px;
-  height: 28px;
 }
   ul.wh-menulist.showshortcuts > li[data-menushortcut]
 {

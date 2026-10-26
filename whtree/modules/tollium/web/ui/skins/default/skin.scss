@@ -272,28 +272,12 @@ div.closewindow:hover
 }
 
 /****************************************************************************************************************************
- * Menus and menubar
+ * Menus
  */
-ul.wh-menu:not(.wh-menubar)
+ul.wh-menu
 , .t-selectlist__items
 {
   box-shadow:0 0 8px rgba(0,0,0,.2);
-}
-ul.wh-menu.wh-menubar
-{
-  background-color:#4a4a4a;
-}
-ul.wh-menu.wh-menubar > li
-{
-  color:#ffffff;
-}
-ul.wh-menu.wh-menubar > li.selected
-{
-  color:#000000;
-}
-ul.wh-menu.wh-menubar > li.divider
-{
-  display:none;
 }
 /****************************************************************************************************************************
  * Toolbar & toolbar button

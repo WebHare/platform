@@ -52,14 +52,14 @@ test.runTests(
       test: async function () {
         test.eq(4, test.qSA(".t-screen").length);
         test.assert(!test.getMenu(['M01', 'A02'], { allowMissing: true }));
-        test.click(test.getCurrentScreen().qR('button'));
+        test.click(test.getCurrentScreen().qSA('button')[1]);
         await test.waitForUI();
       }
     },
     {
       test: async function () {
         test.eq(3, test.qSA(".t-screen").length);
-        test.click(test.getCurrentScreen().qR('button'));
+        test.click(test.getCurrentScreen().qSA('button')[1]);
         await test.waitForUI();
       }
     },

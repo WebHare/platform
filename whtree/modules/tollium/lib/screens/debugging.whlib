@@ -19,8 +19,8 @@ TODO:
 - when opening objects which are rendered on another place, copy that node to the branch that's being opened
 */
 
-PUBLIC STATIC OBJECTTYPE ReflectDialog EXTEND TolliumScreenBase
-< // ---------------------------------------------------------------------------
+PUBLIC STATIC OBJECTTYPE ReflectDialog EXTEND TolliumScreenBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -88,16 +88,6 @@ PUBLIC STATIC OBJECTTYPE ReflectDialog EXTEND TolliumScreenBase
                                , "debugdump.html"
                                , GetCurrentDateTime()
                                );
-  }
-
-  // ADDME: but how to implement?
-  MACRO DoOpenInNewTab()
-  {
-  }
-
-  MACRO DoShowBrowsePanel()
-  {
-    ^browsepanel->visible := TRUE;
   }
 
   MACRO DoOpenInDebugger()

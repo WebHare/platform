@@ -26,7 +26,7 @@ test.runTests(
     {
       test: function () {
         const listview = test.compByName("staticlist").propTodd.list;
-        test.eq(143, listview.getFirstVisibleRow());//we currently whole "Row #144", which is sequentially 0-based row 143
+        test.eq(144, listview.getFirstVisibleRow());//we currently whole "Row #144", which is sequentially 0-based row 143
       }
     },
 
@@ -36,7 +36,7 @@ test.runTests(
     {
       test: function () {
         const listview = test.compByName("staticlist").propTodd.list;
-        test.eq(143, listview.getFirstVisibleRow());//we currently whole "Row #144", which is sequentially 0-based row 143
+        test.eq(144, listview.getFirstVisibleRow());//we currently whole "Row #144", which is sequentially 0-based row 143
       }
     },
     //make sure scroll position is retained after toggling list
