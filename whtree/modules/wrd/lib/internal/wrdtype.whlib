@@ -874,6 +874,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase <
         ]);
 
     OBJECT ARRAY typestoreload := [ this ];
+    newmetadata := BaseAttributeValidation(newmetadata); //also ensures tag is uppercase
 
     //FIXME Validate requiretype changes
     IF(CellExists(newmetadata,"tag"))
