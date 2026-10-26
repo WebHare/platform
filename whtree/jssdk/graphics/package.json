@@ -1,0 +1,19 @@
+{
+  "name": "@webhare/graphics",
+  "type": "module",
+  "version": "",
+  "description": "WebHare graphics utilities",
+  "main": "src/graphics.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/graphics.ts"
+    ]
+  },
+  "private": true
+}

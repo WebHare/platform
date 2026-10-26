@@ -1,0 +1,51 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "mod::platform/lib/graphics.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+MACRO QRCodeTest() {
+  RECORD qr := GenerateQRCode("https://webhare.dev/", CELL[]);
+  TestEqMembers([ filename := "qr.png", mimetype := "image/png", width := 256, height := 256 ], qr, "*");
+  TestEqMembers([ mimetype := "image/png", width := 256, height := 256 ], ScanBlob(qr.data), "*");
+
+  RECORD qrwithlogo := GenerateQRCode("https://webhare.dev/", [
+    size := 500,
+    correctlevel := "L",
+    colordark := "#52aefe",
+    colorlight := "#4a4a4a",
+    logo := GetWebHareResource("mod::tollium/webdesigns/webinterface/web/img/favicon/apple-touch-icon.png"),
+    logosize := 15
+  ]);
+  TestEqMembers([ filename := "qr.png", mimetype := "image/png", width := 500, height := 500 ], qrwithlogo, "*");
+  TestEqMembers([ mimetype := "image/png", width := 500, height := 500 ], ScanBlob(qrwithlogo.data), "*");
+}
+
+MACRO ResizeWrappedImageTest() {
+  RECORD image := WrapBlob(GetWebhareResource("mod::system/web/tests/snowbeagle.jpg"), "snowbeagle.jpg");
+
+  FOREVERY(RECORD testcase FROM [
+    [ method := [ method := "none" ], width := 428, height := 284, mimetype := "image/jpeg" ],
+    [ method := [ method := "scale", setwidth := 100, setheight := 100 ], width := 100, height := 67, mimetype := "image/jpeg" ],
+    [ method := [ method := "fit", setwidth := 500, setheight := 500 ], width := 428, height := 284, mimetype := "image/jpeg" ],
+    [ method := [ method := "fill", setwidth := 80, setheight := 60, format := "image/png" ], width := 80, height := 60, mimetype := "image/png" ],
+    [ method := [ method := "fitcanvas", setwidth := 100, setheight := 100, bgcolor := "#ff0000", format := "image/png" ], width := 100, height := 100, mimetype := "image/png" ],
+    [ method := [ method := "scalecanvas", setwidth := 100, setheight := 100, bgcolor := "#ff0000", format := "image/webp" ], width := 100, height := 100, mimetype := "image/webp" ]
+  ]) {
+    RECORD resized := ResizeImage(image, testcase.method);
+    RECORD expected := [ width := testcase.width, height := testcase.height, mimetype := testcase.mimetype ];
+    TestEqMembers(expected, resized, "*");
+    TestEqMembers(expected, ScanBlob(resized.data), "*");
+    TestEq(4, Length(UnpackRecord(resized)));
+    IF(testcase.method.method IN ["none", "fit"])
+      TestEq(image.data, resized.data);
+  }
+
+  TestThrowsLike("Input is not an image", PTR ResizeImage(WrapBlob(StringToBlob("not an image"), "test.txt"), [ method := "none" ]));
+  TestThrowsLike("Unknown resize method*", PTR ResizeImage(image, [ method := "invalid" ]));
+}
+
+RunTestFramework([
+  PTR QRCodeTest,
+  PTR ResizeWrappedImageTest
+], [ usedatabase := FALSE ]);

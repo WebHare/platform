@@ -1,4 +1,5 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
   <test script="test_localcache.ts" />
-  <test script="test_qrcode.ts" />
+  <test script="test_graphics.ts" />
+  <test script="test_graphics_hs.whscr" />
 </group>

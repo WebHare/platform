@@ -1,4 +1,4 @@
-import { resizeImage } from "@mod-platform/js/cache/imgcache";
+import { resizeImageData } from "@mod-platform/js/cache/imgcache";
 import { runCli, enumOption, CLIRuntimeError, intOption } from "@webhare/cli";
 import { ResourceDescriptor, PackMethods, type outputFormats, type ResizeMethodName } from "@webhare/services/src/descriptor";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
@@ -41,7 +41,7 @@ runCli({
       async main({ opts, args }) {
         const desc = await ResourceDescriptor.fromDisk(args.input, { getImageMetadata: true });
         const outputFormat = getImageTypeForPath(args.output);
-        const result = await resizeImage(desc, args.input, {
+        const result = await resizeImageData(desc, args.input, {
           method: opts.method as ResizeMethodName,
           format: outputFormat,
           width: opts.width,
