@@ -68,7 +68,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
 
   UPDATE MACRO Init(RECORD data) {
     PublisherEditorBase::Init(data);
-    data := EnforceStructure( [ assumewriteaccess := FALSE, objeditor := DEFAULT RECORD, showversion := 0 ], data);
+    data := EnforceStructure( [ assumereadaccess := FALSE, assumewriteaccess := FALSE, objeditor := DEFAULT RECORD, showversion := 0 ], data);
     ^developersmenu->visible := this->frame->flags.isdeveloper;
 
     IF(NOT RecordExists(data.objeditor))
@@ -101,8 +101,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     this->SetupForFileEdit(this->itemid, data.objeditor);
     this->SetupWorkflowManager( CELL[ data.readonly, data.showversion, useworkflow := TRUE, workflowtypes := data.objeditor.types ]);
 
-    IF(this->workflowmgr->IsReadOnly() AND NOT this->tolliumuser->HasRightOn("system:fs_browse", this->itemid)) //not even browse access?
-    {
+    IF(this->workflowmgr->IsReadOnly() AND NOT data.assumereadaccess AND NOT data.assumewriteaccess AND NOT this->tolliumuser->HasRightOn("system:fs_browse", this->itemid)) { //not even browse access?
       this->tolliumresult := "cancel";
       RETURN;
     }
