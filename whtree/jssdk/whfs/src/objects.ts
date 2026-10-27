@@ -326,6 +326,26 @@ abstract class WHFSBaseObject {
   /** Describe this object's type */
   abstract describeType(): Promise<WHFSTypeInfo>;
 
+  /** If this file is its parent's indexdoc but its new type (or for contentlinks, the type of its target) can't be an index, unset the parent's indexdoc */
+  private async _resetIndexDocIfNotAcceptable(newType: number | null, newFileLink: number | null) {
+    let indexType = newType;
+    if (indexType && getType(indexType, "fileType")?.scopedtype === "platform:filetypes.contentlink")
+      indexType = newFileLink ? (await db<PlatformDB>().selectFrom("system.fs_objects").select("type").where("id", "=", newFileLink).executeTakeFirst())?.type ?? null : null;
+
+    const typeInfo = await db<PlatformDB>().selectFrom("system.fs_types").select("isacceptableindex").where("id", "=", indexType || 0).executeTakeFirst();
+    if (typeInfo?.isacceptableindex)
+      return;
+
+    const parentRec = await db<PlatformDB>().selectFrom("system.fs_objects").select(["id", "parent"]).where("id", "=", this.dbrecord.parent).where("indexdoc", "=", this.id).executeTakeFirst();
+    if (!parentRec)
+      return;
+
+    const finishHandler = whfsFinishHandler();
+    finishHandler.objectUpdate(this.parentSite, parentRec.parent, parentRec.id, true);
+    await db<PlatformDB>().updateTable("system.fs_objects").set({ indexdoc: null }).where("id", "=", parentRec.id).execute();
+    finishHandler.folderIndexDocUpdated(this.parentSite, parentRec.parent, parentRec.id);
+  }
+
   protected async _doUpdate(metadata: UpdateFileMetadata | UpdateFolderMetadata) {
     const storedata: Updateable<PlatformDB, "system.fs_objects"> = std.pick(metadata, ["title", "description", "keywords", "name"]);
     const moddate = metadata.modified || Temporal.Now.instant();
@@ -388,6 +408,9 @@ abstract class WHFSBaseObject {
 
       storedata.type = type.id || null; //#0 can't be stored so convert to null
     }
+
+    if (this.isFile && ((storedata.type !== undefined && storedata.type !== this.dbrecord.type) || (storedata.filelink !== undefined && storedata.filelink !== this.dbrecord.filelink)))
+      await this._resetIndexDocIfNotAcceptable(storedata.type !== undefined ? storedata.type : this.dbrecord.type, storedata.filelink !== undefined ? storedata.filelink : this.dbrecord.filelink);
 
     if ("modifiedBy" in metadata) { //TODO should we reset it if not explicitly passed? or only for 'silent' updates not updating moddate?
       storedata.modifiedby = metadata.modifiedBy ? await ensureAuthObject(metadata.modifiedBy) : null;

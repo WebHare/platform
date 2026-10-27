@@ -312,6 +312,37 @@ async function testLinkTypes() {
   await goldFish_clink.update({ target: null });
   test.eq(null, goldFish_clink.target);
 
+  //a contentlink is an acceptable index depending on its target's type
+  const indexFolder = await tmpfolder.createFolder("clink-index-folder");
+  const indexRtd = await indexFolder.createFile("target.rtd", { type: "platform:filetypes.richdocument" });
+  const indexRtd2 = await indexFolder.createFile("target2.rtd", { type: "platform:filetypes.richdocument" });
+  const indexJs = await indexFolder.createFile("target.js", { type: "platform:filetypes.javascript" });
+  const indexLink = await indexFolder.createFile("clink", { type: "platform:filetypes.contentlink", target: new IntExtLink(indexRtd.id) });
+  await indexFolder.update({ indexDoc: indexLink.id });
+
+  await indexLink.update({ target: new IntExtLink(indexRtd2.id) });
+  test.eq(indexLink.id, (await openFolder(indexFolder.id)).indexDoc);
+  await indexLink.update({ target: new IntExtLink(indexJs.id) });
+  test.eq(null, (await openFolder(indexFolder.id)).indexDoc);
+
+  //an rtd index remains the index when converted to a contentlink to an rtd, but not to a non-index type
+  const convertFolder = await tmpfolder.createFolder("clink-convert-folder");
+  const convertRtd = await convertFolder.createFile("target.rtd", { type: "platform:filetypes.richdocument" });
+  const convertJs = await convertFolder.createFile("target.js", { type: "platform:filetypes.javascript" });
+  const converted = await convertFolder.createFile("converted", { type: "platform:filetypes.richdocument" });
+  await convertFolder.update({ indexDoc: converted.id });
+  await converted.update({ type: "platform:filetypes.contentlink", target: new IntExtLink(convertRtd.id) });
+  test.eq(converted.id, (await openFolder(convertFolder.id)).indexDoc);
+  await converted.update({ type: "platform:filetypes.richdocument", target: null });
+  await converted.update({ type: "platform:filetypes.contentlink", target: new IntExtLink(convertJs.id) });
+  test.eq(null, (await openFolder(convertFolder.id)).indexDoc);
+
+  //a plain index file changed to a non-index type is unset
+  await converted.update({ type: "platform:filetypes.richdocument", target: null });
+  await convertFolder.update({ indexDoc: converted.id });
+  await converted.update({ type: "platform:filetypes.javascript" });
+  test.eq(null, (await openFolder(convertFolder.id)).indexDoc);
+
   //test IntLink
   const goldFish_intlink = await tmpfolder.createFile("goldfish-intlink", { type: "platform:filetypes.internallink", target: new IntExtLink(goldFish.id), publish: true });
   test.eq(goldFish.id, goldFish_intlink.target?.internalLink);
