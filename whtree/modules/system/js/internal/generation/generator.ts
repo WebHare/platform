@@ -40,6 +40,7 @@ import { rm } from "node:fs/promises";
 import { parseDocAsXML } from "./xmlhelpers";
 import { pick } from "@webhare/std";
 import { listAllModuleWHFSTypeDefs } from "./gen_whfs";
+import { writeCacheableJSONConfig } from "../configuration";
 
 function getPaths() {
   const installedBaseDir = backendConfig.dataRoot + "config/";
@@ -132,8 +133,10 @@ async function generateFiles(filelist: FileToUpdate[], context: GenerateContext,
       continue;
 
     let updated = false;
-    if (!options?.dryRun)
-      updated = !(await storeDiskFile(file.path, content, { overwrite: true, mkdir: true, onlyIfChanged: true })).skipped;
+    if (!options?.dryRun) {
+      const storeFile = file.path.endsWith(".json") ? writeCacheableJSONConfig : storeDiskFile;
+      updated = !(await storeFile(file.path, content, { overwrite: true, mkdir: true, onlyIfChanged: true })).skipped;
+    }
     if (updated && options?.verbose)
       console.log(`Updated ${file.path}`);
     if (!updated && options?.showUnchanged)
