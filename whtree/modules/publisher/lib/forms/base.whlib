@@ -561,7 +561,7 @@ PUBLIC STATIC OBJECTTYPE FormBase <
         RECORD match := SELECT * FROM this->ListFields() WHERE guid = condition_field;
         IF(RecordExists(match))
           condition.field := match.obj->conditionname || extra_field;
-        IF (condition.fieldtype = "formvariable" AND NOT CellExists(this->formvariables, condition.field))
+        IF (CellExists(condition, 'fieldtype') AND condition.fieldtype = "formvariable" AND NOT CellExists(this->formvariables, condition.field))
           THROW NEW Exception(`Form variable '${condition.field}' does not exist`);
 
         // Convert array values to string (JavaScript checks <input> values, which are always strings)
