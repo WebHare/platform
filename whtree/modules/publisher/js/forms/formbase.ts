@@ -1708,8 +1708,8 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
 
     /* Send change events to all fields. This keeps eg. slimselect in sync after a reset.
        Browsers offer no non-intrusive ways to listen to form.reset()
-       (Intrusive: overriding form.reset oror set up custom form elements that receive reset events) */
-    for (const field of this._queryAllFields({ onlysettable: true, skiparraymembers: true }))
+       (Intrusive: overriding form.reset or set up custom form elements that receive reset events) */
+    for (const field of this._queryAllFields())
       for (const node of field.multi ? field.nodes : [field.node]) {
         node.dispatchEvent(new Event("change", { bubbles: false, cancelable: false }));
       }
