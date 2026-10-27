@@ -29,6 +29,7 @@ export type { DefaultRestParams, RestSuccessfulAuthorization, RestFailedAuthoriz
 export { getAssetPackIntegrationCode } from "./concepts";
 export { SiteResponse, SiteResponseSettings } from "./sitereponse";
 export { type WebHareOpenAPIDocument, type OpenAPIServiceInitializationContext } from "./openapi";
+export { createEphemeralEndpoint, type EphemeralEndpoint } from "./ephemeralendpoint";
 
 export type WebHareRouter = (request: WebRequest) => Promise<WebResponse>;
 export type { ContentPageRequest };

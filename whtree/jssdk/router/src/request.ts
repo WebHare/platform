@@ -14,6 +14,7 @@ export type WebRequestTransferData = {
   url: string;
   headers: Array<[string, string]>;
   clientWebServer: number;
+  clientIp: string;
   body: ArrayBuffer | null;
   baseURL: string;
   localPath: string;
@@ -198,6 +199,7 @@ export class IncomingWebRequest implements WebRequest {
         url: this.url.toString(),
         headers: Array.from(this.headers.entries()),
         clientWebServer: this.clientWebServer,
+        clientIp: this.clientIp,
         body: this.__body,
         baseURL: this.baseURL,
         localPath: this.localPath
@@ -272,7 +274,12 @@ class ForwardedWebRequest implements WebRequest {
   getDebugSettings(): { flags: DebugFlags } { return this.original.getDebugSettings(); }
   getOriginURL(pathname: string) { return this.original.getOriginURL(pathname); }
 
-  encodeForTransfer() { return this.original.encodeForTransfer(); }
+  encodeForTransfer() {
+    const encoded = this.original.encodeForTransfer();
+    encoded.value.baseURL = this.baseURL;
+    encoded.value.localPath = this.localPath;
+    return encoded;
+  }
 }
 
 export async function newWebRequestFromInfo(req: WebRequestInfo): Promise<WebRequest> {
@@ -312,6 +319,7 @@ class TransferredWebRequest extends IncomingWebRequest {
       method: encoded.method,
       headers: new Headers(encoded.headers),
       body: encoded.body,
+      clientIp: encoded.clientIp,
       clientWebServer: encoded.clientWebServer
     });
     this.__baseURL = encoded.baseURL;

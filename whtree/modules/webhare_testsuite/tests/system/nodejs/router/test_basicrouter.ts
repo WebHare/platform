@@ -1,6 +1,6 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend.ts";
 import * as services from "@webhare/services";
-import { createRedirectResponse, createWebResponse, getAssetPackIntegrationCode } from "@webhare/router";
+import { createEphemeralEndpoint, createJSONResponse, createRedirectResponse, createWebResponse, getAssetPackIntegrationCode } from "@webhare/router";
 import { coreWebHareRouter } from "@webhare/router/src/corerouter";
 import { decodeHSON } from "@webhare/hscompat/src/hscompat";
 import { IncomingWebRequest, newForwardedWebRequest, newWebRequestFromInfo } from "@webhare/router/src/request";
@@ -8,6 +8,7 @@ import type { WebRequestInfo } from "@mod-system/js/internal/types";
 import { listLocks } from "@mod-platform/js/bridge/tools";
 import { generateRandomId } from "@webhare/std";
 import { litty } from "@webhare/litty";
+import { endPointRouter } from "@mod-platform/js/endpoints/endpoints";
 
 interface GetRequestDataResponse {
   method: string;
@@ -81,6 +82,146 @@ function testWebRequest() {
 async function testWebResponse() {
   const littyResponse = createWebResponse(litty`<html><p>Hello ${"<b>world</b>"}</p></html>`);
   test.eq(`<html><p>Hello &lt;b&gt;world&lt;/b&gt;</p></html>`, await littyResponse.text());
+}
+
+async function testEphemeralEndpoints() {
+  using endpoint = await createEphemeralEndpoint(async request => {
+    const action = new URL(request.url).searchParams.get("action");
+    switch (action) {
+      case "echo":
+        return createWebResponse(await request.blob(), {
+          status: 201,
+          headers: [
+            ["content-type", "application/octet-stream"],
+            ["x-callback", "echo"],
+            ["set-cookie", "first=1; Path=/"],
+            ["set-cookie", "second=2; Path=/"]
+          ]
+        });
+      case "redirect":
+        return createRedirectResponse("https://www.webhare.dev/");
+      case "empty":
+        return createWebResponse(undefined, { status: 204 });
+      case "fail":
+        if (request.method !== "HEAD")
+          throw new Error("Ephemeral endpoint failure");
+        break;
+    }
+    if (request.method === "HEAD")
+      return createWebResponse(undefined, { status: 204 });
+    return createJSONResponse(200, {
+      method: request.method,
+      url: request.url,
+      baseURL: request.baseURL,
+      localPath: request.localPath,
+      clientIp: request.clientIp,
+      clientWebServer: request.clientWebServer,
+      header: request.headers.get("x-test"),
+      cookie: request.getCookie("callback"),
+      body: await request.text()
+    });
+  });
+
+  test.eq(services.backendConfig.backendURL, endpoint.url.substring(0, services.backendConfig.backendURL.length));
+  test.eq(/^\.wh\/endpoints\/ephemeral\/[A-Za-z0-9_-]+$/, endpoint.url.substring(services.backendConfig.backendURL.length));
+  const response = await fetch(endpoint.url + "?value=Test", {
+    headers: { "x-test": "MixedCase", cookie: "callback=CookieValue" }
+  });
+  test.eq(200, response.status);
+  test.eqPartial({
+    method: "GET",
+    url: endpoint.url + "?value=Test",
+    baseURL: endpoint.url + "/",
+    localPath: "",
+    header: "MixedCase",
+    cookie: "CookieValue",
+    body: ""
+  }, await response.json());
+
+  const subrouteURL = endpoint.url + "/Sub%20Route/Nested?value=Test";
+  const subrouteResponse = await fetch(subrouteURL);
+  test.eq(200, subrouteResponse.status);
+  test.eqPartial({
+    url: subrouteURL,
+    baseURL: endpoint.url + "/",
+    localPath: "sub route/nested"
+  }, await subrouteResponse.json());
+
+  const rootResponse = await fetch(endpoint.url + "/");
+  test.eq(200, rootResponse.status);
+  test.eqPartial({
+    baseURL: endpoint.url + "/",
+    localPath: ""
+  }, await rootResponse.json());
+
+  const posted = await fetch(endpoint.url, { method: "POST", body: "Callback body" });
+  test.eq(200, posted.status);
+  test.eqPartial({ method: "POST", body: "Callback body" }, await posted.json());
+
+  const directRequest = newForwardedWebRequest(new IncomingWebRequest(endpoint.url, {
+    clientIp: "192.0.2.123",
+    clientWebServer: 42
+  }), ".wh/endpoints/");
+  const directResponse = await endPointRouter(directRequest);
+  test.eqPartial({
+    baseURL: endpoint.url + "/",
+    localPath: "",
+    clientIp: "192.0.2.123",
+    clientWebServer: 42
+  }, await directResponse.json());
+
+  const bodies = [[0, 255, 128, 13, 10], [1, 2, 3], []];
+  await Promise.all(bodies.map(async body => {
+    const echoed = await fetch(endpoint.url + "?action=echo", {
+      method: "POST",
+      body: new Uint8Array(body)
+    });
+    test.eq(201, echoed.status);
+    test.eq("application/octet-stream", echoed.headers.get("content-type"));
+    test.eq("echo", echoed.headers.get("x-callback"));
+    test.eq(["first=1; Path=/", "second=2; Path=/"], echoed.headers.getSetCookie());
+    test.eq(body, [...new Uint8Array(await echoed.arrayBuffer())]);
+  }));
+
+  const redirect = await fetch(endpoint.url + "?action=redirect", { redirect: "manual" });
+  test.eq(303, redirect.status);
+  test.eq("https://www.webhare.dev/", redirect.headers.get("location"));
+  for (const method of ["GET", "HEAD"]) {
+    const empty = await fetch(endpoint.url + "?action=empty", { method });
+    test.eq(204, empty.status);
+    test.eq("", await empty.text());
+  }
+  await test.throws(/Ephemeral endpoint failure/, endPointRouter(new IncomingWebRequest(endpoint.url + "?action=fail")));
+
+  let disposedURL;
+  {
+    using otherEndpoint = await createEphemeralEndpoint(async () => createWebResponse("Other endpoint"));
+    disposedURL = otherEndpoint.url;
+    test.assert(otherEndpoint.url !== endpoint.url);
+    test.eq("Other endpoint", await (await fetch(otherEndpoint.url)).text());
+  }
+  test.eq(503, (await fetch(disposedURL)).status);
+
+  endpoint.close();
+  endpoint.close();
+  test.eq(503, (await fetch(endpoint.url)).status);
+  test.eq(503, (await fetch(`${services.backendConfig.backendURL}.wh/endpoints/ephemeral/${generateRandomId()}`)).status);
+
+  const started = Promise.withResolvers<void>();
+  const finish = Promise.withResolvers<void>();
+  using pendingEndpoint = await createEphemeralEndpoint(async () => {
+    started.resolve();
+    await finish.promise;
+    return createWebResponse("Finished");
+  });
+  const pendingResponse = fetch(pendingEndpoint.url);
+  try {
+    await started.promise;
+    pendingEndpoint.close();
+    test.eq(503, (await pendingResponse).status);
+  } finally {
+    finish.resolve();
+  }
 }
 
 async function testHSWebserver() {
@@ -240,6 +381,7 @@ test.runTests([
   testRouterAPIs,
   testWebRequest,
   testWebResponse,
+  testEphemeralEndpoints,
   testHSWebserver,
   testJSBackedURLs,
   testRequestSeparation

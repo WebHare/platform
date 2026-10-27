@@ -3,6 +3,7 @@ import { decryptForThisServer, logDebug } from "@webhare/services";
 import { parseSendGridMessage } from "../email/sendgrid";
 import { createVM } from "@webhare/harescript";
 import { parseSNSMessage } from "../email/aws-ses";
+import { handleEphemeralEndpoint } from "@webhare/router/src/ephemeralendpoint";
 
 
 declare module "@webhare/services" {
@@ -93,6 +94,13 @@ export async function endPointRouter(req: WebRequest): Promise<WebResponse> {
     return await handleSendGrid(req);
   if (url.pathname === "/.wh/endpoints/aws-sns")
     return await handleAWS_SNS(req);
+
+  const ephemeralEndpointPrefix = "/.wh/endpoints/ephemeral/";
+  if (url.pathname.startsWith(ephemeralEndpointPrefix)) {
+    const endpointId = url.pathname.slice(ephemeralEndpointPrefix.length).split("/")[0];
+    if (endpointId) //a createEphemeralEndpoint managed endpoint
+      return await handleEphemeralEndpoint(req, endpointId);
+  }
 
   return createWebResponse("", { status: HTTPErrorCode.NotFound });
 }
