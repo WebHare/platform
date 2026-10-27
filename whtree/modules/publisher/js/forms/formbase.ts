@@ -1696,8 +1696,25 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     }
   }
 
+  /** Reset the form. Unlike reset() on the native node this will also dispatch reset and change events to bring
+   *  all components back in sync
+   */
   async reset() {
+    // We could send out a reset event - but not sure what the point would be. Can't hurt ?
+    this.node.dispatchEvent(new Event('reset', { bubbles: true, cancelable: false }));
+
+    // Do the reset
     this.node.reset();
+
+    /* Send change events to all fields. This keeps eg. slimselect in sync after a reset.
+       Browsers offer no non-intrusive ways to listen to form.reset()
+       (Intrusive: overriding form.reset oror set up custom form elements that receive reset events) */
+    for (const field of this._queryAllFields({ onlysettable: true, skiparraymembers: true }))
+      for (const node of field.multi ? field.nodes : [field.node]) {
+        node.dispatchEvent(new Event("change", { bubbles: false, cancelable: false }));
+      }
+
+    // Back to the first page, if neeeded/possible (if there are no pages getCurrentPageNumber will still be 0)
     if (this.getCurrentPageNumber() > 0)
       await this.gotoPage(0);
   }

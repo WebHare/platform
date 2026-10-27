@@ -653,7 +653,12 @@ test.runTests(
     'Test form reset',
     async function () {
       const formhandler = getFormHandler(test.qR('#coreform'));
+      const changedFields: string[] = [];
+      for (const name of ['email', 'pulldowntest'])
+        test.qR(`#coreform [name="${name}"]`).addEventListener('change', () => changedFields.push(name), { once: true });
+
       await formhandler.reset(); //this crashed when a form wasn't using pages
+      test.eq(['email', 'pulldowntest'], changedFields.sort());
     },
 
     'Test unlocking disabled fields',
