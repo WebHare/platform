@@ -21,13 +21,13 @@ async function testIntegrityChecks() {
 
   //this poisons the type (or perhaps the schema) to ensure that you can't use the schema
   schema.__clearCache(); //clears internal caches
-  await test.throws(/duplicate attribute/, () => childType.listAttributes());
+  await test.throws(/Duplicate attribute/, () => childType.listAttributes());
 
   schema.__clearCache();
-  await test.throws(/duplicate attribute/, () => schema.query("testDomain1Child").select(["wrdId"]).limit(1).execute());
+  await test.throws(/Duplicate attribute/, () => schema.query("testDomain1Child").select(["wrdId"]).limit(1).execute());
 
   schema.__clearCache();
-  await test.throws(/duplicate attribute/, () => schema.insert("testDomain1Child", { wrdTitle: "test" }));
+  await test.throws(/Duplicate attribute/, () => schema.insert("testDomain1Child", { wrdTitle: "test" }));
 
   schema.__clearCache();
   await rollbackWork();
