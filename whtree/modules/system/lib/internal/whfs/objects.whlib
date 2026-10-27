@@ -762,9 +762,11 @@ OBJECTTYPE WHFSObject <
           // The file is currently indexdoc, reset the parent folder's indexdoc.
           commithandler->ObjectUpdate(this->parentsite, parentrec.parent, oldversion.parent, oldversion.isfolder);
 
+          // Only clear if we're still the index, a concurrent work may have replaced it
           UPDATE system.fs_objects
              SET indexdoc := 0
-           WHERE id = oldversion.parent;
+           WHERE id = oldversion.parent
+                 AND indexdoc = this->pvt_id;
 
           GetWHFSCommitHandler()->FolderIndexDocUpdated(this->parentsite, parentrec.parent, oldversion.parent);
         }

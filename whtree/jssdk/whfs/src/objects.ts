@@ -342,7 +342,8 @@ abstract class WHFSBaseObject {
 
     const finishHandler = whfsFinishHandler();
     finishHandler.objectUpdate(this.parentSite, parentRec.parent, parentRec.id, true);
-    await db<PlatformDB>().updateTable("system.fs_objects").set({ indexdoc: null }).where("id", "=", parentRec.id).execute();
+    //only if still our index, a concurrent work may have replaced it
+    await db<PlatformDB>().updateTable("system.fs_objects").set({ indexdoc: null }).where("id", "=", parentRec.id).where("indexdoc", "=", this.id).execute();
     finishHandler.folderIndexDocUpdated(this.parentSite, parentRec.parent, parentRec.id);
   }
 
