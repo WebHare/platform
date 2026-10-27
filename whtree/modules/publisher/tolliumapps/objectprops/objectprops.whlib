@@ -986,7 +986,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     INTEGER scheduleoldindex, recycleoldindex;
 
     IF (^makeindex->visible OR forcedindex OR NOT indexconstraints.acceptableindex) {
-      IF (makeindex AND this->curtype.id = 20)
+      IF (makeindex AND this->curtype.id = whconstant_whfstype_contentlink)
       {
         //verify the reference
         INTEGER destfiletype := SELECT AS INTEGER type FROM system.fs_objects WHERE id = ^path->value;
