@@ -79,6 +79,7 @@ export class CodeContext extends EventSource<CodeContextEvents> implements Async
   readonly metadata: CodeContextMetadata;
   readonly storage = new Map<string | symbol, { resource: unknown; dispose?: (x: unknown) => void | Promise<void> }>();
   private closed = false;
+  private closePromise?: Promise<void>;
   readonly consoleLog: ConsoleLogItem[] = [];
   readonly allPromises = new Map<number, PromiseAdminData>;
   readonly mutexes: Set<string> = new Set;
@@ -166,18 +167,48 @@ export class CodeContext extends EventSource<CodeContextEvents> implements Async
     });
   }
 
-  async close() {
+  close(): Promise<void> {
+    if (this.closePromise)
+      return this.closePromise;
+
+    // Publish before invoking callbacks: every close caller joins the same cleanup.
+    const completed = Promise.withResolvers<void>();
+    this.closePromise = completed.promise;
+    void this.finishClose().then(completed.resolve, completed.reject);
+    return this.closePromise;
+  }
+
+  private async finishClose() {
     if (debugFlags.cclifecycle)
       console.trace(`[${this.id}] CodeContext closing`);
 
-    /// Need to run the close event within this CodeContext, so cleanup can access it.
-    await this.run(async () => {
-      this.emit("close", {});
-      for (const [, resource] of this.storage)
-        await resource.dispose?.(resource.resource);
-    });
-    this.storage.clear();
-    this.closed = true;
+    const errors: unknown[] = [];
+    try {
+      /// Cleanup may still access its own scoped resources until all disposers finish.
+      await this.run(async () => {
+        try {
+          this.emit("close", {});
+        } catch (error) {
+          errors.push(error);
+        }
+        for (const [, resource] of this.storage) {
+          try {
+            await resource.dispose?.(resource.resource);
+          } catch (error) {
+            errors.push(error);
+          }
+        }
+      });
+    } finally {
+      // A failed disposer must not leave a retired request's resources accessible.
+      this.storage.clear();
+      this.closed = true;
+    }
+
+    if (errors.length === 1)
+      throw errors[0];
+    if (errors.length > 1)
+      throw new AggregateError(errors, `Failed to close CodeContext '${this.id}'`);
 
     if (debugFlags.retainers)
       showDanglingPromises(this);

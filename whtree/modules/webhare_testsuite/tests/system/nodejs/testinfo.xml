@@ -27,6 +27,7 @@
   <test script="test_node_regressions.ts" />
   <test script="test_tests.ts" />
   <test script="test_whdb.ts" />
+  <test script="test_codecontext_cleanup.ts" />
   <test script="test_manualcondition.ts" />
   <test script="test_fifo.ts" />
   <test script="test_waitabletimer.ts" />
