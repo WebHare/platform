@@ -493,14 +493,13 @@ export class WorkerRestAPIHandler {
     let authresult;
     {
       const start = performance.now();
-      const authcontext = new CodeContext("openapi", {
-        fase: "authorization",
-        url: req.url.toString(),
-        path: match.route.path.join("/"),
-        relurl,
-      });
-
       try {
+        await using authcontext = new CodeContext("openapi", {
+          fase: "authorization",
+          url: req.url.toString(),
+          path: match.route.path.join("/"),
+          relurl,
+        });
         // Load the authorizer outside of the code context, so the loaded library won't inherit the context of the first caller
         const authorizationfunction = endpoint.authorization;
         const authorizer = await importJSFunction<RestAuthorizationFunction>(authorizationfunction);
@@ -514,8 +513,6 @@ export class WorkerRestAPIHandler {
         else if (authresult.loginfo)
           logger.authorized = authresult.loginfo;
       } finally {
-        // FIXME: async delayed close of codecontext
-        void authcontext.close();
         logger.timings.authorization = performance.now() - start;
       }
     }
@@ -526,14 +523,13 @@ export class WorkerRestAPIHandler {
 
     {
       const start = performance.now();
-      const handlercontext = new CodeContext("openapi", {
-        fase: "handler",
-        url: req.url.toString(),
-        path: match.route.path.join("/"),
-        relurl,
-      });
-
       try {
+        await using handlercontext = new CodeContext("openapi", {
+          fase: "handler",
+          url: req.url.toString(),
+          path: match.route.path.join("/"),
+          relurl,
+        });
         // Load the handler outside of the code context, so the loaded library won't inherit the context of the first caller
         const handler = endpoint.handler;
 
@@ -547,8 +543,6 @@ export class WorkerRestAPIHandler {
           return resthandler(restreq);
         });
       } finally {
-        // FIXME: async delayed close of codecontext
-        void handlercontext.close();
         logger.timings.handling = performance.now() - start;
       }
     }
