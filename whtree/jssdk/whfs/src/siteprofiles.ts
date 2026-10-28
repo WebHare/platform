@@ -461,6 +461,7 @@ export type CSPSiteSetting = {
   line: number;
   sitefilter: CSPSiteFilter | null;
   webrules: CSPWebRule[];
+  comment?: string;
 };
 
 export interface CSPSiteFilter {

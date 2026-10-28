@@ -1369,6 +1369,11 @@
     </xs:sequence>
     <xs:attributeGroup ref="m:ApplicabletoWebHare" />
     <xs:attributeGroup ref="SiteFilter" />
+    <xs:attribute name="comment" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>A developer's comment on this site setting. Not shown to unprivileged WebHare users.</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
   </xs:complexType>
 
   <xs:attributeGroup name="SiteFilter">

@@ -1137,6 +1137,7 @@ function parseSiteSettings(context: SiteProfileParserContext, setting: Sp.SiteSe
       line: context.tracked.getPosition(cat)?.line || 0,
       siteprofile: context.resourceName,
     })) ?? [],
+    ...(setting.comment ? { comment: setting.comment || '' } : {}),
     line: context.tracked.getPosition(setting)?.line || 0,
   };
 
