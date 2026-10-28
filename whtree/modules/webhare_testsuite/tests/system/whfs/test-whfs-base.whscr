@@ -633,6 +633,39 @@ MACRO IndexDocTest()
   TestEq(0, idfolder1->indexdoc);
   TestEq(0, idfolder2->indexdoc);
 
+  // A contentlink is an acceptable index based on the type of its target
+  OBJECT idfolder3 := testfolderobj->CreateFolder([ name := "idfolder3" ]);
+  OBJECT linkrtd := idfolder3->CreateFile([ name := "target.rtd", type := rtdtype->id ]);
+  OBJECT linkrtd2 := idfolder3->CreateFile([ name := "target2.rtd", type := rtdtype->id ]);
+  OBJECT linkjs := idfolder3->CreateFile([ name := "target.js", type := whconstant_whfstype_javascriptfile ]);
+  OBJECT contentlink := idfolder3->CreateFile([ name := "link", type := whconstant_whfstype_contentlink, filelink := linkrtd->id ], [ setindex := TRUE ]);
+  TestEq(contentlink->id, idfolder3->indexdoc);
+
+  contentlink->UpdateMetadata([ filelink := linkrtd2->id ]);
+  idfolder3->Refresh();
+  TestEq(contentlink->id, idfolder3->indexdoc);
+
+  contentlink->UpdateMetadata([ filelink := linkjs->id ]);
+  idfolder3->Refresh();
+  TestEq(0, idfolder3->indexdoc);
+
+  // Changing an rtd index into a contentlink to an rtd keeps it as index, a contentlink to a non-index type doesn't
+  OBJECT idfolder4 := testfolderobj->CreateFolder([ name := "idfolder4" ]);
+  OBJECT converttarget := idfolder4->CreateFile([ name := "target.rtd", type := rtdtype->id ]);
+  OBJECT convertjs := idfolder4->CreateFile([ name := "target.js", type := whconstant_whfstype_javascriptfile ]);
+  OBJECT converted := idfolder4->CreateFile([ name := "converted", type := rtdtype->id ], [ setindex := TRUE ]);
+  TestEq(converted->id, idfolder4->indexdoc);
+
+  converted->UpdateMetadata([ type := whconstant_whfstype_contentlink, filelink := converttarget->id ]);
+  idfolder4->Refresh();
+  TestEq(whconstant_whfstype_contentlink, converted->type);
+  TestEq(converted->id, idfolder4->indexdoc);
+
+  converted->UpdateMetadata([ type := rtdtype->id ]);
+  converted->UpdateMetadata([ type := whconstant_whfstype_contentlink, filelink := convertjs->id ]);
+  idfolder4->Refresh();
+  TestEq(0, idfolder4->indexdoc);
+
   testfw->CommitWork();
 }
 

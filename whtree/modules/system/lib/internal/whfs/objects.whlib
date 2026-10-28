@@ -728,38 +728,49 @@ OBJECTTYPE WHFSObject <
             OR (CellExists(newmetadata,'type') AND newmetadata.type != this->pvt_type)
            ))
     {
-      IF (CellExists(newmetadata, "TYPE"))
-      {
-        // File type change. If the file isn't an acceptable index anymore, unmark it as indexdoc
-        BOOLEAN isacceptableindex := SELECT AS BOOLEAN COLUMN isacceptableindex FROM system.fs_types WHERE id = newmetadata.type;
-        IF (NOT isacceptableindex)
-        {
-          RECORD parentrec :=
-              SELECT *
-                FROM system.fs_objects
-               WHERE id = oldversion.parent
-                 AND indexdoc = this->pvt_id;
-
-          IF (RecordExists(parentrec))
-          {
-            // The file is currently indexdoc, reset the parent folder's indexdoc.
-            commithandler->ObjectUpdate(this->parentsite, parentrec.parent, oldversion.parent, oldversion.isfolder);
-
-            UPDATE system.fs_objects
-               SET indexdoc := 0
-             WHERE id = oldversion.parent;
-
-            GetWHFSCommitHandler()->FolderIndexDocUpdated(this->parentsite, parentrec.parent, oldversion.parent);
-          }
-        }
-      }
-
       DefaultAfterMetadataUpdate([ id := this->pvt_id
                                  , oldtype := this->pvt_type
                                  , newtype := CellExists(newmetadata,'type') ? newmetadata.type : this->pvt_type
                                  ]);
 
       republish_file := TRUE;
+    }
+
+    // File type or contentlink target change. If the file isn't an acceptable index anymore, unmark it as indexdoc
+    IF (this->pvt_isfolder = FALSE
+        AND ((CellExists(newmetadata, "TYPE") AND newmetadata.type != this->pvt_type)
+             OR (CellExists(newmetadata, "FILELINK") AND newmetadata.filelink != oldversion.filelink)))
+    {
+      INTEGER indextype := CellExists(newmetadata, "TYPE") ? newmetadata.type : this->pvt_type;
+      IF (indextype = whconstant_whfstype_contentlink) // a contentlink is an acceptable index based on its target
+      {
+        INTEGER indexlink := CellExists(newmetadata, "FILELINK") ? newmetadata.filelink : oldversion.filelink;
+        indextype := SELECT AS INTEGER type FROM system.fs_objects WHERE id = indexlink;
+      }
+
+      BOOLEAN isacceptableindex := SELECT AS BOOLEAN COLUMN isacceptableindex FROM system.fs_types WHERE id = indextype;
+      IF (NOT isacceptableindex)
+      {
+        RECORD parentrec :=
+            SELECT *
+              FROM system.fs_objects
+             WHERE id = oldversion.parent
+               AND indexdoc = this->pvt_id;
+
+        IF (RecordExists(parentrec))
+        {
+          // The file is currently indexdoc, reset the parent folder's indexdoc.
+          commithandler->ObjectUpdate(this->parentsite, parentrec.parent, oldversion.parent, oldversion.isfolder);
+
+          // Only clear if we're still the index, a concurrent work may have replaced it
+          UPDATE system.fs_objects
+             SET indexdoc := 0
+           WHERE id = oldversion.parent
+                 AND indexdoc = this->pvt_id;
+
+          GetWHFSCommitHandler()->FolderIndexDocUpdated(this->parentsite, parentrec.parent, oldversion.parent);
+        }
+      }
     }
 
     //Type changed on a published file, to a type that cannot be published?
