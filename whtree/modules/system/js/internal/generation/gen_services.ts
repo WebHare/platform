@@ -40,6 +40,7 @@ ${types.join("\n")}
 }
 
 export async function listAllServiceTS(mods: string[]): Promise<FileToUpdate[]> {
+  const noncoremodules = mods.filter(m => !whconstant_builtinmodules.includes(m));
   return [
     {
       path: `ts/services.ts`,
@@ -51,7 +52,13 @@ export async function listAllServiceTS(mods: string[]): Promise<FileToUpdate[]> 
       path: `ts/services.ts`,
       module: "dummy-installed",
       type: "ts",
-      generator: (context: GenerateContext) => generateServicesDefs(context, mods.filter(m => !whconstant_builtinmodules.includes(m)))
-    }
+      generator: async () => `${generatorBanner}\n${noncoremodules.map(module => `import type { } from "./${module}/services";`).join("\n")}\n`
+    },
+    ...noncoremodules.map((module): FileToUpdate => ({
+      path: `ts/${module}/services.ts`,
+      module,
+      type: "ts",
+      generator: (context: GenerateContext) => generateServicesDefs(context, [module])
+    }))
   ];
 }
