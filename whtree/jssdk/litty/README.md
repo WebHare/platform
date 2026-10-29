@@ -189,5 +189,5 @@ rendering; the handler does not need to call `littyToString()`.
 
 The Markdown renderer produces HTML, so its output is wrapped in `rawLitty()`
 once, at that integration boundary. This example disables embedded HTML and keeps
-MarkdownIt's default link validation. Don't wrap untrusted source text directly
+This example disables embedded HTML and keeps Markdown's default link validation. Don't wrap untrusted source text directly
 in `rawLitty()`.
