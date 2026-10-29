@@ -2,6 +2,7 @@ import { gatherManagedServicesFromModDef } from "@mod-platform/js/bootstrap/serv
 import { GenerateContext, getApplicabilityError, getMyApplicabilityInfo, readApplicableToWebHareNode, type LoadedModuleDefs } from "@mod-system/js/internal/generation/shared";
 import { generateWebDesigns, type WebDesignsExtract } from "@mod-system/js/internal/generation/webdesigns";
 import { listAllServiceTS } from "@mod-system/js/internal/generation/gen_services";
+import { parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 import { parseAndValidateModuleDefYMLText } from "@mod-webhare_testsuite/js/config/testhelpers";
 import * as test from "@webhare/test";
 import type { Element } from "@xmldom/xmldom";
@@ -177,7 +178,32 @@ async function testModuleServices() {
   test.assert(!aggregate.includes("declare module"));
 }
 
+function testModuleDependencies() {
+  const definitions = {
+    application: `<dependency module="dependency" /><dependency module="dependency" /><dependency module="system" /><dependency module="missing" /><dependency module="unrelated" ifmodules="missing" />`,
+    dependency: `<dependency module=" LEAF " /><dependency module="application" /><dependency module="unrelated" unlessenvironset="WEBHARE_PLATFORM" />`,
+    leaf: `<dependency module="dependency" />`,
+    system: `<dependency module="unrelated" />`,
+    unrelated: ""
+  };
+  const context = new GenerateContext(Object.entries(definitions).map(([name, dependencies]) => ({
+    name,
+    resourceBase: `mod::${name}/`,
+    modXml: parseDocAsXML(`<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition"><meta><packaging>${dependencies}</packaging></meta></module>`, "text/xml"),
+    modYml: null
+  })), false);
+  test.eq(["dependency", "leaf"], context.getModuleDependencies("application"));
+  test.eq(["leaf", "application"], context.getModuleDependencies("dependency"));
+  test.eq(["dependency", "application"], context.getModuleDependencies("leaf"));
+  test.eq([], context.getModuleDependencies("system"));
+  test.eq([], context.getModuleDependencies("unrelated"));
+  test.eq([], context.getModuleDependencies("missing"));
+  context.moduledefs[0].modXml = null;
+  test.eq([], context.getModuleDependencies("application"));
+}
+
 test.runTests([
+  testModuleDependencies,
   testModuleServices,
   testYMLTitles,
   testApplicability,
