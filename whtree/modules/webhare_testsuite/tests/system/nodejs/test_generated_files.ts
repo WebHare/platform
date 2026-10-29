@@ -8,6 +8,8 @@ import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import { enableDevKit, parseModuleFolderName } from "@mod-system/js/internal/generation/gen_config_nodb";
 import { generatePropertyName, generateTypeName } from "@mod-system/js/internal/generation/gen_wrd";
 import { deleteTestModule } from "@webhare/test-backend";
+import { prepTSHost } from "@webhare/test/src/testsupport";
+import { generateTSConfigTextForModule } from "@mod-system/js/internal/generation/gen_typescript";
 
 
 async function testWebHareConfig() {
@@ -246,7 +248,49 @@ export async function getCircular(req: TypedRestRequest<APIAuthInfo, "get /circu
   await test.wait(() => !fs.statSync(file_services, { throwIfNoEntry: false }));
 }
 
+async function testModuleRPCDependencies() {
+  const modules = ["webhare_testsuite_rpcleaf", "webhare_testsuite_rpcdependency", "webhare_testsuite_rpcroot", "webhare_testsuite_rpcunrelated"];
+  for (const [index, module] of modules.entries()) {
+    const dependency = index === 1 || index === 2 ? `<dependency module="${modules[index - 1]}" />` : "";
+    await installTestModule(module, {
+      "moduledefinition.xml": `<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition"><meta><version>0.0.1</version><packaging>${dependency}</packaging></meta></module>`,
+      "moduledefinition.yml": "rpcServices:\n  example:\n    api: rpc.ts#service\n",
+      "rpc.ts": "export const service = { echo(_context: unknown, value: number): number { return value; } };\n",
+      ...(index === 2 ? {
+        "client.ts": `import { rpc } from "@webhare/rpc";
+${modules.slice(0, 3).map(name => `export const ${name}: Promise<number> = rpc("${name}:example").echo(42);`).join("\n")}
+`,
+        "nested/tsconfig.json": "{ \"extends\": \"../tsconfig.json\", \"include\": [\"*.ts\"] }\n",
+        "nested/result.ts": `import type { GetRPCClientInterface } from "@webhare/rpc";
+export type RPCDependencyResult = { value: Awaited<ReturnType<GetRPCClientInterface<"${modules[0]}:example">["echo"]>> };
+`
+      } : {})
+    });
+  }
+
+  const root = backendConfig.module[modules[2]].root;
+  for (const setFiles of [undefined, [root + "client.ts"]]) {
+    if (setFiles)
+      fs.writeFileSync(root + "tsconfig.json", await generateTSConfigTextForModule(modules[2]));
+    const { program, diagnostics } = await prepTSHost(root + "tsconfig.json", { setFiles, ignoreErrors: true });
+    console.log(`RPC dependency program: ${program.getSourceFiles().length} source files, ${diagnostics.length} diagnostics`);
+    test.assert(!program.getSourceFile(backendConfig.module[modules[3]].root + "rpc.ts"), "Unrelated RPC module must not be loaded");
+    for (const module of modules.slice(0, 3))
+      test.assert(program.getSourceFile(backendConfig.module[module].root + "rpc.ts"), `RPC types for '${module}' must be loaded`);
+    test.eq([], diagnostics.map(diagnostic => ({ file: diagnostic.file?.fileName, message: diagnostic.messageText })));
+  }
+  const validator = await test.loadTSType(root + "nested/result.ts#RPCDependencyResult");
+  validator.validateStructure({ value: 42 });
+  test.throws(/does not conform/, () => validator.validateStructure({ value: "wrong" }));
+
+  const leafDefinition = backendConfig.module[modules[0]].root + "moduledefinition.xml";
+  fs.writeFileSync(leafDefinition, `<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition"><meta><version>0.0.1</version><packaging><dependency module="${modules[3]}" /></packaging></meta></module>`);
+  await applyConfiguration({ subsystems: ["config"], modules: [modules[0]], source: "testModuleRPCDependencies" });
+  test.assert(fs.readFileSync(root + "tsconfig.json", "utf8").includes(`config/ts/${modules[3]}/services.ts`), "Dependent tsconfigs must follow dependency changes");
+}
+
 test.runTests([
+  testModuleRPCDependencies,
   testBasics,
   testWebHareConfig,
   testModule,
