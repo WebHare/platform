@@ -13,8 +13,6 @@ import { omit, parseTyped, stringify } from "@webhare/std";
 
 //@ts-ignore Ignore if it doesn't exist. this line *must* remain a @ts-ignore
 import type { } from "@mod-platform/generated/ts/services.ts";
-//@ts-ignore Ignore if it doesn't exist. this line *must* remain a @ts-ignore
-import type { } from "wh:ts/services.ts";
 
 function isAbsolute(url: string) {
   return url.startsWith("http:") || url.startsWith("https:");
