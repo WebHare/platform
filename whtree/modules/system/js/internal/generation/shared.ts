@@ -47,6 +47,28 @@ export class GenerateContext {
     this.versionInfo = getMyApplicabilityInfo({ unsafeEnv: true });
   }
 
+  /** Get installed external dependencies, including transitive dependencies but not the module itself. */
+  getModuleDependencies(module: string): string[] {
+    const moduledefs = new Map(this.moduledefs.map(def => [def.name, def]));
+    const dependencies = new Set([module]);
+    const ns = "http://www.webhare.net/xmlns/system/moduledefinition";
+    for (const name of dependencies) {
+      if (whconstant_builtinmodules.includes(name))
+        continue;
+      const meta = moduledefs.get(name)?.modXml?.getElementsByTagNameNS(ns, "meta")[0];
+      const packaging = meta?.getElementsByTagNameNS(ns, "packaging")[0];
+      for (const dependency of Array.from(packaging?.getElementsByTagNameNS(ns, "dependency") ?? [])) {
+        if (getApplicabilityError(this.versionInfo, readApplicableToWebHareNode(dependency, "")))
+          continue;
+        const depname = getAttr(dependency, "module").trim().toLowerCase();
+        if (moduledefs.has(depname) && !whconstant_builtinmodules.includes(depname))
+          dependencies.add(depname);
+      }
+    }
+    dependencies.delete(module);
+    return [...dependencies];
+  }
+
   parseYMLTid<AttrName extends string>(mod: LoadedModuleDefs, el: TidElementsForAttr<AttrName>, attrname: AttrName) {
     if ((el as Record<string, string | undefined>)[attrname])
       return `:${(el as Record<string, string>)[attrname]}`;
