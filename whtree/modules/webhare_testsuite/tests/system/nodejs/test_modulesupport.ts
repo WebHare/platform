@@ -1,6 +1,7 @@
 import { gatherManagedServicesFromModDef } from "@mod-platform/js/bootstrap/servicemanager/gatherservices";
 import { GenerateContext, getApplicabilityError, getMyApplicabilityInfo, readApplicableToWebHareNode, type LoadedModuleDefs } from "@mod-system/js/internal/generation/shared";
 import { generateWebDesigns, type WebDesignsExtract } from "@mod-system/js/internal/generation/webdesigns";
+import { listAllServiceTS } from "@mod-system/js/internal/generation/gen_services";
 import { parseAndValidateModuleDefYMLText } from "@mod-webhare_testsuite/js/config/testhelpers";
 import * as test from "@webhare/test";
 import type { Element } from "@xmldom/xmldom";
@@ -145,7 +146,39 @@ async function testYMLTitles() {
   test.eq([":Literal feature", "publisher:features.translated", ":publisher:untitled"], extract.webFeatures.map(feature => feature.title));
 }
 
+async function testModuleServices() {
+  const modules = ["platform", "webhare_testsuite_service_a", "webhare_testsuite_service_b"];
+  const context = new GenerateContext(modules.map(name => ({
+    name,
+    resourceBase: `mod::${name}/`,
+    modXml: null,
+    modYml: {
+      module: name,
+      baseResourcePath: `mod::${name}/`,
+      rpcServices: { example: { api: "rpc.ts#ExampleService" } }
+    }
+  })), false);
+  const files = await listAllServiceTS(modules);
+  test.eq(["ts/services.ts", "ts/services.ts", "ts/webhare_testsuite_service_a/services.ts", "ts/webhare_testsuite_service_b/services.ts"], files.map(file => file.path));
+  test.eq(["platform", "dummy-installed", ...modules.slice(1)], files.map(file => file.module));
+
+  const builtin = await files[0].generator(context);
+  test.eq(/"platform:example": typeof platform\$example;/, builtin);
+  test.assert(!builtin.includes("webhare_testsuite_service_"));
+
+  const aggregate = await files[1].generator(context);
+  for (const module of modules.slice(1)) {
+    test.eq(new RegExp(`import type \\{ \\} from "\\./${module}/services";`), aggregate);
+    const definition = await files.find(file => file.module === module)!.generator(context);
+    test.eq(new RegExp(`"${module}:example": typeof ${module}\\$example;`), definition);
+    test.assert(!definition.includes(modules.find(name => name !== module && name !== "platform")!));
+    test.assert(!definition.includes("platform:example"));
+  }
+  test.assert(!aggregate.includes("declare module"));
+}
+
 test.runTests([
+  testModuleServices,
   testYMLTitles,
   testApplicability,
   testApplicabilityXML

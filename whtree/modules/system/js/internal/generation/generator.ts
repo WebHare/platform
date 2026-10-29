@@ -179,7 +179,7 @@ export async function updateGeneratedFiles(targets: GeneratorType[], options: {
 
   //Remove old files from subdirs that contain per-module files
   const deleteOpts = { allowMissing: true, ...pick(options, ["dryRun", "verbose", "showUnchanged"]) };
-  for (const subdir of ["schema", "db", "wrd", "openapi"] as const)
+  for (const subdir of ["schema", "db", "wrd", "openapi", "ts"] as const)
     for (const root of [installedBaseDir, builtinBaseDir])
       await deleteRecursive(join(root, subdir), { keep: _ => keepfiles.has(_.fullPath), ...deleteOpts });
 

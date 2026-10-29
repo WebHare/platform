@@ -223,10 +223,12 @@ export async function getCircular(req: TypedRestRequest<APIAuthInfo, "get /circu
   // const file_whdb = require.resolve("wh:db/webhare_testsuite_generatedfilestest");
   const file_wrd = require.resolve("wh:wrd/webhare_testsuite_generatedfilestest");
   const file_openapi = require.resolve("wh:openapi/webhare_testsuite_generatedfilestest/testopenapiservice");
+  const file_services = backendConfig.dataRoot + "config/ts/webhare_testsuite_generatedfilestest/services.ts";
 
   // test.assert(Boolean(fs.statSync(file_whdb))); //FIXME this file is created by post-start applyingdev, not module activation. not sure if it should be either...
   test.assert(Boolean(fs.statSync(file_wrd)));
   test.assert(Boolean(fs.statSync(file_openapi)));
+  test.assert(Boolean(fs.statSync(file_services)));
 
   const checkres = await checkModule("webhare_testsuite_generatedfilestest");
   test.eq([], checkres.filter(_ => _.type === "error"), "No errors should be found in the module");
@@ -241,6 +243,7 @@ export async function getCircular(req: TypedRestRequest<APIAuthInfo, "get /circu
   // await test.wait(() => !fs.statSync(file_whdb, { throwIfNoEntry: false })); /FIXME this file is not actually cleaned as deletemodule does not apply 'dev', or should it?
   await test.wait(() => !fs.statSync(file_wrd, { throwIfNoEntry: false }));
   await test.wait(() => !fs.statSync(file_openapi, { throwIfNoEntry: false }));
+  await test.wait(() => !fs.statSync(file_services, { throwIfNoEntry: false }));
 }
 
 test.runTests([
