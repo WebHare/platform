@@ -170,8 +170,8 @@ class Work implements WorkObject {
     } catch (e) {
       try {
         await this.rollback();
-      } catch (ignore) {
-        //TODO a rollback finish handler might throw but we can't deal with that. Ignore that for now
+      } catch (rollbackError) {
+        throw new AggregateError([e, rollbackError], "Work preparation and rollback failed");
       }
       throw e;
     }
