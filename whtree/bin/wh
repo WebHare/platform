@@ -55,6 +55,9 @@ while [[ $1 =~ ^-.* ]]; do
   elif [ "$1" == "-x" ]; then
     set -x
     shift
+  elif [ "$1" == "--help" ]; then # Makes wh --help an alias for 'wh help'
+    set -- help "${@:2}"
+    break
   else
     die "Illegal option $1"
   fi
