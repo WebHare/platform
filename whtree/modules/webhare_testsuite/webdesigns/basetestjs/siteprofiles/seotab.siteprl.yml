@@ -19,6 +19,8 @@ apply:
   - to:
       sitePath: "*seopolicy*"
     fsObjectPolicy: ./seotab.ts#seoPolicy
+    fileTypes:
+      - allowType: http://www.webhare.net/xmlns/publisher/contentlink
   - to:
       sitePath: "*pageheading*"
     baseProps:

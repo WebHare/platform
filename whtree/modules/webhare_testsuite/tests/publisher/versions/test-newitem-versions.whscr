@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "mod::publisher/lib/history.whlib";
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
@@ -139,6 +140,7 @@ ASYNC MACRO TestCreateRTDSeoTitle() { //test the properties dialog behavior of a
   testfw->BeginWork();
   OBJECT testfile_seotitle := GetTestsuiteJSTempFolder()->CreateFile([name := "seotitle", typens := "platform:filetypes.richdocument"]);
   OBJECT testfile_seotitle_policy := GetTestsuiteJSTempFolder()->CreateFile([name := "seotitle-seopolicy", typens := "platform:filetypes.richdocument"]);
+  OBJECT testfile_seotitle_policy_folder := GetTestsuiteJSTempFolder()->CreateFolder([name := "seotitle-seopolicy-folder"]);
   testfw->CommitWork();
 
   STRING default_placeholder := "Overwrite title used in search results/browser title";
@@ -152,15 +154,33 @@ ASYNC MACRO TestCreateRTDSeoTitle() { //test the properties dialog behavior of a
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit editor
 
   //seopolicy has a fsobjectpolicy modifying the Metatitle suggestion
+  STRING testfile_seotitle_policy_suffix := ` - ${testfile_seotitle_policy->parent},${testfile_seotitle_policy->id},${testfile_seotitle_policy->id}`;
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := STRING[ testfile_seotitle_policy->whfspath ]]));
-  TestEq("Initial placeholder title", TT(":Meta title")->placeholder);
+  TestEq(`Initial placeholder title${testfile_seotitle_policy_suffix}`, TT(":Meta title")->placeholder);
   TT(":Title")->value := "mydoc";
-  TestEq("mydoc - Home", TT(":Meta title")->placeholder);
+  TestEq(`mydoc - Home${testfile_seotitle_policy_suffix}`, TT(":Meta title")->placeholder);
   TT(":Title")->value := "default";
   TestEq(default_placeholder, TT(":Meta title")->placeholder);
   TT(":Title")->SetDirty();
   TTClick(":Save");
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit editor
+
+  ////////////////
+  // Create a content link under this policy-matching folder (so newfile dialog spicks up the otherwise name-based settings) to verify objectprops' dynamic SEO-title placeholder.
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ params := STRING[ testfile_seotitle_policy_folder->whfspath ]]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":New file"));
+  TTFillByTitle("types", "Content Link");
+  AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
+  TT("path")->value := testfile_seotitle_policy->id;
+  STRING policy_placeholder := TT("seotitle")->placeholder;
+  STRING newfile_suffix := ` - ${testfile_seotitle_policy_folder->id},null,null`;
+  TestEq(`Initial placeholder title${newfile_suffix}`, policy_placeholder);
+  TT("title")->value := "mydoc";
+  TestEq(`mydoc - Home${newfile_suffix}`, TT("seotitle")->placeholder);
+  TT("title")->value := "default";
+  TestEq(policy_placeholder, TT("seotitle")->placeholder);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit filemanager
 }
 
 ASYNC MACRO TestCreateRTDProps() { //test the properties dialog behavior of a new rtd
