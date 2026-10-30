@@ -1,6 +1,7 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
   <test script="test-accesslog.whscr" />
   <test script="test_config.ts" />
+  <test script="test_testbackend.ts" />
   <test script="test-configure.whscr" />
   <test script="test-webserver-debugging.whscr" />
   <test script="configfiles.whscr" />

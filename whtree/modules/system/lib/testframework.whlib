@@ -7,12 +7,12 @@ LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::float.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::graphics/canvas.whlib";
-LOADLIB "wh::internet/fetch.whlib";
 LOADLIB "wh::util/comparisons.whlib";
 LOADLIB "wh::internal/debug.whlib";
 LOADLIB "wh::internal/interface.whlib";
@@ -744,22 +744,47 @@ STATIC OBJECTTYPE TestFramework <
 
   /** @param options @includecelldef #AddWebserverPortToDbase.options
       @return @includecelldef #AddWebserverPortToDbase.return
+      @long Delegates to @webhare/test-backend's createWebserverPort. Must be called outside an open transaction.
   */
-  PUBLIC RECORD FUNCTION CreateWebserverPort(RECORD options)
-  {
-    this->BeginWork();
-    RECORD retval := this->AddWebserverPortToDbase(options);
-    this->CommitWork();
+  PUBLIC RECORD FUNCTION CreateWebServerPort(RECORD options) {
+    BOOLEAN haveport := CellExists(options, "port");
+    options := ValidateOptions([
+      port := 0,
+      virtualhosts := STRING[],
+      aliases := STRING[],
+      redirectingaliases := STRING[],
+      virtualhost := FALSE,
+      ipv6 := FALSE,
+      secure_keyfile := "",
+      outputserver := FALSE,
+      diskfolder := "",
+      stricttransportsecurity := 0
+    ], options);
 
-    this->RefreshWebserverConfig();
+    RECORD jsoptions := [
+      virtual_hosts := options.virtualhosts,
+      aliases := options.aliases,
+      redirecting_aliases := options.redirectingaliases,
+      virtual_host := options.virtualhost,
+      ipv6 := options.ipv6,
+      secure_key_file := options.secure_keyfile,
+      output_server := options.outputserver,
+      disk_folder := options.diskfolder,
+      strict_transport_security := options.stricttransportsecurity
+    ];
+    IF(haveport)
+      INSERT CELL port := options.port INTO jsoptions;
 
-    //check for success immediately
-    IF(retval.portnumber != 0)
-    {
-      TRY FetchSync(`${retval.protocol}://${retval.connecthost}:${retval.portnumber}/`, DEFAULT RECORD, [debug:=true, reject_unauthorized := FALSE ]);
-      CATCH(OBJECT e) THROW NEW Exception("Failed to actually connect to testinterface port at " || retval.connecthost || " port " || retval.portnumber || ": " || e->what);
-    }
-
+    RECORD result := CallJS([ camelcase := TRUE ], "@webhare/test-backend#createWebServer", jsoptions);
+    RECORD retval := [
+      portnumber := result.port_number,
+      portid := result.port_id,
+      webservers := result.webservers,
+      connecthost := result.connect_host,
+      protocol := result.protocol
+    ];
+    IF(CellExists(result, "webserver_id"))
+      retval := CELL[ ...retval, webserverid := result.webserver_id, baseurl := result.base_u_r_l ];
     RETURN retval;
   }
 
