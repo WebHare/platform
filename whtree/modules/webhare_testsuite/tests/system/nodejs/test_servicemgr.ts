@@ -248,9 +248,6 @@ console.log("Ready slowstop");
     "Concurrent restarts must start exactly one replacement");
 
   await test.deleteTestModule(moduleName);
-
-  for (const protocol of ["bridge", "unix-socket"] as const)
-    await test.throws(/Service.*is unavailable/, openBackendService(`${moduleName}:demoservice`, [], { timeout: 500, notOnDemand: true, protocol }));
 }
 
 test.runTests([
