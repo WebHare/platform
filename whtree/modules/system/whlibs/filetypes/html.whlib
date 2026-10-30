@@ -546,40 +546,6 @@ STRING FUNCTION FixIETags(STRING name)
   RETURN ToLowercase(name);
 }
 
-/** @short Smart HTML rewriter
-    @param outputid Document destination
-    @param htmldoc HTML Document to rewrite
-    @param callbacks Record with situation specific callbacks
-    @param encoding Optional parameter specifying encoding. Defaults to "".
-    @cell callbacks.imageurlrewrite Image source rewriter
-    @cell callbacks.hyperlinkurlrewrite Hyperlink source rewriter
-    @cell callbacks.globallinkrewrite Global link rewriter (both images and hyperlinks) */
-PUBLIC MACRO RewriteHTMLDocumentTo(INTEGER outputid, BLOB htmldoc, RECORD callbacks, STRING encoding DEFAULTSTO "")
-{
-  INTEGER save_output;
-  IF(outputid!=0)
-    save_output := RedirectOutputTo(outputid);
-
-  elementstack := DEFAULT STRING ARRAY;
-  IF(NOT CellExists(callbacks,"fragmentlevel"))
-    INSERT CELL fragmentlevel := "" INTO callbacks;
-  IF(NOT CellExists(callbacks,"fixietags"))
-    INSERT CELL fixietags := FALSE INTO callbacks;
-
-  ParseHTMLAsXMLWithCallbacks(htmldoc,
-    [ start_element := PTR RewriteElementStart(callbacks, #1, #2)
-    , end_element := PTR RewriteElementEnd(callbacks, #1)
-    , text_node := PTR RewriteText(callbacks, #1)
-    , comment_node := PTR RewriteComment(callbacks, #1)
-    , pi_node := PTR RewritePI(callbacks, #1, #2)
-    ],
-    encoding);
-
-  IF(outputid!=0)
-    RedirectOutputTo(save_output);
-}
-
-
 /** @short Convert a HTML blob to plain text
     @param htmldoc Document to convert
     @param options Conversion options
