@@ -22,7 +22,10 @@
       </action>
       <action name="gotopublishedurl" onexecute="dogotopublishedurl" title="" />
       <action name="refreshname" onexecute="dorefreshname" tid="tolliumapps.objectprops.objectprops.refreshname" />
-      <action name="inspectmetatabs" frameflags="isdeveloper" onexecute="doinspectmetatabs" tid="tolliumapps.editdocument.editdocumentapp.inspectmetatabs" />
+      <action name="inspectmetatabs"
+              frameflags="isdeveloper"
+              onexecute="doinspectmetatabs"
+              tid="tolliumapps.editdocument.editdocumentapp.inspectmetatabs" />
     </actions>
 
     <compositions>

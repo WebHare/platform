@@ -1,4 +1,6 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.commondialogs.editsource" library="editsource.whlib">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         gid="tolliumapps.commondialogs.editsource"
+         library="editsource.whlib">
 
   <screen name="editsource"
           width="120x"

@@ -176,7 +176,7 @@
       <d:integer name="file" noupdate="1" nullable="0" ondelete="cascade" references="system.fs_objects" />
       <d:integer name="folder" ondelete="cascade" references="system.fs_objects" />
       <d:datetime name="when" nullable="0" />
-      <d:obsoletecolumn name="modifiedby" /> <!-- was this column ever set? hasn't been for a long time. reintroduce new column 'owner' as that's more useful to track -->
+      <d:obsoletecolumn name="modifiedby" />  <!-- was this column ever set? hasn't been for a long time. reintroduce new column 'owner' as that's more useful to track -->
       <d:integer name="owner" ondelete="set default" references="system.authobjects">
         <d:documentation>The id of the user that created this task</d:documentation>
       </d:integer>
@@ -509,6 +509,7 @@
                      objectname="lib/internal/captcha/webdesignplugin.whlib#captchaintegrationplugin"
                      toyaml="mod::platform/lib/internal/sp-parsers.whlib#GetCaptchaIntegrationAsYaml"
                      yamlproperty="captcha" />
+
     <!-- we consider forumplugin to be a deprecated feature and may not port it to TS at all -->
     <webdesignplugin name="forumplugin"
                      hooksfeatures="objectprops"
@@ -519,7 +520,7 @@
                      namespace="http://www.webhare.net/xmlns/publisher/siteprofile"
                      objectname="lib/internal/analytics/gtmplugin.whlib#GTMPlugin"
                      toyaml="mod::platform/lib/internal/sp-parsers.whlib#GetGTMAsYaml"
-                     yamlproperty="gtm"/>
+                     yamlproperty="gtm" />
     <webdesignplugin name="googleanalytics"
                      namespace="http://www.webhare.net/xmlns/publisher/siteprofile"
                      objectname="lib/internal/analytics/gaplugin.whlib#GoogleAnalyticsPlugin" />

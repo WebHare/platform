@@ -10,7 +10,6 @@ LOADLIB "mod::publisher/lib/search/searchfilters.whlib";
 LOADLIB "mod::publisher/lib/search/support.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
-LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/modules/node.whlib";

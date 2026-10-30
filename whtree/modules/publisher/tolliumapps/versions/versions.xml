@@ -10,9 +10,9 @@
           allowresize="true"
           flags="issupervisor issysop isdeveloper"
           gid=".dialog"
+          menubar="menubar"
           savestate="size"
-          title=""
-          menubar="menubar">
+          title="">
     <actions>
       <action name="createcopy" ellipsis="true" tid="~copyto">
         <enableon source="versions" min="1" max="1" checkflags="cancopy" onexecute="DoCopy" />
@@ -29,8 +29,11 @@
         <enableon source="versionevents" min="1" max="1" />
       </action>
       -->
-      <action name="inspectmetatabs" frameflags="isdeveloper" onexecute="doinspectmetatabs" tid="tolliumapps.editdocument.editdocumentapp.inspectmetatabs" />
-      <action name="close" tid="~close" onexecute="cancel" />
+      <action name="inspectmetatabs"
+              frameflags="isdeveloper"
+              onexecute="doinspectmetatabs"
+              tid="tolliumapps.editdocument.editdocumentapp.inspectmetatabs" />
+      <action name="close" onexecute="cancel" tid="~close" />
     </actions>
 
     <menus>
@@ -38,9 +41,9 @@
         <item action="view" />
         <item action="createcopy" />
         <divider />
-        <item action="inspectmetatabs" disablemode="hidden"/>
+        <item action="inspectmetatabs" disablemode="hidden" />
         <divider />
-        <item tid="~close" action="close" />
+        <item action="close" tid="~close" />
       </menu>
       <menu name="context">
         <item action="view" />
@@ -143,7 +146,7 @@
               </list>
             </tab>
             <tab spacers="all" tid=".previewtab">
-              <panel spacers="none" borders="all" height="1pr">
+              <panel height="1pr" borders="all" spacers="none">
                 <statuspanel borders="default">
                   <text title="" valuetid=".previewisnothistoricsnapshot" wordwrap="true" />
                 </statuspanel>
