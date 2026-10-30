@@ -2,6 +2,7 @@
 
 LOADLIB "wh::files.whlib";
 
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/webserver/configure.whlib";
 
@@ -72,6 +73,37 @@ MACRO TestManageAccessRules()
   TestEq("XYZ", BlobToString(testfw->browser->content));
 }
 
+MACRO TestJSWebServerPort() {
+  STRING outputpath := GenerateTemporaryPathname() || "/";
+  RECORD server := testfw->CreateWebserverPort([
+    port := 0,
+    ipv6 := TRUE,
+    outputserver := TRUE,
+    diskfolder := outputpath,
+    aliases := ["alias.beta.webhare.net"],
+    redirectingaliases := ["redirect.beta.webhare.net"],
+    stricttransportsecurity := 3600
+  ]);
+  TestEq(0, server.portnumber);
+  TestEq(0, server.portid);
+  TestEq("::1", server.connecthost);
+  TestEq("http", server.protocol);
+  TestEq("http://[::1]/", server.baseurl);
+  TestEq([[ id := server.webserverid, host := "[::1]", url := server.baseurl ]], server.webservers);
+  TestEq([[ type := 0, diskfolder := outputpath, stricttransportsecurity := 3600 ]],
+         SELECT type, diskfolder, stricttransportsecurity FROM system.webservers WHERE id = server.webserverid);
+  TestEq([[ hostname := "alias.beta.webhare.net", explicit := TRUE ]
+         ,[ hostname := "redirect.beta.webhare.net", explicit := FALSE ]],
+         SELECT hostname, explicit FROM system.webservers_aliases WHERE webserver = server.webserverid ORDER BY hostname);
+
+  RECORD virtual := testfw->CreateWebserverPort([ port := 0, virtualhosts := ["virtual.beta.webhare.net"] ]);
+  TestEq(FALSE, CellExists(virtual, "webserverid"));
+  TestEq(FALSE, CellExists(virtual, "baseurl"));
+  TestEq([[ id := virtual.webservers[0].id, host := "virtual.beta.webhare.net", url := "http://virtual.beta.webhare.net/" ]],
+         virtual.webservers);
+}
+
 RunTestframework([ PTR TestAPIDry
                  , PTR TestManageAccessRules
+                 , PTR TestJSWebServerPort
                  ]);

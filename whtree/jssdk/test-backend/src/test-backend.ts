@@ -36,6 +36,7 @@ import { debuggableFetch } from "@webhare/env/src/fetchdebug";
 
 export { profileCPU } from "./profiling";
 export { createTrustedPortDispatcher, type TrustedPortDispatcherOptions } from "./fetch";
+export { createWebServer, type CreateWebServerPortOptions, type TestWebServerPort } from "./webserver";
 
 /** undici's fetch with dispatcher support and wrq debugging */
 export const fetch = debuggableFetch.bind(null, undiciFetch as unknown as typeof globalThis.fetch) as unknown as typeof undiciFetch;
