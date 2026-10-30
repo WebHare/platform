@@ -5,7 +5,7 @@ import type { WRDAuthSettings } from "./identity";
 import { db } from "@webhare/whdb";
 import { tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { getApplyTesterForURL, type WRDAuthPluginSettings } from "@webhare/whfs/src/applytester";
-import { getIdCookieName } from "@webhare/auth/src/authfrontend";
+import { getIdCookieName } from "./cookie-support";
 import type { ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { getSchemaSettings } from "@webhare/wrd/src/settings";
 import { updateURL } from "@webhare/std";
