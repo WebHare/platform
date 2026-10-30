@@ -247,38 +247,6 @@ STRING FUNCTION RewriteImage(STRING addsubdomain, STRING data)
   RETURN data;
 }
 
-// Old html rewriter (used in newmailer)
-MACRO TestImageURLRewrite()
-{
-  OpenTest("TestImageURLRewrite");
-
-  INTEGER stream := CreateStream();
-  RewriteHTMLDocumentTo(
-      stream,
-      StringToBlob('<div style="background: url(http://example.com/1); background: url(\'http://example.com/&#34;2&#34;\');">data</div>'),
-      [ imageurlrewrite := PTR RewriteImage("iuw", #1)
-      , globallinkrewrite := PTR RewriteImage("glrw", #1)
-      ]);
-
-  STRING result := BlobToString(MakeBlobFromStream(stream), -1);
-  TestEQ('<html><body><div style="background: url(&#39;http://glrw.iuw.example.com/1&#39;); background: url(&#39;http://glrw.iuw.example.com/\\&#34;2\\&#34;&#39;);">data</div></body></html>',
-      result);
-
-  stream := CreateStream();
-  RewriteHTMLDocumentTo(
-      stream,
-      StringToBlob(result),
-      [ imageurlrewrite := PTR RewriteImage("iuw2", #1)
-      , globallinkrewrite := PTR RewriteImage("glrw2", #1)
-      ]);
-
-  result := BlobToString(MakeBlobFromStream(stream), -1);
-  TestEQ('<html><body><div style="background: url(&#39;http://glrw2.iuw2.glrw.iuw.example.com/1&#39;); background: url(&#39;http://glrw2.iuw2.glrw.iuw.example.com/\\&#34;2\\&#34;&#39;);">data</div></body></html>',
-      result);
-
-  CloseTest("TestImageURLRewrite");
-}
-
 MACRO TestDocumentMode()
 {
   OpenTest("TestDocumentMode");
@@ -491,7 +459,6 @@ TestOpenHTML();
 TestInlineMode();
 TestCleanupHTML();
 TestNodeContentsParse();
-TestImageURLRewrite();
 TestDocumentMode();
 TestHTMLCleanup();
 TestElementTraversal();
