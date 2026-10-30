@@ -173,6 +173,7 @@ function importSiteSetting(ctxt: ImportContext, ss: CSPSiteSetting): SiteSetting
         ...ac.folder ? { folder: ac.folder } : {}
       }))
     } : {},
+    ...ss.comment ? { comment: ss.comment } : {},
     ...ss.webrules?.length ? {
       webRules: ss.webrules.map(wr => importWebRule(ctxt, wr)
       )
