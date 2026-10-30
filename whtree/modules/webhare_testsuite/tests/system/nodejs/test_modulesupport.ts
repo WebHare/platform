@@ -149,6 +149,8 @@ async function testYMLTitles() {
 
 async function testModuleServices() {
   const modules = ["platform", "webhare_testsuite_service_a", "webhare_testsuite_service_b"];
+  let apiReads = 0;
+  let rpcFile = "rpc.ts";
   const context = new GenerateContext(modules.map(name => ({
     name,
     resourceBase: `mod::${name}/`,
@@ -156,26 +158,47 @@ async function testModuleServices() {
     modYml: {
       module: name,
       baseResourcePath: `mod::${name}/`,
-      rpcServices: { example: { api: "rpc.ts#ExampleService" } }
+      rpcServices: {
+        example: {
+          // Count resource reads to catch repeated gathering across concurrent generators.
+          get api() {
+            ++apiReads;
+            return `${rpcFile}#ExampleService`;
+          }
+        }
+      }
     }
   })), false);
   const files = await listAllServiceTS(modules);
   test.eq(["ts/services.ts", "ts/services.ts", "ts/webhare_testsuite_service_a/services.ts", "ts/webhare_testsuite_service_b/services.ts"], files.map(file => file.path));
   test.eq(["platform", "dummy-installed", ...modules.slice(1)], files.map(file => file.module));
 
-  const builtin = await files[0].generator(context);
+  const generated = await Promise.all(files.map(file => file.generator(context)));
+  console.log(`Service API reads: ${apiReads} for ${modules.length} modules`);
+  test.eq(modules.length, apiReads, "Gather services once for all module outputs");
+  const builtin = generated[0];
   test.eq(/"platform:example": typeof platform\$example;/, builtin);
   test.assert(!builtin.includes("webhare_testsuite_service_"));
 
-  const aggregate = await files[1].generator(context);
+  const aggregate = generated[1];
   for (const module of modules.slice(1)) {
     test.eq(new RegExp(`import type \\{ \\} from "\\./${module}/services";`), aggregate);
-    const definition = await files.find(file => file.module === module)!.generator(context);
+    const definition = generated[files.findIndex(file => file.module === module)];
     test.eq(new RegExp(`"${module}:example": typeof ${module}\\$example;`), definition);
     test.assert(!definition.includes(modules.find(name => name !== module && name !== "platform")!));
     test.assert(!definition.includes("platform:example"));
   }
   test.assert(!aggregate.includes("declare module"));
+
+  rpcFile = "updated.ts";
+  const nextFiles = await listAllServiceTS(modules);
+  const nextGenerated = await Promise.all(nextFiles.map(file => file.generator(context)));
+  test.eq(2 * modules.length, apiReads, "A new generation must gather updated services");
+  for (const module of modules) {
+    const definition = nextGenerated[nextFiles.findIndex(file => file.module === module)];
+    test.assert(definition.includes(`@mod-${module}/updated.ts`));
+    test.assert(!definition.includes(`@mod-${module}/rpc.ts`));
+  }
 }
 
 function testModuleDependencies() {
