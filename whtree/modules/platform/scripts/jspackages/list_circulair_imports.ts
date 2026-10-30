@@ -4,7 +4,7 @@ import { logValidationMessagesToConsole } from "@mod-platform/js/devsupport/mess
 import { checkUsingTSC } from "@mod-platform/js/devsupport/typescript";
 import { runCli } from "@webhare/cli";
 
-const expectNumCycles = 48;
+const expectNumCycles = 47;
 
 runCli({
   async main() {
