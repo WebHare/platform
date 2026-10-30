@@ -5,11 +5,7 @@
 
 LOADLIB "wh::internet/urls.whlib";
 
-LOADLIB "mod::publisher/lib/forms/base.whlib";
-
 LOADLIB "mod::system/lib/webserver.whlib";
-
-LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::wrd/lib/internal/pages/authpages.whlib";
 

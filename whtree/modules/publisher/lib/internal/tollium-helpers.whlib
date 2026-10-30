@@ -6,7 +6,6 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
-LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";

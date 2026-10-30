@@ -1,8 +1,6 @@
 <?wh
 
-LOADLIB "wh::dbase/postgresql.whlib";
 LOADLIB "wh::internal/interface.whlib";
-LOADLIB "wh::internal/transservices.whlib";
 LOADLIB "wh::internal/dbase/pg-internals.whlib";
 
 /** Find the first gap range in a list of strictly increasing integers

@@ -28,7 +28,6 @@ LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
 LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
-LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 
 PUBLIC RECORD __webdesign_config; //used to initialize webdesign configuration
 
