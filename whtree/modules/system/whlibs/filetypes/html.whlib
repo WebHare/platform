@@ -546,40 +546,6 @@ STRING FUNCTION FixIETags(STRING name)
   RETURN ToLowercase(name);
 }
 
-/** @short Smart HTML rewriter
-    @param outputid Document destination
-    @param htmldoc HTML Document to rewrite
-    @param callbacks Record with situation specific callbacks
-    @param encoding Optional parameter specifying encoding. Defaults to "".
-    @cell callbacks.imageurlrewrite Image source rewriter
-    @cell callbacks.hyperlinkurlrewrite Hyperlink source rewriter
-    @cell callbacks.globallinkrewrite Global link rewriter (both images and hyperlinks) */
-PUBLIC MACRO RewriteHTMLDocumentTo(INTEGER outputid, BLOB htmldoc, RECORD callbacks, STRING encoding DEFAULTSTO "")
-{
-  INTEGER save_output;
-  IF(outputid!=0)
-    save_output := RedirectOutputTo(outputid);
-
-  elementstack := DEFAULT STRING ARRAY;
-  IF(NOT CellExists(callbacks,"fragmentlevel"))
-    INSERT CELL fragmentlevel := "" INTO callbacks;
-  IF(NOT CellExists(callbacks,"fixietags"))
-    INSERT CELL fixietags := FALSE INTO callbacks;
-
-  ParseHTMLAsXMLWithCallbacks(htmldoc,
-    [ start_element := PTR RewriteElementStart(callbacks, #1, #2)
-    , end_element := PTR RewriteElementEnd(callbacks, #1)
-    , text_node := PTR RewriteText(callbacks, #1)
-    , comment_node := PTR RewriteComment(callbacks, #1)
-    , pi_node := PTR RewritePI(callbacks, #1, #2)
-    ],
-    encoding);
-
-  IF(outputid!=0)
-    RedirectOutputTo(save_output);
-}
-
-
 /** @short Convert a HTML blob to plain text
     @param htmldoc Document to convert
     @param options Conversion options
@@ -615,12 +581,8 @@ PUBLIC BLOB FUNCTION ConvertHtmlToPlainText(BLOB htmldoc, VARIANT options DEFAUL
   in_title_tag := FALSE;
 
   // Parse HTML
-  ParseHTMLAsXMLWithCallbacks(htmldoc,
-    [ start_element := PTR PlainElementStart(conversion_options, #1, #2)
-    , end_element := PTR PlainElementEnd(conversion_options, #1)
-    , text_node := PTR PlainText(conversion_options, #1)
-    ],
-    conversion_options.encoding);
+  OBJECT doc := MakeXMLDocumentFromHTML(htmldoc, conversion_options.encoding);
+  PlainNode(conversion_options, doc);
 
   //Never start text with a space/cr
   WHILE (Left(plain_text,1) IN [" ","\r","\n"])
@@ -640,18 +602,21 @@ PUBLIC BLOB FUNCTION ConvertHtmlToPlainText(BLOB htmldoc, VARIANT options DEFAUL
   RETURN MakeBlobFromStream(plaindoc);
 }
 
-STRING FUNCTION GetAttr(RECORD ARRAY attrs, STRING field)
-{
-  // Look up attribute value for a given field
-  FOREVERY (RECORD attr FROM attrs)
-    IF (ToUppercase(attr.field) = field)
-      RETURN attr.value;
-  RETURN "";
+MACRO PlainNode(RECORD options, OBJECT node) {
+  IF (node->nodetype = node->Element_Node)
+    PlainElementStart(options, node);
+  ELSE IF (node->nodetype IN [INTEGER(node->Text_Node), node->Cdata_Section_Node])
+    PlainText(options, node->nodevalue);
+
+  FOR (OBJECT child := node->firstchild; ObjectExists(child); child := child->nextsibling)
+    PlainNode(options, child);
+
+  IF (node->nodetype = node->Element_Node)
+    PlainElementEnd(options, node->nodename);
 }
 
-MACRO PlainElementStart(RECORD options, STRING name, RECORD ARRAY attrs)
-{
-  STRING tag := ToUppercase(name);
+MACRO PlainElementStart(RECORD options, OBJECT node) {
+  STRING tag := ToUppercase(node->nodename);
   IF (tag IN blocklevel_elements)       // Insert a newline for every content separating HTML node
   {
     IF (NOT dont_break)
@@ -675,12 +640,12 @@ MACRO PlainElementStart(RECORD options, STRING name, RECORD ARRAY attrs)
     }
     CASE "A"                            // Hyperlink - remember link href to display after link text
     {
-      currenthyperlink := GetAttr(attrs, "HREF");
+      currenthyperlink := node->GetAttribute("href");
       currenthyperlink_text := "";
     }
     CASE "IMG"                          // Image - insert 'alt' text, if any
     {
-      STRING alt := GetAttr(attrs, "ALT");
+      STRING alt := node->GetAttribute("alt");
       IF (alt = "")
         RETURN;
 
@@ -692,7 +657,7 @@ MACRO PlainElementStart(RECORD options, STRING name, RECORD ARRAY attrs)
     }
     CASE "OL"                           // Ordered list - set start value to first number
     {
-      ol := ToInteger(GetAttr(attrs, "START"), 1); // Number LI's, starting with value of start attribute,
+      ol := ToInteger(node->GetAttribute("start"), 1); // Number LI's, starting with value of start attribute,
                                                    // or 1 if no or illegal start was given
       IF (ol < 0)
         ol := 1;
@@ -703,7 +668,7 @@ MACRO PlainElementStart(RECORD options, STRING name, RECORD ARRAY attrs)
         plain_text := plain_text || "\r\n* ";
       ELSE
       {
-        ol := ToInteger(GetAttr(attrs, "VALUE"), ol);
+        ol := ToInteger(node->GetAttribute("value"), ol);
         plain_text := plain_text || "\r\n" || ol || ". ";
         ol := ol + 1;
       }
