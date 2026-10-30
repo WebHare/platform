@@ -82,7 +82,7 @@ export async function logWrqResponse(debugrequestid: string, fetchresult: Pick<R
   }
 }
 
-async function debuggableFetch(originalfetch: typeof fetch, input: RequestInfo | URL, init?: RequestInit) {
+export async function debuggableFetch(originalfetch: typeof fetch, input: RequestInfo | URL, init?: RequestInit) {
   if (!debugFlags.wrq)
     return originalfetch(input, init);
 
