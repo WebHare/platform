@@ -793,70 +793,6 @@ void ReadCallbacksRecord(HSVM *hsvm, HSVM_VariableId callback_rec, xmlSAXHandler
         }
 }
 
-void ParseHTMLAsXMLWithCallbacks(HSVM *hsvm)
-{
-        // Construct a default handler (no callbacks)
-        htmlSAXHandler handler;
-        handler.externalSubset = &ParseExternalSubset;
-        memset(&handler, 0, sizeof(handler));
-
-        // Read callbacks record and set the corresponding callbacks
-        XMLSaxCallbacks callbacks;
-        callbacks.vm = hsvm;
-        HSVM_VariableId callback_rec = HSVM_Arg(1);
-        ReadCallbacksRecord(hsvm, callback_rec, &handler, &callbacks);
-
-        // Get encoding
-        xmlCharEncoding enc = GetEncoding(HSVM_StringGetSTD(hsvm, HSVM_Arg(2)));
-
-        // First chunk of HTML data, used to strip off BOM (ADDME: In this case, you can force the encoding to UTF-8?)
-        int blobid = HSVM_BlobOpen(hsvm, HSVM_Arg(0));
-        char buffer[XML_PARSER_BUFFER_SIZE];
-        std::size_t len = HSVM_BlobRead(hsvm, blobid, sizeof buffer, buffer);
-
-        // Force UTF-8 if we encounter a BOM
-        if (len > 2 && buffer[0] == (char)0xEF && buffer[1] == (char)0xBB && buffer[2] == (char)0xBF)
-            enc = XML_CHAR_ENCODING_UTF8;
-
-        LibXMLBugWorkAround(buffer, &len);
-
-        // Open and parse blob
-        xmlSetStructuredErrorFunc((void *)&callbacks, HareScript::Xml::SaxError);
-        htmlParserCtxtPtr ctx = htmlCreatePushParserCtxt(&handler, (void *)&callbacks,
-                                                         buffer, len, NULL,
-                                                         XML_CHAR_ENCODING_NONE); // We'll switch to the correct encoding later
-
-        if (ctx)
-        {
-                if (enc != XML_CHAR_ENCODING_NONE)
-                {
-                        xmlSwitchEncoding(ctx, enc);
-                        if (enc == XML_CHAR_ENCODING_UTF8)
-                        {
-                                //Hack to prevent libxml from interpreting META tags when we already explicitly indicated the character set
-                                if (ctx->input->encoding)
-                                    xmlFree((xmlChar *) ctx->input->encoding);
-                                ctx->input->encoding = xmlStrdup((xmlChar*)"UTF-8");
-                        }
-                }
-
-                htmlCtxtUseOptions(ctx, HTML_PARSE_RECOVER | HTML_PARSE_NODEFDTD | XML_PARSE_NOERROR | XML_PARSE_NOWARNING | XML_PARSE_NONET | XML_PARSE_NODICT);
-
-                while(len > 0)
-                {
-                        len = HSVM_BlobRead(hsvm, blobid, sizeof buffer, buffer);
-                        htmlParseChunk(ctx, buffer, len, (len == 0));
-                }
-                htmlFreeParserCtxt(ctx);
-                HSVM_BlobClose(hsvm, blobid);
-
-                XMLContextData &context = *static_cast<XMLContextData*>(HSVM_GetContext(hsvm,ContextId, true));
-                if (context.aborted)
-                    context.aborted = !HSVM_IsUnwinding(hsvm);
-        }
-        xmlSetStructuredErrorFunc(NULL, NULL);
-}
-
 /**
  * Parse an XML file using the SAX (callback) interface. The user provides
  * callbacks for certain events, such as start of elements or text.
@@ -937,7 +873,6 @@ BLEXLIB_PUBLIC int XMLEntryPoint(HSVM_RegData *regdata,void*)
         Blex::XML::SetCatalogBase( Blex::MergePath(HSVM_GetResourcesPath(regdata),"xml") );
 
         HSVM_RegisterMacro   (regdata, "__PARSEXMLWITHCALLBACKS:::XRS", HareScript::Xml::ParseXMLWithCallbacks);
-        HSVM_RegisterMacro   (regdata, "__PARSEHTMLASXMLWITHCALLBACKS:::XRS", HareScript::Xml::ParseHTMLAsXMLWithCallbacks);
 
         // Register contexts
         HSVM_RegisterContext (regdata, HareScript::Xml::ContextId, NULL, &CreateContext, &DestroyContext);
