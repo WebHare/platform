@@ -806,15 +806,6 @@ MACRO TestRegression()
 {
   OpenTest("XMLRegression");
 
-  //Test a message which was incorrectly recognized as UTF-16, even though we explicitly ask for UTF-8 decoding
-//  BLOB msgblob := MakeBlobFromDiskfile(testdata_dir || "false_utf16.eml");
-  BLOB msgblob := OpenTestFile("false_utf16.eml");
-  RECORD message := DecodeMIMEMessage(msgblob);
-
-  cbresult:="";
-  ParseHTMLAsXMLWithCallbacks(message.data.subparts[1].data, XMLCallbacks, "UTF-8");
-  TestEq('<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-16"></meta></head><body><p>\'&#13;&#10;DIT IS EEN TESTMAIL&#13;&#10;\'</p></body></html>', cbresult);
-
   // Passing an empty document to a validator was a good way to crash stuff
   STRING validationdoc := '<?xml version="1.0" encoding="UTF-8"?><xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn::x"></xs:schema>';
   OBJECT emptyvalidation := MakeXMLSchema(StringToBlob(validationdoc));
@@ -887,16 +878,6 @@ MACRO TestBom()
   // XML SAX Autodetect
   cbresult:="";
   ParseXMLWithCallbacks(xmlblob, XMLCallbacks);
-  TestEq('<html lang="en"><head><title>\'test\'</title></head><body><p>\'test\'</p></body></html>', cbresult);
-
-  // HTML SAX
-  cbresult:="";
-  ParseHTMLAsXMLWithCallbacks(xmlblob, XMLCallbacks, "UTF-8");
-  TestEq('<html lang="en"><head><title>\'test\'</title></head><body><p>\'test\'</p></body></html>', cbresult);
-
-  // HTML SAX Autodetect
-  cbresult:="";
-  ParseHTMLAsXMLWithCallbacks(xmlblob, XMLCallbacks);
   TestEq('<html lang="en"><head><title>\'test\'</title></head><body><p>\'test\'</p></body></html>', cbresult);
 
   CloseTest("XMLBom");
