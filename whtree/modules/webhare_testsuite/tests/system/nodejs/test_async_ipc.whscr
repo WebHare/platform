@@ -1,0 +1,46 @@
+<?wh
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+ASYNC MACRO TestAsyncIPCRejectsAutothrownExceptions()
+{
+  STRING name := "webhare_testsuite:async-error-" || GenerateTemporaryIPCPortName();
+  OBJECT port := CreateGlobalIPCPort(name);
+  OBJECT client := ConnectToGlobalIPCPort(name);
+  OBJECT server := port->Accept(DEFAULT DATETIME);
+  client->autothrow := TRUE;
+  TRY
+  {
+    OBJECT request := client->AsyncDoRequest([value := 1]);
+    RECORD incoming := server->ReceiveMessage(MAX_DATETIME);
+    server->SendExceptionReply(NEW Exception("synthetic IPC rejection"), incoming.msgid);
+    VARIANT settled := AWAIT CreatePromiseAllSettled(OBJECT[request, CreateResolvedPromise(42)]);
+    TestEq("rejected", settled[0].status);
+    TestEq("synthetic IPC rejection", settled[0].reason->what);
+    TestEq("fulfilled", settled[1].status);
+    TestEq(42, settled[1].value);
+
+    // The failed read must release its registration so this link is reusable.
+    request := client->AsyncDoRequest([value := 2]);
+    incoming := server->ReceiveMessage(MAX_DATETIME);
+    server->SendReply([value := 2], incoming.msgid);
+    RECORD reply := AWAIT request;
+    TestEq(2, reply.msg.value);
+
+    request := client->AsyncReceiveMessage(MAX_DATETIME);
+    server->SendExceptionReply(NEW Exception("synthetic async receive rejection"), 0);
+    settled := AWAIT CreatePromiseAllSettled(OBJECT[request]);
+    TestEq("rejected", settled[0].status);
+    TestEq("synthetic async receive rejection", settled[0].reason->what);
+  }
+  FINALLY
+  {
+    client->Close();
+    server->Close();
+    port->Close();
+  }
+}
+
+RunTestframework([PTR TestAsyncIPCRejectsAutothrownExceptions]);

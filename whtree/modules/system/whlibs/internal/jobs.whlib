@@ -90,7 +90,17 @@ OBJECTTYPE MessageWaiter EXTEND __HS_INTERNAL_AsyncCallbackWaitHelperBase
 
   UPDATE BOOLEAN FUNCTION HandleCallback(INTEGER handle, RECORD context)
   {
-    RECORD rec := this->link->ReceiveMessage(DEFAULT DATETIME);
+    RECORD rec;
+    TRY
+      rec := this->link->ReceiveMessage(DEFAULT DATETIME);
+    CATCH(OBJECT e)
+    {
+      // autothrow and closed-link errors belong to the pending promise, not
+      // the unrelated caller pumping the event loop that delivered this read.
+      this->link->asyncmessagewaiter := DEFAULT OBJECT;
+      this->defer.reject(e);
+      RETURN TRUE;
+    }
     IF (rec.status != "timeout" OR handle = -1)
     {
       IF (this->replyto != 0 AND rec.status = "ok" AND rec.replyto != this->replyto)
