@@ -4,10 +4,56 @@ import { applyConfiguration, backendConfig, signalOnEvent } from "@webhare/servi
 import { generateKyselyDefs } from "@mod-system/js/internal/generation/gen_whdb";
 import { checkModule, installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
 import { buildGeneratorContext } from "@mod-system/js/internal/generation/generator";
-import { getExtractedConfig } from "@mod-system/js/internal/configuration";
+import { getCacheableJSONConfig, getExtractedConfig, invalidateGeneratedFilesCache, writeCacheableJSONConfig } from "@mod-system/js/internal/configuration";
 import { enableDevKit, parseModuleFolderName } from "@mod-system/js/internal/generation/gen_config_nodb";
 import { generatePropertyName, generateTypeName } from "@mod-system/js/internal/generation/gen_wrd";
 import { deleteTestModule } from "@webhare/test-backend";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+async function testCacheableJSONConfig() {
+  /* Our config re-generation process some extract updates to disk, but also reuses som extracts again, eg
+     we may first update services.json and then need that data (through getCacheableJSONConfig) for openapi generation.
+     writeCacheableJSONConfig ensures that the internal cache used bygetCacheableJSONConfig is up to date . */
+  const tempdir = await mkdtemp(join(tmpdir(), "test-cacheable-json-"));
+  const diskpath = join(tempdir, "config.json");
+  const original = JSON.stringify({ nested: { items: [{ value: 1 }] } });
+  const updated = JSON.stringify({ nested: { items: [{ value: 2 }] } });
+  try {
+    test.eq({ skipped: false }, await writeCacheableJSONConfig(diskpath, original));
+    const cached = getCacheableJSONConfig(diskpath);
+    test.eq(JSON.parse(original), cached);
+    test.assert(Object.isFrozen(cached));
+    test.assert(Object.isFrozen(cached.nested));
+    test.assert(Object.isFrozen(cached.nested.items));
+    test.assert(Object.isFrozen(cached.nested.items[0]));
+
+    await writeCacheableJSONConfig(diskpath, updated, { overwrite: true });
+    test.eq(JSON.parse(updated), getCacheableJSONConfig(diskpath));
+    test.eq(updated, fs.readFileSync(diskpath, "utf8"));
+    test.eq(JSON.parse(original), cached, "Previously returned snapshots remain unchanged");
+    test.assert(Object.isFrozen(getCacheableJSONConfig(diskpath).nested.items[0]));
+
+    // Simulate an external update while this process still has the old contents cached.
+    await writeFile(diskpath, original);
+    test.eq({ skipped: true }, await writeCacheableJSONConfig(diskpath, original, { overwrite: true, onlyIfChanged: true }));
+    test.eq(JSON.parse(original), getCacheableJSONConfig(diskpath));
+    test.assert(Object.isFrozen(getCacheableJSONConfig(diskpath).nested.items[0]));
+
+    await test.throws(/JSON/, writeCacheableJSONConfig(diskpath, "{", { overwrite: true }));
+    await test.throws(/EEXIST/, writeCacheableJSONConfig(diskpath, updated));
+    test.eq(original, fs.readFileSync(diskpath, "utf8"));
+    test.eq(JSON.parse(original), getCacheableJSONConfig(diskpath));
+
+    invalidateGeneratedFilesCache();
+    test.eq(JSON.parse(original), getCacheableJSONConfig(diskpath));
+    test.assert(Object.isFrozen(getCacheableJSONConfig(diskpath).nested.items[0]));
+  } finally {
+    invalidateGeneratedFilesCache();
+    await rm(tempdir, { recursive: true, force: true });
+  }
+}
 
 
 async function testWebHareConfig() {
@@ -244,6 +290,7 @@ export async function getCircular(req: TypedRestRequest<APIAuthInfo, "get /circu
 }
 
 test.runTests([
+  testCacheableJSONConfig,
   testBasics,
   testWebHareConfig,
   testModule,

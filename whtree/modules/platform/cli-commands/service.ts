@@ -12,18 +12,36 @@ import { kill } from 'process';
 import { compareProperties } from '@webhare/std';
 import { activateHMR } from '@webhare/services/src/hmr';
 import { getBestMatch } from '@webhare/js-api-tools';
+import { restartService } from '@mod-platform/js/bootstrap/servicemanager/control';
 
 type ServiceManagerClient = GetBackendServiceInterface<"platform:servicemanager">;
 
-export function serviceOption(): CLIArgumentType<string> {
-  const servicePromise = (async () => {
+let backendServicesListPromise: Promise<string[]> | undefined;
+
+async function getServiceMgrServiceList() {
+  try {
     const smservice = await openBackendService("platform:servicemanager");
     const state = await smservice.getWebHareState();
-    return state.availableServices.map(s => s.name).toSorted();
-  })().catch(err => new Array<string>);
+    const services = state.availableServices.map(s => s.name);
+    return services;
+  } catch {
+    return [];
+  }
+}
+
+async function getServiceList(serviceOptions: { includeBackendServices?: boolean } = {}) {
+  backendServicesListPromise ||= getServiceMgrServiceList();
+  const services = await backendServicesListPromise;
+  if (serviceOptions.includeBackendServices)
+    services.push(...getExtractedConfig("services").backendServices.map(s => s.name));
+
+  return [...new Set(services)].toSorted();
+}
+
+export function serviceOption(serviceOptions: { includeBackendServices?: boolean } = {}): CLIArgumentType<string> {
   return {
     async parseValue(arg, options) {
-      const list = await servicePromise;
+      const list = await getServiceList(serviceOptions);
       if (!list.includes(arg)) {
         const bestMatch = getBestMatch(arg, list);
         throw new CLISyntaxError(`Unknown service ${JSON.stringify(arg)}${bestMatch ? ` (did you mean ${JSON.stringify(bestMatch)}?)` : ""}`, options.command);
@@ -31,7 +49,7 @@ export function serviceOption(): CLIArgumentType<string> {
       return arg;
     },
     async autoComplete() {
-      return await servicePromise;
+      return await getServiceList(serviceOptions);
     },
     description: `service name (use 'service list' to see all services)`,
   };
@@ -174,7 +192,7 @@ runCli({
       description: "Debug a service",
       flags: { alt: "Use an alternative serviceport, to reroute specific request to the debugged service" },
       arguments: [
-        { name: "<service>", description: "Service name", type: serviceOption() },
+        { name: "<service>", description: "Service name", type: serviceOption({ includeBackendServices: true }) }
       ],
       mixedFlags: false,
       main: async ({ opts, args }) => {
@@ -200,14 +218,9 @@ runCli({
     },
     "restart": {
       description: "Restart a service",
-      arguments: [{ name: "<service>", description: "Service name", type: serviceOption() }],
+      arguments: [{ name: "<service>", description: "Service name", type: serviceOption({ includeBackendServices: true }) }],
       main: async ({ opts, args }) => {
-        const smservice = await openBackendService("platform:servicemanager");
-        const result = await smservice.restartService(args.service);
-        if (result.errorMessage) {
-          console.error(result.errorMessage);
-          process.exit(1);
-        }
+        await restartService(args.service);
         console.log("Service restarting");
       }
     },
