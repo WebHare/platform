@@ -10,10 +10,9 @@ import * as keyboard from 'dompack/testframework/keyboard';
 import type { Annotation, WaitOptions, PositiveWaitRetVal } from '@webhare/test/src/checks';
 import { invoke } from "@mod-platform/js/testing/whtest";
 import { isFormControl } from '@webhare/dompack';
-import type { TestStep, TestWaitItem } from '@mod-system/web/systemroot/jstests/testsuite';
+import type { TestWaitItem } from '@mod-system/web/systemroot/jstests/testsuite';
 import { throwError } from '@webhare/std';
-import { TestMonitor } from '@webhare/test/src/monitor';
-import { __getTestSuiteCallbacks, __setTestSuiteCallbacks, waitForUI, testFramework as testfw, getWin, getDoc } from "@webhare/test-frontend/src/suite-support";
+import { __getTestSuiteCallbacks, waitForUI, testFramework as testfw, getWin, getDoc, runTests } from "@webhare/test-frontend/src/suite-support";
 
 export {
   eq,
@@ -28,6 +27,7 @@ export {
 } from '@webhare/test';
 
 export { waitForUI, addFrame, selectFrame, removeFrame, updateFrame, type TestFrameWorkCallbacks } from "@webhare/test-frontend/src/suite-support";
+export { runTests, type RegisteredTestStep, type RegisteredTestSteps } from "@webhare/test-frontend/src/suite-support";
 export { getWin, getDoc };
 
 export { waitForEmails } from "@mod-platform/js/testing/whtest.ts";
@@ -59,16 +59,6 @@ export { invoke };
 
 export type { TestWaitItem };
 
-//basic test functions
-if (typeof window !== 'undefined') {
-  whtest.setupLogging({
-    onLog: (...args) => {
-      console.log(...args);
-      testfw!.log(...args.map(arg => typeof arg === "string" ? arg : JSON.stringify(arg)));
-    }
-  });
-}
-
 function rewriteNodeAttributes(node: HTMLElement) {
   // Make sure the order of the attributes is predictable, by getting them, removing them all and reinserting them
   // with a function that tries to keep it stable.
@@ -77,52 +67,6 @@ function rewriteNodeAttributes(node: HTMLElement) {
   for (let i = 0; i < keys.length; ++i)
     node.removeAttribute(keys[i]);
   domlevel.setAttributes(node, attrs);
-}
-
-export type RegisteredTestStep = TestStep | string | NonNullable<TestStep["test"]>;
-export type RegisteredTestSteps = RegisteredTestStep[];
-
-export function runTests(steps: RegisteredTestSteps) {
-  if (typeof window === "undefined" && typeof process !== "undefined") {
-    console.error("This script should be run in a browser test environment");
-    process.exit(1);
-  }
-  dompack.onDomReady(() => runActualTests(steps));
-}
-
-function runActualTests(steps: RegisteredTestSteps) {
-  //get our parent test framework
-  if (!testfw)
-    throw new Error("This page is not being invoked by the test framework");
-
-  /* runTests runs inside the test script frame and is (re)loaded for every test, so we just need
-     one global monitor*/
-  const monitor = new TestMonitor;
-  //TODO get a callback from monitor when wait states change, and then update the Wait indicator in the toplevel frame
-
-  let lasttestname;
-  const finalsteps: TestStep[] = [];
-  for (let step of steps) {
-    if (!step)
-      continue;  //strip empty items. allows you to be careless with commas when commenting out tests
-
-    if (typeof step === "string") {
-      lasttestname = step;
-      continue;
-    }
-
-    if (typeof step === "function")
-      step = { test: step as () => void };
-
-    if (lasttestname && !step.name) { //merge name into the next test for more reliable counters
-      step.name = lasttestname;
-      lasttestname = null;
-    }
-    finalsteps.push(step);
-  }
-
-  //NOTE: this is a cross-frame call to our persistent parent
-  testfw.runTestSteps(finalsteps, __setTestSuiteCallbacks, () => monitor.abort());
 }
 
 export function getTestArgument(idx: number) {
