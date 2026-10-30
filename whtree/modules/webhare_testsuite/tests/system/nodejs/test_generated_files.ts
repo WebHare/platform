@@ -256,6 +256,7 @@ async function testModuleRPCDependencies() {
       "moduledefinition.xml": `<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition"><meta><version>0.0.1</version><packaging>${dependency}</packaging></meta></module>`,
       "moduledefinition.yml": "rpcServices:\n  example:\n    api: rpc.ts#service\n",
       "rpc.ts": "export const service = { echo(_context: unknown, value: number): number { return value; } };\n",
+      "index.ts": "export { service } from \"./rpc\";\n",
       ...(index === 2 ? {
         "client.ts": `import { rpc } from "@webhare/rpc";
 ${modules.slice(0, 3).map(name => `export const ${name}: Promise<number> = rpc("${name}:example").echo(42);`).join("\n")}
@@ -274,6 +275,12 @@ export type RPCDependencyResult = { value: Awaited<ReturnType<GetRPCClientInterf
       fs.writeFileSync(root + "tsconfig.json", await generateTSConfigTextForModule(modules[2]));
     const { program, diagnostics } = await prepTSHost(root + "tsconfig.json", { setFiles, ignoreErrors: true });
     console.log(`RPC dependency program: ${program.getSourceFiles().length} source files, ${diagnostics.length} diagnostics`);
+    const paths = program.getCompilerOptions().paths!;
+    test.assert(!paths[`@mod-${modules[3]}/*`], "Unrelated module must not have a path mapping");
+    test.assert(!paths[`@mod-${modules[3]}`], "Unrelated module must not have a direct path mapping");
+    test.assert(paths["@mod-platform/*"] && paths["@mod-system/*"] && paths["@webhare/*"]);
+    for (const module of modules.slice(0, 3))
+      test.assert(paths[`@mod-${module}/*`] && paths[`@mod-${module}`], `Path mappings for '${module}' must be available`);
     test.assert(!program.getSourceFile(backendConfig.module[modules[3]].root + "rpc.ts"), "Unrelated RPC module must not be loaded");
     for (const module of modules.slice(0, 3))
       test.assert(program.getSourceFile(backendConfig.module[module].root + "rpc.ts"), `RPC types for '${module}' must be loaded`);
@@ -287,6 +294,7 @@ export type RPCDependencyResult = { value: Awaited<ReturnType<GetRPCClientInterf
   fs.writeFileSync(leafDefinition, `<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition"><meta><version>0.0.1</version><packaging><dependency module="${modules[3]}" /></packaging></meta></module>`);
   await applyConfiguration({ subsystems: ["config"], modules: [modules[0]], source: "testModuleRPCDependencies" });
   test.assert(fs.readFileSync(root + "tsconfig.json", "utf8").includes(`config/ts/${modules[3]}/services.ts`), "Dependent tsconfigs must follow dependency changes");
+  test.assert(fs.readFileSync(root + "tsconfig.json", "utf8").includes(`"@mod-${modules[3]}/*"`), "Dependent path mappings must follow dependency changes");
 }
 
 test.runTests([
