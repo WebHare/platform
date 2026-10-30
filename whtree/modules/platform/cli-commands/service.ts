@@ -12,6 +12,7 @@ import { kill } from 'process';
 import { compareProperties } from '@webhare/std';
 import { activateHMR } from '@webhare/services/src/hmr';
 import { getBestMatch } from '@webhare/js-api-tools';
+import { restartService } from '@mod-platform/js/bootstrap/servicemanager/control';
 
 type ServiceManagerClient = GetBackendServiceInterface<"platform:servicemanager">;
 
@@ -217,14 +218,9 @@ runCli({
     },
     "restart": {
       description: "Restart a service",
-      arguments: [{ name: "<service>", description: "Service name", type: serviceOption() }],
+      arguments: [{ name: "<service>", description: "Service name", type: serviceOption({ includeBackendServices: true }) }],
       main: async ({ opts, args }) => {
-        const smservice = await openBackendService("platform:servicemanager");
-        const result = await smservice.restartService(args.service);
-        if (result.errorMessage) {
-          console.error(result.errorMessage);
-          process.exit(1);
-        }
+        await restartService(args.service);
         console.log("Service restarting");
       }
     },

@@ -129,6 +129,7 @@
     <debugflag name="test-showbrowser" description="Show browser when running tests" />
     <debugflag name="test-keepbrowser" description="Keep browser open when running tests" />
     <debugflag name="calljs-alt" description="Use alternative CallJS service" />
+    <debugflag name="nodeservices" description="Log node services activity" />
   </development>
 
   <moduleregistry>
