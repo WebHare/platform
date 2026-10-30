@@ -193,7 +193,7 @@ PUBLIC STATIC OBJECTTYPE RichDocument
                                    , filename := CellExists(embedded, 'filename') ? embedded.filename : ''
                                    , extension := GetExtensionForMimeType(mimetype)
                                    , url := ""
-                                   , __blobsource //FIXME can we ensure all paths just give us this ?
+                                   , __blobsource := CellExists(embedded,"__blobsource") ? embedded.__blobsource : ""
                                    , rotation
                                    , mirrored
                                    , refpoint := DEFAULT RECORD
