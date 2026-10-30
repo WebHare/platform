@@ -6,6 +6,7 @@ LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/publishable.whlib";
+LOADLIB "mod::publisher/lib/rtd.whlib";
 
 LOADLIB "mod::system/lib/cache.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
@@ -423,7 +424,7 @@ MACRO PostMergeTest()
 MACRO RTEIntegrationTest()
 {
   OBJECT myrichdoc := NEW PublishableRichDocument;
-  myrichdoc->ImportFromMHTML(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.mht"));
+  myrichdoc->ImportFromRecord(BuildRTDFromYAML(BlobToString(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.rtd.yml"))));
 
   OBJECT composer := MakeEmailComposer();
   composer->SetBodyFromRichdoc(myrichdoc);

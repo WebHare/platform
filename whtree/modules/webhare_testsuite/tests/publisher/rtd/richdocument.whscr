@@ -56,7 +56,7 @@ MACRO RichDocumentTest()
   myrichdoc->ImportFromHTML(StringToBlob("   "));
   TestEq(TRUE, ObjectExists(myrichdoc->body));
 
-  myrichdoc->ImportFromMHTML(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.mht"));
+  myrichdoc->ImportFromRecord(BuildRTDFromYAML(BlobToString(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.rtd.yml"))));
 
   OBJECT betatype := OpenWHFSType("http://www.webhare.net/xmlns/beta/test");
   RECORD orgrec := myrichdoc->ExportAsRecord();
