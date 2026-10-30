@@ -1382,6 +1382,9 @@ $defs:
     type: object
     additionalProperties: false
     properties:
+      comment:
+        type: string
+        description: A developer's comment on this site setting. Not shown to unprivileged WebHare users.
       # Site filters
       site:
         description: Match site name
