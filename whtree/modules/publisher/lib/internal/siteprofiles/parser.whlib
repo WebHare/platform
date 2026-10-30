@@ -1315,6 +1315,10 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
                             , addtocatalogs := DEFAULT RECORD ARRAY
                             , line := siteset->linenum
                             ];
+
+      IF(siteset->HasAttribute("comment"))
+        INSERT CELL comment := siteset->GetAttribute("comment") INTO sitesetting;
+
       this->ValidateSiteFilter(siteset, sitesetting.sitefilter);
 
       OBJECT ARRAY sitewebrules := siteset->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "webruleset")->GetCurrentElements();
