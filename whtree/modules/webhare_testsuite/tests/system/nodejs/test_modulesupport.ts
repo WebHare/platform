@@ -1,6 +1,8 @@
 import { gatherManagedServicesFromModDef } from "@mod-platform/js/bootstrap/servicemanager/gatherservices";
 import { GenerateContext, getApplicabilityError, getMyApplicabilityInfo, readApplicableToWebHareNode, type LoadedModuleDefs } from "@mod-system/js/internal/generation/shared";
 import { generateWebDesigns, type WebDesignsExtract } from "@mod-system/js/internal/generation/webdesigns";
+import { listAllServiceTS } from "@mod-system/js/internal/generation/gen_services";
+import { parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 import { parseAndValidateModuleDefYMLText } from "@mod-webhare_testsuite/js/config/testhelpers";
 import * as test from "@webhare/test";
 import type { Element } from "@xmldom/xmldom";
@@ -145,7 +147,87 @@ async function testYMLTitles() {
   test.eq([":Literal feature", "publisher:features.translated", ":publisher:untitled"], extract.webFeatures.map(feature => feature.title));
 }
 
+async function testModuleServices() {
+  const modules = ["platform", "webhare_testsuite_service_a", "webhare_testsuite_service_b"];
+  let apiReads = 0;
+  let rpcFile = "rpc.ts";
+  const context = new GenerateContext(modules.map(name => ({
+    name,
+    resourceBase: `mod::${name}/`,
+    modXml: null,
+    modYml: {
+      module: name,
+      baseResourcePath: `mod::${name}/`,
+      rpcServices: {
+        example: {
+          // Count resource reads to catch repeated gathering across concurrent generators.
+          get api() {
+            ++apiReads;
+            return `${rpcFile}#ExampleService`;
+          }
+        }
+      }
+    }
+  })), false);
+  const files = await listAllServiceTS(modules);
+  test.eq(["ts/services.ts", "ts/services.ts", "ts/webhare_testsuite_service_a/services.ts", "ts/webhare_testsuite_service_b/services.ts"], files.map(file => file.path));
+  test.eq(["platform", "dummy-installed", ...modules.slice(1)], files.map(file => file.module));
+
+  const generated = await Promise.all(files.map(file => file.generator(context)));
+  console.log(`Service API reads: ${apiReads} for ${modules.length} modules`);
+  test.eq(modules.length, apiReads, "Gather services once for all module outputs");
+  const builtin = generated[0];
+  test.eq(/"platform:example": typeof platform\$example;/, builtin);
+  test.assert(!builtin.includes("webhare_testsuite_service_"));
+
+  const aggregate = generated[1];
+  for (const module of modules.slice(1)) {
+    test.eq(new RegExp(`import type \\{ \\} from "\\./${module}/services";`), aggregate);
+    const definition = generated[files.findIndex(file => file.module === module)];
+    test.eq(new RegExp(`"${module}:example": typeof ${module}\\$example;`), definition);
+    test.assert(!definition.includes(modules.find(name => name !== module && name !== "platform")!));
+    test.assert(!definition.includes("platform:example"));
+  }
+  test.assert(!aggregate.includes("declare module"));
+
+  rpcFile = "updated.ts";
+  const nextFiles = await listAllServiceTS(modules);
+  const nextGenerated = await Promise.all(nextFiles.map(file => file.generator(context)));
+  test.eq(2 * modules.length, apiReads, "A new generation must gather updated services");
+  for (const module of modules) {
+    const definition = nextGenerated[nextFiles.findIndex(file => file.module === module)];
+    test.assert(definition.includes(`@mod-${module}/updated.ts`));
+    test.assert(!definition.includes(`@mod-${module}/rpc.ts`));
+  }
+}
+
+function testModuleDependencies() {
+  const definitions = {
+    application: `<dependency module="dependency" /><dependency module="dependency" /><dependency module="system" /><dependency module="missing" /><dependency module="unrelated" ifmodules="missing" />`,
+    dependency: `<dependency module=" LEAF " /><dependency module="application" /><dependency module="unrelated" unlessenvironset="WEBHARE_PLATFORM" />`,
+    leaf: `<dependency module="dependency" />`,
+    system: `<dependency module="unrelated" />`,
+    unrelated: ""
+  };
+  const context = new GenerateContext(Object.entries(definitions).map(([name, dependencies]) => ({
+    name,
+    resourceBase: `mod::${name}/`,
+    modXml: parseDocAsXML(`<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition"><meta><packaging>${dependencies}</packaging></meta></module>`, "text/xml"),
+    modYml: null
+  })), false);
+  test.eq(["dependency", "leaf"], context.getModuleDependencies("application"));
+  test.eq(["leaf", "application"], context.getModuleDependencies("dependency"));
+  test.eq(["dependency", "application"], context.getModuleDependencies("leaf"));
+  test.eq([], context.getModuleDependencies("system"));
+  test.eq([], context.getModuleDependencies("unrelated"));
+  test.eq([], context.getModuleDependencies("missing"));
+  context.moduledefs[0].modXml = null;
+  test.eq([], context.getModuleDependencies("application"));
+}
+
 test.runTests([
+  testModuleDependencies,
+  testModuleServices,
   testYMLTitles,
   testApplicability,
   testApplicabilityXML
