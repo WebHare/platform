@@ -5,10 +5,10 @@ import { defaultDateTime, formatISO8601Date, localizeDate, maxDateTimeTotalMsecs
 import type { HareScriptVM } from "./wasm-hsvm";
 import { popWork, runInSeparateWork, stashWork } from "@webhare/whdb/src/impl";
 import { stdTypeOf, throwError, toCamelCase, toSnakeCase } from "@webhare/std";
-import { updateAuditContext } from "@webhare/auth";
+import { updateAuditContext } from "@webhare/auth/src/audit-context";
 import { toAuthAuditContext, type HarescriptJSCallContext } from "@webhare/hscompat/src/context";
-import * as services from "@webhare/services";
-import { importJSFunction } from "@webhare/services";
+import { lockMutex as lockServiceMutex, hasMutex as hasServiceMutex } from "@webhare/services/src/mutex";
+import { importJSFunction } from "@webhare/services/src/resourcetools";
 import type { CallJSOptions } from "@mod-platform/js/nodeservices/calljs";
 import { getWHType } from "@webhare/std/src/quacks";
 import { runReplacerRecursive } from "@mod-platform/js/nodeservices/nodeipchelper";
@@ -25,7 +25,7 @@ export async function lockMutex(hsvm: HareScriptVM, params: { mutexname: string;
   if (hsvm.mutexes.some(_ => _?.name === params.mutexname)) //JS is allowed to overlap mutexes in a context due to its async nature, but HS wasn't designed to support it so block it
     throw new Error(`Mutex '${params.mutexname}' has already been locked by this Harescript VM`);
 
-  const mutex = await services.lockMutex(params.mutexname, { timeout: params.wait_until, __skipNameCheck: true });
+  const mutex = await lockServiceMutex(params.mutexname, { timeout: params.wait_until, __skipNameCheck: true });
   if (!mutex)
     return { status: "timeout" as const };
 
@@ -44,7 +44,7 @@ export async function unlockMutex(hsvm: HareScriptVM, params: { mutexid: number 
 }
 
 export async function hasMutex(_hsvm: HareScriptVM, params: { mutexname: string }) {
-  return services.hasMutex(params.mutexname);
+  return hasServiceMutex(params.mutexname);
 }
 
 export function webHareConfig() {
