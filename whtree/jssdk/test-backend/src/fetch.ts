@@ -31,7 +31,8 @@ function getHeaderEntries(headers: undici.Dispatcher.DispatchOptions["headers"])
 */
 export function createTrustedPortDispatcher(options: TrustedPortDispatcherOptions = {}): undici.Dispatcher {
   const sourceIP = options.sourceIP ?? "127.0.0.1";
-  const pool = new undici.Pool(`http://127.0.0.1:${getBasePort() + whconstant_webserver_trustedportoffset}`);
+  const trustedIP = process.env["WEBHARE_SECUREPORT_BINDIP"] || "127.0.0.1";
+  const pool = new undici.Pool(`http://${trustedIP}:${getBasePort() + whconstant_webserver_trustedportoffset}`);
 
   return pool.compose(dispatch => (opts, handler) => {
     const origin = new URL(String(opts.origin));
