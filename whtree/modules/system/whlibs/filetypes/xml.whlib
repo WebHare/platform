@@ -167,38 +167,6 @@ PUBLIC RECORD ARRAY FUNCTION SelectXML(INTEGER xmldoc, STRING path)
   RETURN opendocs[xmldoc-1].xpathobj->__InnerSelectXML(path, DEFAULT OBJECT, TRUE);
 }
 
-MACRO __ParseXMLWithCallbacks(BLOB xmlfile, RECORD callbacks, STRING encoding) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
-MACRO __ParseHTMLAsXMLWithCallbacks(BLOB xmlfile, RECORD callbacks, STRING encoding) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
-
-MACRO FixStartElement(MACRO PTR origfunction, STRING node, RECORD ARRAY attrs)
-{
-  UPDATE attrs SET value := DecodeValue(value);
-  origfunction(node,attrs);
-}
-
-/** @short Parse a blob as an XML document
-    @param xmlfile Blob to parse
-    @param callbacks Record with pointers to macros to be called while parsing. Set the callbacks you want to use.
-    @cell callbacks.start_element Pointer to a MACRO with a STRING argument containing the element's name and a RECORD ARRAY
-                                  argument containing records with a 'field' STRING cell containing the attribute's name
-                                  and a 'value' STRING cell containing the attribute's value.
-                                  Called for every a new element that is found.
-    @cell callbacks.end_element Pointer to a MACRO with a STRING argument containing the element's name.
-                                Called when an element is closed.
-    @cell callbacks.text_node Pointer to a MACRO with a STRING argument containing the text.
-                              Called for text withing elements.
-    @cell callbacks.comment_node Pointer to a MACRO with a STRING argument containing the comment.
-                                 Called for comments
-    @param encoding Encoding to use. See @link ParseXML for possible encodings.
-    @see ParseXML
-*/
-PUBLIC MACRO ParseXMLWithCallbacks(BLOB xmlfile, RECORD callbacks, STRING encoding DEFAULTSTO "")
-{
-  IF(CellExists(callbacks,"start_element") AND callbacks.start_element != DEFAULT MACRO PTR)
-    callbacks := CELL[...callbacks, start_element := PTR FixStartElement(callbacks.start_element, #1, #2) ];
-  __ParseXMLWithCallbacks(xmlfile, callbacks, encoding);
-}
-
 //Now THIS is a function where a VARIANT type would have been nice :-)
 STRING FUNCTION EncodeEntityAsXML(RECORD data, FUNCTION PTR blobhandler)
 {

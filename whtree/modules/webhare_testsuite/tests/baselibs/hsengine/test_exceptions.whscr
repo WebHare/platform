@@ -2,8 +2,6 @@
 /** @short Exception tests */
 
 LOADLIB "wh::internal/hsselftests.whlib";
-LOADLIB "wh::files.whlib";
-LOADLIB "wh::filetypes/xml.whlib";
 LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_c.whlib";
 
 VARIANT FUNCTION Throws()
@@ -67,67 +65,6 @@ MACRO BasicTest()
   TestEQ(a, 1);
 
   CloseTest("TestExceptions: BasicTest");
-}
-
-STRING result;
-MACRO XMLEltStart(STRING node, RECORD ARRAY attrs)
-{
-  result := result || ("<"||node||">");
-}
-MACRO XMLEltEnd (STRING node)
-{
-  result := result || ("</"||node||">");
-}
-MACRO XMLEltText (STRING node)
-{
-  IF (node="THROW")
-    THROW DEFAULT OBJECT;
-  result := result || (node);
-}
-MACRO XMLEltComment (STRING node)
-{
-  IF (node="THROW")
-    THROW DEFAULT OBJECT;
-  result := result || ("<!--"||node||"-->");
-}
-RECORD XMLCallbacks :=
-    [ start_element := PTR XMLEltStart
-    , end_element := PTR XMLEltEnd
-    , text_node := PTR XMLEltText
-    , comment_node := PTR XMLEltComment
-    ];
-
-MACRO CCallTest()
-{
-  OpenTest("TestExceptions: CCallTest");
-
-  BLOB xmlblob;
-
-  TRY
-  {
-    xmlblob := StringToBlob("<a><b></b>THROW<c></c></a>");
-    result := "";
-    ParseXMLWithCallbacks(xmlblob, XMLCallbacks);
-    TestEq(TRUE, FALSE);
-  }
-  CATCH (OBJECT e)
-  {
-    TestEq("<a><b></b>", result);
-  }
-
-  TRY
-  {
-    xmlblob := StringToBlob("<a><b></b><!--THROW--><c></c></a>");
-    result := "";
-    ParseXMLWithCallbacks(xmlblob, XMLCallbacks);
-    TestEq(TRUE, FALSE);
-  }
-  CATCH (OBJECT e)
-  {
-    TestEq("<a><b></b>", result);
-  }
-
-  CloseTest("TestExceptions: CCallTest");
 }
 
 OBJECTTYPE base_type < >;
@@ -409,6 +346,5 @@ MACRO FinallyTest()
 }
 
 BasicTest();
-CCallTest();
 TypeTest();
 FinallyTest();

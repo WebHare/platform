@@ -3,9 +3,6 @@
 
 //---------------------------------------------------------------------------
 #include "xml_provider.h"
-#include <stdarg.h>
-#include <libxml/catalog.h>
-#include <libxml/SAX.h>
 #include <harescript/vm/hsvm_dllinterface_blex.h>
 
 //ADDME: Merge our common code with blex/xml
@@ -22,13 +19,6 @@
 
 namespace Blex { namespace XML {
 xmlCharEncodingHandlerPtr GetxmlCopyCharEncodingHandler();
-XMLError ParsexmlErrorPtr(xmlErrorPtr error);
-
-extern "C"
-{
-        void HandleXMLError(void * user_data, xmlErrorPtr error);
-}
-
 } } //end blex::xml
 
 namespace HareScript
@@ -223,33 +213,12 @@ xmlSchemaPtr XMLContextReadData::GetSchemaPtr()
         return lock->schema;
 }
 
-// -----------------------------------------------------------------------------
-//
-// XMLContextData
-//
-
-XMLContextData::XMLContextData()
-{
-        read_context_id = 0;
-        aborted = false;
-}
-
-XMLContextData::~XMLContextData()
-{
-}
-
 /**
  * I/O Callbacks
  */
 static int ReadBlob (void *context, char *buffer, int len)
 {
         XMLBlobData *blobdata = static_cast<XMLBlobData*>(context);
-        XMLContextData &vmcontext = *static_cast<XMLContextData*>(HSVM_GetContext(blobdata->hsvm,ContextId, true));
-        if (vmcontext.aborted)
-        {
-                DEBUGPRINT("Aborted - Not reading blob");
-                return 0;
-        }
 //        DEBUGPRINT("Reading blob");
         return HSVM_BlobRead(blobdata->hsvm, blobdata->blobid, len, buffer);
 }
@@ -276,35 +245,10 @@ void LibXMLBugWorkAround(char *buffer, std::size_t *len)
         }
 }
 
-void ParseExternalSubset(void */*ctx*/, const xmlChar *DEBUGONLYARG(name), const xmlChar *DEBUGONLYARG(ExternalID), const xmlChar *DEBUGONLYARG(SystemID))
-{
-        DEBUGONLY(
-            DEBUGPRINT("Got external subset '" << (char *)name << "'");
-            if (ExternalID)
-                DEBUGPRINT("PUBLIC '" << (char *)ExternalID << "'");
-            if (SystemID)
-                DEBUGPRINT("SYSTEM '" << (char *)SystemID << "'"));
-}
-
-namespace
-{
-inline xmlChar const * AsXmlChar(std::string const &in)
-{
-        return reinterpret_cast<xmlChar const *>(in.c_str());
-}
-inline std::string AsSTDstring(xmlChar const *in)
-{
-        return std::string(reinterpret_cast<char const*>(in));
-}
-}
-
 xmlDocPtr ParseXMLDocument(XMLBlobData *blobdata, xmlCharEncoding enc)
 {
         xmlDocPtr doc = NULL;
-//        htmlSAXHandler handler = { NULL };
-//        handler.externalSubset = &ParseExternalSubset;
-
-        xmlParserCtxtPtr ctx = xmlCreateIOParserCtxt(NULL/*&handler*/, NULL,
+        xmlParserCtxtPtr ctx = xmlCreateIOParserCtxt(NULL, NULL,
                                                      &ReadBlob, &CloseBlob, blobdata,
                                                      XML_CHAR_ENCODING_NONE); // We'll switch to the correct encoding later
         if (ctx)
@@ -348,12 +292,6 @@ bool XMLContextReadData::ParseHTMLBlob(HSVM *hsvm, HSVM_VariableId blob, HSVM_Va
             enc = XML_CHAR_ENCODING_UTF8;
 
         LibXMLBugWorkAround(buffer, &len);
-
-#if LIBXML_VERSION >= 21000
-        // Ensure the SAX callbacks are setup to work around libxml 2.10 in not-legacy-mode (its default) not setting them in threads
-        // Reported as https://gitlab.gnome.org/GNOME/libxml2/-/issues/399
-        htmlDefaultSAXHandlerInit();
-#endif
 
         // Open and parse blob
         xmlSetStructuredErrorFunc(&errorcatcher, HareScript::Xml::HandleXMLError);
@@ -405,10 +343,10 @@ bool XMLContextReadData::ParseXMLBlob(HSVM *hsvm, HSVM_VariableId blob, HSVM_Var
         XMLBlobData xmlblobdata(hsvm, xmlblob);
         xmlCharEncoding enc = GetEncoding(HSVM_StringGetSTD(hsvm, encoding));
 
-        if (!ParseAndValidateXML(xmlblobdata, NULL, enc, readonly))
-            return false;
-
-        return true;
+        xmlSetStructuredErrorFunc(&errorcatcher, HareScript::Xml::HandleXMLError);
+        doc.reset(ParseXMLDocument(&xmlblobdata, enc), readonly);
+        xmlSetStructuredErrorFunc(NULL, NULL);
+        return GetDocPtr();
 }
 
 void XMLContextReadData::GetExternalSchema(HSVM *hsvm, HSVM_VariableId domimpl, const char *URL, const char *ID, Blex::XML::EntityLoader *loader)
@@ -481,55 +419,6 @@ xmlSchemaPtr XMLContextReadData::ParseAsValidator(HSVM *vm, HSVM_VariableId domi
         return xsdschema;
 }
 
-bool XMLContextReadData::ParseAndValidateXML(XMLBlobData &xmlblob, XMLBlobData *xsdblob, xmlCharEncoding enc, bool readonly)
-{
-        // Set error handler
-        xmlSetStructuredErrorFunc(&errorcatcher, HareScript::Xml::HandleXMLError);
-
-        // Open and parse XML blob
-        doc.reset(ParseXMLDocument(&xmlblob, enc), readonly);
-
-        // Open and parse XSD blob, if any
-        xmlSchemaPtr xsdschema = NULL;
-        xmlDocPtr xsdfile = NULL;
-        xmlSchemaParserCtxtPtr xsd_ctx = NULL;
-        if (xsdblob)
-        {
-                xsdfile = ParseXMLDocument(xsdblob, enc);
-                if (xsdfile)
-                {
-                        xsd_ctx = xmlSchemaNewDocParserCtxt(xsdfile);
-                        xmlSchemaSetParserStructuredErrors(xsd_ctx, HareScript::Xml::HandleXMLError, &errorcatcher);
-                        xsdschema = xmlSchemaParse(xsd_ctx);
-                        xmlSchemaSetParserStructuredErrors(xsd_ctx, NULL, NULL);
-                }
-        }
-
-        // Reset error handler
-        xmlSetStructuredErrorFunc(NULL, NULL);
-
-        if (xsdblob && GetDocPtr())
-        {
-                if (xsdschema)
-                {
-                        // Validate the XML file
-                        xmlSchemaValidCtxtPtr val_ctx = xmlSchemaNewValidCtxt(xsdschema);
-                        xmlSchemaSetValidStructuredErrors(val_ctx, HareScript::Xml::HandleXMLError, &errorcatcher);
-                        xmlSchemaValidateDoc(val_ctx, GetDocPtr());
-                        xmlSchemaSetValidStructuredErrors(val_ctx, NULL, NULL);
-                        xmlSchemaFreeValidCtxt(val_ctx);
-                        xmlSchemaFree(xsdschema);
-                }
-        }
-
-        if(xsdfile)
-        {
-                xmlSchemaFreeParserCtxt(xsd_ctx);
-                xmlFreeDoc(xsdfile);
-        }
-        return GetDocPtr();
-}
-
 void XMLContextReadData::SetIsUnlinkedHead(xmlNodePtr node, bool unlinked)
 {
         if (!doc.get())
@@ -541,301 +430,6 @@ void XMLContextReadData::SetIsUnlinkedHead(xmlNodePtr node, bool unlinked)
             doc.get()->unlinkedheads.erase(node);
 }
 
-int ParseAndValidateXML(XMLContextData &context, XMLBlobData *xmlblob, XMLBlobData *xsdblob, xmlCharEncoding enc, bool readonly)
-{
-        int result = 0;
-
-        if (!xmlblob)
-            return result;
-
-        XMLContextReadDataPtr new_context (new XMLContextReadData);
-        if (new_context->ParseAndValidateXML(*xmlblob, xsdblob, enc, readonly))
-        {
-                context.read_context[++context.read_context_id] = new_context;
-                result = context.read_context_id;
-        }
-        return result;
-}
-
-
-/**
- * SAX Callbacks
- * There is no way of aborting the SAX callback interface within LibXML, so we're
- * using the aborted flag in our XML context to signal errors from HSVM_CallFunctionPtr.
- */
-void SaxStartElement(void *user_data, const xmlChar *name, const xmlChar *attrs[])
-{
-        XMLSaxCallbacks &callbacks = *(XMLSaxCallbacks *)user_data;
-        HSVM * vm = callbacks.vm;
-        XMLContextData &context = *static_cast<XMLContextData*>(HSVM_GetContext(vm,ContextId, true));
-        if (context.aborted)
-            return;
-
-        HSVM_OpenFunctionCall(vm, 2);
-
-        // Set element name parameter
-        HSVM_VariableId element_name = HSVM_CallParam(vm, 0);
-        HSVM_StringSet(vm, element_name, (const char*)name, (const char*)name+strlen((const char*)name));
-
-        // Set attributes parameter
-        HSVM_ColumnId field_col = HSVM_GetColumnId(vm, "FIELD");
-        HSVM_ColumnId value_col = HSVM_GetColumnId(vm, "VALUE");
-        HSVM_VariableId element_attrs = HSVM_CallParam(vm, 1);
-        HSVM_SetDefault(vm, element_attrs, HSVM_VAR_RecordArray);
-        if (attrs != NULL)
-        {
-                int i = 0;
-                while (attrs[i] != NULL)
-                {
-                        HSVM_VariableId attr = HSVM_ArrayAppend(vm, element_attrs);
-                        HSVM_VariableId cell;
-
-                        // Set field
-                        cell = HSVM_RecordCreate(vm, attr, field_col);
-                        HSVM_StringSet(vm, cell, (const char*)attrs[i], (const char*)attrs[i]+strlen((const char*)attrs[i]));
-                        // Set value
-                        ++i;
-                        cell = HSVM_RecordCreate(vm, attr, value_col);
-                        if (attrs[i] != NULL)
-                            HSVM_StringSet(vm, cell, (const char*)attrs[i], (const char*)attrs[i]+strlen((const char*)attrs[i]));
-                        else
-                            HSVM_StringSet(vm, cell, NULL, NULL);
-
-                        ++i;
-                }
-        }
-        if (HSVM_CallFunctionPtr(vm, callbacks.start_element, true) == 0)
-        {
-                context.aborted = true;
-                return;
-        }
-        HSVM_CloseFunctionCall(vm);
-}
-
-void SaxEndElement(void *user_data, const xmlChar *name)
-{
-        XMLSaxCallbacks &callbacks = *(XMLSaxCallbacks *)user_data;
-        HSVM * vm = callbacks.vm;
-        XMLContextData &context = *static_cast<XMLContextData*>(HSVM_GetContext(vm,ContextId, true));
-        if (context.aborted)
-            return;
-
-        HSVM_OpenFunctionCall(vm, 1);
-
-        // Set element name parameter
-        HSVM_VariableId element_name = HSVM_CallParam(vm, 0);
-        HSVM_StringSet(vm, element_name, (const char*)name, (const char*)name+strlen((const char*)name));
-
-        if (HSVM_CallFunctionPtr(vm, callbacks.end_element, true) == 0)
-        {
-                context.aborted = true;
-                return;
-        }
-        HSVM_CloseFunctionCall(vm);
-}
-
-void SaxText(void *user_data, const xmlChar *ch, int len)
-{
-        XMLSaxCallbacks &callbacks = *(XMLSaxCallbacks *)user_data;
-        HSVM * vm = callbacks.vm;
-        XMLContextData &context = *static_cast<XMLContextData*>(HSVM_GetContext(vm,ContextId, true));
-        if (context.aborted)
-            return;
-
-        HSVM_OpenFunctionCall(vm, 1);
-
-        // Set text parameter
-        HSVM_VariableId text = HSVM_CallParam(vm, 0);
-        HSVM_StringSet(vm, text, (const char*)ch, (const char*)ch+len);
-
-        if (HSVM_CallFunctionPtr(vm, callbacks.text_node, true) == 0)
-        {
-                context.aborted = true;
-                return;
-        }
-        HSVM_CloseFunctionCall(vm);
-}
-
-void SaxComment(void *user_data, const xmlChar *value)
-{
-        XMLSaxCallbacks &callbacks = *(XMLSaxCallbacks *)user_data;
-        HSVM * vm = callbacks.vm;
-        XMLContextData &context = *static_cast<XMLContextData*>(HSVM_GetContext(vm,ContextId, true));
-        if (context.aborted)
-            return;
-
-        HSVM_OpenFunctionCall(vm, 1);
-
-        // Set comment text parameter
-        HSVM_VariableId comment_text = HSVM_CallParam(vm, 0);
-        HSVM_StringSet(vm, comment_text, (const char*)value, (const char*)value+strlen((const char*)value));
-
-        if (HSVM_CallFunctionPtr(vm, callbacks.comment_node, true) == 0)
-        {
-                context.aborted = true;
-                return;
-        }
-        HSVM_CloseFunctionCall(vm);
-}
-
-void SaxError(void * user_data, xmlErrorPtr error)
-{
-        XMLSaxCallbacks &callbacks = *(XMLSaxCallbacks *)user_data;
-        if (!callbacks.error)
-            return;
-
-        HSVM * vm = callbacks.vm;
-        XMLContextData &context = *static_cast<XMLContextData*>(HSVM_GetContext(vm,ContextId, true));
-        if (context.aborted)
-            return;
-
-        HSVM_OpenFunctionCall(vm, 1);
-
-        // Set error parameter
-        Blex::XML::XMLError err = Blex::XML::ParsexmlErrorPtr(error);
-        HSVM_VariableId error_id = HSVM_CallParam(vm, 0);
-        HSVM_SetDefault(vm, error_id, HSVM_VAR_Record);
-        HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, error_id, HSVM_GetColumnId(vm, "CODE")), err.code);
-        HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, error_id, HSVM_GetColumnId(vm, "LINENUM")), err.line);
-        HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, error_id, HSVM_GetColumnId(vm, "MESSAGE")), err.message);
-
-        if (HSVM_CallFunctionPtr(vm, callbacks.error, true) == 0)
-        {
-                context.aborted = true;
-                return;
-        }
-        HSVM_CloseFunctionCall(vm);
-}
-
-void SaxPI(void *user_data, const xmlChar *target, const xmlChar *data)
-{
-        XMLSaxCallbacks &callbacks = *(XMLSaxCallbacks *)user_data;
-        HSVM * vm = callbacks.vm;
-        XMLContextData &context = *static_cast<XMLContextData*>(HSVM_GetContext(vm,ContextId, true));
-        if (context.aborted)
-            return;
-
-        HSVM_OpenFunctionCall(vm, 2);
-
-        // Set text parameter
-        HSVM_StringSet(vm, HSVM_CallParam(vm, 0), (const char*)target, (const char*)target + strlen((const char*)target));
-        HSVM_StringSet(vm, HSVM_CallParam(vm, 1), (const char*)data, (const char*)data + strlen((const char*)data));
-
-        if (HSVM_CallFunctionPtr(vm, callbacks.pi_node, true) == 0)
-        {
-                context.aborted = true;
-                return;
-        }
-        HSVM_CloseFunctionCall(vm);
-}
-
-
-/**
- * Read a record with callback cells and add callbacks to the SAX handler
- */
-void ReadCallbacksRecord(HSVM *hsvm, HSVM_VariableId callback_rec, xmlSAXHandler *handler, XMLSaxCallbacks *callbacks)
-{
-        if (HSVM_RecordExists(hsvm, callback_rec))
-        {
-                HSVM_VariableId callback;
-
-                // start_element
-                callback = HSVM_RecordGetRef(hsvm, callback_rec, HSVM_GetColumnId(hsvm, "START_ELEMENT"));
-                if (callback && HSVM_GetType(hsvm, callback) == HSVM_VAR_FunctionPtr)
-                {
-                        handler->startElement = &SaxStartElement;
-                        callbacks->start_element = callback;
-                }
-
-                // end_element
-                callback = HSVM_RecordGetRef(hsvm, callback_rec, HSVM_GetColumnId(hsvm, "END_ELEMENT"));
-                if (callback && HSVM_GetType(hsvm, callback) == HSVM_VAR_FunctionPtr)
-                {
-                        handler->endElement = &SaxEndElement;
-                        callbacks->end_element = callback;
-                }
-
-                // text_node
-                callback = HSVM_RecordGetRef(hsvm, callback_rec, HSVM_GetColumnId(hsvm, "TEXT_NODE"));
-                if (callback && HSVM_GetType(hsvm, callback) == HSVM_VAR_FunctionPtr)
-                {
-                        handler->characters = &SaxText;
-                        callbacks->text_node = callback;
-                }
-
-                // comment_node
-                callback = HSVM_RecordGetRef(hsvm, callback_rec, HSVM_GetColumnId(hsvm, "COMMENT_NODE"));
-                if (callback && HSVM_GetType(hsvm, callback) == HSVM_VAR_FunctionPtr)
-                {
-                        handler->comment = &SaxComment;
-                        callbacks->comment_node = callback;
-                }
-
-                // error
-                callback = HSVM_RecordGetRef(hsvm, callback_rec, HSVM_GetColumnId(hsvm, "ERROR"));
-                if (callback && HSVM_GetType(hsvm, callback) == HSVM_VAR_FunctionPtr)
-                {
-                        // Because the direct error callback (handler->serror) does
-                        // not seem to work, we'll handle error using the global
-                        // error handler, which receives the handler struct and
-                        // calls the callback function
-                        callbacks->error = callback;
-                }
-
-                // pi_node
-                callback = HSVM_RecordGetRef(hsvm, callback_rec, HSVM_GetColumnId(hsvm, "PI_NODE"));
-                if (callback && HSVM_GetType(hsvm, callback) == HSVM_VAR_FunctionPtr)
-                {
-                        handler->processingInstruction = &SaxPI;
-                        callbacks->pi_node = callback;
-                }
-
-        }
-}
-
-/**
- * Parse an XML file using the SAX (callback) interface. The user provides
- * callbacks for certain events, such as start of elements or text.
- */
-void ParseXMLWithCallbacks(HSVM *hsvm)
-{
-        // Construct a default handler (no callbacks)
-        xmlSAXHandler handler;
-        memset(&handler, 0, sizeof(handler));
-
-        // Read callbacks record and set the corresponding callbacks
-        XMLSaxCallbacks callbacks;
-        callbacks.vm = hsvm;
-        HSVM_VariableId callback_rec = HSVM_Arg(1);
-        ReadCallbacksRecord(hsvm, callback_rec, &handler, &callbacks);
-
-        // Get encoding
-        xmlCharEncoding enc = GetEncoding(HSVM_StringGetSTD(hsvm, HSVM_Arg(2)));
-
-        // Open and parse blob
-        int blobid = HSVM_BlobOpen(hsvm, HSVM_Arg(0));
-        XMLBlobData blobdata(hsvm, blobid);
-        xmlSetStructuredErrorFunc((void *)&callbacks, HareScript::Xml::SaxError);
-        xmlParserCtxtPtr ctx = xmlCreateIOParserCtxt(&handler, (void *)&callbacks,
-                                                     &ReadBlob, &CloseBlob, &blobdata,
-                                                     XML_CHAR_ENCODING_NONE); // We'll switch to the correct encoding later
-
-        if (ctx)
-        {
-                if (enc != XML_CHAR_ENCODING_NONE)
-                    xmlSwitchEncoding(ctx, enc);
-
-                xmlCtxtUseOptions(ctx, XML_PARSE_NOERROR | XML_PARSE_NOWARNING | XML_PARSE_NONET | XML_PARSE_NODICT);
-
-                xmlParseDocument(ctx);
-                xmlFreeParserCtxt(ctx);
-
-                XMLContextData &context = *static_cast<XMLContextData*>(HSVM_GetContext(hsvm,ContextId, true));
-                if (context.aborted)
-                    context.aborted = !HSVM_IsUnwinding(hsvm);
-        }
-        xmlSetStructuredErrorFunc(NULL, NULL);
-}
 
 } // End of namespace Xml
 } // End of namespace HareScript
@@ -844,26 +438,6 @@ void ParseXMLWithCallbacks(HSVM *hsvm)
 
 extern "C" {
 
-static void* CreateContext(void *)
-{
-        return new HareScript::Xml::XMLContextData;
-}
-static void DestroyContext(void*, void *context_ptr)
-{
-        delete static_cast<HareScript::Xml::XMLContextData*>(context_ptr);
-}
-
-// Just copy input characters to output (no character conversion)
-int xmlCharCopyFunc(unsigned char *out, int *outlen,
-                    const unsigned char *in, int *inlen)
-{
-        int n = std::min(*outlen, *inlen);
-        for (int i = 0; i < n; ++i)
-            out[i] = in[i];
-        *inlen = *outlen = n;
-        return n;
-}
-
 // Function which register DOM-object-specific functions and contexts (implemented
 // in xml_domobjects.cpp)
 int RegisterDomObjectFunctions(HSVM_RegData *regdata);
@@ -871,11 +445,6 @@ int RegisterDomObjectFunctions(HSVM_RegData *regdata);
 BLEXLIB_PUBLIC int XMLEntryPoint(HSVM_RegData *regdata,void*)
 {
         Blex::XML::SetCatalogBase( Blex::MergePath(HSVM_GetResourcesPath(regdata),"xml") );
-
-        HSVM_RegisterMacro   (regdata, "__PARSEXMLWITHCALLBACKS:::XRS", HareScript::Xml::ParseXMLWithCallbacks);
-
-        // Register contexts
-        HSVM_RegisterContext (regdata, HareScript::Xml::ContextId, NULL, &CreateContext, &DestroyContext);
 
         // Register DOM object functions and contexts
         if (!RegisterDomObjectFunctions(regdata))
