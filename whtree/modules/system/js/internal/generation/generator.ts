@@ -189,7 +189,7 @@ export async function updateGeneratedFiles(targets: GeneratorType[], options: {
   await deleteRecursive(backendConfig.module["platform"].root + 'generated/whdb', deleteOpts);
   await rm(backendConfig.dataRoot + 'storage/system/js/publicconfig.json', { force: true });
 
-  broadcast("platform:generated-files-updated");
+  broadcast("platform:generated_files_updated");
   return;
 }
 
