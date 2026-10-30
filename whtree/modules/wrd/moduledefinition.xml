@@ -281,8 +281,7 @@
         <d:documentation>Entity for which this token was generated</d:documentation>
       </d:integer>
       <d:varchar name="type" maxlength="64" nullable="0">
-        <d:documentation>
-          Token type. 'id' for first party tokens, 'api' for tokens giving API access.
+        <d:documentation>Token type. 'id' for first party tokens, 'api' for tokens giving API access.
 
           Note that openid id_tokens are not stored - we can't revoke them and should never receive them anyway. The 'id'
           tokens in the database are for WRDAuth logins</d:documentation>

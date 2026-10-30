@@ -8,7 +8,7 @@
       <dirtylistener name="contentsdirty" ondirty="OnContentsDirty" />
     </compositions>
     <contents>
-      <inlineblock dirtylistener="contentsdirty" width="1pr">
+      <inlineblock width="1pr" dirtylistener="contentsdirty">
         <select name="linktype" type="radio" onchange="onlinktypechange" required="true" rowkeytype="integer" title="">
           <option rowkey="0" tid=".linktype-nolink" />
           <option rowkey="1" tid=".linktype-external">

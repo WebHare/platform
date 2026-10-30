@@ -58,9 +58,10 @@
         <richdocument tag="text" />
       </array>
       <free tag="issuer" description="JWT issuer" unsafetocopy="true" />  <!-- attempting to sync an existing issuer will only generate confusing tokens. it's better to maintain this per server -->
-      <json tag="dynamic_registration" unsafetocopy="true"
+      <json tag="dynamic_registration"
             description="Dynamic registration configuration"
-            typedeclaration="@webhare/auth/src/support.ts#WRDDynamicRegistrationSettings" />
+            typedeclaration="@webhare/auth/src/support.ts#WRDDynamicRegistrationSettings"
+            unsafetocopy="true" />
       <array tag="signing_keys" description="JWT keys" unsafetocopy="true">
         <!-- mark as unsafe... syncing keys should be an explicit action -->
         <datetime tag="available_since" required="true" />

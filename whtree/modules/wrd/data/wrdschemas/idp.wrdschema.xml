@@ -22,8 +22,7 @@
       </array>
       <free tag="subject_field" />
       <enum tag="dynamic_status" allowedvalues="created active" />
-      <json tag="dynamic_registration"
-        typedeclaration="@webhare/auth/src/support.ts#WRDDynamicClientRegistration" />
+      <json tag="dynamic_registration" typedeclaration="@webhare/auth/src/support.ts#WRDDynamicClientRegistration" />
     </attributes>
   </domain>
 
