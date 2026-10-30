@@ -31,13 +31,13 @@ import { debugFlags } from "@webhare/env";
 import { mkdirSync } from "node:fs";
 import { addTestFinalizer } from "@webhare/test/src/testrunner";
 import { startWebHareRepl } from "@mod-platform/js/cli/repl.ts";
-import { fetch as unidiciFetch } from "undici";
+import { fetch as undiciFetch } from "undici";
 
 export { profileCPU } from "./profiling";
 export { createTrustedPortDispatcher, type TrustedPortDispatcherOptions } from "./fetch";
 
 /** undici's fetch with dispatcher support */
-export const fetch = unidiciFetch;
+export const fetch = undiciFetch;
 
 export const passwordHashes = {
   //CreateWebharePasswordHash is SLOW. prepping passwords is worth the trouble. Using snakecase so the text exactly matches the password
