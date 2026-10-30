@@ -10,8 +10,8 @@ import * as keyboard from 'dompack/testframework/keyboard';
 import type { Annotation, WaitOptions, PositiveWaitRetVal } from '@webhare/test/src/checks';
 import { invoke } from "@mod-platform/js/testing/whtest";
 import { isFormControl } from '@webhare/dompack';
+import { qSA } from '../internal/tests/elementselectors';
 import type { TestWaitItem } from '@mod-system/web/systemroot/jstests/testsuite';
-import { throwError } from '@webhare/std';
 import { __getTestSuiteCallbacks, waitForUI, testFramework as testfw, getWin, getDoc, runTests } from "@webhare/test-frontend/src/suite-support";
 
 export {
@@ -29,6 +29,7 @@ export {
 export { waitForUI, addFrame, selectFrame, removeFrame, updateFrame, type TestFrameWorkCallbacks } from "@webhare/test-frontend/src/suite-support";
 export { runTests, type RegisteredTestStep, type RegisteredTestSteps } from "@webhare/test-frontend/src/suite-support";
 export { getWin, getDoc };
+export { qSA } from '../internal/tests/elementselectors';
 
 export { waitForEmails } from "@mod-platform/js/testing/whtest.ts";
 
@@ -232,22 +233,6 @@ export function qS<E extends Element = TestQueriedElement>(node_or_selector: Par
 
   const iframe = window.parent.document.querySelector<HTMLIFrameElement>('#testframeholder iframe')!;
   return iframe.contentDocument!.querySelector(node_or_selector);
-}
-
-//Set up overloads for both call approaches (with and without starting element)
-export function qSA<E extends HTMLElement = TestQueriedElement>(startnode: ParentNode, selector: string): E[];
-export function qSA<E extends HTMLElement = TestQueriedElement>(selector: string): E[];
-
-/** Find elements in the test window
-    @param node_or_selector - Starting node (optional)
-    @param selector - CSS selector to use
-    @returns An array of matching elements */
-export function qSA<E extends HTMLElement = TestQueriedElement>(node_or_selector: ParentNode | string, selector?: string): E[] {
-  if (typeof node_or_selector !== 'string')
-    return Array.from(node_or_selector.querySelectorAll(selector as string));
-
-  const iframe = window.parent.document.querySelector<HTMLIFrameElement>('#testframeholder iframe')!;
-  return Array.from(iframe.contentDocument!.querySelectorAll(node_or_selector));
 }
 
 //Set up overloads for both call approaches (with and without starting element)
