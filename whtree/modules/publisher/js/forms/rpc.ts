@@ -14,7 +14,7 @@ import type { RPCFormTarget, RPCFormInvokeBase, RPCFormSubmission } from '@webha
 import { SingleFileUploader, type UploadResult } from '@webhare/upload';
 import { createClient } from '@webhare/jsonrpc-client';
 import { setupCaptchaFieldGroup } from './fields/captchafield';
-import { getFormConfiguration } from '@webhare/forms/src/registration';
+import { getFormConfiguration } from '@webhare/forms/src/configuration';
 import type { CaptchaProvider } from '../captcha/api';
 
 function unpackObject(formvalue: FormResultValue): RPCFormInvokeBase["vals"] {

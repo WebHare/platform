@@ -1,10 +1,9 @@
 import FormBase from '@mod-publisher/js/forms/rpc';
-import type { FormConfiguration, FormHandlerFactory } from "@webhare/forms";
-import { dispatchCustomEvent, flagUIBusy, qSA, register } from "@webhare/dompack";
+import type { FormHandlerFactory } from "@webhare/forms";
+import { flagUIBusy, qSA, register } from "@webhare/dompack";
 import { emplace, sleep } from "@webhare/std";
 import { downgradeUploadFields } from "./domsupport";
 
-let formConfiguration: FormConfiguration | undefined;
 let handlers: Map<string, FormHandlerFactory | PromiseWithResolvers<FormHandlerFactory>> | undefined;
 let configuredRegistrations: true | undefined;
 const firstWarningMs = 150, warningIntervalMs = 5000;
@@ -36,14 +35,6 @@ async function scheduleFormSetup(form: HTMLFormElement, factory: FormHandlerFact
     }
   }
   factory(form);
-}
-
-export function configureForms(setup: FormConfiguration) {
-  if (!Object.keys(setup).length)
-    return;
-
-  formConfiguration = { ...formConfiguration, ...setup };
-  dispatchCustomEvent(window, "wh:form-configure", { bubbles: true, cancelable: false, detail: formConfiguration });
 }
 
 export function registerHandlers(addHandlers: Record<string, FormHandlerFactory>) {
@@ -90,6 +81,4 @@ export function registerHandler(handlername: string, handler: FormHandlerFactory
   registerHandlers({ [handlername]: handler });
 }
 
-export function getFormConfiguration(): FormConfiguration | undefined {
-  return formConfiguration;
-}
+export { configureForms, getFormConfiguration } from "./configuration";
