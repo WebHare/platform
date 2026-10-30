@@ -16,7 +16,7 @@ import { resolveResource } from "@webhare/services";
 import type { ApplyAuth, ApplySetMetadata } from "@mod-platform/generated/schema/siteprofile";
 import { openType, whfsType, type WHFSTypeInfo, type WHFSTypeName } from "@webhare/whfs/src/contenttypes";
 import { lookupURL, type LookupURLOptions } from "./lookupurl";
-import { isHistoricWHFSSpace } from "./support";
+import { isHistoricWHFSSpace } from "./path-support";
 import { whconstant_whfsid_repository } from "@mod-system/js/internal/webhareconstants";
 
 export interface WebDesignInfo {
