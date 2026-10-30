@@ -11,9 +11,12 @@ PUBLIC RECORD FUNCTION FoldHeaders(RECORD ARRAY webheaders)
                     GROUP BY ToUppercase(field));
 }
 
-PUBLIC RECORD FUNCTION EncodeWebRequestForJS() //returns a WebRequestInfo
-{
-  RETURN CELL[ url := GetRequestURL()
+PUBLIC RECORD FUNCTION EncodeWebRequestForJS() { //returns a WebRequestInfo
+  /* Returning GetClientRequestURL() for JS. This matters for non-vhosted ports
+     and for eg. authentication we need the URL as the client understood it, not
+     simply the <ip>:<port> for the listener. In HS we usually worked with GetRequestURL(),
+     which did just that - JS gives us a chane for cleaner start */
+  RETURN CELL[ url := GetClientRequestURL()
              , headers := FoldHeaders(GetAllWebHeaders())
              , method := ToUppercase(GetRequestMethod())
              , body := GetRequestBody()
