@@ -357,6 +357,25 @@ MACRO TestConvertHtmlToPlainText()
 
   BLOB dom;
   {
+    TestEq("", BlobToString(ConvertHtmlToPlainText(StringToBlob(""))));
+    TestEq("", BlobToString(ConvertHtmlToPlainText(StringToBlob("<!-- comment -->"))));
+
+    dom := StringToBlob("<!DOCTYPE html><html><head><title>title</title><style>style</style></head><body>a<!-- comment --><b>b &amp; c</b>d</body></html>");
+    TestEq("ab & cd", BlobToString(ConvertHtmlToPlainText(dom)));
+
+    dom := StringToBlob("<A HREF='https://example.org'><B>link</B></A><IMG ALT='a &amp; b'>");
+    TestEq("link <URL:https://example.org>[a & b]", BlobToString(ConvertHtmlToPlainText(dom)));
+
+    dom := StringToBlob("<html><head><meta charset='iso-8859-1'></head><body>caf\xE9</body></html>");
+    TestEq("caf\u00E9", BlobToString(ConvertHtmlToPlainText(dom)));
+    TestEq("caf\u00E9", BlobToString(ConvertHtmlToPlainText(dom, [ encoding := "ISO-8859-1" ])));
+    TestEq("caf\u00E9", BlobToString(ConvertHtmlToPlainText(dom, 0, "ISO-8859-1")));
+
+    dom := StringToBlob("<body><script>if (a < b) c();</script>text</body>");
+    TestEq("if (a < b) c();text", BlobToString(ConvertHtmlToPlainText(dom)));
+  }
+
+  {
     dom := StringToBlob("<html><body> \r\n\ra\r\n\r\n\r\nb\r\n\r\n\r\n\r\nc \r\nd");
     TestEq("a b c d", BlobToString(ConvertHtmlToPlainText(dom)));
   }
