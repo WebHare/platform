@@ -48,6 +48,8 @@ class RegisteredService extends ManagedService {
     if (shouldBeRunning && !this.launchPromise && !this.service && !this.stopPromise) { //don't restart if a stop is pending
       if (debugFlags.nodeservices)
         console.log(`${logPrefix} Starting service '${this.descriptor.name}'`);
+
+      this.mustRestart = false; //clear as late as possible to be able to de-dupe multiple restart requests
       this.launchPromise = launchService(this.descriptor);
       this.launchPromise.then(service => this.#launched(service), e => this.#failed(e));
       return;
@@ -58,7 +60,6 @@ class RegisteredService extends ManagedService {
         console.log(`${logPrefix} Stopping service '${this.descriptor.name}'`);
       this.service.close();
       this.service = null;
-      this.mustRestart = false; //clear the flag now, will allow to start again as soon as the stopPromise is cleared
 
       // FIXME we need a proper waitable service.close(). until then, ensuredatasent, sleep 1 sec, hope for the best
       this.stopPromise = bridge.ensureDataSent().then(() => sleep(1000));
@@ -81,8 +82,7 @@ class RegisteredService extends ManagedService {
   }
 
   #failedStop(e: Error) {
-    if (debugFlags.nodeservices)
-      console.log(`${logPrefix} Failed to stop service '${this.descriptor.name}': ${e.message}`);
+    console.error(`Failed to stop service '${this.descriptor.name}': ${e.message}`);
     this.stopPromise = null;
 
     //TODO exponential backoff - can we share with servicemgr main?
@@ -90,8 +90,7 @@ class RegisteredService extends ManagedService {
   }
 
   #failed(e: Error) {
-    if (debugFlags.nodeservices)
-      console.log(`${logPrefix} Failed to start service '${this.descriptor.name}': ${e.message}`);
+    console.error(`Failed to start service '${this.descriptor.name}': ${e.message}`);
     this.launchPromise = null;
 
     //TODO exponential backoff - can we share with servicemgr main?
@@ -217,6 +216,7 @@ class NodeServiceManager {
           }
 
         registration.descriptor = descr;
+        registration.inConfig = true;
       }
 
       seenService.add(descr.name);
