@@ -208,8 +208,15 @@ class NodeServiceManager {
 
         registeredServices.set(descr.name, new RegisteredService(descr));
       } else {
+        // Restart on significant config changes:
+        for (const fields of ["onCreateClient", "onCreateController", "revision"] satisfies (keyof typeof registration.descriptor)[])
+          if (descr[fields] !== registration.descriptor[fields]) {
+            if (debugFlags.nodeservices)
+              console.log(`${logPrefix} Service '${descr.name}' requires restart due to change in '${fields}'`);
+            registration.mustRestart = true;
+          }
+
         registration.descriptor = descr;
-        //TODO check for configuration changes and restart service if needed
       }
 
       seenService.add(descr.name);

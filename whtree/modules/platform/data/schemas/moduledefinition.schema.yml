@@ -236,6 +236,10 @@ $defs:
                 const: core
               - description: Web services scheduled separately from other node services
                 const: web
+          revision:
+            description: "Revision or version of the service. If changed the service will be restarted (eg. on module push)"
+            type: string
+
 
   OpenApiServices:
     description: Specifies an OpenAPI service
