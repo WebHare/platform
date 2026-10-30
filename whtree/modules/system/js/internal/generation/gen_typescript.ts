@@ -147,16 +147,25 @@ ${JSON.stringify(config, null, 2)}
 `;
 }
 
+function getModuleTSConfig(tsconfig: Awaited<ReturnType<typeof buildTSConfig>>, modules: string[]) {
+  const modulePaths = new Set([...whconstant_builtinmodules, ...modules].map(module => `@mod-${module}`));
+  return {
+    ...tsconfig,
+    compilerOptions: {
+      ...tsconfig.compilerOptions,
+      paths: Object.fromEntries(Object.entries(tsconfig.compilerOptions.paths).filter(([name]) => !name.startsWith("@mod-") || modulePaths.has(name.split("/")[0])))
+    },
+    files: getTSServiceFiles(modules)
+  };
+}
+
 export async function generateTSConfigTextForModule(module: string) {
   if (!backendConfig.module[module])
     throw new Error(`Module '${module}' not found`);
 
   const datarootitems = getDataRootNodeModules();
   const context = await buildGeneratorContext(null, false);
-  return formatTSConfig({
-    ...await buildTSConfig(datarootitems),
-    files: getTSServiceFiles([module, ...context.getModuleDependencies(module)])
-  });
+  return formatTSConfig(getModuleTSConfig(await buildTSConfig(datarootitems), [module, ...context.getModuleDependencies(module)]));
 }
 
 async function syncLinks(basepath: string, want: DataRootItem[], { clean = false, verbose = false } = {}) {
@@ -272,10 +281,7 @@ export default [...relaxedConfig, {
   for (const [module, config] of Object.entries(backendConfig.module)) {
     //A targeted update can change transitive dependencies of other modules too.
     if (!whconstant_builtinmodules.includes(module)) { //the builtin ones are handled by a central tsconfig.json
-      await updateFile(config.root + "tsconfig.json", formatTSConfig({
-        ...tsconfig,
-        files: getTSServiceFiles([module, ...context.getModuleDependencies(module)])
-      }));
+      await updateFile(config.root + "tsconfig.json", formatTSConfig(getModuleTSConfig(tsconfig, [module, ...context.getModuleDependencies(module)])));
     }
   }
 
