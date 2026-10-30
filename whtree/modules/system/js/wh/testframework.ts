@@ -10,10 +10,10 @@ import * as keyboard from 'dompack/testframework/keyboard';
 import type { Annotation, WaitOptions, PositiveWaitRetVal } from '@webhare/test/src/checks';
 import { invoke } from "@mod-platform/js/testing/whtest";
 import { isFormControl } from '@webhare/dompack';
-import type { TestFramework, TestStep, TestWaitItem } from '@mod-system/web/systemroot/jstests/testsuite';
-import { attempt, throwError } from '@webhare/std';
+import type { TestStep, TestWaitItem } from '@mod-system/web/systemroot/jstests/testsuite';
+import { throwError } from '@webhare/std';
 import { TestMonitor } from '@webhare/test/src/monitor';
-import { __getTestSuiteCallbacks, __setTestSuiteCallbacks, waitForUI } from "@webhare/test-frontend";
+import { __getTestSuiteCallbacks, __setTestSuiteCallbacks, waitForUI, testFramework as testfw, getWin, getDoc } from "@webhare/test-frontend/src/suite-support";
 
 export {
   eq,
@@ -27,7 +27,8 @@ export {
   waitForEvent,
 } from '@webhare/test';
 
-export { waitForUI, addFrame, selectFrame, removeFrame, updateFrame } from "@webhare/test-frontend";
+export { waitForUI, addFrame, selectFrame, removeFrame, updateFrame, type TestFrameWorkCallbacks } from "@webhare/test-frontend/src/suite-support";
+export { getWin, getDoc };
 
 export { waitForEmails } from "@mod-platform/js/testing/whtest.ts";
 
@@ -59,9 +60,7 @@ export { invoke };
 export type { TestWaitItem };
 
 //basic test functions
-let testfw: TestFramework | undefined;
 if (typeof window !== 'undefined') {
-  testfw = attempt(() => window.top?.__testframework);
   whtest.setupLogging({
     onLog: (...args) => {
       console.log(...args);
@@ -69,13 +68,6 @@ if (typeof window !== 'undefined') {
     }
   });
 }
-
-export type TestFrameWorkCallbacks = {
-  executeWait: (item: TestWaitItem) => Promise<unknown>;
-  subtest: (name: string) => void;
-  setFrame: (name: string, type: "add" | "update" | "delete" | "select", options?: { width: number }) => Promise<void>;
-};
-
 
 function rewriteNodeAttributes(node: HTMLElement) {
   // Make sure the order of the attributes is predictable, by getting them, removing them all and reinserting them
@@ -232,13 +224,6 @@ export function getOpenMenuItem(containstext: string) {
     throw new Error("Multiple items contain the text '" + containstext + "'");
   return item[0] || null;
 }
-export function getWin(): WindowProxy {
-  return testfw?.getFrameRecord().win || throwError("Not running in a test page");
-}
-export function getDoc(): Document {
-  return testfw?.getFrameRecord().doc || throwError("Not running in a test page");
-}
-
 /** Focus and fill an element, triggering any input/change handlers */
 export function fill(element: pointer.ValidElementTarget, newvalue: string | number | boolean): void {
   element = pointer._resolveToSingleElement(element);

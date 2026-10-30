@@ -1,5 +1,8 @@
 import * as dompack from "@webhare/dompack";
-import * as test from '@mod-system/js/wh/testframework';
+import type * as test from '@mod-system/js/wh/testframework';
+import { getDoc } from '@webhare/test-frontend/src/suite-support';
+import { wait } from '@webhare/test/src/checks';
+import { canClick } from 'dompack/testframework/pointer';
 
 export type SelectorPart = string | Element | RegExp | number | (() => string | Element | RegExp | number | undefined | null);
 export type Selector = SelectorPart[] | string;
@@ -94,7 +97,7 @@ export function findElement<E extends SVGElement>(selector: Selector, options: {
 export function findElement<E extends Element = test.TestQueriedElement>(selector: Selector, options?: { expectSVG?: boolean }): E | null;
 
 export function findElement<E extends Element = test.TestQueriedElement>(selector: Selector, options?: { expectSVG?: boolean }): E | null {
-  return evaluateSelectSingle(test.getDoc(), selector, options) as E | null;
+  return evaluateSelectSingle(getDoc(), selector, options) as E | null;
 }
 
 /** Wait for an element in the DOM to appear and become clickable. Scroll into view where needed
@@ -106,7 +109,7 @@ export async function waitForElement<E extends Element = test.TestQueriedElement
 
 export async function waitForElement<E extends Element = test.TestQueriedElement>(selector: Selector, options?: { expectSVG?: boolean }): Promise<E> {
   let logstate = Date.now() + 5000;
-  return await test.wait(() => {
+  return await wait(() => {
     const lognow = Date.now() > logstate;
     if (lognow)
       logstate = Date.now() + 5000; //wait 5sec again for new reports
@@ -118,7 +121,7 @@ export async function waitForElement<E extends Element = test.TestQueriedElement
       return null;
     }
 
-    if (test.canClick(node)) {
+    if (canClick(node)) {
       return node;
     }
 
