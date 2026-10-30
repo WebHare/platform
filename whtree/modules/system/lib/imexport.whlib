@@ -752,6 +752,27 @@ MACRO ImportXML_TextNode(STRING data)
       importxml_cellsofar := importxml_cellsofar || data;
   }
 }
+
+MACRO ImportXML_Node(OBJECT node) {
+  IF (node->nodetype = node->Element_Node) {
+    RECORD ARRAY attrs := SELECT field := nodename, value := nodevalue FROM node->ListAttributes();
+    ImportXML_StartElement(node->nodename, attrs);
+  } ELSE IF (node->nodetype IN [INTEGER(node->Text_Node), node->Cdata_Section_Node]) {
+    ImportXML_TextNode(node->nodevalue);
+  } ELSE IF (node->nodetype = node->Comment_Node) {
+    IF (importxml_user_callbacks.comment_node != DEFAULT MACRO PTR)
+      importxml_user_callbacks.comment_node(node->nodevalue);
+  }
+
+  IF (node->nodetype IN [INTEGER(node->Element_Node), node->Document_Node]) {
+    FOR (OBJECT child := node->firstchild; ObjectExists(child); child := child->nextsibling)
+      ImportXML_Node(child);
+  }
+
+  IF (node->nodetype = node->Element_Node)
+    ImportXML_EndElement(node->nodename);
+}
+
 /** @short Parse an archive as a HS XML table
     @param archive Archive blob to parse
     @param callbacks Record with pointers to macros to be called while parsing. Set the callbacks you want to use.
@@ -785,6 +806,11 @@ MACRO ImportXMLDatabaseArchive(BLOB archive, RECORD callbacks)
     RETURN; //no data!
   }
 
+  OBJECT doc := MakeXMLDocument(xmlfile.data, "UTF-8");
+  RECORD ARRAY errors := doc->GetParseErrors();
+  IF (Length(errors) > 0)
+    ABORT("Could not parse hsxml/database.xml: " || errors[0].message);
+
   importxml_recordfilestotalsize := 0;
   FOREVERY(RECORD file FROM importxml_archive)
     IF(file.name!="database.xml")
@@ -793,12 +819,9 @@ MACRO ImportXMLDatabaseArchive(BLOB archive, RECORD callbacks)
   importxml_user_callbacks := callbacks;
   importxml_depth := 0;
   importxml_header_ok := FALSE;
-  callbacks.start_element := PTR ImportXML_StartElement;
-  callbacks.end_element := PTR ImportXML_EndElement;
-  callbacks.text_node := PTR ImportXML_TextNode;
   ResetMappings();
 
-  ParseXMLWithCallbacks(xmlfile.data, callbacks, "UTF-8");
+  ImportXML_Node(doc);
   importxml_user_callbacks := DEFAULT RECORD;
   importxml_archive := DEFAULT RECORD ARRAY;
 }
