@@ -339,6 +339,15 @@ async function testJSBackedURLs() {
   }, await fetchresult.json());
 }
 
+async function testNonVhost() {
+  //Test with non-vhosted IP addresses. These require different URL calculations
+  const directLocalhost = await test.createWebServer({ hostname: "localhost" });
+  const baseURL = directLocalhost.baseURL + ".webhare_testsuite/tests/js/"; //handled by mod::webhare_testsuite/web/tests/js/testrouter.ts
+  const debugInfoURL = baseURL + "?type=debug";
+  const fetchresult = await fetch(debugInfoURL).then(_ => _.json());
+  test.eq(debugInfoURL, fetchresult.url);
+}
+
 async function testRequestSeparation() {
   const baseURL = services.backendConfig.backendURL + ".webhare_testsuite/tests/js/";
 
@@ -384,5 +393,6 @@ test.runTests([
   testEphemeralEndpoints,
   testHSWebserver,
   testJSBackedURLs,
+  testNonVhost,
   testRequestSeparation
 ]);
