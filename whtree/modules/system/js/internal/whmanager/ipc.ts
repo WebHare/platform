@@ -4,7 +4,7 @@ import { type TypedMessagePort, createTypedMessageChannel, registerTransferredPo
 import { RefTracker } from "./refs";
 import { generateRandomId } from "@webhare/std";
 import * as envbackend from "@webhare/env/src/envbackend";
-import { type MessagePort, receiveMessageOnPort, type Transferable as TransferListItem } from 'node:worker_threads';
+import { type MessagePort, receiveMessageOnPort, type Transferable as TransferListItem, MessageChannel } from 'node:worker_threads';
 import { type StackTrace, parseTrace } from "@webhare/js-api-tools";
 
 export type IPCEncodedException = {
@@ -407,6 +407,10 @@ export const IPCPortControlMessageType = {
   IncomingLink: 1
 } as const;
 
+export const IPCPortCommandMessageType = {
+  NotifyUnregistered: 0,
+} as const;
+
 function getIPCPortControlMessageTypeName(type: typeof IPCPortControlMessageType[keyof typeof IPCPortControlMessageType]): string {
   return Object.keys(IPCPortControlMessageType).find(key => IPCPortControlMessageType[key as keyof typeof IPCPortControlMessageType] === type) || `UnknownIPCPortControlMessageType${type}`;
 }
@@ -418,6 +422,11 @@ export type IPCPortControlMessage = {
   type: typeof IPCPortControlMessageType.IncomingLink;
   id: string;
   port: TypedMessagePort<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>;
+};
+
+export type IPCPortCommandMessage = {
+  type: typeof IPCPortCommandMessageType.NotifyUnregistered;
+  messagePort: MessagePort;
 };
 
 type IPCPortEvents<SendType extends object | null, ReceiveType extends object | null> = {
@@ -435,7 +444,8 @@ export interface IPCPort<SendType extends object | null = IPCMarshallableRecord,
   activate(): Promise<void>;
 
   /** Closes the port */
-  close(): void;
+  close(options?: { wait?: false }): void;
+  close(options: { wait: true }): Promise<void>;
 
   /** Drop the reference on this port, so the node process won't keep running when this port hasn't been closed yet */
   dropReference(): void;
@@ -446,14 +456,14 @@ export interface IPCPort<SendType extends object | null = IPCMarshallableRecord,
 
 export class IPCPortImpl<SendType extends object | null, ReceiveType extends object | null> extends EventSource<IPCPortEvents<SendType, ReceiveType>> implements IPCPort<SendType, ReceiveType> {
   name: string;
-  port: TypedMessagePort<never, IPCPortControlMessage>;
+  port: TypedMessagePort<IPCPortCommandMessage, IPCPortControlMessage>;
   defer = Promise.withResolvers<void>();
   queue: Array<IPCEndPointImpl<SendType, ReceiveType>> | null = [];
   closed = false;
   emitting = false;
   refs: RefTracker;
 
-  constructor(name: string, port: TypedMessagePort<never, IPCPortControlMessage>) {
+  constructor(name: string, port: TypedMessagePort<IPCPortCommandMessage, IPCPortControlMessage>) {
     super();
     this.name = name;
     this.port = port;
@@ -523,10 +533,22 @@ export class IPCPortImpl<SendType extends object | null, ReceiveType extends obj
     }
   }
 
-  close() {
+  close(options?: { wait: false }): void;
+  close(options: { wait: true }): Promise<void>;
+  close(options?: { wait: boolean }): void | Promise<void> {
+    let channel: MessageChannel | undefined;
+    if (options?.wait) {
+      // send a messagePort to the mainbridge, it will be closed when the whmanager acknowledges the unregistration
+      channel = new MessageChannel();
+      this.port.postMessage({ type: IPCPortCommandMessageType.NotifyUnregistered, messagePort: channel.port2 }, [channel.port2]);
+    }
     this.port.close();
     this.closed = true;
     this.emitQueue();
+    if (channel) {
+      const lock = new RefTracker(channel.port1, { initialref: false }).getLock();
+      return new Promise<void>((resolve) => channel.port1.addEventListener("close", () => { lock.release(); resolve(); }));
+    }
   }
 
   /** Drop the reference on this port, so the node process won't keep running when this port hasn't been closed yet */
