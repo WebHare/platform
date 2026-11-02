@@ -8,6 +8,8 @@ import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import { enableDevKit, parseModuleFolderName } from "@mod-system/js/internal/generation/gen_config_nodb";
 import { generatePropertyName, generateTypeName } from "@mod-system/js/internal/generation/gen_wrd";
 import { deleteTestModule } from "@webhare/test-backend";
+import { prepTSHost } from "@webhare/test/src/testsupport";
+import { generateTSConfigTextForModule } from "@mod-system/js/internal/generation/gen_typescript";
 
 
 async function testWebHareConfig() {
@@ -223,10 +225,12 @@ export async function getCircular(req: TypedRestRequest<APIAuthInfo, "get /circu
   // const file_whdb = require.resolve("wh:db/webhare_testsuite_generatedfilestest");
   const file_wrd = require.resolve("wh:wrd/webhare_testsuite_generatedfilestest");
   const file_openapi = require.resolve("wh:openapi/webhare_testsuite_generatedfilestest/testopenapiservice");
+  const file_services = backendConfig.dataRoot + "config/ts/webhare_testsuite_generatedfilestest/services.ts";
 
   // test.assert(Boolean(fs.statSync(file_whdb))); //FIXME this file is created by post-start applyingdev, not module activation. not sure if it should be either...
   test.assert(Boolean(fs.statSync(file_wrd)));
   test.assert(Boolean(fs.statSync(file_openapi)));
+  test.assert(Boolean(fs.statSync(file_services)));
 
   const checkres = await checkModule("webhare_testsuite_generatedfilestest");
   test.eq([], checkres.filter(_ => _.type === "error"), "No errors should be found in the module");
@@ -241,9 +245,60 @@ export async function getCircular(req: TypedRestRequest<APIAuthInfo, "get /circu
   // await test.wait(() => !fs.statSync(file_whdb, { throwIfNoEntry: false })); /FIXME this file is not actually cleaned as deletemodule does not apply 'dev', or should it?
   await test.wait(() => !fs.statSync(file_wrd, { throwIfNoEntry: false }));
   await test.wait(() => !fs.statSync(file_openapi, { throwIfNoEntry: false }));
+  await test.wait(() => !fs.statSync(file_services, { throwIfNoEntry: false }));
+}
+
+async function testModuleRPCDependencies() {
+  const modules = ["webhare_testsuite_rpcleaf", "webhare_testsuite_rpcdependency", "webhare_testsuite_rpcroot", "webhare_testsuite_rpcunrelated"];
+  for (const [index, module] of modules.entries()) {
+    const dependency = index === 1 || index === 2 ? `<dependency module="${modules[index - 1]}" />` : "";
+    await installTestModule(module, {
+      "moduledefinition.xml": `<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition"><meta><version>0.0.1</version><packaging>${dependency}</packaging></meta></module>`,
+      "moduledefinition.yml": "rpcServices:\n  example:\n    api: rpc.ts#service\n",
+      "rpc.ts": "export const service = { echo(_context: unknown, value: number): number { return value; } };\n",
+      "index.ts": "export { service } from \"./rpc\";\n",
+      ...(index === 2 ? {
+        "client.ts": `import { rpc } from "@webhare/rpc";
+${modules.slice(0, 3).map(name => `export const ${name}: Promise<number> = rpc("${name}:example").echo(42);`).join("\n")}
+`,
+        "nested/tsconfig.json": "{ \"extends\": \"../tsconfig.json\", \"include\": [\"*.ts\"] }\n",
+        "nested/result.ts": `import type { GetRPCClientInterface } from "@webhare/rpc";
+export type RPCDependencyResult = { value: Awaited<ReturnType<GetRPCClientInterface<"${modules[0]}:example">["echo"]>> };
+`
+      } : {})
+    });
+  }
+
+  const root = backendConfig.module[modules[2]].root;
+  for (const setFiles of [undefined, [root + "client.ts"]]) {
+    if (setFiles)
+      fs.writeFileSync(root + "tsconfig.json", await generateTSConfigTextForModule(modules[2]));
+    const { program, diagnostics } = await prepTSHost(root + "tsconfig.json", { setFiles, ignoreErrors: true });
+    console.log(`RPC dependency program: ${program.getSourceFiles().length} source files, ${diagnostics.length} diagnostics`);
+    const paths = program.getCompilerOptions().paths!;
+    test.assert(!paths[`@mod-${modules[3]}/*`], "Unrelated module must not have a path mapping");
+    test.assert(!paths[`@mod-${modules[3]}`], "Unrelated module must not have a direct path mapping");
+    test.assert(paths["@mod-platform/*"] && paths["@mod-system/*"] && paths["@webhare/*"]);
+    for (const module of modules.slice(0, 3))
+      test.assert(paths[`@mod-${module}/*`] && paths[`@mod-${module}`], `Path mappings for '${module}' must be available`);
+    test.assert(!program.getSourceFile(backendConfig.module[modules[3]].root + "rpc.ts"), "Unrelated RPC module must not be loaded");
+    for (const module of modules.slice(0, 3))
+      test.assert(program.getSourceFile(backendConfig.module[module].root + "rpc.ts"), `RPC types for '${module}' must be loaded`);
+    test.eq([], diagnostics.map(diagnostic => ({ file: diagnostic.file?.fileName, message: diagnostic.messageText })));
+  }
+  const validator = await test.loadTSType(root + "nested/result.ts#RPCDependencyResult");
+  validator.validateStructure({ value: 42 });
+  test.throws(/does not conform/, () => validator.validateStructure({ value: "wrong" }));
+
+  const leafDefinition = backendConfig.module[modules[0]].root + "moduledefinition.xml";
+  fs.writeFileSync(leafDefinition, `<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition"><meta><version>0.0.1</version><packaging><dependency module="${modules[3]}" /></packaging></meta></module>`);
+  await applyConfiguration({ subsystems: ["config"], modules: [modules[0]], source: "testModuleRPCDependencies" });
+  test.assert(fs.readFileSync(root + "tsconfig.json", "utf8").includes(`config/ts/${modules[3]}/services.ts`), "Dependent tsconfigs must follow dependency changes");
+  test.assert(fs.readFileSync(root + "tsconfig.json", "utf8").includes(`"@mod-${modules[3]}/*"`), "Dependent path mappings must follow dependency changes");
 }
 
 test.runTests([
+  testModuleRPCDependencies,
   testBasics,
   testWebHareConfig,
   testModule,
