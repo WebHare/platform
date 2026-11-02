@@ -20,7 +20,7 @@ import { sleep, wrapInTimeout } from '@webhare/std';
 import type { RecursiveReadonly } from '@webhare/js-api-tools';
 import bridge from '@mod-system/js/internal/whmanager/bridge';
 
-/// Prefix for log messages. Initial vill be updated to contain serviceClass
+/// Prefix for log messages. Initial will be updated to contain serviceClass
 let logPrefix = `[nodeservices]`;
 
 /// Service registration map
@@ -33,7 +33,7 @@ class RegisteredService extends ManagedService {
   launchPromise: Promise<WebHareService> | null = null;
   /// Holds the promise waiting for service stop
   stopPromise: Promise<void> | null = null;
-  /// Rsetart flag, set to start a stop/start cycle
+  /// Restart flag, set to start a stop/start cycle
   mustRestart: boolean = false;
 
   constructor(descriptor: BackendServiceDescriptor) {

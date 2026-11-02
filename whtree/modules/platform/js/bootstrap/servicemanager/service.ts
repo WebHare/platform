@@ -2,7 +2,7 @@ export interface SuppressingClient {
 
 }
 
-// We should learns servicemnanager too to keep track of services, even when currently stopped/unconfigured. Preparing a base class
+// We should learn the servicemnanager to keep track of services too, even when currently stopped/unconfigured. Preparing a base class
 // as in the abstract, nodeservices has the same lifecycle issues
 export class ManagedService {
   /// Is this service in the current configuration?

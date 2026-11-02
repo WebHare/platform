@@ -13,9 +13,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 async function testCacheableJSONConfig() {
-  /* Our config re-generation process some extract updates to disk, but also reuses som extracts again, eg
+  /* Our config re-generation process some extract updates to disk, but also reuses some extracts again, eg
      we may first update services.json and then need that data (through getCacheableJSONConfig) for openapi generation.
-     writeCacheableJSONConfig ensures that the internal cache used bygetCacheableJSONConfig is up to date . */
+     writeCacheableJSONConfig ensures that the internal cache used by getCacheableJSONConfig is up to date . */
   const tempdir = await mkdtemp(join(tmpdir(), "test-cacheable-json-"));
   const diskpath = join(tempdir, "config.json");
   const original = JSON.stringify({ nested: { items: [{ value: 1 }] } });
