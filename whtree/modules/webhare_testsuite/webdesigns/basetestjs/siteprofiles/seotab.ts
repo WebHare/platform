@@ -2,6 +2,10 @@ import type { FSObjectPolicy, FSObjectPolicyBaseContext } from "@webhare/backend
 
 export const seoPolicy: FSObjectPolicy = {
   getFallbackMetaTitle: (context: FSObjectPolicyBaseContext) => {
-    return context.title === "default" ? null : context.title ? context.title + " - Home" : "Initial placeholder title";
+    if (context.title === "default")
+      return null;
+
+    const suffix = ` - ${context.targetParent},${context.targetObject},${context.contentObject}`;
+    return (context.title ? context.title + " - Home" : "Initial placeholder title") + suffix;
   }
 };
