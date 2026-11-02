@@ -40,6 +40,7 @@ export interface BackendServiceDescriptor {
   serviceClass: "web" | "core" | "node";
   onCreateClient: string;
   onCreateController: string;
+  revision?: string;
 }
 
 export type OpenAPIValidationMode = ["never"] | ["always"] | Array<"test" | "development">;
@@ -253,7 +254,8 @@ export async function gatherServices(context: GenerateContext) {
         name: `${mod.name}:${servicename}`,
         serviceClass: servicedef.serviceClass || "node",
         onCreateClient: resolveResource(mod.resourceBase, servicedef.onCreateClient || servicedef.clientFactory || ""),
-        onCreateController: resolveResource(mod.resourceBase, servicedef.onCreateController || servicedef.controllerFactory || "")
+        onCreateController: resolveResource(mod.resourceBase, servicedef.onCreateController || servicedef.controllerFactory || ""),
+        revision: servicedef.revision || undefined,
       });
     }
 

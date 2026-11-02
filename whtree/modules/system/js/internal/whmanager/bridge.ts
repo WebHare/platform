@@ -1524,7 +1524,7 @@ function handleGlobalEvent(data: { name: string }) {
     case "system:configupdate": {
       reloadBackendConfig();
     } break;
-    case "platform:generated-files-updated":
+    case "platform:generated_files_updated":
     case "system:sites": {
       invalidateGeneratedFilesCache();
     } break;

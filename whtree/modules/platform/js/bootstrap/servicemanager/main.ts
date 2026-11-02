@@ -61,25 +61,21 @@ const stagetitles: Record<Stage, string> = {
 
 class ProcessList {
   private procs = new Map<string, ProcessManager>();
-  private lingeringProcesses = new Set<ProcessManager>();
 
   get(name: string) {
     return this.procs.get(name);
   }
   addProc(name: string, mgr: ProcessManager) {
-    const existing = this.procs.get(name);
-    if (existing)
-      this.lingeringProcesses.add(existing);
+    if (this.procs.has(name))
+      throw new Error(`Service '${name}' is already registered`);
     this.procs.set(name, mgr);
   }
   unregister(mgr: ProcessManager) {
-    if (this.lingeringProcesses.has(mgr))
-      this.lingeringProcesses.delete(mgr);
-    else
+    if (this.procs.get(mgr.name) === mgr)
       this.procs.delete(mgr.name);
   }
   getAllRunning(): ProcessManager[] {
-    return [...this.procs.values(), ...this.lingeringProcesses.values()];
+    return [...this.procs.values()];
   }
 }
 
@@ -262,12 +258,15 @@ class ProcessManager {
   }
 
   async stop() {
+    this.toldToStop = true;
     if (this.startDelayTimer) {
       clearTimeout(this.startDelayTimer);
       this.startDelayTimer = null;
+      this.servicemgr.processes.unregister(this);
+      this.stopDefer.resolve("cancelled");
+      return;
     }
 
-    this.toldToStop = true;
     if (!this.running)
       return;
 
@@ -355,18 +354,24 @@ class ServiceManagerClient extends BackendServiceConnection {
   }
 
   async restartService(service: string) {
-    //TODO we should probably tell process.stop to restart and be a bit more robust against parallel start/stop calls
     //TODO I think we could better combine start/stoprestart APIs (especially when enable/disable comes around too)
-    const serviceinfo = this.#mgr().expectedServices.get(service);
-    const process = this.#mgr().processes.get(service);
+    const mgr = this.#mgr();
+    const serviceinfo = mgr.expectedServices.get(service);
+    const process = mgr.processes.get(service);
     if (!serviceinfo)
       return { errorMessage: `No such service '${service}'` };
-    if (process?.running)
+    if (process) // Also cancel a pending throttled start before replacing the process manager.
       await process.stop();
 
-    if (!metaMgr.mgr)
+    if (metaMgr.mgr !== mgr || mgr.shuttingDown)
       return { errorMessage: `Service manager is not currently running` };
-    new ProcessManager(metaMgr.mgr, service, serviceinfo);
+    // Another restart or configuration update may have started a replacement while we awaited stop().
+    if (!mgr.processes.get(service)) {
+      const currentServiceInfo = mgr.expectedServices.get(service);
+      if (!currentServiceInfo)
+        return { errorMessage: `No such service '${service}'` };
+      new ProcessManager(mgr, service, currentServiceInfo);
+    }
     return { ok: true };
   }
 
@@ -549,7 +554,7 @@ class ServiceManager {
         if (process && service.run !== "once" && shouldRestartService(process.service, service)) {
           // Wait for it to stop, don't want to overlap with the new service instance
           await process.stop();
-          process = undefined;
+          process = this.processes.get(name);
         }
         if (!process) {
           const proc = new ProcessManager(this, name, service);

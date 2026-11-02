@@ -17,6 +17,7 @@ import type { HooksExtract } from "./generation/gen_extract_hooks";
 import type { UserRights } from "./generation/gen_extract_userrights";
 import type { ModulePlugins } from "./generation/gen_plugins";
 import type { WHFSExtract } from "./generation/gen_whfs";
+import { storeDiskFile, type StoreDiskFileOptions } from "@webhare/system-tools/src/fs";
 
 export type { WebHareBackendConfiguration, WebHareConfigFile };
 
@@ -94,29 +95,33 @@ let extractsCache: Map<string, {
   data: unknown;
 }> | null = null;
 
-function deepFreeze(object: Record<string | symbol, unknown>) {
-  for (const value of Object.values(object)) {
-    if (value && typeof value === "object")
-      deepFreeze(value as Record<string | symbol, unknown>);
-  }
-  return Object.freeze(object);
-}
-
 export function invalidateGeneratedFilesCache() {
   extractsCache = null;
 }
 
-function getCacheableJSONConfig(diskpath: string) {
+/** Read a JSON configuration file, cache as needed and return a frozen version of the configuration */
+export function getCacheableJSONConfig(diskpath: string) {
   if (!extractsCache)
-    extractsCache = new Map<string, { lastUpdate: number; data: unknown }>();
+    extractsCache = new Map;
   const entry = extractsCache.get(diskpath);
   if (entry)
     return entry.data;
 
   const fileStr = fs.readFileSync(diskpath, 'utf8');
-  const data = deepFreeze(JSON.parse(fileStr));
+  const data = freezeRecursive(JSON.parse(fileStr));
   extractsCache.set(diskpath, { data });
   return data;
+}
+
+/** Store serialized JSON configuration and refresh its deeply frozen cache entry ensuring local getCacheableJSONConfig will see our changes.
+ *  A `broadcast("platform:generated_files_updated")` broadcast is still needed to inform other processes.
+*/
+export async function writeCacheableJSONConfig(diskpath: string, content: string, options?: StoreDiskFileOptions): Promise<{ skipped: boolean }> {
+  const data = freezeRecursive(JSON.parse(content));
+  const result = await storeDiskFile(diskpath, content, options);
+  extractsCache ??= new Map;
+  extractsCache.set(diskpath, { data });
+  return result;
 }
 
 export function isInvalidWebHareUpgrade(from: string, to: string): string | null {
