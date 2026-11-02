@@ -60,7 +60,6 @@ enum ObjectType
 
 typedef std::map<std::string,std::string> XpathNamespaces;
 
-const unsigned ContextId = 10; //our official registered XML context id
 const unsigned XMLNodeContextId = 28601;
 const unsigned XMLDOMImplementationContextId = 28602;
 
@@ -142,9 +141,6 @@ struct XMLContextReadData
         bool ParseXMLBlob(HSVM *hsvm, HSVM_VariableId blob, HSVM_VariableId encoding, bool readonly);
         bool ParseHTMLBlob(HSVM *hsvm, HSVM_VariableId blob, HSVM_VariableId encoding, bool readonly, bool noimplied);
         xmlSchemaPtr ParseAsValidator(HSVM *vm, HSVM_VariableId domimpl);
-
-        bool ParseAndValidateXML(XMLBlobData &xmlblob, XMLBlobData *xsdblob, xmlCharEncoding enc, bool readonly);
-        bool ParseHTML(XMLBlobData &xmlblob, xmlCharEncoding enc, bool readonly);
 
         void GetExternalSchema(
                 HSVM *hsvm,
@@ -240,69 +236,6 @@ struct XMLNodeCreate
         HSVM_VariableId fptr_htmldocumentobject;
 };
 
-
-/** XML context, stores XML parser contexts */
-struct XMLContextData
-{
-        ~XMLContextData();
-        std::map<int, XMLContextReadDataPtr> read_context;
-        int read_context_id;
-        bool aborted;
-
-
-
-        XMLContextData();
-};
-
-/* In libxml these callbacks can be defined (callbacks marked with * are currently
-   supported by HareScript):
-     internalSubsetSAXFunc internalSubset;
-     isStandaloneSAXFunc isStandalone;
-     hasInternalSubsetSAXFunc hasInternalSubset;
-     hasExternalSubsetSAXFunc hasExternalSubset;
-     resolveEntitySAXFunc resolveEntity;
-     getEntitySAXFunc getEntity;
-     entityDeclSAXFunc entityDecl;
-     notationDeclSAXFunc notationDecl;
-     attributeDeclSAXFunc attributeDecl;
-     elementDeclSAXFunc elementDecl;
-     unparsedEntityDeclSAXFunc unparsedEntityDecl;
-     setDocumentLocatorSAXFunc setDocumentLocator;
-     startDocumentSAXFunc startDocument;
-     endDocumentSAXFunc endDocument;
-   * startElementSAXFunc startElement;
-   * endElementSAXFunc endElement;
-     referenceSAXFunc reference;
-   * charactersSAXFunc characters;
-     ignorableWhitespaceSAXFunc ignorableWhitespace;
-     processingInstructionSAXFunc processingInstruction;
-   * commentSAXFunc comment;
-     warningSAXFunc warning;
-     errorSAXFunc error;
-     fatalErrorSAXFunc fatalError; // not used yet by libxml
-*/
-
-struct XMLSaxCallbacks
-{
-        XMLSaxCallbacks()
-        : vm(NULL)
-        , start_element(0)
-        , end_element(0)
-        , text_node(0)
-        , comment_node(0)
-        , pi_node(0)
-        , error(0)
-        {}
-
-        HSVM *vm;
-
-        HSVM_VariableId start_element;
-        HSVM_VariableId end_element;
-        HSVM_VariableId text_node;
-        HSVM_VariableId comment_node;
-        HSVM_VariableId pi_node;
-        HSVM_VariableId error;
-};
 
 extern "C"
 {

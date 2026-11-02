@@ -12,9 +12,6 @@ LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
 
-STRING cbresult := "";
-BOOLEAN cbtext := FALSE;
-
 MACRO DebugNode(OBJECT node)
 {
   print('--\n');
@@ -23,76 +20,6 @@ MACRO DebugNode(OBJECT node)
     print(attrs->prefix || " " || attrs->namespaceuri || " " || attrs->localname || "\n");
   print('--\n');
 }
-
-MACRO XMLEltStart(STRING node, RECORD ARRAY attrs)
-{
-  IF (cbtext)
-  {
-    cbtext := FALSE;
-    cbresult := cbresult || "'";
-  }
-  cbresult := cbresult || "<" || node;
-  FOREVERY(RECORD attr FROM attrs)
-    cbresult := cbresult || " " || attr.field || "=\"" || EncodeValue(attr.value) || "\"";
-  cbresult := cbresult || ">";
-}
-MACRO XMLEltEnd (STRING node)
-{
-  IF (cbtext)
-  {
-    cbtext := FALSE;
-    cbresult := cbresult || "'";
-  }
-  cbresult := cbresult || ("</" || node || ">");
-}
-MACRO XMLEltText (STRING node)
-{
-  IF (NOT cbtext)
-  {
-    cbtext := TRUE;
-    cbresult := cbresult || "'";
-  }
-  cbresult := cbresult || EncodeValue(node);
-}
-MACRO XMLEltComment (STRING node)
-{
-  IF (cbtext)
-  {
-    cbtext := FALSE;
-    cbresult := cbresult || "'";
-  }
-  cbresult := cbresult || ("<!--" || node || "-->");
-}
-MACRO XMLEltPi (STRING target, STRING data)
-{
-  IF(target="xml")
-    RETURN;
-
-  IF (cbtext)
-  {
-    cbtext := FALSE;
-    cbresult := cbresult || "'";
-  }
-  cbresult := cbresult || ("<?" || EncodeValue(target) || " " || data || "?>");
-}
-MACRO XMLError(INTEGER code, INTEGER linenum, STRING error)
-{
-  IF (cbtext)
-  {
-    cbtext := FALSE;
-    cbresult := cbresult || "'";
-  }
-  cbresult := cbresult || ("<!-- ERROR: " || code || " " || linenum || " " || error || " -->");
-}
-
-RECORD XMLCallbacks := [ start_element := PTR XMLEltStart
-                       , end_element := PTR XMLEltEnd
-                       , text_node := PTR XMLEltText
-                       , comment_node := PTR XMLEltComment
-                       , pi_node := PTR XMLEltPi
-                       , error := PTR XMLError
-                       ];
-
 
 MACRO TestXML()
 {
@@ -376,24 +303,6 @@ MACRO TestHTML()
   TestEq('<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=iso-8859-1\"/>\n</head><body>testgeblaat!</body></html>\n', BlobToString(doc->GetDocumentBlob(FALSE),65535));
 
   CloseTest("TestHTML");
-}
-
-MACRO TestParseXMLWithCallbacks()
-{
-  BLOB xmlblob := StringToBlob(`<books id='books_1' hs:x='2' xmlns:hs='http://test'><!-- A list of books --><book amp="&amp;" lt="&#60;" amp38="&#38;amp;" a="&#65;"><!-- First book -->abc<author>John Smith</author>def<title>About a John</title>ghi</book><book><!-- Second book -->def<author>&lt;Jim Doe&gt; &amp; &quot;Jane Doe&quot;</author>jkl<title>My first book</title>mno</book></books>`);
-
-  OpenTest("TestParseXMLWithCallbacks");
-
-  cbresult:="";
-  ParseXMLWithCallbacks(xmlblob, XMLCallbacks);
-  TestEq(`<books id="books_1" hs:x="2" xmlns:hs="http://test"><!-- A list of books --><book amp="&#38;" lt="&#60;" amp38="&#38;amp;" a="A"><!-- First book -->'abc'<author>'John Smith'</author>'def'<title>'About a John'</title>'ghi'</book><book><!-- Second book -->'def'<author>'&#60;Jim Doe&#62; &#38; &#34;Jane Doe&#34;'</author>'jkl'<title>'My first book'</title>'mno'</book></books>`, cbresult);
-
-  cbresult:="";
-  xmlblob := StringToBlob("<test><?wh print('yeay') ?></test>");
-  ParseXMLWithCallbacks(xmlblob, XMLCallbacks);
-  TestEq("<test><?wh print('yeay') ?></test>", cbresult);
-
-  CloseTest("TestParseXMLWithCallbacks");
 }
 
 MACRO TestDOM()
@@ -806,15 +715,6 @@ MACRO TestRegression()
 {
   OpenTest("XMLRegression");
 
-  //Test a message which was incorrectly recognized as UTF-16, even though we explicitly ask for UTF-8 decoding
-//  BLOB msgblob := MakeBlobFromDiskfile(testdata_dir || "false_utf16.eml");
-  BLOB msgblob := OpenTestFile("false_utf16.eml");
-  RECORD message := DecodeMIMEMessage(msgblob);
-
-  cbresult:="";
-  ParseHTMLAsXMLWithCallbacks(message.data.subparts[1].data, XMLCallbacks, "UTF-8");
-  TestEq('<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-16"></meta></head><body><p>\'&#13;&#10;DIT IS EEN TESTMAIL&#13;&#10;\'</p></body></html>', cbresult);
-
   // Passing an empty document to a validator was a good way to crash stuff
   STRING validationdoc := '<?xml version="1.0" encoding="UTF-8"?><xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn::x"></xs:schema>';
   OBJECT emptyvalidation := MakeXMLSchema(StringToBlob(validationdoc));
@@ -878,26 +778,6 @@ MACRO TestBom()
   TestEq(1, Length(xmlresult));
   TestEq("lang", xmlresult[0].xml_name);
   TestEq("en", xmlresult[0].xml_content);
-
-  // XML SAX
-  cbresult:="";
-  ParseXMLWithCallbacks(xmlblob, XMLCallbacks, "UTF-8");
-  TestEq('<html lang="en"><head><title>\'test\'</title></head><body><p>\'test\'</p></body></html>', cbresult);
-
-  // XML SAX Autodetect
-  cbresult:="";
-  ParseXMLWithCallbacks(xmlblob, XMLCallbacks);
-  TestEq('<html lang="en"><head><title>\'test\'</title></head><body><p>\'test\'</p></body></html>', cbresult);
-
-  // HTML SAX
-  cbresult:="";
-  ParseHTMLAsXMLWithCallbacks(xmlblob, XMLCallbacks, "UTF-8");
-  TestEq('<html lang="en"><head><title>\'test\'</title></head><body><p>\'test\'</p></body></html>', cbresult);
-
-  // HTML SAX Autodetect
-  cbresult:="";
-  ParseHTMLAsXMLWithCallbacks(xmlblob, XMLCallbacks);
-  TestEq('<html lang="en"><head><title>\'test\'</title></head><body><p>\'test\'</p></body></html>', cbresult);
 
   CloseTest("XMLBom");
 }
@@ -1966,7 +1846,6 @@ TestBom();
 TestXML();
 TestXMLATtributeNS();
 TestXMLRecord();
-TestParseXMLWithCallbacks();
 TestDOM();
 TestDOMDocType();
 TestCloneNode();

@@ -164,7 +164,7 @@ MACRO InplaceUpdateTest()
   TestEq(defaultdata,     testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test"));
 
   OBJECT myrichdoc := NEW RichDocument;
-  myrichdoc->ImportFromMHTML(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.mht"));
+  myrichdoc->ImportFromRecord(BuildRTDFromYAML(BlobToString(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.rtd.yml"))));
   RECORD richdocrec := myrichdoc->ExportAsRecord();
   richdocrec.embedded := SELECT *, hash := EncodeUFS(GetHashForBlob(data, "SHA-256")), link := "" FROM richdocrec.embedded;
 

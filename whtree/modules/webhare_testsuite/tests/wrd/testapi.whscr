@@ -1020,7 +1020,7 @@ MACRO RichDoc()
   TestEq(TRUE, ObjectExists(testpersonobj));
 
   OBJECT myrichdoc := NEW RichDocument;
-  myrichdoc->ImportFromMHTML(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.mht"));
+  myrichdoc->ImportFromRecord(BuildRTDFromYAML(BlobToString(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.rtd.yml"))));
   RECORD myrichexp := myrichdoc->ExportAsRecord();
 
   testpersonobj->UpdateEntity([ richie := myrichexp
@@ -1128,7 +1128,7 @@ MACRO RichDoc()
   TestEq(OpenTestsuiteSite()->OpenByPath("tmp/destlink")->id, wrdperson->GetEntity(testpersonid)->GetField("TESTINTEXTLINK").internallink);
 
   // Are source_fsobjects in embedded images stored?
-  myrichdoc->ImportFromMHTML(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.mht"));
+  myrichdoc->ImportFromRecord(BuildRTDFromYAML(BlobToString(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.rtd.yml"))));
   myrichexp := myrichdoc->ExportAsRecord();
   myrichexp.embedded[0].source_fsobject := destlink->id;
   testpersonobj->UpdateEntity([ richie := myrichexp ] );
@@ -2606,7 +2606,7 @@ MACRO TestUpdateEntityFields() //TODO cleanup? - this test is pretty much irrele
 MACRO TestUpdateFiltering()
 {
   OBJECT myrichdoc := NEW RichDocument;
-  myrichdoc->ImportFromMHTML(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.mht"));
+  myrichdoc->ImportFromRecord(BuildRTDFromYAML(BlobToString(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.rtd.yml"))));
   RECORD myrichexp := myrichdoc->ExportAsRecord();
 
   BLOB testimage_blob := GetWebHareResource("mod::system/web/tests/goudvis.png");
@@ -2834,7 +2834,7 @@ MACRO TestWHFSMapper()
   OBJECT destlink := OpenTestsuitesite()->OpenByPath("/testpages/imgeditfile.jpeg");
 
   OBJECT myrichdoc := NEW RichDocument;
-  myrichdoc->ImportFromMHTML(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.mht"));
+  myrichdoc->ImportFromRecord(BuildRTDFromYAML(BlobToString(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.rtd.yml"))));
 
   RECORD myrichexp := myrichdoc->ExportAsRecord();
   myrichexp.embedded[0].source_fsobject := destlink->id;

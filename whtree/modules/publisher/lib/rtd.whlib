@@ -51,8 +51,7 @@ RECORD ARRAY FUNCTION AnalyzeSubparts(BLOB indata, RECORD ARRAY parts)
   RETURN parts;
 }
 
-PUBLIC STATIC OBJECTTYPE RichDocument
-<
+PUBLIC STATIC OBJECTTYPE RichDocument <
   RECORD ARRAY embeddedfiles;
   RECORD ARRAY links;
   RECORD ARRAY instances;
@@ -136,26 +135,6 @@ PUBLIC STATIC OBJECTTYPE RichDocument
     RETURN inurl;
   }
 
-  PUBLIC MACRO ImportFromMHTML(BLOB indata)
-  {
-    this->Clear();
-
-    RECORD msg := DecodeMIMEMessage(indata);
-    IF(GetMIMEHeaderParameter(msg.data.mimetype, "") = "multipart/related"
-       AND GetMIMEHeaderParameter(msg.data.subparts[0].mimetype, "") = "text/html")
-    {
-      INTEGER output := CreateStream();
-
-      RewriteHTMLDocumentTo(output
-                           ,msg.data.subparts[0].data
-                           ,[ imageurlrewrite := PTR this->RewriteImage(AnalyzeSubparts(indata, msg.data.subparts), #1)
-                            , fragmentlevel := "blockelements"
-                            ]);
-
-      this->SetupHTML(MakeBlobFromStream(output));
-    }
-  }
-
   MACRO Clear()
   {
     this->htmldoc := DEFAULT OBJECT;
@@ -193,7 +172,7 @@ PUBLIC STATIC OBJECTTYPE RichDocument
                                    , filename := CellExists(embedded, 'filename') ? embedded.filename : ''
                                    , extension := GetExtensionForMimeType(mimetype)
                                    , url := ""
-                                   , __blobsource //FIXME can we ensure all paths just give us this ?
+                                   , __blobsource := CellExists(embedded,"__blobsource") ? embedded.__blobsource : ""
                                    , rotation
                                    , mirrored
                                    , refpoint := DEFAULT RECORD

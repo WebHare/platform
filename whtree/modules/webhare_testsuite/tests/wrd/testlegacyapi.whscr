@@ -119,7 +119,7 @@ MACRO RichDoc()
   TestEq(TRUE, ObjectExists(testpersonobj));
 
   OBJECT myrichdoc := NEW RichDocument;
-  myrichdoc->ImportFromMHTML(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.mht"));
+  myrichdoc->ImportFromRecord(BuildRTDFromYAML(BlobToString(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.rtd.yml"))));
   RECORD myrichexp := myrichdoc->ExportAsRecord();
 
   testpersonobj->UpdateFields([ richie := myrichexp
@@ -201,7 +201,7 @@ MACRO RichDoc()
   TestEq(OpenTestsuiteSite()->OpenByPath("tmp/destlink")->id, wrdperson->GetEntity(testpersonid)->GetField("TESTINTEXTLINK").internallink);
 
   // Are source_fsobjects in embedded images stored?
-  myrichdoc->ImportFromMHTML(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.mht"));
+  myrichdoc->ImportFromRecord(BuildRTDFromYAML(BlobToString(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.rtd.yml"))));
   myrichexp := myrichdoc->ExportAsRecord();
   myrichexp.embedded[0].source_fsobject := destlink->id;
   testpersonobj->UpdateFields([ richie := myrichexp ] );
