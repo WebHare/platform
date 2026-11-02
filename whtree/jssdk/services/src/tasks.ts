@@ -4,8 +4,12 @@ import { broadcastOnCommit, db, isWorkOpen, nextVals, onFinishWork, uploadBlob }
 import { getStackTrace, type StackTrace } from "@webhare/js-api-tools";
 import { parseModuleQualifiedName } from "./naming";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
-import { decodeHSON, decodeHSONorJSONRecord, defaultDateTime, encodeHSON } from "@webhare/hscompat";
-import { openBackendService, logDebug, WebHareBlob, subscribeToEventStream } from "@webhare/services";
+import { decodeHSON, decodeHSONorJSONRecord, encodeHSON } from "@webhare/hscompat/src/hson";
+import { defaultDateTime } from "@webhare/hscompat/src/datetime";
+import { openBackendService } from "./ipc/backendservice";
+import { logDebug } from "./logging";
+import { WebHareBlob } from "./webhareblob";
+import { subscribeToEventStream } from "./backendevents";
 import type { IPCMarshallableData } from "@webhare/hscompat/src/hson";
 import { debugFlags } from "@webhare/env";
 import { prependHSStackTrace, type ExceptionTrace } from "@webhare/harescript/src/wasm-support";

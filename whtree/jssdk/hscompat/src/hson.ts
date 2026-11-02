@@ -1,9 +1,24 @@
 import type { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
 import { WebHareBlob } from "@webhare/services/src/webhareblob";
-import { Money, isBlob, isDate, isTemporalInstant, isTemporalPlainDate, isTemporalPlainDateTime, isTemporalZonedDateTime } from "@webhare/std";
+import { Money, isBlob, isDate, isTemporalInstant, isTemporalPlainDate, isTemporalPlainDateTime, isTemporalZonedDateTime, parseTyped } from "@webhare/std";
 import { defaultDateTime, maxDateTime, maxDateTimeTotalMsecs } from "./datetime";
 import type { ResourceDescriptor } from "@webhare/services";
 import type { WebHareDBLocation } from "@webhare/services/src/descriptor";
+
+/** API to prepare for transitional period where we have both HSON and JSON records in the database. */
+export function decodeHSONorJSONRecord(input: string | null, { typed = false } = {}): object | null {
+  if (!input)
+    return null;
+  if (input.startsWith("hson:")) {
+    const hson = decodeHSON(input);
+    if (hson !== null && typeof hson !== "object")
+      throw new Error(`Expected a record encoded in HSON, but got a ${typeof hson}`);
+    return typed ? hson : JSON.parse(JSON.stringify(hson)); //ensure flattening of Money etc values if we didn't expect typed output
+  }
+  if (input.startsWith("{"))
+    return typed ? parseTyped(input) : JSON.parse(input);
+  throw new Error(`Decoding input that was expected to be HSON or JSON, but is neither (starts with: '${input.substring(0, 10)})')`);
+}
 
 declare global {
   interface Object {

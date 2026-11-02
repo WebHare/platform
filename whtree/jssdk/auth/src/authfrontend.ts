@@ -4,19 +4,9 @@ import type { AnyWRDSchema } from "@webhare/wrd";
 import { IdentityProvider } from "./identity";
 import jwt from "jsonwebtoken";
 import type { JWTPayload } from "./customizer";
+import { getIdCookieName } from "./cookie-support";
 
-/** Get cookie names to use AND which ones to ignore */
-export function getIdCookieName(wrdauth: WRDAuthPluginSettings, secureRequest: boolean) {
-  //If securely accessed, we can use the __Host- or __Secure- prefix for cookies depending on whether we need to expose the cookie to a larger domain
-  const useprefix = (secureRequest ? wrdauth.cookieDomain ? "__Secure-" : "__Host-" : "");
-  const allprefixes = ["__Host-", "__Secure-", ""];
-  return {
-    ///Cookie to set/check.
-    idCookie: useprefix + wrdauth.cookieName,
-    ///Cookies to ignore (but still clear)
-    ignoreCookies: allprefixes.filter(p => p !== useprefix).map(p => p + wrdauth.cookieName)
-  };
-}
+export { getIdCookieName } from "./cookie-support";
 
 export async function getCookieBasedUser(req: WebRequest, wrdSchema: AnyWRDSchema, wrdauth: WRDAuthPluginSettings) {
   /* try the cookie header, but only the one we're configured for, otherwise we'd still check unprefixed headers,

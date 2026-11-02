@@ -7,22 +7,17 @@ declare module "@webhare/test-frontend" {
    (this felt more friendly that having to add dozens of throwing APIs "not in the frontend" to @webhare/test)
    */
 
-import { wait as oldWait, getWin, type TestFrameWorkCallbacks, invoke } from "@mod-system/js/wh/testframework";
+import { wait as oldWait, getWin, invoke } from "@mod-system/js/wh/testframework";
 import { startTime } from "@mod-platform/js/testing/whtest";
 import { rpc } from "@webhare/rpc";
 import "@webhare/deps/temporal-polyfill"; //many frontend tests use rpcs (directly/indirectly eg pxl) which require Temporal.Instant
 import { getCurrentDataLayerVariables } from "@webhare/frontend/src/gtm";
 
-let callbacks: TestFrameWorkCallbacks | null = null;
+import { waitForUI } from "./suite-support";
+
+export { __setTestSuiteCallbacks, __getTestSuiteCallbacks, waitForUI, addFrame, updateFrame, removeFrame, selectFrame } from "./suite-support";
 
 //We're unsplitting test.wait() again. We shouldn't have to wind up with 10 different wait methods like old testfw did with waitForElement
-
-/** Wait for the current UIBusyLock (flagUIBusy) to clear if any
- *
- * @throws If that the UI has never been busy since the last wait and the 'optional' flag was not set (and inside the current test step) */
-export async function waitForUI({ optional = false } = {}): Promise<void> {
-  await oldWait(optional ? "ui-nocheck" : "ui");
-}
 
 /** Expect a pageload to be triggered by the callback */
 export async function expectLoad<T>(cb: () => T | Promise<T>, { waitUI = true } = {}): Promise<T> {
@@ -176,33 +171,6 @@ export function getRoundedBoundingClientRect(el: HTMLElement) {
     bottom: Math.round(rect.bottom)
   };
 }
-
-export async function addFrame(name: string, { width }: { width: number }) {
-  return callbacks!.setFrame(name, "add", { width });
-}
-
-export async function updateFrame(name: string, { width }: { width: number }) {
-  return callbacks!.setFrame(name, "update", { width });
-}
-
-export async function removeFrame(name: string) {
-  return callbacks!.setFrame(name, "delete");
-}
-
-export async function selectFrame(name: string) {
-  return callbacks!.setFrame(name, "select");
-}
-
-// Returns something like an ecmascript completion record
-export function __setTestSuiteCallbacks(cb: TestFrameWorkCallbacks) {
-  callbacks = cb;
-}
-export function __getTestSuiteCallbacks(): TestFrameWorkCallbacks {
-  if (!callbacks)
-    throw new Error("Test framework callbacks not set");
-  return callbacks;
-}
-
 
 //By definition we re-export all of whtest and @webhare/test
 export * from "@mod-platform/js/testing/whtest";

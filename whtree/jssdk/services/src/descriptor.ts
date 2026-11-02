@@ -18,7 +18,7 @@ import { IntExtLink, isIntExtLink, type ExportedIntExtLink } from "./intextlink"
 import { __getBlobDatabaseId, createPGBlobByBlobRec } from "@webhare/whdb/src/blobs";
 import { decryptForThisServer, encryptForThisServer } from "./secrets";
 import { SetDataError } from "./codec-support";
-import { isHistoricWHFSSpace } from "@webhare/whfs/src/support";
+import { isHistoricWHFSSpace } from "@webhare/whfs/src/path-support";
 import { getAssetBase } from "@webhare/env";
 import { open, readFile, stat } from "node:fs/promises";
 

@@ -215,6 +215,11 @@ async function testWHFS() {
   const intLinkToNewFile = new IntExtLink(newFile.id);
   const intLinkToNewFile2 = new IntExtLink(newFile2.id);
   test.eq(/^http.*testfile\/$/, await intLinkToNewFile.resolve());
+  test.eq(`${newFile.link}#section`, await new IntExtLink(newFile.id, { append: "#section" }).resolve());
+  test.eq(tmpfolder.link, await new IntExtLink(tmpfolder.id).resolve());
+  test.eq("https://example.com/page#section", await new IntExtLink("https://example.com/page#section").resolve());
+  test.eq(null, await new IntExtLink(-1).resolve());
+  test.throws(/Cannot instantiate IntExtLink without a target/, () => new IntExtLink(0));
   await newFile.delete();
   await newFile2.recycle();
   test.eq(null, await intLinkToNewFile.resolve());

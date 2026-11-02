@@ -4,7 +4,7 @@ import * as dompack from 'dompack';
 import * as domevents from '../src/events';
 import * as domfocus from "../browserfix/focus";
 import { getPlatform } from "../extra/browser";
-import { findElement, qSA } from '@webhare/test-frontend';
+import { findElement, qSA } from '@mod-system/js/internal/tests/elementselectors';
 import { SimulatedFileSystemFileEntry } from './filesystem';
 
 const mousestate = {

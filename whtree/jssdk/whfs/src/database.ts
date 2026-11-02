@@ -1,5 +1,20 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { db, sql } from "@webhare/whdb";
+import { selectFSLink, selectFSWHFSPath } from "@webhare/whdb/src/functions";
+import { isHistoricWHFSSpace } from "./path-support";
+
+export async function lookupWHFSLink(id: number): Promise<string | null> {
+  if (id <= 0)
+    return null;
+
+  const target = await db<PlatformDB>()
+    .selectFrom("system.fs_objects")
+    .select([selectFSLink().as("link"), selectFSWHFSPath().as("whfsPath")])
+    .where("id", "=", id)
+    .executeTakeFirst();
+
+  return target && !isHistoricWHFSSpace(target.whfsPath) ? target.link || null : null;
+}
 
 /** Resolve a WHFS object
     @param startingpoint - Folder id where we start looking. Set to 0 to start from root

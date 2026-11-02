@@ -1,6 +1,6 @@
 import type { RecursiveReadonly } from "@webhare/js-api-tools";
 import { getWHType } from "@webhare/std/src/quacks";
-import { openFileOrFolder } from "@webhare/whfs";
+import { lookupWHFSLink } from "@webhare/whfs/src/database";
 
 export function isIntExtLink(value: unknown): value is IntExtLink {
   return Boolean(value && getWHType(value) === "IntExtLink");
@@ -39,9 +39,9 @@ export class IntExtLink {
 
   async resolve() {
     if (this._internal) {
-      const target = await openFileOrFolder(this._internal, { allowMissing: true });
-      if (target?.link)
-        return target.link + (this._append ? this._append : "");
+      const targetLink = await lookupWHFSLink(this._internal);
+      if (targetLink)
+        return targetLink + (this._append ? this._append : "");
     } else if (this._external) {
       return this._external + (this._append ? this._append : "");
     }

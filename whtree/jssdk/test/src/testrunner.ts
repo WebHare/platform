@@ -1,6 +1,6 @@
 import type { TestList } from './test';
 import { triggerGarbageCollection, scheduleLingeringProcessCheck } from './testsupport';
-import { runTests as runFrontendTests } from "@mod-system/js/wh/testframework";
+import { runTests as runFrontendTests } from "@webhare/test-frontend/src/suite-support";
 
 let testscompleted = false;
 

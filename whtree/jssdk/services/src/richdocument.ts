@@ -1,5 +1,5 @@
 import { appendToArray, mapMaybePromise, maybePromiseAll, omit, throwError, typedEntries, typedFromEntries } from "@webhare/std";
-import { describeWHFSType } from "@webhare/whfs";
+import { describeWHFSType } from "@webhare/whfs/src/describe";
 import type { ExportedInstance, InstanceSource, TypedInstanceData, ExportedTypedInstance, InstanceData, WHFSTypeName, WHFSTypeInfo, WHFSTypes } from "@webhare/whfs/src/contenttypes";
 import { exportRTDToRawHTML } from "@webhare/hscompat/src/richdocument";
 import { getWHType } from "@webhare/std/src/quacks";
