@@ -167,7 +167,7 @@
                         frameflags="issupervisor"
                         onwindowopen="onviewbrowserlive"
                         shortcut="ctrl+shift+b">
-        <enableon source="filelist" min="1" max="1" checkflags="ispublish" requirefocus="true" />
+        <enableon source="filelist" min="1" max="1" checkflags="!isfolder !isvirtual iswithinsite" requirefocus="true" />
       </windowopenaction>
       <windowopenaction name="setdebugsettings" frameflags="issupervisor" onwindowopen="onsetdebugsettings">
         <enableon source="foldertreeproxy" min="1" max="1" checkflags="canpublish" />

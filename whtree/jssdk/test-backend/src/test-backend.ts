@@ -35,6 +35,7 @@ import { fetch as undiciFetch } from "undici";
 
 export { profileCPU } from "./profiling";
 export { createTrustedPortDispatcher, type TrustedPortDispatcherOptions } from "./fetch";
+export { createWebServer, type CreateWebServerPortOptions, type TestWebServerPort } from "./webserver";
 
 /** undici's fetch with dispatcher support */
 export const fetch = undiciFetch;
