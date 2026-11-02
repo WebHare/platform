@@ -1,7 +1,6 @@
 import { appendToArray, mapMaybePromise, maybePromiseAll, omit, throwError, typedEntries, typedFromEntries } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs/src/describe";
 import type { ExportedInstance, InstanceSource, TypedInstanceData, ExportedTypedInstance, InstanceData, WHFSTypeName, WHFSTypeInfo, WHFSTypes } from "@webhare/whfs/src/contenttypes";
-import { exportRTDToRawHTML } from "@webhare/hscompat/src/richdocument";
 import { getWHType } from "@webhare/std/src/quacks";
 import { exportData, importData } from "@webhare/whfs/src/codecs";
 import type * as test from "@webhare/test";
@@ -713,11 +712,6 @@ export class RichTextDocument {
   /** Export as buildable RTD */
   async export(options?: ExportOptions): Promise<RTDExport> { //TODO RTDSource is wider than what we'll build, eg it allows Widget objects
     return await this.#exportRTDBlocks(this.#blocks, { export: true, ...options });
-  }
-
-  /** @deprecated Use exportRTDToRawHTML in hscompat */
-  async __getRawHTML(): Promise<string> {
-    return (await exportRTDToRawHTML(this)) || '';
   }
 
   __hintInstanceId(widget: Instance, instanceId: string) {

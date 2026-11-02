@@ -1,6 +1,6 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { buildRTD, buildWidget, IntExtLink, ResourceDescriptor, RichTextDocument, WebHareBlob } from "@webhare/services";
-import { buildRTDFromHareScriptRTD, exportAsHareScriptRTD, type HareScriptRTD } from "@webhare/hscompat";
+import { buildRTDFromHareScriptRTD, exportAsHareScriptRTD, exportRTDToRawHTML, type HareScriptRTD } from "@webhare/hscompat";
 import { beginWork, commitWork, rollbackWork, runInWork } from "@webhare/whdb";
 import { openFile, openType, whfsType } from "@webhare/whfs";
 import { loadlib } from "@webhare/harescript";
@@ -376,7 +376,7 @@ async function testBuilder() {
   {
     const emptydoc = new RichTextDocument;
     test.eq(emptydoc.blocks, (await buildRTD([])).blocks);
-    test.eq('', await emptydoc.__getRawHTML());
+    test.eq(null, await exportRTDToRawHTML(emptydoc));
     test.assert(emptydoc.isEmpty());
     await verifySimpleRoundTrip(emptydoc); //verifyRoundTrip doesn't support 'null' documents
   }
@@ -397,7 +397,7 @@ async function testBuilder() {
       { tag: "p", items: [{ text: "default p" }] }
     ], doc.blocks);
     //<br data-wh-rte="bogus"/> is required by the current RTD in fully empty paragraphs
-    test.eq('<html><body><h1 class="heading1">Heading 1</h1><p class="normal"><br data-wh-rte="bogus"/></p><p class="superpara">Hi &lt;&gt; everybody!</p><p class="normal">default p</p></body></html>', await doc.__getRawHTML());
+    test.eq('<html><body><h1 class="heading1">Heading 1</h1><p class="normal"><br data-wh-rte="bogus"/></p><p class="superpara">Hi &lt;&gt; everybody!</p><p class="normal">default p</p></body></html>', await exportRTDToRawHTML(doc));
 
     await verifyRoundTrip(doc);
   }
@@ -408,7 +408,7 @@ async function testBuilder() {
     const doc = await buildRTD([{ p: ["Dit is een test met image: ", { image: fish }] }]);
     test.assert(!doc.isEmpty());
 
-    test.eq(/<html><body><p class="normal">Dit is een test met image: <img class="wh-rtd__img" src="cid:.*"/, await doc.__getRawHTML());
+    test.eq(/<html><body><p class="normal">Dit is een test met image: <img class="wh-rtd__img" src="cid:.*"/, await exportRTDToRawHTML(doc));
     await verifyRoundTrip(doc);
   }
 
@@ -417,7 +417,7 @@ async function testBuilder() {
     const doc = await buildRTD([{ p: ["Dit is een test met image: ", { image: fish }] }]);
     test.assert(!doc.isEmpty());
 
-    test.eq(/<html><body><p class="normal">Dit is een test met image: <img class="wh-rtd__img" src="cid:.*"/, await doc.__getRawHTML());
+    test.eq(/<html><body><p class="normal">Dit is een test met image: <img class="wh-rtd__img" src="cid:.*"/, await exportRTDToRawHTML(doc));
     await verifyRoundTrip(doc);
   }
 
@@ -456,7 +456,7 @@ async function testBuilder() {
       }
     ]);
 
-    test.eq(`<html><body><p class="normal"><b>b</b><i>i</i><u>u</u><sup>sup</sup><sub>sub</sub><strike>strikeThrough</strike></p><p class="normal">we have... <i><b><u><strike><sub><sup>all of them</sup></sub></strike></u></b></i></p><ul class="unordered"><li>item<b>1</b></li><li>item 2</li></ul></body></html>`, await doc.__getRawHTML());
+    test.eq(`<html><body><p class="normal"><b>b</b><i>i</i><u>u</u><sup>sup</sup><sub>sub</sub><strike>strikeThrough</strike></p><p class="normal">we have... <i><b><u><strike><sub><sup>all of them</sup></sub></strike></u></b></i></p><ul class="unordered"><li>item<b>1</b></li><li>item 2</li></ul></body></html>`, await exportRTDToRawHTML(doc));
     await verifyRoundTrip(doc);
   }
 
@@ -474,7 +474,7 @@ async function testBuilder() {
 
     test.eq(`<html><body>`
       + `<p class="normal">This is a <a href="https://webhare.dev/">hyperlink<b>y</b></a></p>`
-      + `</body></html>`, await doc.__getRawHTML());
+      + `</body></html>`, await exportRTDToRawHTML(doc));
   }
 
   { //test a-href and not being broken up by substyle changes
@@ -501,7 +501,7 @@ async function testBuilder() {
     test.eq(`<html><body>`
       + `<p class="normal">This is a <a href="https://webhare.dev/">hyperlink</a><a href="https://webhare.dev/2">y<b>thing</b>y<i>doo</i></a><i>dle</i></p>`
       + `<p class="normal">This is a <a href="https://webhare.dev/" target="_blank">new window</a><a href="https://webhare.dev/">-link</a></p>`
-      + `</body></html>`, await doc.__getRawHTML());
+      + `</body></html>`, await exportRTDToRawHTML(doc));
     await verifyRoundTrip(doc);
   }
 
@@ -636,7 +636,7 @@ async function testBuilder() {
     test.eq(`<html><body>`
       + `<ul class="unordered"><li>Item 1</li><li>Item 2<ol class="ordered"><li>Item 3</li><li>Item 4</li></ol></li></ul>`
       + `<ol class="mylist"><li>Ordered Item 1</li></ol>`
-      + `</body></html>`, await doc.__getRawHTML());
+      + `</body></html>`, await exportRTDToRawHTML(doc));
     await verifyRoundTrip(doc);
   }
 }
@@ -859,7 +859,7 @@ async function testBuildingRTDsWithInstances() {
       }
     ], await doc.export());
 
-    test.eq(/^<html><body><p class="normal"><b>Bold<\/b>, <i>Italic<\/i>, <u>Underline<\/u>, <b><u><span class="wh-rtd-embeddedobject" data-instanceid=".*"><\/span><\/u><\/b><\/p><div class="wh-rtd-embeddedobject" data-instanceid=".*"><\/div><\/body><\/html>$/, await doc.__getRawHTML());
+    test.eq(/^<html><body><p class="normal"><b>Bold<\/b>, <i>Italic<\/i>, <u>Underline<\/u>, <b><u><span class="wh-rtd-embeddedobject" data-instanceid=".*"><\/span><\/u><\/b><\/p><div class="wh-rtd-embeddedobject" data-instanceid=".*"><\/div><\/body><\/html>$/, await exportRTDToRawHTML(doc));
     await verifyRoundTrip(doc);
 
     //Now put that doc into a widget so we can build an Instance containing a Doc containing a Widget containing a Resource
