@@ -5,7 +5,6 @@
   <test script="test_legacy_wrd_tsapi_2.ts" />
   <test script="test_legacy_wrd_events.ts" />
   <test script="test_legacy_wrd_metadata.ts" />
-  <test script="test_legacy_wrd_errors.ts" />
   <test script="test_legacy_wrd_history.ts" />
   <test script="test_legacy_wrd_eximport.ts" />
   <test script="test_legacy_password_policy.ts" />

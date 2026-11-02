@@ -72,12 +72,9 @@ or append this token to your current WebHare URL: ${suburl}
 
 SWITCH(ToUppercase(args[0]))
 {
-  CASE "__BROADCASTEVENT"
-  {
-    IF(Length(parts)!=2)
-      ABORT("Expected two parameters: event and data");
-    VARIANT data := DecodeHSON(parts[1]);
-    BroadcastEvent(parts[0], data);
+  CASE "__BROADCASTEVENT" {
+    //There's no reason to provide an explicit call for this
+    TerminateScriptWithError(`Use 'services.broadcast()' in the 'wh node' REPL`);
   }
   CASE "__INVALIDATEFILE"
   {
