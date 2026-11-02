@@ -16,6 +16,8 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/webserver/websocket.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
+IF(GetDtapStage() != "development")
+  AbortWithHTTPError(403, "Forbidden: only available if dtapStage === development");
 
 OBJECT assetpackcontroller;
 STRING ARRAY bundlewatchlist;

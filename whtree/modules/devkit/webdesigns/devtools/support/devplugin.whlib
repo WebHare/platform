@@ -8,6 +8,7 @@ LOADLIB "mod::publisher/lib/webdesign.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/wittytracing.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 
@@ -40,6 +41,9 @@ PUBLIC STATIC OBJECTTYPE DevSupportPlugin EXTEND WebDesignPluginBase
 
   UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
   {
+    IF(GetDtapStage() != "development")
+      RETURN;
+
     webdesign->InsertHTML(`<script src="/.wh/mod/devkit/public/debug.mjs" async type="module"></script>`,"dependencies-bottom");
     IF(IsRequest())
       webdesign->InsertWithCallback(PTR this->PrintUsedResources(webdesign), "body-devbottom");
