@@ -171,6 +171,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND PublisherMetadataBase <
     RETURN CELL[
       content := ObjectExists(this->workflowmgr) ? this->workflowmgr->__GetAutosavedObject()->id : this->itemid,
       target := this->itemid,
+      targetparent := this->parentfolder->id,
       title := ^title->value
     ];
   }
