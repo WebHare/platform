@@ -6,8 +6,9 @@ declare module "@webhare/backend-integration" {
 
 export interface FSObjectPolicyBaseContext {
   //TODO provide a getInstanceData to abstract away workflow choices around targetObject/contentObject ?
-  targetObject: number;
-  contentObject: number;
+  targetObject: number | null;
+  contentObject: number | null;
+  targetParent: number;
   title: string;
 }
 

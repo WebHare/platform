@@ -5,6 +5,7 @@ import { getApplyTesterForObject, type WHFSApplyTester } from "@webhare/whfs/src
 
 type HSPolicyContext = {
   target: number;
+  targetparent: number;
   content: number;
   title: string;
 };
@@ -49,8 +50,9 @@ export async function getPoliciesForObject(applytester: WHFSApplyTester, policie
 
 function mapHSContext(inContext: HSPolicyContext): FSObjectPolicyBaseContext {
   return {
-    targetObject: inContext.target,
-    contentObject: inContext.content,
+    targetObject: inContext.target || null,
+    targetParent: inContext.targetparent,
+    contentObject: inContext.content || null,
     title: inContext.title
   };
 }
