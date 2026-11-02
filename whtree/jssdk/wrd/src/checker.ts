@@ -1,4 +1,4 @@
-import { describeEntity } from "@webhare/wrd";
+import { describeEntity } from "@webhare/wrd/src/db";
 import type { WRDSchemaType } from "./schema";
 
 export class ValueQueryChecker {

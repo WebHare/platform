@@ -1,7 +1,7 @@
 import { whconstant_whfsid_wrdstore } from "@mod-system/js/internal/webhareconstants";
 import type { RichTextDocument, Instance } from "@webhare/services";
-import { nextWHFSObjectId, openFolder, whfsType, type WHFSFolder } from "@webhare/whfs";
-import type { InstanceSource } from "@webhare/whfs/src/contenttypes";
+import { nextWHFSObjectId, openFolder, type WHFSFolder } from "@webhare/whfs/src/objects";
+import { whfsType, type InstanceSource } from "@webhare/whfs/src/contenttypes";
 
 const cachefolders = new Map<number, WHFSFolder>;
 

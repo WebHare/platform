@@ -20,7 +20,7 @@ import type { PublicAuthData } from "@webhare/frontend/src/auth";
 import { checkPasswordCompliance, verifyPasswordCompliance, type PasswordCheck, type PasswordCheckResult } from "./passwords";
 import { getCompleteAccountNavigation, type LoginTweaks, type LoginErrorCode, type LoginResult } from "./shared";
 import { AuthenticationSettings, describeEntity, wrd, type AnySchemaType, type WRDSchemaLike } from "@webhare/wrd";
-import { getGuidForEntity } from "@webhare/wrd/src/accessors";
+import { getGuidForEntity } from "@webhare/wrd/src/db";
 
 const defaultPasswordResetExpiry = 3 * 86400_000; //default 3 days epxiry
 const defaultClockTolerance = 5; // seconds of tolerance in verification + setting nbf this much seconds before iat
