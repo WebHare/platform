@@ -166,7 +166,7 @@ ASYNC MACRO TestCreateRTDSeoTitle() { //test the properties dialog behavior of a
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit editor
 
   ////////////////
-  // Create a content link under this policy-matching folder (so newfile dialog spicks up the otherwise name-based settings) to verify objectprops' dynamic SEO-title placeholder.
+  // Create a content link under this policy-matching folder (so newfile dialog picks up the otherwise name-based settings) to verify objectprops' dynamic SEO-title placeholder.
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ params := STRING[ testfile_seotitle_policy_folder->whfspath ]]));
   AWAIT ExpectScreenChange(+1, PTR TTClick(":New file"));
   TTFillByTitle("types", "Content Link");
