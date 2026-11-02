@@ -606,7 +606,7 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
         , server := GetWebhareVersionNumber()
         ];
 
-    BOOLEAN devmode := IsModuleInstalled("devkit") AND GetDtapStage() = "development";;
+    BOOLEAN devmode := IsModuleInstalled("devkit") AND GetDtapStage() = "development";
     this->QueueOutboundMessage("InitializeWithAssetpack", CELL[ assetpack, initdata, devmode, finaljsconfig ]);
   }
 
