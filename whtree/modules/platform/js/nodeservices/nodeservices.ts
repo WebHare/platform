@@ -165,6 +165,10 @@ class NodeServicesClient extends BackendServiceConnection {
 
     registration.suppressedBy = this;
     registration.check();
+    if (registration.launchPromise)
+      await wrapInTimeout(registration.launchPromise, 30000, `Timeout waiting for service '${service}' to finish starting before suppression`);
+    if (registration.stopPromise)
+      await wrapInTimeout(registration.stopPromise, 30000, `Timeout waiting for service '${service}' to stop`);
   }
 
   onClose() {
