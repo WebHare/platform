@@ -31,7 +31,7 @@ export async function getIPInfo(options?: { countrylang: string }): Promise<{ co
 export async function getIPInfo(options?: GetIPInfoOptions): Promise<{ countrycode: string; countryname?: string } | null>;
 
 /** Get geoip fields
-    @returns Object with country code and possible name, null if unknown */
+    @returns Object with country code and possible name, null if unknown. Countrycode is the ISO 3166-1 alpha-2 code, eg 'NL' */
 export async function getIPInfo(options?: GetIPInfoOptions): Promise<{ countrycode: string; countryname?: string } | null> {
   //TODO return more than country name and code once we need it.
 

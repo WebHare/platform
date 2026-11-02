@@ -10,7 +10,7 @@ import { beginWork, commitWork, db } from '@webhare/whdb';
 import { compressUUID, createFirstPartyToken, decodeJWT, IdentityProvider, type AuthTokenOptions } from "@webhare/auth/src/identity";
 import { pick } from '@webhare/std';
 import { CLIRuntimeError, runCli } from "@webhare/cli";
-import { registerRelyingParty, initializeIssuer, getOpenIDMetadataURL, type AuthCustomizer, getDefaultOAuth2RedirectURL } from '@webhare/auth';
+import { registerOAuthApplication, initializeIssuer, getOpenIDMetadataURL, type AuthCustomizer, getDefaultOAuth2RedirectURL } from '@webhare/auth';
 import { prepAuthForURL } from '@webhare/auth/src/support';
 import type { PlatformDB } from '@mod-platform/generated/db/platform';
 import { readAnyFromDatabase } from '@webhare/whdb/src/formats';
@@ -289,7 +289,7 @@ runCli({
 
         await beginWork();
         const newSp = {
-          ...await registerRelyingParty(schema, { title: args.name, callbackUrls: [args.callbackurl] }),
+          ...await registerOAuthApplication(schema, { title: args.name, callbackUrls: [args.callbackurl] }),
           metadataUrl: await getOpenIDMetadataURL(schema.tag)
         };
         await commitWork();
