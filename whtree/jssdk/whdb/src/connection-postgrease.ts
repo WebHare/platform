@@ -18,7 +18,7 @@ import { __getBlobDatabaseId } from './blobs';
 import { isError } from '@webhare/std';
 import type { PGConnectionOptions } from '@webhare/postgrease/src/connection';
 import { getCodeContext } from '@webhare/services/src/codecontexts';
-import { logDebug } from '@webhare/services/src/logging';
+import { logDebug } from '@webhare/services/src/logwriter';
 import { buildLogInfoPrefix, decodePostgreSQLWHLogInfo } from './loginfo';
 import type { StackTraceItem } from '@webhare/js-api-tools';
 export { DatabaseError, type PGPassthroughQueryCallback } from "@webhare/postgrease";

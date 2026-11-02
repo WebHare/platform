@@ -268,6 +268,7 @@ async function testInstanceData() {
   //Test rich documents
   const inRichdoc = await buildRTD([{ "p": "Hello, World!" }]);
   const inRichdocHTML = await exportRTDToRawHTML(inRichdoc);
+  test.assert(inRichdocHTML);
   await testtype.set(testfile.id, {
     rich: inRichdoc
   });
