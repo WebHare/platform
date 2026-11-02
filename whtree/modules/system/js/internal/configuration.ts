@@ -1,10 +1,11 @@
 import * as fs from "node:fs";
+import * as path from "node:path";
 import { updateWebHareConfigWithoutDB } from "./generation/gen_config_nodb";
 import { freezeRecursive } from "./util/algorithms";
-import { type WebHareBackendConfiguration, type ConfigFile, type WebHareConfigFile, getBasePort } from "@webhare/services/src/config";
+import type { WebHareBackendConfiguration, ConfigFile, WebHareConfigFile } from "@webhare/services/src/config";
+import { getBasePort } from "@webhare/services/src/environment";
 import type { RecursiveReadonly } from "@webhare/js-api-tools";
 import type { AssetPack, Debug, Services } from "./generation/gen_extracts";
-import { toFSPath } from "@webhare/services/src/resources";
 import type { CachedSiteProfiles, SiteProfileRef } from "@webhare/whfs/src/siteprofiles";
 import { getScriptName } from "@webhare/system-tools/src/node";
 import { updateDebugConfig } from "@webhare/env/src/envbackend";
@@ -162,5 +163,5 @@ export function getExtractedHSConfig(which: "siteprofilerefs"): SiteProfileRef[]
 
 /** Get HS managed configuration extracts */
 export function getExtractedHSConfig(which: string) {
-  return getCacheableJSONConfig(toFSPath("storage::system/config/" + which + ".json"));
+  return getCacheableJSONConfig(path.join(backendConfig.dataRoot, "storage/system/config", which + ".json"));
 }
