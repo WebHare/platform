@@ -4,8 +4,6 @@ LOADLIB "mod::tollium/lib/internal/support.whlib";
 LOADLIB "mod::tollium/lib/internal/components.whlib";
 LOADLIB "mod::tollium/lib/internal/uploads.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
-
 
 BOOLEAN FUNCTION SameSelection(OBJECT ARRAY lhs, OBJECT ARRAY rhs)
 {

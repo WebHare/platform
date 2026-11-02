@@ -58,6 +58,7 @@
       <webrule path="/" match="initial">
         <addheader header="X-XSS-Protection" value="1; mode=block" />
         <addheader header="X-Content-Type-Options" value="nosniff" />
+
         <!-- pass the origin, needed by iframes and publisher view to suppress postmessage errors -->
         <addheader header="Referrer-Policy" value="origin" />
 

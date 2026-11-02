@@ -129,6 +129,7 @@
   <moduleregistry>
     <obsoletenode name="localoverrides" />
     <obsoletenode name="embedscripts" />
+
     <node name="maps">
       <string name="defaultprovider" initialval="leaflet" />
     </node>

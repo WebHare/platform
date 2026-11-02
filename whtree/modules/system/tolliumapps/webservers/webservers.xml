@@ -244,7 +244,11 @@
     </body>
   </screen>
 
-  <screen name="editcertificateprovider" width="80x" footerbuttons="ok cancel" gid=".managecertificateproviders" allowresize="true">
+  <screen name="editcertificateprovider"
+          width="80x"
+          allowresize="true"
+          footerbuttons="ok cancel"
+          gid=".managecertificateproviders">
     <actions>
       <action name="showadvancedsettings" onexecute="doshowadvancedsettings" />
     </actions>
@@ -288,7 +292,13 @@
       <line layout="left">
         <checkbox composition="entity" cellname="skip_connectivity_check" labeltid=".skip_connectivity_check" title="" />
       </line>
-      <textarea composition="entity" cellname="comments" width="1pr" height="1pr" maxlength="4096" minheight="3gr" tid="~comments"/>
+      <textarea composition="entity"
+                cellname="comments"
+                width="1pr"
+                height="1pr"
+                minheight="3gr"
+                maxlength="4096"
+                tid="~comments" />
     </body>
   </screen>
 

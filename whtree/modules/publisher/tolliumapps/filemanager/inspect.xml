@@ -31,7 +31,7 @@
       <action name="openineditor" tid="~openineditor">
         <enableon source="applies" min="1" max="1" onexecute="doopenineditor" />
       </action>
-      <action name="open_rendercontent_ineditor" tid="~openineditor" onexecute="doOpenRenderContentInEditor" />
+      <action name="open_rendercontent_ineditor" onexecute="doOpenRenderContentInEditor" tid="~openineditor" />
     </actions>
 
     <menus>
@@ -102,7 +102,12 @@
           <textedit name="dynamicexecution_webpageobjectname" width="1pr" enabled="false" visible="false" />
           <text name="dynamicexecution_cached" visible="false" />
           <line>
-            <textedit composition="inspect_object_result" cellname="on_render_content" name="on_render_content" title="onRenderContent" width="1pr" enabled="false" />
+            <textedit composition="inspect_object_result"
+                      cellname="on_render_content"
+                      name="on_render_content"
+                      width="1pr"
+                      enabled="false"
+                      title="onRenderContent" />
             <button action="open_rendercontent_ineditor" />
           </line>
         </tab>
@@ -113,7 +118,7 @@
           </list>
         </tab>
         <tab name="yamltab" spacers="none" title="YAML">
-          <codeedit name="yaml" height="1pr" width="1pr" enabled="false" /> <!-- disable it as we're not offering a write-back yet -->
+          <codeedit name="yaml" width="1pr" height="1pr" enabled="false" />  <!-- disable it as we're not offering a write-back yet -->
         </tab>
       </tabs>
     </body>

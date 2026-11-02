@@ -1,11 +1,6 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="debugging" library="/lib/screens/debugging.whlib">
 
-  <screen name="reflectdialog"
-          width="650px"
-          height="650px"
-          allowresize="true"
-          defaultbutton="closebutton"
-          gid=".reflect">
+  <screen name="reflectdialog" width="650px" height="650px" allowresize="true" defaultbutton="closebutton" gid=".reflect">
     <actions>
       <action name="download" onexecute="dodownload" />
       <action name="openindebugger" onexecute="doopenindebugger" />

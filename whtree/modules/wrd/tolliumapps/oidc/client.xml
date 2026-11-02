@@ -62,7 +62,7 @@
       <datetime composition="entity" cellname="secret_expiration" type="datetime" storeutc="true" />
       <heading doclink="platform:wrdauth/oidc/configuration" tid=".configuration" />
       <textedit composition="entity" cellname="additional_scopes" width="1pr" tid=".additionalscopes" />
-      <textedit composition="entity" cellname="login_field" width="1pr" placeholder="sub" value="sub" tid=".loginfield" />
+      <textedit composition="entity" cellname="login_field" width="1pr" placeholder="sub" tid=".loginfield" value="sub" />
       <imgedit composition="entity" cellname="icon" width="1pr" height="100px" publisher="false" recommendedsize="48x48" />
       <textarea composition="entity" cellname="comments" width="1pr" minheight="3gr" tid="~comments" />
       <textedit composition="entity" cellname="wrd_tag" width="1pr" minheight="3gr" />

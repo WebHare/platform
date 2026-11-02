@@ -21,7 +21,6 @@
 
     <!-- We'll host the /ui/ on all paths. Nothing harmful there, only static assets -->
     <webrule path="allroots:/.tollium/ui/" match="initial" priority="after" redirecttodir="web:ui/" />
-
     <webrule path="allroots:/.tollium/exclusiveaccess/"
              match="initial"
              priority="after"

@@ -5,7 +5,6 @@
 
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/langspecific.whlib";
-LOADLIB "wh::util/localization.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::publisher/lib/forms/components.whlib";

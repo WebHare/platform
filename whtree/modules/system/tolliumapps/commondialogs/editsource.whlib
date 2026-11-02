@@ -1,12 +1,5 @@
 <?wh
 
-LOADLIB "wh::files.whlib";
-
-LOADLIB "mod::system/lib/validation.whlib";
-
-LOADLIB "mod::publisher/lib/forms/api.whlib";
-LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
-
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 

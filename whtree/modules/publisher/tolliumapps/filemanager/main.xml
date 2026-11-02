@@ -331,7 +331,7 @@
         <enableon source="filelist" min="1" checkflags="isfolder canwrite" onexecute="dosyncfoldersubs" />
       </action>
       <action name="boostwordsoverview">
-        <enableon source="foldertree" min="1" onexecute="doboostwordsoverviewtree" checkflags="!isroot" />
+        <enableon source="foldertree" min="1" checkflags="!isroot" onexecute="doboostwordsoverviewtree" />
         <enableon source="filelist" min="1" onexecute="doboostwordsoverviewlist" />
       </action>
       <action name="versions" frameflags="issupervisor" onexecute="DoVersions">

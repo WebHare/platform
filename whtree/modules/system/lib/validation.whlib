@@ -13,7 +13,6 @@ LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 LOADLIB "mod::tollium/lib/internal/icons.whlib";
 LOADLIB "mod::tollium/lib/internal/language.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/harescript/libscan.whlib";
 LOADLIB "mod::system/lib/internal/validation/config.whlib" EXPORT GetModuleValidationConfig;

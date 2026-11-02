@@ -5,7 +5,6 @@ LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
-LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
