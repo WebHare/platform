@@ -159,7 +159,7 @@ export async function createWebServer(options: CreateWebServerPortOptions = {}):
         redirect: "manual",
         signal: AbortSignal.timeout(10000)
       };
-      const response = await fetch(`${protocol}://${httpHost}:${portNumber}/`, requestOptions);
+      const response = await fetch(`${protocol}://${options.ipv6 ? `[${connectHost}]` : connectHost}:${portNumber}/`, requestOptions);
       await response.body?.cancel();
     } catch (error) {
       throw new Error(`Failed to actually connect to test interface at ${connectHost} port ${portNumber}`, { cause: error });

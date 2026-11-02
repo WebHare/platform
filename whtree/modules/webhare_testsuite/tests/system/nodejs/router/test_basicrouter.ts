@@ -342,7 +342,7 @@ async function testJSBackedURLs() {
 async function testNonVhost() {
   //Test with non-vhosted IP addresses. These require different URL calculations
   const directLocalhost = await test.createWebServer({ hostname: "localhost" });
-  const baseURL = directLocalhost.baseURL + ".webhare_testsuite/tests/js/"; //handled by mod::webhare_testsuite/web/tests/js/testrouter.ts
+  const baseURL = directLocalhost.baseURL! + ".webhare_testsuite/tests/js/"; //handled by mod::webhare_testsuite/web/tests/js/testrouter.ts
   const debugInfoURL = baseURL + "?type=debug";
   const fetchresult = await fetch(debugInfoURL).then(_ => _.json());
   test.eq(debugInfoURL, fetchresult.url);

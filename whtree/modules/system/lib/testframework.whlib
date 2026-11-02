@@ -744,7 +744,7 @@ STATIC OBJECTTYPE TestFramework <
 
   /** @param options @includecelldef #AddWebserverPortToDbase.options
       @return @includecelldef #AddWebserverPortToDbase.return
-      @long Delegates to @webhare/test-backend's createWebserverPort. Must be called outside an open transaction.
+     @long Delegates to @webhare/test-backend's createWebServer. Must be called outside an open transaction.
   */
   PUBLIC RECORD FUNCTION CreateWebServerPort(RECORD options) {
     BOOLEAN haveport := CellExists(options, "port");
