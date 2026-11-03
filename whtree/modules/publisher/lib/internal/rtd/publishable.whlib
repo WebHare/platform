@@ -994,7 +994,8 @@ PUBLIC OBJECT FUNCTION __OpenWHFSRichDocument(OBJECT file, OBJECT webdesign)
   RECORD settings := GetRTDSettingsForFile(file->id);
   OBJECT richdoc := NEW PublishableRichDocument;
   richdoc->webdesign := webdesign;
-  richdoc->__FastLoadFromWHFS(settings.applytester, file->id, file);
+  // We should prefer the webdesign's target applytester, GetRTDSettingsForFile might run on a version in /webhare-private/
+  richdoc->__FastLoadFromWHFS(ObjectExists(webdesign) ? webdesign->targetapplytester : settings.applytester, file->id, file);
 
   IF(settings.namespace != "")
   {
