@@ -450,7 +450,8 @@ function parseApplyToRecursive(context: SiteProfileParserContext, apply: Sp.Appl
     siteregex: apply.site && typeof apply.site === "object" && "regex" in apply.site ? apply.site.regex : "",
 
     typeneedstemplate: apply.hasWebDesign === true,
-    webfeatures: apply.webFeature ? [apply.webFeature] : []
+    webfeatures: apply.webFeature && typeof apply.webFeature === "string" ? [apply.webFeature] : [],
+    webfeatureregex: apply.webFeature && typeof apply.webFeature === "object" && "regex" in apply.webFeature ? apply.webFeature.regex : "",
   };
 
   if (!to.sitename)
@@ -459,6 +460,8 @@ function parseApplyToRecursive(context: SiteProfileParserContext, apply: Sp.Appl
     delete to.sitemask;
   if (!to.siteregex)
     delete to.siteregex;
+  if (!to.webfeatureregex)
+    delete to.webfeatureregex;
 
   return [to];
 }

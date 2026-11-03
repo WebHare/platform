@@ -228,7 +228,8 @@ export interface CSPApplyToTo {
   pathregex: string;
   sitetype: string;
   typeneedstemplate: boolean;
-  webfeatures: any[];
+  webfeatures: string[];
+  webfeatureregex?: string;
   whfspathmask: string;
   whfspathregex: string;
   withintype: string;

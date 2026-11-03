@@ -296,6 +296,8 @@ export class WHFSApplyTester {
           return false;
         if (element.webfeatures?.length && !await this.matchWebFeatures(element.webfeatures))
           return false;
+        if (element.webfeatureregex && !await this.matchWebFeatureRegex(element.webfeatureregex))
+          return false;
 
         //TODO can we somehow share with GetMatchesBySiteFilter ?
         if (element.sitename && (!site || site.name.toUpperCase() !== element.sitename.toUpperCase()))
@@ -397,9 +399,15 @@ export class WHFSApplyTester {
   }
 
   /** Are any of these webfeatures active? ('to webfeatures=') */
-  async matchWebFeatures(features: string[]) {
+  async matchWebFeatures(masks: string[]) {
     const { webfeatures } = await whfsType("platform:web.sitesettings").get(this.objinfo.site?.id || 0);
-    return features.some(_ => webfeatures?.includes(_));
+    return webfeatures?.some(feature => masks.some(mask => isLike(feature, mask))) ?? false;
+  }
+
+  /** Are any active webfeatures matching this regex? */
+  async matchWebFeatureRegex(regex: string) {
+    const { webfeatures } = await whfsType("platform:web.sitesettings").get(this.objinfo.site?.id || 0);
+    return webfeatures?.some(feature => matchPathRegex(regex, feature)) ?? false;
   }
 
   matchType(folderType: string | number | null, matchwith: string, isfolder: boolean): boolean {
