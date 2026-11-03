@@ -25,7 +25,7 @@ import { debugFlags } from "@webhare/env/src/envbackend";
 import { isatty } from "node:tty";
 import * as path from "node:path";
 import { setHSPromiseProxy } from "./wasm-resurrection";
-import { WebHareBlob } from "@webhare/services";
+import { WebHareBlob } from "@webhare/services/src/webhareblob";
 import * as readline from "node:readline";
 import { RefTracker } from "@mod-system/js/internal/whmanager/refs";
 import { beginWork, commitWork, rollbackWork, workHasMutex, type FinishHandler } from "@webhare/whdb";
