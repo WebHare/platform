@@ -2,7 +2,7 @@ import { fetchPreviewAsDoc } from "@mod-webhare_testsuite/js/whfs";
 import * as test from "@mod-webhare_testsuite/js/wts-backend.ts";
 import { throwError } from "@webhare/std";
 import { beginWork, commitWork } from "@webhare/whdb";
-import { listInstances, whfsType, type WHFSTypeName } from "@webhare/whfs";
+import { listInstances, lookupURL, whfsType, type WHFSTypeName } from "@webhare/whfs";
 import { openWorkflowManager } from "@webhare/whfs/src/workflow";
 import { generateForm } from "../data/whfs-testhelpers";
 
@@ -74,6 +74,10 @@ async function testVersionedStaticPage() {
       const livePreview = await fetchPreviewAsDoc(file.id);
       test.eq(/This is version #1/, livePreview.contentDiv?.textContent);
       test.eq("V1", livePreview.contentDiv?.attributes["data-betatestprops-anyfield"]);
+
+      // Make sure lookupURL resolves back to the original file.
+      const previewLookup = await lookupURL(new URL(livePreview.url));
+      test.eq(file.id, previewLookup.file);
 
       const history = await file.listHistory();
       test.eqPartial([{ type: "import", version: "1.0" }, { type: "saved", version: "1.1" }], history);

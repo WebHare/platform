@@ -260,6 +260,9 @@ MACRO DraftingTest() {
     textcontent := NEW Regex("This just went into a temporary draft","i")
   ];
 
+  // Make sure LookupPublisherURL resolves back to the original file.
+  STRING mostrecentversion_preview := GetPreviewLink(history[1].snapshot, [ share := "mostrecentversion" ]);
+  TestEqMembers([ file := testfile->id, folder := testfile->parent, site := testfile->parentsite ], LookupPublisherURL(mostrecentversion_preview), "*");
   TestEqMembers(expect_analyze_thisversion, AnalyzePreview(testfile->id), "*");
 
   testfw->BeginWork();
