@@ -68,7 +68,7 @@ const subsystems = {
   siteprofiles: {
     title: "Siteprofiles",
     description: "Recompile site profiles",
-    generate: ["extracts"] //we need the plugins extract to be up to date
+    generate: ["extracts", "whfs"] //we need the plugins extract to be up to date
   },
   webserver: {
     title: "Webserver",
