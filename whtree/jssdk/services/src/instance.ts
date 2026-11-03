@@ -1,11 +1,30 @@
 import { getWHType } from "@webhare/std/src/quacks";
 import { describeWHFSType } from "@webhare/whfs/src/describe";
 import type { ExportedInstance, InstanceSource, TypedInstanceData, ExportedTypedInstance, InstanceData, WHFSTypeName, WHFSTypeInfo, WHFSTypes } from "@webhare/whfs/src/contenttypes";
-import { exportData, importData } from "@webhare/whfs/src/codecs";
+import type { exportData, importData } from "@webhare/whfs/src/codecs";
 import type { DisallowExtraPropsRecursive } from "@webhare/js-api-tools/src/utility-types";
 import type { ExportOptions, ImportOptions, WebHareDBLocation } from "./descriptor";
 import { dbLoc } from "./symbols";
 import { SetDataError } from "./codec-support";
+
+/** The member codec Instance uses to import/export its data. It lives in @webhare/whfs, which itself depends on Instance */
+export interface InstanceDataCodec {
+  exportData: typeof exportData;
+  importData: typeof importData;
+}
+
+let instanceDataCodec: InstanceDataCodec | undefined;
+
+/** Register the instance data codec. Invoked by whfs/codecs when it loads */
+export function __setInstanceDataCodec(codec: InstanceDataCodec): void {
+  instanceDataCodec = codec;
+}
+
+function getInstanceDataCodec(): InstanceDataCodec {
+  //Late-bound: whfs/codecs imports us so a static import would be circular. Load it on first use if nobody has done so yet
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return instanceDataCodec ??= require("@webhare/whfs/src/codecs") as InstanceDataCodec;
+}
 
 export function isInstance(value: unknown): value is Instance {
   return Boolean(value && getWHType(value) === "Instance");
@@ -37,7 +56,7 @@ class Instance {
   }
 
   async export(options?: ExportOptions): Promise<ExportedInstance> {
-    const data = await exportData(this.#typeInfo.members, this.#data, options);
+    const data = await getInstanceDataCodec().exportData(this.#typeInfo.members, this.#data, options);
     return {
       whfsType: this.whfsType,
       ...(Object.keys(data).length ? { data } : {}),
@@ -100,7 +119,7 @@ export async function buildInstance<
 
   let imported;
   try {
-    imported = await importData(typeinfo.members, data.data || {}, { ...options, addMissingMembers: true });
+    imported = await getInstanceDataCodec().importData(typeinfo.members, data.data || {}, { ...options, addMissingMembers: true });
   } catch (err) {
     if (err instanceof SetDataError)
       err.prependToPath("data");

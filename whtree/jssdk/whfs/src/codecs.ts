@@ -14,7 +14,7 @@ import type { FSSettingsRow } from "./describe";
 import { describeWHFSType } from "./describe";
 import { getWHType, isTemporalInstant, isTemporalPlainDate } from "@webhare/std/src/quacks";
 import { buildRTD, isRichTextDocument, type RichTextDocument, type RTDSource, type RTDExport } from "@webhare/services/src/richdocument";
-import { buildInstance, isInstance, type Instance } from "@webhare/services/src/instance";
+import { buildInstance, isInstance, __setInstanceDataCodec, type Instance } from "@webhare/services/src/instance";
 import type { ExportedResource, ExportOptions, ImportOptions } from "@webhare/services/src/descriptor";
 import type { ExportedIntExtLink } from "@webhare/services/src/intextlink";
 import { buildCompoundDocument, CompoundDocument, isCompoundDocument, type CompoundDocumentType, type ExportedCompoundDocument } from "@webhare/services/src/compound-document";
@@ -1050,3 +1050,5 @@ export type CodecImportMemberType =
   Temporal.Instant |
   Temporal.PlainDate |
   TypedStringifyable;
+
+__setInstanceDataCodec({ exportData, importData });
