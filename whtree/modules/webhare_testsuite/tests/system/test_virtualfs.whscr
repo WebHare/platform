@@ -350,8 +350,35 @@ MACRO PublisherTestsAsMarge()
   TestEq(FALSE, ObjectExists(testfw->GetWHFSTestRoot()->OpenByName("copied.txt")));
   TestEq(FALSE, ObjectExists(testdir->OpenByName("copied.txt")));
 
+  //Fullaccess on just the file allows editing it, but deleting/renaming/moving it requires fullaccess on its parent
+  testfw->BeginWork();
+  OBJECT editablefile := testfw->GetWHFSTestRoot()->CreateFile([ name := "editable.txt", data := StringToBlob("Editable") ]);
+  testfw->GetUserObject("marge")->UpdateGrant("grant", "system:fs_fullaccess", editablefile->id, testfw->GetUserObject("marge"), [ allowselfassignment := TRUE ]);
+  testfw->CommitWork();
+
+  TestEq(TRUE, vfs->GetPathInfo(readonlybase || "editable.txt").write);
+  vfs->PutFile(readonlybase || "editable.txt", StringToBlob("Edited"), TRUE);
+  vfs->SetMetadata(readonlybase || "editable.txt", [ modificationdate := MakeDate(2010,6,15) ]);
+  TestThrowsLike("No write access", PTR vfs->DeletePath(readonlybase || "editable.txt"));
+  TestThrowsLike("No write access at source", PTR vfs->Move(readonlybase || "editable.txt", readonlybase || "renamed.txt", FALSE));
+  TestThrowsLike("No write access at source", PTR vfs->Move(readonlybase || "editable.txt", writablebase || "moved.txt", FALSE));
+  //Replacing it through copy/move is deleting it too
+  vfs->PutFile(writablebase || "replacement.txt", StringToBlob("Replacement"), FALSE);
+  TestThrowsLike("No write access at destination", PTR vfs->Copy(writablebase || "replacement.txt", readonlybase || "editable.txt", TRUE));
+  TestThrowsLike("No write access at destination", PTR vfs->Move(writablebase || "replacement.txt", readonlybase || "editable.txt", TRUE));
+  vfs->DeletePath(writablebase || "replacement.txt");
+
+  editablefile := OpenWHFSObject(editablefile->id);
+  TestEq(TRUE, ObjectExists(editablefile));
+  TestEq("editable.txt", editablefile->name);
+  TestEq(testfw->GetWHFSTestRoot()->id, editablefile->parent);
+  TestEq("Edited", BlobToString(editablefile->data));
+  TestEq(MakeDate(2010,6,15), editablefile->modificationdate);
+  TestEq(FALSE, ObjectExists(testdir->OpenByName("moved.txt")));
+
   testfw->BeginWork();
   readonlyfile->DeleteSelf();
+  editablefile->DeleteSelf();
   testfw->CommitWork();
 }
 

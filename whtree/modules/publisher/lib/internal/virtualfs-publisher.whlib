@@ -144,6 +144,7 @@ PUBLIC OBJECTTYPE PublisherFS EXTEND VirtualFSBase
              , when := when
              , ispinned := FALSE
              , isreadonly := NOT GetEffectiveUser()->HasRightOn("system:fs_fullaccess", root->id)
+             , parentreadonly := TRUE //the root itself can't be deleted, moved or replaced
              ];
     }
 
@@ -163,6 +164,7 @@ PUBLIC OBJECTTYPE PublisherFS EXTEND VirtualFSBase
                , when := when
                , ispinned := FALSE
                , isreadonly := NOT whfsinfo.can_write_all
+               , parentreadonly := NOT whfsinfo.can_write_all
                ];
       }
 
@@ -206,8 +208,11 @@ PUBLIC OBJECTTYPE PublisherFS EXTEND VirtualFSBase
            , name := lasttok
            , when := when
            , ispinned := ObjectExists(finalobject) ? finalobject->ispinned : FALSE
-             //write access requires fullaccess on the object itself, or on its parent folder if we're about to create it
+             //isreadonly: may we modify the object itself (requires fullaccess on the object, or on its parent folder if we're about to create it)
            , isreadonly := NOT GetEffectiveUser()->HasRightOn("system:fs_fullaccess", testlockobject->id)
+             //parentreadonly: may we add, delete, rename or replace an entry in the parent folder (requires fullaccess on the parent, like the filemanager)
+             //for objects directly in the root 'intermediateobject' is the object itself, so take the real parent for existing objects
+           , parentreadonly := NOT GetEffectiveUser()->HasRightOn("system:fs_fullaccess", ObjectExists(finalobject) ? finalobject->parent : intermediateobject->id)
            ];
   }
 
@@ -232,7 +237,7 @@ PUBLIC OBJECTTYPE PublisherFS EXTEND VirtualFSBase
         THROW NEW VirtualFSException("BADPATH", "Path does not exist");
       IF(pathinfo.ispinned)
         THROW NEW VirtualFSException("XS", "Path is pinned");
-      IF(pathinfo.isreadonly)
+      IF(pathinfo.parentreadonly)
         THROW NEW VirtualFSException("XS", "No write access");
 
       RunAnyDelete([INTEGER(pathinfo.final->id)], "publisher:virtualfs");
@@ -270,7 +275,7 @@ PUBLIC OBJECTTYPE PublisherFS EXTEND VirtualFSBase
       IF (ObjectExists(dstpathinfo.final) AND NOT overwrite)
         THROW NEW VirtualFSException("BADPATH", "Destination already exists");
 
-      IF(dstpathinfo.isreadonly)
+      IF(dstpathinfo.parentreadonly)
         THROW NEW VirtualFSException("XS", "No write access at destination");
 
       //FIXME Support webdav Overwrite
@@ -315,9 +320,9 @@ PUBLIC OBJECTTYPE PublisherFS EXTEND VirtualFSBase
       IF(srcpathinfo.ispinned)
         THROW NEW VirtualFSException("BADPATH", "Source path is pinned");
 
-      IF(srcpathinfo.isreadonly)
+      IF(srcpathinfo.parentreadonly)
         THROW NEW VirtualFSException("XS", "No write access at source");
-      IF(dstpathinfo.isreadonly)
+      IF(dstpathinfo.parentreadonly)
         THROW NEW VirtualFSException("XS", "No write access at destination");
 
       //FIXME Support webdav Overwrite
@@ -359,7 +364,8 @@ PUBLIC OBJECTTYPE PublisherFS EXTEND VirtualFSBase
       IF (NOT RecordExists(pathinfo) OR NOT ObjectExists(pathinfo.parent))
         THROW NEW VirtualFSException("BADPATH", "Path does not exist");
 
-      IF(pathinfo.isreadonly)
+      //Overwriting the data of an existing file only requires rights on that file, creating a new one requires rights on the folder
+      IF(ObjectExists(pathinfo.final) ? pathinfo.isreadonly : pathinfo.parentreadonly)
         THROW NEW VirtualFSException("XS", "No write access");
 
       IF(ObjectExists(pathinfo.final))
@@ -410,7 +416,7 @@ PUBLIC OBJECTTYPE PublisherFS EXTEND VirtualFSBase
         THROW NEW VirtualFSException("BADPATH", "Path does not exist");
       IF (ObjectExists(pathinfo.final))
         THROW NEW VirtualFSException("ALREADYEXISTS", "Path already exists exist");
-      IF(pathinfo.isreadonly)
+      IF(pathinfo.parentreadonly)
         THROW NEW VirtualFSException("XS", "No write access");
 
       OBJECT newfolder := pathinfo.parent->CreateFolder([ name := pathinfo.name ]);
