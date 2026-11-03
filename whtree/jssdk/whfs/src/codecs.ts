@@ -7,12 +7,14 @@ import { dateToParts, makeDateFromParts, } from "@webhare/hscompat/src/datetime.
 import { buildRTDFromCompoundDocument, exportRTDAsCompoundDocument } from "@webhare/hscompat/src/richdocument.ts";
 import type { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { ResourceDescriptor, addMissingScanData, decodeScanData, exportIntExtLink, importIntExtLink, isResourceDescriptor, mapExternalWHFSRef, unmapExternalWHFSRef } from "@webhare/services/src/descriptor";
-import { IntExtLink, WebHareBlob, type RichTextDocument, type Instance } from "@webhare/services";
+import { IntExtLink } from "@webhare/services/src/intextlink";
+import { WebHareBlob } from "@webhare/services/src/webhareblob";
 import type { InstanceData, ExportedInstance, InstanceSource, WHFSTypeMember } from "./contenttypes";
 import type { FSSettingsRow } from "./describe";
 import { describeWHFSType } from "./describe";
 import { getWHType, isTemporalInstant, isTemporalPlainDate } from "@webhare/std/src/quacks";
-import { buildRTD, buildInstance, isRichTextDocument, isInstance, type RTDSource, type RTDExport } from "@webhare/services/src/richdocument";
+import { buildRTD, isRichTextDocument, type RichTextDocument, type RTDSource, type RTDExport } from "@webhare/services/src/richdocument";
+import { buildInstance, isInstance, type Instance } from "@webhare/services/src/instance";
 import type { ExportedResource, ExportOptions, ImportOptions } from "@webhare/services/src/descriptor";
 import type { ExportedIntExtLink } from "@webhare/services/src/intextlink";
 import { buildCompoundDocument, CompoundDocument, isCompoundDocument, type CompoundDocumentType, type ExportedCompoundDocument } from "@webhare/services/src/compound-document";

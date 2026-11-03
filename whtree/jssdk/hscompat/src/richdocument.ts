@@ -1,11 +1,13 @@
 import { WebHareBlob } from "@webhare/services/src/webhareblob.ts";
-import { RichTextDocument, type RTDInlineItem, type RTDSourceBlock, rtdTextStyles, type RTDInlineItems, isValidRTDClassName, type RTDBlock, rtdBlockDefaultClass, type RTDParagraphType, rtdParagraphTypes, type Instance, buildInstance, type RTDListItems, rtdListTypes, type RTDAnonymousParagraph, type RTDParagraph, type RTDList, type RTDBaseInlineImageItem, type RTDBaseLink, type RTDImageFloat, type RTDBaseTable, type RTDBaseTableCell } from "@webhare/services/src/richdocument";
+import { RichTextDocument, type RTDInlineItem, type RTDSourceBlock, rtdTextStyles, type RTDInlineItems, isValidRTDClassName, type RTDBlock, rtdBlockDefaultClass, type RTDParagraphType, rtdParagraphTypes, type RTDListItems, rtdListTypes, type RTDAnonymousParagraph, type RTDParagraph, type RTDList, type RTDBaseInlineImageItem, type RTDBaseLink, type RTDImageFloat, type RTDBaseTable, type RTDBaseTableCell } from "@webhare/services/src/richdocument";
+import { buildInstance, type Instance } from "@webhare/services/src/instance";
 import { generateRandomId, isTruthy, nameToSnakeCase, throwError, toSnakeCase, typedEntries } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs/src/describe";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
 import { Node, type Element } from "@xmldom/xmldom";
 import { elements, parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
-import { IntExtLink, ResourceDescriptor } from "@webhare/services";
+import { IntExtLink } from "@webhare/services/src/intextlink";
+import { ResourceDescriptor } from "@webhare/services/src/descriptor";
 import { CompoundDocument } from "@webhare/services/src/compound-document";
 import type { CodecImportMemberType } from "@webhare/whfs/src/codecs";
 
