@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-floating-promises -- FIXME: needs API rework */
 
 import * as dompack from "@webhare/dompack";
-import FormBase from "../formbase";
 import { debugFlags } from "@webhare/env";
 import { verifyHareScriptAddress, type HareScriptAddressValidationResult, type AddressChecks, type HareScriptAddressValue } from "@webhare/forms/src/address";
 import { setFieldError } from "../internal/customvalidation";
+import { getFormHandler } from "@webhare/forms/src/domsupport";
 import { throwError } from "@webhare/std";
 
 class SubField {
@@ -158,7 +158,7 @@ export default class AddressField {
   }
 
   async _checkValidity(event: Event) {
-    const form = FormBase.getForNode(this.formnode) ?? throwError("Parent form for address field not yet initialized");
+    const form = getFormHandler(this.formnode, { allowMissing: true }) ?? throwError("Parent form for address field not yet initialized");
     /* we used to clear fields that are no longer visible after a country change, add visible fields to the value we're checking
        but not sure why. ignoring those fields should be okay? and this is a very eager trigger, so if we really do this, do
        this on base of the country actually changing, not an external checkbox controlling visibility of the whole country field

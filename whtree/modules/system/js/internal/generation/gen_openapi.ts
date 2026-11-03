@@ -9,7 +9,7 @@ import { backendConfig, toFSPath } from "@webhare/services";
 import { getExtractedConfig } from "../configuration";
 import type { OpenAPIDescriptor, Services } from "./gen_extracts";
 import { promises as fs } from "node:fs";
-import { decodeYAML } from "@mod-platform/js/devsupport/validation";
+import { decodeYAML } from "@mod-platform/js/devsupport/yaml";
 import { getHTTPStatusCodeName, type HTTPStatusCode } from "@webhare/router/src/response";
 
 

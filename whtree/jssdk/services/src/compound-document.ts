@@ -1,4 +1,4 @@
-import { buildInstance, type Instance } from "./richdocument";
+import { buildInstance, type Instance } from "./instance";
 import { WebHareBlob } from "./webhareblob";
 import { mapExternalWHFSRef, ResourceDescriptor, unmapExternalWHFSRef, type ExportedResource, type ExportOptions, type ImportOptions } from "./descriptor";
 import type { ExportedInstance } from "@webhare/whfs/src/contenttypes";

@@ -220,7 +220,7 @@ export class ArrayFieldHandler extends RegisteredFieldHandler implements FormFie
   private node: HTMLElement;
 
   constructor(form: FormParent, node: HTMLElement, items: HTMLElement[]) {
-    node[rfSymbol] ||= new ArrayField(form, node, items, getFieldName(items[0]));
+    node[rfSymbol] ||= new ArrayField(form, node, items, getFieldName(items[0]), (rowForm, baseName, nodes) => new RecordFieldHandler(rowForm, baseName, nodes));
     super(form, node[rfSymbol]);
     this.node = node;
   }

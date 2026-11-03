@@ -5,7 +5,7 @@ import AddressField from '@mod-publisher/js/forms/fields/addressfield';
 import { setupValidator } from './customvalidation';
 
 import { getTid } from "@webhare/gettid";
-import { formatDate, parseISODate } from './datehelpers';
+import { reformatDate } from './datehelpers';
 import { isValidDate } from '@webhare/std';
 
 function validateCheckboxGroup(groupnode: HTMLElement) {
@@ -33,11 +33,6 @@ function validateRadioGroup(groupnode: HTMLElement) {
     if (!isanychecked)
       return getTid("publisher:site.forms.commonerrors.required");
   }
-}
-
-export function reformatDate(datestr: string): string {
-  const parsed = parseISODate(datestr);
-  return parsed ? formatDate("D-M-Y", parsed.year, parsed.month, parsed.day) : "";
 }
 
 function validateDate(date: HTMLInputElement) {

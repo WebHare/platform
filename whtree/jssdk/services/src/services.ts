@@ -37,8 +37,10 @@ export { createServerSession, getServerSession, closeServerSession, updateServer
 export { loadWittyResource } from "./witty.ts";
 export { importJSFunction, importJSObject, JSLibraryImporter, signalOnImportChange, signalOnResourceChange, type ImportedJSLibrary as ImportedJSLibrary } from "./resourcetools.ts";
 
-export { buildInstance, buildRTD, buildWidget, RichTextDocument } from "./richdocument";
-export type { Instance, TypedInstance, Widget, RTDSource } from "./richdocument";
+export { buildRTD, RichTextDocument } from "./richdocument";
+export type { RTDSource } from "./richdocument";
+export { buildInstance, buildWidget } from "./instance";
+export type { Instance, TypedInstance, Widget } from "./instance";
 
 export { LocalCache, type LocalCacheKey, type LocalCacheOptions, type LocalCacheValueRecord } from "./localcache.ts";
 
