@@ -2,7 +2,7 @@ import { toFSPath, resolveResource } from "@webhare/services";
 import { readFile } from "fs/promises";
 import type { FileToUpdate, GenerateContext } from "./shared";
 import { compile, type JSONSchema } from 'json-schema-to-typescript';
-import { decodeYAML } from "@mod-platform/js/devsupport/validation";
+import { decodeYAML } from "@mod-platform/js/devsupport/yaml";
 
 async function buildSchema(sourceres: string, tsType: string) {
   const source = decodeYAML<JSONSchema>(await readFile(toFSPath(sourceres), 'utf8'));
