@@ -2,7 +2,7 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getExtendedWRDSchema, getWRDSchema, testSchemaTag, type CustomExtensions, type CustomExtensionsModern } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import type { WRDAttributeTypeId, SelectionResultRow, IsRequired, WRDAttr, Combine, WRDTypeBaseSettingsModern, WRDBaseAttributeTypeId } from "@webhare/wrd/src/types";
-import { describeEntity, listSchemas, openSchemaById, getSchemaSettings, updateSchemaSettings, type WRDInsertable, type WRDSchemaTypeOf, type WRDUpdatable, wrd, type WRDSchemaLike, type AnySchemaType } from "@webhare/wrd";
+import { describeEntity, listSchemas, openSchemaById, getSchemaSettings, updateSchemaSettings, type WRDInsertable, type WRDSchemaTypeOf, type WRDUpdatable, type WRDInsertType, type WRDUpdateType, wrd, type WRDSchemaLike, type AnySchemaType } from "@webhare/wrd";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
 import { buildRTD, ResourceDescriptor, toResourcePath, IntExtLink, type Instance } from "@webhare/services";
 import { loadlib } from "@webhare/harescript/src/contextvm";
@@ -255,13 +255,18 @@ async function testNewAPI() {
   //@ts-expect-error -- we want type to be explicit if you refer to an unknown schema:
   wrd("webhare_testsuite:unknownschema");
 
+  //this should be fine:
+  wrd<"*">("webhare_testsuite:unknownschema");
+
   //should be allowed to refer by name to a schemalike
   const x1 = wrd("wrd:testschema");
   void (x1);
   wrd<"wrd:testschema">("system:usermgmt") satisfies typeof x1;
+  const x2 = wrd<"wrd:testschema">(testSchemaTag);
+  void (x2);
 
-  //this should be fine:
-  wrd<"*">("webhare_testsuite:unknownschema");
+  //wrd<"name"> should give the same schema type as wrd<WRDSchemaLike["name"]>
+  test.typeAssert<test.Equals<typeof x1, typeof x2>>();
 
   //@ts-expect-error should not be able to select wrdOrdering from certificateProvider in modern API, only wrdOrder should work
   test.throws(/Cannot use legacy field.*wrdOrdering/, () => wrd("system:config").query("mailcorrection").select(["wrdOrdering"]));
@@ -316,6 +321,19 @@ async function testNewAPI() {
 
   //@ts-expect-error Cannot update a wrdId
   ({ wrdTitle: "Root unit", wrdId: 15 }) satisfies WRDUpdatable<WRDSchemaLike["wrd:testschema"]["whuserUnit"]>;
+
+  //Verify WRDInsertType/WRDUpdateType accept both a schema name and a schema object type
+  test.typeAssert<test.Equals<WRDInsertType<"wrd:testschema", "whuserUnit">, WRDInsertable<WRDSchemaLike["wrd:testschema"]["whuserUnit"]>>>();
+  test.typeAssert<test.Equals<WRDUpdateType<"wrd:testschema", "whuserUnit">, WRDUpdatable<WRDSchemaLike["wrd:testschema"]["whuserUnit"]>>>();
+  test.typeAssert<test.Equals<WRDInsertType<WRDSchemaType<WRDSchemaLike["wrd:testschema"]>, "whuserUnit">, WRDInsertType<"wrd:testschema", "whuserUnit">>>();
+  test.typeAssert<test.Equals<WRDUpdateType<WRDSchemaType<WRDSchemaLike["wrd:testschema"]>, "whuserUnit">, WRDUpdateType<"wrd:testschema", "whuserUnit">>>();
+  ({ wrdTitle: "Root unit", wrdId: 15 }) satisfies WRDInsertType<"wrd:testschema", "whuserUnit">;
+  ({ wrdContactEmail: "pietje@beta.webhare.net" }) satisfies WRDUpdateType<typeof schema, "wrdPerson">;
+  //@ts-expect-error Cannot update a wrdId
+  ({ wrdTitle: "Root unit", wrdId: 15 }) satisfies WRDUpdateType<"wrd:testschema", "whuserUnit">;
+  //@ts-expect-error No such type
+  ({}) satisfies WRDInsertType<"wrd:testschema", "noSuchType">;
+
 
   //Use WRD type helpers to verify enum generation
   ({ wrdTag: "TAG", enum1: "a" }) satisfies WRDInsertable<TestschemaSchemaType["testType"]>;
