@@ -401,7 +401,7 @@ export class WHFSApplyTester {
   /** Are any of these webfeatures active? ('to webfeatures=') */
   async matchWebFeatures(masks: string[]) {
     const { webfeatures } = await whfsType("platform:web.sitesettings").get(this.objinfo.site?.id || 0);
-    return webfeatures?.some(feature => masks.some(mask => isLike(feature, mask))) ?? false;
+    return webfeatures?.some(feature => masks.some(mask => isLike(feature.toUpperCase(), mask.toUpperCase()))) ?? false;
   }
 
   /** Are any active webfeatures matching this regex? */
