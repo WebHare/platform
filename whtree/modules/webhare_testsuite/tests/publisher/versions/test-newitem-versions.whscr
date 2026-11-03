@@ -3,6 +3,7 @@
 LOADLIB "mod::publisher/lib/history.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
@@ -51,6 +52,15 @@ ASYNC MACRO TestCreateRTD() {
   TestEq("base-metadata-test", unnamedfile->name, "This new name is immediately visible in the filemanager so you can find us");
   TestEq("Base metadata test", unnamedfile->title, "Plus the title");
   TestEq(FALSE, unnamedfile->publish, "But we are still unpublished");
+
+  //Try an invalid name. Both saving as draft (which skips field validation) and publishing should refuse it
+  TT(":File name")->value := "invalid:name";
+  TT(":File name")->SetDirty();
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Save"), [ messagemask := "Field 'File name' does not contain a valid name*" ]);
+  AWAIT ExpectScreenChange(+1, PTR TT("publish")->TolliumClick()); //'Are you sure you want to save and publish?'
+  AWAIT ExpectScreenChange(0, PTR TTClick(":Yes")); //confirmation is replaced by the error
+  AWAIT AnswerMessageBox("ok", [ messagemask := "Field 'File name' does not contain a valid name*" ]);
+  TestEq("base-metadata-test", OpenWHFSObject(unnamedfile->id)->name, "Invalid name should not have been applied");
 
   //Set a name
   TT(":File name")->value := "this-name-please";

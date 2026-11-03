@@ -391,6 +391,13 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND PublisherMetadataBase <
     }
 
     IF(^name->value != "") {
+      // Saving as draft skips field validation, so explicitly verify the name before it reaches the database
+      // (same message as the field's validationchecks="whfsname" gives when publishing)
+      IF(NOT IsValidWHFSName(^name->value, FALSE)) {
+        work->AddErrorFor(^name, GetTid("tollium:validation.errors.invalid_whfsname", ^name->title));
+        RETURN;
+      }
+
       // Test for an object with the same name at the target location
       OBJECT otherobject := this->parentfolder->OpenByName(^name->value);
       IF (ObjectExists(otherobject) AND otherobject->id != this->itemid) {
