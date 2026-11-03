@@ -217,6 +217,20 @@ apply:
       webFeature: "webhare_testsuite:testfeature"
     userData:
       webhare_testsuite:setting: '{"hasTestFeature":true}'
+  - to:
+      webFeature: "webhare_testsuite:test*"
+    userData:
+      webhare_testsuite:featurewildcard: '{"matched":true}'
+  - to:
+      webFeature:
+        regex: "^webhare_testsuite:t.*feature$"
+    userData:
+      webhare_testsuite:featureregex: '{"matched":true}'
+  - to:
+      webFeature:
+        regex: "^webhare_testsuite:nosuchfeature$"
+    userData:
+      webhare_testsuite:featurenomatch: '{"matched":true}'
 
   - comment: test setLibrary
     to: all
