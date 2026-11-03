@@ -99,6 +99,14 @@ RECORD ARRAY FUNCTION GetItems(OBJECT parentfolder)
   RETURN base;
 }
 
+MACRO ScheduleRepublishOf(OBJECT obj)
+{
+  IF(obj->isfolder)
+    ScheduleFolderRepublish(obj->id, TRUE, TRUE);
+  ELSE
+    ScheduleFileRepublish(obj->id);
+}
+
 PUBLIC OBJECTTYPE PublisherFS EXTEND VirtualFSBase
 <
   INTEGER baseobject;
@@ -135,7 +143,7 @@ PUBLIC OBJECTTYPE PublisherFS EXTEND VirtualFSBase
              , name := ""
              , when := when
              , ispinned := FALSE
-             , isreadonly := FALSE
+             , isreadonly := NOT GetEffectiveUser()->HasRightOn("system:fs_fullaccess", root->id)
              ];
     }
 
@@ -154,7 +162,7 @@ PUBLIC OBJECTTYPE PublisherFS EXTEND VirtualFSBase
                , name := pathtoks[0]
                , when := when
                , ispinned := FALSE
-               , isreadonly := FALSE
+               , isreadonly := NOT whfsinfo.can_write_all
                ];
       }
 
@@ -198,7 +206,8 @@ PUBLIC OBJECTTYPE PublisherFS EXTEND VirtualFSBase
            , name := lasttok
            , when := when
            , ispinned := ObjectExists(finalobject) ? finalobject->ispinned : FALSE
-           , isreadonly := FALSE
+             //write access requires fullaccess on the object itself, or on its parent folder if we're about to create it
+           , isreadonly := NOT GetEffectiveUser()->HasRightOn("system:fs_fullaccess", testlockobject->id)
            ];
   }
 
@@ -265,9 +274,9 @@ PUBLIC OBJECTTYPE PublisherFS EXTEND VirtualFSBase
         THROW NEW VirtualFSException("XS", "No write access at destination");
 
       //FIXME Support webdav Overwrite
-      srcpathinfo.final->CopyTo(dstpathinfo.parent, dstpathinfo.name, [ createdby := GetEffectiveUser() ]);
+      OBJECT copy := srcpathinfo.final->CopyTo(dstpathinfo.parent, dstpathinfo.name, [ createdby := GetEffectiveUser() ]);
       //FIXME hooks? more to repbulish?
-      ScheduleFolderRepublish(srcpathinfo.final->id, TRUE, TRUE);
+      ScheduleRepublishOf(copy);
 
       trans->CommitWork();
     }
@@ -314,7 +323,7 @@ PUBLIC OBJECTTYPE PublisherFS EXTEND VirtualFSBase
       //FIXME Support webdav Overwrite
       srcpathinfo.final->MoveTo(dstpathinfo.parent, dstpathinfo.name);
       //FIXME hooks? more to repbulish?
-      ScheduleFolderRepublish(srcpathinfo.final->id, TRUE, TRUE);
+      ScheduleRepublishOf(srcpathinfo.final);
 
       LogAuditEvent("publisher:virtualfs",[ objectid := srcpathinfo.final->id
                                           , type := "MOVE"
