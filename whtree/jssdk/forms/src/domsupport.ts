@@ -1,7 +1,7 @@
 /* Support APIs to deal with DOM native form elements (eg input, select, textarea) */
 
 import type FormBase from '@mod-publisher/js/forms/formbase';
-import { reformatDate } from "@mod-publisher/js/forms/internal/webharefields";
+import { reformatDate } from "@mod-publisher/js/forms/internal/datehelpers";
 import { getTid } from "@webhare/gettid";
 import { isFormControl, isHTMLElement, qSA, type FormControlElement } from "@webhare/dompack";
 import type { FormCondition } from "./types";

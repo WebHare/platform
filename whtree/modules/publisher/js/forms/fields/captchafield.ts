@@ -3,7 +3,7 @@ import { initializeCaptcha, type CaptchaProvider } from "@mod-publisher/js/captc
 import { setFieldError, type SetFieldErrorData } from '../internal/customvalidation';
 
 import "../../captcha/__captcha.lang.json"; //TODO or have forms send this tid (so it can also be overridden there)
-import { JSFormElement } from '@webhare/forms';
+import { JSFormElement } from '@webhare/forms/src/jsformelement';
 import { getTid } from '@webhare/gettid';
 import type RPCFormBase from '../rpc';
 

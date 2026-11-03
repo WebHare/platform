@@ -144,3 +144,9 @@ export function makeJSUTCDate(dateparts: DateParts) {
 export function formatJSUTCISODate(dateobj: Date) {
   return dateobj.getUTCFullYear() + '-' + ('0' + (dateobj.getUTCMonth() + 1)).slice(-2) + '-' + ('0' + dateobj.getUTCDate()).slice(-2);
 }
+
+/** Reformat an ISO date (YYYY-MM-DD) to D-M-Y for display. Returns an empty string if the date is invalid */
+export function reformatDate(datestr: string): string {
+  const parsed = parseISODate(datestr);
+  return parsed ? formatDate("D-M-Y", parsed.year, parsed.month, parsed.day) : "";
+}
