@@ -125,20 +125,26 @@ export async function lookupURL(url: URL, options?: LookupURLOptions): Promise<L
     const baseurl = url.pathname.split('/')[3];
     const data = decryptForThisServer("publisher:preview", baseurl, { nullIfInvalid: true });
     if (data) {
-      const info = await db<PlatformDB>().selectFrom("system.fs_objects").
-        select(["parent", "isfolder", "indexdoc"]).
+      let target = data.id;
+      let info = await db<PlatformDB>().selectFrom("system.fs_objects").
+        select(["parent", "isfolder", "indexdoc", "snapshotfor"]).
         select(selectFSHighestParent().as("parentsite")).
         where("id", "=", data.id).
         executeTakeFirst();
+      if (info?.snapshotfor) {
+        target = info.snapshotfor;
+        info = await db<PlatformDB>().selectFrom("system.fs_objects").
+          select(["parent", "isfolder", "indexdoc", "snapshotfor"]).
+          select(selectFSHighestParent().as("parentsite")).
+          where("id", "=", info.snapshotfor).
+          executeTakeFirst();
+      }
       if (info) {
         return {
           ...result,
           site: info.parentsite,
-          folder: info.isfolder ? data.id : info.parent,
-          file: info.isfolder ? info.indexdoc : data.id,
-          // TODO is there still need for this?
-          // __directfile: info.isfolder ? 0 : data.id,
-          // ispreview: true
+          folder: info.isfolder ? target : info.parent,
+          file: info.isfolder ? info.indexdoc : target,
         };
       }
     }

@@ -465,6 +465,9 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext <
   }
 
   MACRO SetOGShareImageResource(RECORD newimage) {
+  IF(RecordExists(newimage) AND (NOT CellExists(newimage, "__BLOBSOURCE") OR newimage.__blobsource = ""))
+    THROW NEW Exception("WebDesign::ogshareimage requires a WHFS Setting, WRD Setting or WHFSObject GetWrapped() record");
+
     OBJECT ogplugin := this->EnsureOGSharePlugin(RecordExists(newimage));
     IF(ObjectExists(ogplugin))
       ogplugin->ogproperties := CELL[...ogplugin->ogproperties, image := "", imageresource := newimage ];
