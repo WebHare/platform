@@ -8,8 +8,7 @@ export { isValidWRDTag } from "./wrdsupport";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { broadcastOnCommit, db } from "@webhare/whdb";
 import type { WRDAttributeType, WRDMetaType, WRDInsertable, WRDUpdatable, AnySchemaType, SchemaTypeDefinitionModern, MatchObjectQueryable } from "./types";
-import { encodeWRDGuid } from "./accessors";
-import { isValidWRDSchemaTag, tagToJS } from "./wrdsupport";
+import { isValidWRDSchemaTag } from "./wrdsupport";
 import { wrdFinishHandler } from "./finishhandler";
 import { scheduleTask, scheduleTimedTask } from "@webhare/services";
 
@@ -24,6 +23,7 @@ import { parseSchema, wrd_baseschemaresource } from "./schemaparser";
 import { loadlib } from "@webhare/harescript";
 import { generateRandomId, regExpFromWildcards } from "@webhare/std";
 import { updateSchemaSettings } from "./settings";
+export { describeEntity, type DescribedEntity } from "./db";
 
 export type { AnySchemaType };
 import type { } from "@mod-platform/generated/ts/wrd.ts";
@@ -51,39 +51,6 @@ type EntityMatchSchema<Schema extends keyof WRDSchemaLike | AnyWRDSchema> =
  */
 export type WRDEntityMatch<Schema extends keyof WRDSchemaLike | AnyWRDSchema, TypeName extends keyof EntityMatchSchema<Schema> & string> =
   number | MatchObjectQueryable<EntityMatchSchema<Schema>[TypeName]>;
-
-export interface DescribedEntity {
-  /** Entity's tag */
-  wrdTag: string;
-  /** Entitys wrdGuid */
-  wrdGuid: string;
-  /** Entity's type tag */
-  type: string;
-  /** Entity's type id */
-  typeId: number;
-  /** Entity's schema tag */
-  schema: string;
-  /** Entity's schema id */
-  schemaId: number;
-}
-
-/** Describe a wrd entity by id
-    @param entityid - Entity to look up
-    @returns Entity description, null if the entity was not found
-*/
-export async function describeEntity(entityid: number): Promise<DescribedEntity | null> {
-  const basedata = await db<PlatformDB>().
-    selectFrom("wrd.entities").innerJoin("wrd.types", "wrd.types.id", "wrd.entities.type").innerJoin("wrd.schemas", "wrd.schemas.id", "wrd.types.wrd_schema").
-    where("wrd.entities.id", "=", entityid).
-    select(["wrd.entities.tag as wrdTag", "wrd.entities.guid as wrdGuid", "wrd.types.tag as type", "wrd.types.id as typeId", "wrd.schemas.name as schema", "wrd.schemas.id as schemaId"]).
-    executeTakeFirst();
-
-  return basedata ? {
-    ...basedata,
-    wrdGuid: encodeWRDGuid(basedata.wrdGuid),
-    type: tagToJS(basedata.type)
-  } : null;
-}
 
 /** Get a list of WRD schemas
     @returns List of schemas

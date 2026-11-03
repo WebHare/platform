@@ -11,6 +11,7 @@ import { codecs } from "@webhare/whfs/src/codecs";
 import { getWHType } from "@webhare/std/src/quacks";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { dbLoc } from "@webhare/services/src/symbols";
+import { exportRTDToRawHTML } from "@webhare/hscompat";
 
 void dumpSettings; //don't require us to add/remove the import while debugging
 
@@ -266,7 +267,8 @@ async function testInstanceData() {
 
   //Test rich documents
   const inRichdoc = await buildRTD([{ "p": "Hello, World!" }]);
-  const inRichdocHTML = await inRichdoc.__getRawHTML();
+  const inRichdocHTML = await exportRTDToRawHTML(inRichdoc);
+  test.assert(inRichdocHTML);
   await testtype.set(testfile.id, {
     rich: inRichdoc
   });
@@ -275,7 +277,8 @@ async function testInstanceData() {
   await verifyNumSettings(testfile.id, "webhare_testsuite:global.generic_test_type", expectNumSettings);
 
   const returnedRichdoc = (await testtype.get(testfile.id)).rich;
-  test.eq(inRichdocHTML, await returnedRichdoc?.__getRawHTML());
+  test.assert(returnedRichdoc);
+  test.eq(inRichdocHTML, await exportRTDToRawHTML(returnedRichdoc));
 
   //Test composed documents
   const inComposedDoc = await generateMarkDownDoc();

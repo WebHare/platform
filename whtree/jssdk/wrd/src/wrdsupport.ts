@@ -1,5 +1,5 @@
 import type { WRDAttributeType } from "./types";
-import { nameToSnakeCase, nameToCamelCase } from "@webhare/std";
+import { nameToSnakeCase, nameToCamelCase, isValidUUID } from "@webhare/std";
 
 export interface WRDAttributeConfiguration_HS {
   id: number;
@@ -122,4 +122,19 @@ export function isValidWRDAttributeTag(tag: string, options?: { allowMultiLevel?
   if (options?.allowMultiLevel)
     return !tag.split('.').some(part => !isValidWRDAttributeTag(part));
   return Boolean(tag.match(/^[a-z][$a-zA-Z0-9_]{0,63}$/) && !tag.endsWith('_')) && nameToSnakeCase(tag).length <= 64;
+}
+
+export function encodeWRDGuid(guid: Buffer) {
+  if (guid.length !== 16)
+    throw new Error(`Input to encodeWRDGuid is not a raw guid`);
+
+  const guidhex = guid.toString("hex");
+  return `${guidhex.substring(0, 8)}-${guidhex.substring(8, 12)}-${guidhex.substring(12, 16)}-${guidhex.substring(16, 20)}-${guidhex.substring(20)}`;
+
+}
+export function decodeWRDGuid(wrdGuid: string) {
+  if (!isValidUUID(wrdGuid))
+    throw new Error("Invalid wrdGuid: " + wrdGuid);
+
+  return Buffer.from(wrdGuid.replaceAll('-', ''), "hex");
 }

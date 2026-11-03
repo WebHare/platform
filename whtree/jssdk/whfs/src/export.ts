@@ -1,6 +1,9 @@
 import YAML from 'yaml';
 import { createArchive, type CreateArchiveController } from "@webhare/zip";
-import { describeWHFSType, listInstances, openFile, openFileOrFolder, whfsType, type ExportedInstance, type WHFSFile, type WHFSFolder, type WHFSObject } from "@webhare/whfs";
+import { describeWHFSType } from "./describe";
+import { listInstances } from "./listinstances";
+import { openFile, openFileOrFolder, type WHFSFile, type WHFSFolder, type WHFSObject } from "./objects";
+import { whfsType, type ExportedInstance } from "./contenttypes";
 import { basename, dirname, join, relative } from "node:path";
 import { listDirectory, storeDiskFile } from "@webhare/system-tools";
 import { mkdir } from "node:fs/promises";

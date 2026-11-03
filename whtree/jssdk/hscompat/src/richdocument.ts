@@ -675,9 +675,10 @@ export async function exportRTDAsCompoundDocument(rtd: RichTextDocument, { recur
   });
 }
 
-/** Get the raw HTML for a RTD (ie <html><body>...) as HareScript would export it */
+/** Get the raw HTML for a RTD (ie <html><body>...) as HareScript would export it.
+ * @returns The HTML, or null for an empty document.
+ */
 export async function exportRTDToRawHTML(rtd: RichTextDocument): Promise<string | null> {
-  /* we mirror __getRawHTML but that's more of a hack in practice anywyay */
   if (!rtd.blocks.length)
     return null;
 

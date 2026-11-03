@@ -5,7 +5,7 @@ import { db, isSameUploadedBlob, nextVal, sql } from "@webhare/whdb";
 import type * as kysely from "kysely";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { type SchemaData, type TypeRec, selectEntitySettingColumns/*, selectEntitySettingWHFSLinkColumns*/, type EntityPartialRec, type EntitySettingsRec, type EntitySettingsWHFSLinkRec, selectEntitySettingWHFSLinkColumns } from "./db";
-import { type EncodedSetting, encodeWRDGuid, getAccessor, type AwaitableEncodedSetting, type AwaitableEncodedValue } from "./accessors";
+import { type EncodedSetting, getAccessor, type AwaitableEncodedSetting, type AwaitableEncodedValue } from "./accessors";
 import { defaultDateTime, maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/src/datetime";
 import { appendToArray, compare, generateRandomId, isPromise, omit } from "@webhare/std";
 import { debugFlags } from "@webhare/env/src/envbackend";
@@ -21,6 +21,7 @@ import { hashStream } from "@webhare/services/src/descriptor";
 import { SettingsStorer } from "./entitysettings";
 import { isDate } from "node:util/types";
 import { getTypedArray, HareScriptType } from "@webhare/hscompat/src/hson";
+import { encodeWRDGuid } from "./wrdsupport";
 
 type __InternalUpdEntityOptions = {
   temp?: boolean;

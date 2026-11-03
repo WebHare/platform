@@ -6,7 +6,7 @@ import { describeEntity, listSchemas, openSchemaById, getSchemaSettings, updateS
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
 import { buildRTD, ResourceDescriptor, toResourcePath, IntExtLink, type Instance } from "@webhare/services";
 import { loadlib } from "@webhare/harescript/src/contextvm";
-import { decodeWRDGuid, encodeWRDGuid } from "@webhare/wrd/src/accessors";
+import { decodeWRDGuid, encodeWRDGuid } from "@webhare/wrd/src/wrdsupport";
 import { isChange, type WRDSchemaType, type WRDTypeMetadata } from "@webhare/wrd/src/schema";
 import * as util from "node:util";
 import type { AddressValue } from "@webhare/address";

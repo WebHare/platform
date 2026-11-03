@@ -1,6 +1,6 @@
 import { db, type Selectable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { tagToJS } from "./wrdsupport";
+import { tagToJS, encodeWRDGuid } from "./wrdsupport";
 import { WRDAttributeTypeId, WRDBaseAttributeTypeId } from "./types";
 
 const selectSchemaColumns = ["id"] as const;
@@ -49,6 +49,20 @@ export type EntityRec = Selectable<PlatformDB, "wrd.entities">;
 export type EntityPartialRec = Partial<EntityRec>;
 export type EntitySettingsWHFSLinkRec = Pick<Selectable<PlatformDB, "wrd.entity_settings_whfslink">, typeof selectEntitySettingWHFSLinkColumns[number]>;
 
+export interface DescribedEntity {
+  /** Entity's tag */
+  wrdTag: string;
+  /** Entitys wrdGuid */
+  wrdGuid: string;
+  /** Entity's type tag */
+  type: string;
+  /** Entity's type id */
+  typeId: number;
+  /** Entity's schema tag */
+  schema: string;
+  /** Entity's schema id */
+  schemaId: number;
+}
 
 export type SchemaData = {
   schema: SchemaRec;
@@ -267,4 +281,31 @@ function recurseStoreRootAttrs(rootAttr: AttrRec, current: number, parentAttrMap
       if (parentAttrMap.has(attr.id))
         recurseStoreRootAttrs(rootAttr, attr.id, parentAttrMap, attrRootAttrMap, attrByFullTagMap, attrHSNameMap, attr.fullTag + ".", attr.hsFullTag + ".");
     }
+}
+
+/** Describe a wrd entity by id
+    @param entityid - Entity to look up
+    @returns Entity description, null if the entity was not found
+*/
+export async function describeEntity(entityid: number): Promise<DescribedEntity | null> {
+  const basedata = await db<PlatformDB>().
+    selectFrom("wrd.entities").innerJoin("wrd.types", "wrd.types.id", "wrd.entities.type").innerJoin("wrd.schemas", "wrd.schemas.id", "wrd.types.wrd_schema").
+    where("wrd.entities.id", "=", entityid).
+    select(["wrd.entities.tag as wrdTag", "wrd.entities.guid as wrdGuid", "wrd.types.tag as type", "wrd.types.id as typeId", "wrd.schemas.name as schema", "wrd.schemas.id as schemaId"]).
+    executeTakeFirst();
+
+  return basedata ? {
+    ...basedata,
+    wrdGuid: encodeWRDGuid(basedata.wrdGuid),
+    type: tagToJS(basedata.type)
+  } : null;
+}
+
+export async function getGuidForEntity(id: number): Promise<string | null> {
+  const row = await db<PlatformDB>()
+    .selectFrom("wrd.entities")
+    .select(["guid"])
+    .where("id", "=", id)
+    .executeTakeFirst();
+  return row ? encodeWRDGuid(row.guid) : null;
 }

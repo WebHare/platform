@@ -5,8 +5,8 @@ import { defaultDateTime, UUIDToWrdGuid, wrdGuidToUUID } from "@webhare/hscompat
 import { parseModuleQualifiedName, type ModuleQualifiedName } from "@webhare/services/src/naming";
 import { appendToArray, throwError } from "@webhare/std";
 import { db, query, escapePGIdentifier } from "@webhare/whdb";
-import { getGuidForEntity } from "@webhare/wrd/src/accessors";
-import { getAuthSettings } from "./support";
+import { getGuidForEntity } from "@webhare/wrd/src/db";
+import { getAuthSettings } from "./settings";
 import type { AnySchemaType } from "@webhare/wrd/src/types";
 import type { WRDSchemaType } from "@webhare/wrd";
 

@@ -1,5 +1,6 @@
 import { WRDBaseAttributeTypeId, WRDAttributeTypeId, type WRDAttrBase, type WRDGender, type WRDInsertable, type GetResultType, type SimpleWRDAttributeType, getWRDAttributeTypeName } from "./types";
 import type { AttrRec, EntityPartialRec, EntitySettingsRec, EntitySettingsWHFSLinkRec, TypeRec } from "./db";
+import { getGuidForEntity } from "./db";
 import { sql, type SelectQueryBuilder, type ExpressionBuilder, type RawBuilder, type Expression, type SqlBool, type Updateable } from "kysely";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { recordLowerBound, recordUpperBound } from "@webhare/hscompat/src/algorithms";
@@ -9,7 +10,7 @@ import { Money, omit, isValidEmail, toCLocaleUppercase, regExpFromWildcards, str
 import { addMissingScanData, decodeScanData, exportIntExtLink, importIntExtLink, mapExternalWHFSRef, ResourceDescriptor, unmapExternalWHFSRef, type ExportedResource, type ExportOptions, type ImportOptions } from "@webhare/services/src/descriptor";
 import { encodeHSON, decodeHSON } from "@webhare/hscompat";
 import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscompat/src/hson";
-import { isValidWRDTag } from "./wrdsupport";
+import { decodeWRDGuid, encodeWRDGuid, isValidWRDTag } from "./wrdsupport";
 import { db, uploadBlob } from "@webhare/whdb";
 import { WebHareBlob, type RichTextDocument, IntExtLink, type Instance, buildRTD, type ResourceSource, isResourceDescriptor } from "@webhare/services";
 import { wrdSettingId } from "@webhare/services/src/symbols";
@@ -63,30 +64,6 @@ export type AwaitableEncodedValue = {
   entity?: EntityPartialRec;
   settings?: AwaitableEncodedSetting | AwaitableEncodedSetting[] | Promise<EncodedSetting[]>;
 };
-
-export function encodeWRDGuid(guid: Buffer) {
-  if (guid.length !== 16)
-    throw new Error(`Input to encodeWRDGuid is not a raw guid`);
-
-  const guidhex = guid.toString("hex");
-  return `${guidhex.substring(0, 8)}-${guidhex.substring(8, 12)}-${guidhex.substring(12, 16)}-${guidhex.substring(16, 20)}-${guidhex.substring(20)}`;
-
-}
-export function decodeWRDGuid(wrdGuid: string) {
-  if (!isValidUUID(wrdGuid))
-    throw new Error("Invalid wrdGuid: " + wrdGuid);
-
-  return Buffer.from(wrdGuid.replaceAll('-', ''), "hex");
-}
-
-export async function getGuidForEntity(id: number): Promise<string | null> {
-  const row = await db<PlatformDB>()
-    .selectFrom("wrd.entities")
-    .select(["guid"])
-    .where("id", "=", id)
-    .executeTakeFirst();
-  return row ? encodeWRDGuid(row.guid) : null;
-}
 
 export async function getIdToGuidMap(ids: Array<number | null>): Promise<Map<number | null, string>> {
   return new Map((await db<PlatformDB>()

@@ -6,7 +6,7 @@ import { getUserValidationSettings } from "./support";
 import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import { runInWork } from "@webhare/whdb";
 import { createServerSession } from "@webhare/services";
-import { writeAuthAuditEvent, type AuthAuditContext } from "@webhare/auth";
+import { writeAuthAuditEvent, type AuthAuditContext } from "./audit";
 
 export type PasswordCheck = "externallogin" | "hibp" | "minlength" | "lowercase" | "uppercase" | "digits" | "symbols" | "maxage" | "noreuse" | "require2fa";
 
