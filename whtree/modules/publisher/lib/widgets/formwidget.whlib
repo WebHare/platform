@@ -19,7 +19,13 @@ PUBLIC STATIC OBJECTTYPE FormWidgetBase EXTEND WidgetBase
     IF(this->whfsfileid = 0)
       THROW NEW Exception("A formwidget expects to be a FS object, it cannot be directly embedded into a RTD");
 
-    OBJECT form := this->context->OpenWebtoolForm(OpenWHFSObject(this->whfsfileid));
+    //If we're rendering ourselves (eg the widget preview) use the page's form, as that one is opened from the contentobject (which is the latest draft when previewing)
+    OBJECT form := ObjectExists(this->context->targetobject) AND this->context->targetobject->id = this->whfsfileid
+                     ? this->context->webtoolform
+                     : this->context->OpenWebtoolForm(OpenWHFSObject(this->whfsfileid));
+    IF(NOT ObjectExists(form)) //no form definition yet, eg a new form that hasn't been saved or published yet
+      RETURN;
+
     form->RenderForm();
   }
 >;
