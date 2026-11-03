@@ -445,13 +445,19 @@ PUBLIC RECORD FUNCTION LookupPublisherURL(STRING url, RECORD options DEFAULTSTO 
     RECORD data := DecryptForThisServer("publisher:preview", baseurl);
     IF(RecordExists(data))
     {
-      RECORD info := SELECT parent, parentsite, isfolder FROM system.fs_objects WHERE id = VAR data.id;
+      INTEGER targetid := data.id;
+      RECORD info := SELECT parent, parentsite, isfolder, snapshotfor FROM system.fs_objects WHERE id = VAR data.id;
+      IF(RecordExists(info) AND info.snapshotfor != 0) {
+        targetid := info.snapshotfor;
+        info := SELECT parent, parentsite, isfolder FROM system.fs_objects WHERE id = VAR info.snapshotfor;
+      }
+
       IF(RecordExists(info))
       {
         result.site := info.parentsite;
-        result.folder := info.isfolder ? data.id : info.parent;
-        result.file := info.isfolder ? (SELECT AS INTEGER indexdoc FROM system.fs_objects WHERE id = result.folder) : data.id;
-        result.__directfile := info.isfolder ? 0 : data.id;
+        result.folder := info.isfolder ? targetid : info.parent;
+        result.file := info.isfolder ? (SELECT AS INTEGER indexdoc FROM system.fs_objects WHERE id = result.folder) : targetid;
+        result.__directfile := info.isfolder ? 0 : targetid;
         result.ispreview  := TRUE;
         RETURN result;
       }
