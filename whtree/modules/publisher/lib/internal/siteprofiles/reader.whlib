@@ -1094,6 +1094,8 @@ STATIC OBJECTTYPE ApplyRuleTester <
           RETURN FALSE;
         IF (CellExists(element, "WEBFEATURES") AND Length(element.webfeatures) > 0 AND NOT this->MatchWebfeatures(element.webfeatures))
           RETURN FALSE;
+        IF (CellExists(element, "WEBFEATUREREGEX") AND element.webfeatureregex != "" AND NOT this->MatchWebfeatureRegex(element.webfeatureregex))
+          RETURN FALSE;
 
         //TODO can we somehow share with GetMatchesBySiteFilter ?
         IF (CellExists(element, "SITENAME") AND (NOT RecordExists(site) OR ToUppercase(site.name) != ToUppercase(element.sitename)))
@@ -1160,6 +1162,17 @@ STATIC OBJECTTYPE ApplyRuleTester <
     OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
     FOREVERY (STRING feature FROM sitesettingstype->GetInstanceData(this->objsite).webfeatures)
       IF (MatchCommonXMLWildcardMasks(feature, masks))
+        RETURN TRUE;
+    RETURN FALSE;
+  }
+
+  /** Are any active webfeatures matching this regex?
+  */
+  PUBLIC BOOLEAN FUNCTION MatchWebfeatureRegex(STRING regex)
+  {
+    OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
+    FOREVERY (STRING feature FROM sitesettingstype->GetInstanceData(this->objsite).webfeatures)
+      IF (MatchPathRegex(regex, feature))
         RETURN TRUE;
     RETURN FALSE;
   }

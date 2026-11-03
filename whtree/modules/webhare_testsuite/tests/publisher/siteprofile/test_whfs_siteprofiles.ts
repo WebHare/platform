@@ -193,6 +193,8 @@ async function testSiteUpdates() {
 
   test.eq(null, await tester.getUserData("webhare_testsuite:blub"));
   test.eq(null, await tester.getUserData("webhare_testsuite:setting"));
+  test.eq(null, await tester.getUserData("webhare_testsuite:featurewildcard"));
+  test.eq(null, await tester.getUserData("webhare_testsuite:featureregex"));
 
   await whdb.beginWork();
   await testsitehs.update({ webFeatures: [], webDesign: "publisher:nodesign" });
@@ -212,6 +214,9 @@ async function testSiteUpdates() {
   const tester2 = await getApplyTesterForObject(await testsitejs.openFolder("."));
   test.eq({ fish: true }, await tester2.getUserData("webhare_testsuite:blub"));
   test.eq({ hasTestFeature: true }, await tester2.getUserData("webhare_testsuite:setting"));
+  test.eq({ matched: true }, await tester2.getUserData("webhare_testsuite:featurewildcard"));
+  test.eq({ matched: true }, await tester2.getUserData("webhare_testsuite:featureregex"));
+  test.eq(null, await tester2.getUserData("webhare_testsuite:featurenomatch"));
 }
 
 
