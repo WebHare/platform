@@ -12,8 +12,17 @@ IF(blobinfo.until < GetCurrentDateTime())
   AbortWithHTTPError(410);
 
 IF(blobinfo.db NOT LIKE "AAAB*")
-  Abort("Iinvalid blob reference");
+  Abort("Invalid blob reference");
 
 STRING blobpath := MergePath(GetWebHareConfiguration().basedataroot, "postgresql/blob") || "/" || Substring(blobinfo.db, 4, 2) || "/" || Substring(blobinfo.db, 4);
-AddHTTPHeader("content-type","application/octet-stream", FALSE);
+// Only honour media types that can't execute script on our origin (so no HTML, SVG, XML etc)
+STRING contenttype := "application/octet-stream";
+STRING requestedtype := CellExists(blobinfo, "mediatype") ? ToLowercase(blobinfo.mediatype) : "";
+IF(requestedtype IN ["image/png", "image/jpeg", "image/gif", "image/webp", "image/avif", "image/bmp", "image/tiff", "application/pdf", "text/plain"]
+   OR (requestedtype LIKE "audio/*" AND requestedtype NOT LIKE "*;*")
+   OR (requestedtype LIKE "video/*" AND requestedtype NOT LIKE "*;*"))
+  contenttype := requestedtype;
+
+AddHTTPHeader("content-type", contenttype, FALSE);
+AddHTTPHeader("x-content-type-options", "nosniff", FALSE);
 SendWebFile(GetDiskResource(blobpath));

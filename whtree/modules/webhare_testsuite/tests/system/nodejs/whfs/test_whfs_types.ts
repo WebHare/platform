@@ -812,6 +812,8 @@ async function testExportImport() {
   test.assert("fetch" in aboutAFishDataFetch.data[0].items[1].image.file, "Image should be a fetch descriptor");
   test.eq(theActualFish.resource.size, aboutAFishDataFetch.data[0].items[1].image.file.size);
   const fetchFish = await fetch(aboutAFishDataFetch.data[0].items[1].image.file.fetch);
+  test.eq(200, fetchFish.status);
+  test.eq("image/png", fetchFish.headers.get("content-type"));
   test.eq(theActualFish.hash, (await ResourceDescriptor.fromBlob(await fetchFish.blob(), { getHash: true })).hash);
 
   await beginWork();
