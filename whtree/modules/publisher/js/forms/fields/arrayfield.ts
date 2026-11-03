@@ -6,7 +6,7 @@ import { throwError } from "@webhare/std";
 import { addDocEventListener, qS, qSA, type DocEvent, registerMissed, stop } from "@webhare/dompack";
 import { getFieldName, getFormElementCandidates, getFormHandler, parseCondition, setFieldName } from "@webhare/forms/src/domsupport";
 import type { FormCondition } from "@webhare/forms/src/types";
-import { RecordFieldHandler, type FormParent } from "@webhare/forms/src/fieldmap";
+import type { RecordFieldHandler, FormParent } from "@webhare/forms/src/fieldmap";
 import type FormBase from "../formbase";
 import { setup } from "../internal/webharefields";
 
@@ -39,6 +39,9 @@ function fixupConditionRecursive(node: HTMLElement, condition: FormCondition, ma
 
 type NewType = FormParent;
 
+/** Creates the field handler for a single row. Injected by fieldmap, which itself depends on ArrayField */
+export type RowHandlerFactory = (form: FormParent, baseName: string, nodes: HTMLElement[]) => RecordFieldHandler;
+
 export default class ArrayField {
   valueNode: HTMLInputElement;
   nextrowid = 0;
@@ -48,9 +51,11 @@ export default class ArrayField {
   handler: NewType;
   node: HTMLElement;
   name: string;
+  private createRowHandler: RowHandlerFactory;
 
-  constructor(handler: NewType, node: HTMLElement, items: HTMLElement[], name: string) {
+  constructor(handler: NewType, node: HTMLElement, items: HTMLElement[], name: string, createRowHandler: RowHandlerFactory) {
     this.handler = handler;
+    this.createRowHandler = createRowHandler;
     this.node = node;
     this.name = name;
     this.arrayBaseName = node.dataset.whFormGroupFor || throwError("Missing array base name");
@@ -134,7 +139,7 @@ export default class ArrayField {
   getRowHandler(row: HTMLElement): RecordFieldHandler {
     const rowBaseName = this.valueNode.name + "." + row.dataset.whFormRowid;
     const rowFields = getFormElementCandidates(row, rowBaseName).filter(_ => _.dataset.whFormCellname !== "row_uid"); //row_uid points back to us, so requesting that triggers a loop
-    return new RecordFieldHandler(this.handler, rowBaseName, rowFields);
+    return this.createRowHandler(this.handler, rowBaseName, rowFields);
   }
 
   getValue() {
