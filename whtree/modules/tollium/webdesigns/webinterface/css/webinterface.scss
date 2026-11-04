@@ -1,6 +1,11 @@
 /* Global page setup */
 @use "../../../web/ui/js/modalitylayer/modalitylayer-mixins.scss" as *;
 
+:root
+{
+  color-scheme: only light;
+}
+
 html
 {
   height: 100dvh;

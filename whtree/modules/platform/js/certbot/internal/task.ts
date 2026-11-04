@@ -384,7 +384,12 @@ export async function requestACMECertificate(taskdata: CertificateRequestData): 
     await certKeyPairFile.update({ data: await ResourceDescriptor.from(certKeyPair.privateKey) });
 
     // Clear current renewalinfo, the certbot task will refresh this
-    await whfsType("platform:system.keystorefolder").set(certFolder.id, { renewalInfo: "", renewWindowStart: "", retryRenewalAfter: "" });
+    await whfsType("platform:system.keystorefolder").set(certFolder.id, {
+      renewalInfo: "",
+      renewWindowStart: "",
+      renewWindowEnd: "",
+      retryRenewalAfter: "",
+    });
 
     // Store the account private key if new or updated
     const resource = await ResourceDescriptor.from(accountKeyPair.privateKey);
