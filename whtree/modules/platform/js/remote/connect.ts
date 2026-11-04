@@ -1,12 +1,19 @@
 import { getDefaultOAuth2RedirectURL } from "@webhare/auth";
 import { IdentityProvider } from "@webhare/auth/src/identity";
-import { deleteDynamicClientRegistration, getDynamicClientRegistration, registerDynamicClient } from "@webhare/auth/src/oauth2-client";
+import { createOAuth2Client, deleteDynamicClientRegistration, getDynamicClientRegistration, handleOAuth2AuthorizeLanding, registerDynamicClient, type OAuth2PromptFlag } from "@webhare/auth/src/oauth2-client";
 import { getAuthSettings } from "@webhare/auth/src/support";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { backendConfig, logError, subscribe, type BackendEvent, type BackendEvents } from "@webhare/services";
-import { generateRandomId } from "@webhare/std";
+import { createEphemeralEndpoint, createRedirectResponse, createWebResponse, HTTPErrorCode } from "@webhare/router";
+import { generateRandomId, pick, updateURL } from "@webhare/std";
 import { runInSeparateWork } from "@webhare/whdb";
 import { wrd, type WRDInsertable, type WRDSchemaLike, type WRDSchemaType } from "@webhare/wrd";
+
+export type PeerServerToken = {
+  token: string;
+  expires: Date;
+  scopes: string[];
+};
 
 async function getUserApiSchemaName(opts?: { schema?: string }): Promise<string> {
   if (opts?.schema)
@@ -38,10 +45,25 @@ async function lookupCLIUser(wrdSchema: WRDSchemaType<WRDSchemaLike["system:user
   return id;
 }
 
+/** Compare whuserPeerserver URLs, ignoring a trailing slash */
+function isSamePeerServerURL(storedUrl: string, remoteHost: string) {
+  return storedUrl === remoteHost || storedUrl + "/" === remoteHost || storedUrl === remoteHost + "/";
+}
+
+/** Store the current token for a user's peer server */
+async function storePeerToken(userSchema: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>, userEntity: number, remoteHost: string, currenttoken: PeerServerToken & { version: number }) {
+  await runInSeparateWork(async () => {
+    await userSchema.upsert("whuserPeerserver",
+      { wrdLeftEntity: userEntity, serverurl: remoteHost }, //key
+      { lastuse: Temporal.Now.instant(), currenttoken },
+      { ifNew: { wrdTitle: new URL(remoteHost).host } });
+  }, { mutex: "system:remoteservertoken-" + userEntity }); //we use the same mutex as StoreToken in remoteserverapi.whlib
+}
+
 export async function getPeerServerToken(remoteHost: string, options?: {
   userSchema?: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>;
   userEntity?: number;
-}): Promise<{ token: string; expires: Date; scopes: string[] }> {
+}): Promise<PeerServerToken> {
   const userSchema = options?.userSchema ?? await getUserMgmtSchema();
   const entityId = options?.userEntity ?? await lookupCLIUser(userSchema);
 
@@ -49,7 +71,7 @@ export async function getPeerServerToken(remoteHost: string, options?: {
     .select(["wrdId", "serverurl", "currenttoken", "lastuse", "versioninfo"])
     .where("wrdLeftEntity", "=", entityId).execute();
 
-  const peer = peerServers.find(_ => _.serverurl === remoteHost || _.serverurl + "/" === remoteHost || _.serverurl === remoteHost + "/");
+  const peer = peerServers.find(_ => isSamePeerServerURL(_.serverurl, remoteHost));
   if (!peer)
     throw new Error(`No peer server found for host ${remoteHost}`);
 
@@ -60,7 +82,138 @@ export async function getPeerServerToken(remoteHost: string, options?: {
   if (currentToken.expires.getTime() < Date.now() + 60_000) //token is expired or will expire in the next minute
     throw new Error(`Current token for peer server ${remoteHost} has expired`);
 
-  return currentToken;
+  return pick(currentToken, ["token", "expires", "scopes"]);
+}
+
+/** Validate and normalize a remote WebHare base URL, and derive the OpenID metadata URL used to identify its wrdauthServer */
+function parseRemoteWebHareURL(serverUrl: string) {
+  const remoteUrl = new URL(serverUrl);
+  if (remoteUrl.protocol !== "http:" && remoteUrl.protocol !== "https:")
+    throw new Error("Remote WebHare URL must use HTTP or HTTPS");
+  if (remoteUrl.username || remoteUrl.password || remoteUrl.search || remoteUrl.hash)
+    throw new Error("Remote WebHare URL must not include credentials, a query, or a fragment");
+  if (!remoteUrl.pathname.endsWith("/"))
+    remoteUrl.pathname += "/";
+
+  const serviceRoot = remoteUrl.toString();
+  return { remoteUrl, serviceRoot, metadataUrl: new URL(".well-known/openid-configuration", serviceRoot).toString() };
+}
+
+/** List the remote WebHares we're registered with as a peer (isPeer wrdauthServer entries) and those the user has a stored token (whuserPeerserver) for.
+ * @param options.wrdSchema User-management schema where the server entries are stored. Defaults to the primary auth schema.
+ * @param options.userEntity User whose peer server tokens should be listed. Defaults to the CLI user.
+ * @returns One entry per remote WebHare, sorted by URL. Tokens themselves are not returned.
+ */
+export async function listPeers(options?: {
+  wrdSchema?: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>;
+  userEntity?: number;
+}): Promise<Array<{
+  url: string;
+  title: string;
+  /** The isPeer wrdauthServer, if registered */
+  authServer: number | null;
+  /** The user's whuserPeerserver, if they have a stored token */
+  peerServer: number | null;
+  tokenExpires: Date | null;
+  scopes: string[] | null;
+  lastUse: Temporal.Instant | null;
+}>> {
+  const userSchema = options?.wrdSchema ?? await getUserMgmtSchema();
+  const entityId = options?.userEntity ?? await lookupCLIUser(userSchema);
+  const authServers = await userSchema.query("wrdauthServer")
+    .where("isPeer", "=", true)
+    .select(["wrdId", "wrdTitle", "metadataUrl"])
+    .execute();
+  const peerServers = await userSchema.query("whuserPeerserver")
+    .where("wrdLeftEntity", "=", entityId)
+    .select(["wrdId", "wrdTitle", "serverurl", "currenttoken", "lastuse"])
+    .execute();
+
+  const peers = authServers.map(server => ({
+    url: server.metadataUrl.replace(/\.well-known\/openid-configuration$/, ""),
+    title: server.wrdTitle,
+    authServer: server.wrdId as number | null,
+    peerServer: null as number | null,
+    tokenExpires: null as Date | null,
+    scopes: null as string[] | null,
+    lastUse: null as Temporal.Instant | null
+  }));
+
+  for (const peerServer of peerServers) {
+    let peer = peers.find(_ => isSamePeerServerURL(peerServer.serverurl, _.url));
+    if (!peer) {
+      peer = { url: peerServer.serverurl, title: peerServer.wrdTitle, authServer: null, peerServer: null, tokenExpires: null, scopes: null, lastUse: null };
+      peers.push(peer);
+    }
+    const currentToken = peerServer.currenttoken as Partial<PeerServerToken> | null;
+    peer.peerServer = peerServer.wrdId;
+    peer.tokenExpires = currentToken?.expires ?? null;
+    peer.scopes = currentToken?.scopes ?? null;
+    peer.lastUse = peerServer.lastuse;
+  }
+
+  return peers.sort((lhs, rhs) => lhs.url.localeCompare(rhs.url));
+}
+
+/** Delete the peer registrations (isPeer wrdauthServer entries) for a remote WebHare, and the user's stored tokens (whuserPeerserver) for it.
+ *
+ * Attempts to deprovision each registration at the remote server first, but deletes the local entry even if that fails
+ * (eg. because the remote is unreachable or already forgot about us).
+ *
+ * @param serverUrl Remote WebHare base URL.
+ * @param options.wrdSchema User-management schema where the server entries are stored. Defaults to the primary auth schema.
+ * @param options.userEntity User whose peer server tokens should be removed. Defaults to the CLI user. Pass null to leave tokens alone (eg. if there's no CLI user)
+ * @returns The deleted server entries (and whether their remote registration was deprovisioned) and the number of deleted peer server tokens.
+ */
+export async function deletePeerRegistrations(serverUrl: string, options?: {
+  wrdSchema?: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>;
+  userEntity?: number | null;
+}): Promise<{
+  authServers: Array<{
+    wrdId: number;
+    wrdTitle: string;
+    /** Set if the remote registration couldn't be deprovisioned */
+    remoteError: string | null;
+  }>;
+  peerServers: number;
+}> {
+  const { metadataUrl } = parseRemoteWebHareURL(serverUrl);
+  const userSchema = options?.wrdSchema ?? await getUserMgmtSchema();
+  const entityId = options?.userEntity === null ? null : options?.userEntity ?? await lookupCLIUser(userSchema);
+  const peerServers = entityId === null ? [] : (await userSchema.query("whuserPeerserver")
+    .select(["wrdId", "serverurl"])
+    .where("wrdLeftEntity", "=", entityId)
+    .execute()).filter(peer => isSamePeerServerURL(peer.serverurl, serverUrl));
+  const servers = await userSchema.query("wrdauthServer")
+    .where("metadataUrl", "=", metadataUrl)
+    .where("isPeer", "=", true)
+    .select(["wrdId", "wrdTitle", "registrationAccessToken", "registrationClientUri"])
+    .execute();
+
+  const results = [];
+  for (const server of servers) {
+    let remoteError: string | null = null;
+    if (server.registrationAccessToken && server.registrationClientUri) {
+      try {
+        await deleteDynamicClientRegistration(server.registrationClientUri, server.registrationAccessToken);
+      } catch (error) {
+        remoteError = (error as Error).message;
+      }
+    } else
+      remoteError = "No registration management credentials stored";
+
+    results.push({ wrdId: server.wrdId, wrdTitle: server.wrdTitle, remoteError });
+  }
+
+  if (servers.length || peerServers.length)
+    await runInSeparateWork(async () => {
+      if (peerServers.length)
+        await userSchema.delete("whuserPeerserver", peerServers.map(peer => peer.wrdId));
+      if (servers.length)
+        await userSchema.delete("wrdauthServer", servers.map(server => server.wrdId));
+    }, entityId !== null ? { mutex: "system:remoteservertoken-" + entityId } : undefined);
+
+  return { authServers: results, peerServers: peerServers.length };
 }
 
 /** Register this server as an OAuth2 client at a remote WebHare OpenID Connect provider.
@@ -88,16 +241,7 @@ export async function registerAtRemoteWebHare(serverUrl: string, options?: {
 } | {
   status: "dynamicRegistrationUnavailable";
 }> {
-  const remoteUrl = new URL(serverUrl);
-  if (remoteUrl.protocol !== "http:" && remoteUrl.protocol !== "https:")
-    throw new Error("Remote WebHare URL must use HTTP or HTTPS");
-  if (remoteUrl.username || remoteUrl.password || remoteUrl.search || remoteUrl.hash)
-    throw new Error("Remote WebHare URL must not include credentials, a query, or a fragment");
-  if (!remoteUrl.pathname.endsWith("/"))
-    remoteUrl.pathname += "/";
-
-  const serviceRoot = remoteUrl.toString();
-  const metadataurl = new URL(".well-known/openid-configuration", serviceRoot).toString();
+  const { remoteUrl, serviceRoot, metadataUrl: metadataurl } = parseRemoteWebHareURL(serverUrl);
   const userSchema = options?.wrdSchema ?? await getUserMgmtSchema();
   const redirectUri = options?.authCallback ?? getDefaultOAuth2RedirectURL();
   const existing = await userSchema.query("wrdauthServer")
@@ -177,14 +321,14 @@ class TokenPromise {
   requestid = generateRandomId();
   sub;
   timeout;
-  public resolve: (value: { token: string; expires: Date; scopes: string[] }) => void;
+  public resolve: (value: PeerServerToken) => void;
   public reject: (reason?: Error) => void;
   public url: string;
   public wrdschema: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>;
   public wrdentity: number;
 
   constructor(
-    resolve: (value: { token: string; expires: Date; scopes: string[] }) => void,
+    resolve: (value: PeerServerToken) => void,
     reject: (reason?: Error) => void,
     url: string,
     wrdschema: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>,
@@ -210,22 +354,15 @@ class TokenPromise {
       if (evt.data.responseid === this.requestid) {
         this.end();
 
-        const currenttoken = {
+        const token: PeerServerToken = {
           token: evt.data.token,
           expires: evt.data.expires,
-          scopes: evt.data.scopes,
-          version: evt.data.version
+          scopes: evt.data.scopes
         };
 
-        await runInSeparateWork(async () => {
-          await this.wrdschema.upsert("whuserPeerserver",
-            { wrdLeftEntity: this.wrdentity, serverurl: this.url }, //key
-            { lastuse: Temporal.Now.instant(), currenttoken }, //to ensure
-            { ifNew: { wrdTitle: new URL(this.url).host } });
+        await storePeerToken(this.wrdschema, this.wrdentity, this.url, { ...token, version: evt.data.version });
 
-        }, { mutex: "system:remoteservertoken-" + this.wrdentity }); //we use the same mutex as StoreToken to ensure
-
-        this.resolve(currenttoken);
+        this.resolve(token);
         break;
       }
   }
@@ -236,20 +373,85 @@ class TokenPromise {
   }
 }
 
+/** Start an OAuth2 authorization at a peer we're registered with (see registerAtRemoteWebHare), storing the resulting token for the user.
+ * @param remoteHost Remote WebHare base URL, used as the whuserPeerserver key
+ * @param userSchema User-management schema containing the wrdauthServer and the user
+ * @param entityId User to store the token for
+ * @param authServer The wrdauthServer for the remote WebHare
+ * @param options.prompt OAuth2 prompt behavior to request from the remote (eg 'login' or 'consent')
+ * @returns The URL the user must visit to authorize us, and a promise for the token once that completes */
+async function getOAuth2PeerServerTokenURL(remoteHost: string, userSchema: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>, entityId: number, authServer: number, options?: {
+  prompt?: OAuth2PromptFlag;
+}): Promise<{
+  requesturl: string;
+  tokenpromise: Promise<PeerServerToken>;
+}> {
+  const scopes = ["platform:sysop"];
+  const clientScope = "platform:connect-peer";
+  const landing = Promise.withResolvers<PeerServerToken>();
+  //Our OAuth2 landing page redirects the browser here with an oauth2session parameter once the authorization completes
+  using cleanup = new DisposableStack; //closes the endpoint if we throw before handing it off to tokenpromise
+  const endpoint = cleanup.use(await createEphemeralEndpoint(async request => {
+    const oauth2session = new URL(request.url).searchParams.get("oauth2session");
+    const oauthinfo = oauth2session ? await handleOAuth2AuthorizeLanding(clientScope, oauth2session) : null;
+    if (!oauthinfo?.tokens?.access_token || !oauthinfo?.expires)
+      return createWebResponse("Authorization failed or expired", { status: HTTPErrorCode.BadRequest });
+
+    //The token response doesn't tell us the granted scopes, so record the ones we requested
+    const token: PeerServerToken = {
+      token: oauthinfo.tokens.access_token,
+      expires: new Date(oauthinfo.expires.epochMilliseconds),
+      scopes: scopes
+    };
+    await storePeerToken(userSchema, entityId, remoteHost, { ...token, version: 2 }); //version 2: an OAuth2 access token rather than a tollium:builtin.oauth token
+    landing.resolve(token);
+
+    return createRedirectResponse({ type: "close" });
+  }));
+
+  const client = await createOAuth2Client(userSchema, authServer);
+  const authLink = await client.createAuthorizeLink(endpoint.url, {
+    clientScope,
+    prompt: options?.prompt,
+    addScopes: scopes, //TODO getPeerServerTokenURL needs token parameter and users need to learn to verify getPeerServerToken's existing scopes
+  });
+  if (authLink.type !== "redirect") //we only understand redirects here
+    throw new Error("Failed to create OAuth2 auth link for remote host");
+
+  const endpointOwner = cleanup.move(); //we're returning successfully, so the endpoint now lives until the landing settles
+  const timeout = setTimeout(() => landing.reject(new Error("Timeout on oauth response")), 15 * 60 * 1000); //15 minutes should be enough for the user to complete the oauth flow
+  const tokenpromise = landing.promise.finally(() => {
+    clearTimeout(timeout);
+    setTimeout(() => endpointOwner.dispose(), 1000); //give the endpoint a chance to deliver its final response
+  });
+  return { requesturl: authLink.url, tokenpromise };
+}
+
 export async function getPeerServerTokenURL(remoteHost: string, options?: {
   userSchema?: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>;
   userEntity?: number;
   /** URL to return to (eg to stay on the proper host and avoid cross-origin issues) */
   baseUrl?: string;
-}) {
+  /** OAuth2 prompt behavior to request from the remote (eg 'login' or 'consent'). Ignored by legacy (non OAuth2) peers */
+  prompt?: OAuth2PromptFlag;
+}): Promise<{
+  requesturl: string;
+  tokenpromise: Promise<PeerServerToken>;
+}> {
   const userSchema = options?.userSchema ?? await getUserMgmtSchema();
   const entityId = options?.userEntity ?? await lookupCLIUser(userSchema);
+
+  //Attempt V2 connection first
+  const peer = await registerAtRemoteWebHare(remoteHost, { wrdSchema: userSchema });
+  if (peer.status === "connected")
+    return await getOAuth2PeerServerTokenURL(remoteHost, userSchema, entityId, peer.server, { prompt: options?.prompt });
+
   const baseUrl = options?.baseUrl ?? backendConfig.backendURL;
-  const defer = Promise.withResolvers<{ token: string; expires: Date; scopes: string[] }>();
+  const defer = Promise.withResolvers<PeerServerToken>();
   const tokprom = new TokenPromise(defer.resolve, defer.reject, remoteHost, userSchema, entityId);
 
-  const redirecturl = new URL(baseUrl); //TODO why is the backend webhare interface processing this, why aren't we using our default oauth landings?
-  redirecturl.searchParams.set("oauth_responseid", tokprom.requestid);
+  //TODO why is the backend webhare interface processing this, why aren't we using our default oauth landings?
+  const redirecturl = updateURL(baseUrl, { oauth_responseid: tokprom.requestid });
 
   const requesturl = new URL("/", remoteHost);
   requesturl.searchParams.set("app", "tollium:builtin.oauth");
@@ -257,5 +459,8 @@ export async function getPeerServerTokenURL(remoteHost: string, options?: {
   requesturl.searchParams.set("oauth_scopes", "webhare");
   requesturl.searchParams.set("oauth_redirect", redirecturl.toString());
 
-  return { requesturl: requesturl.toString(), tokenpromise: defer.promise };
+  return {
+    requesturl: requesturl.toString(),
+    tokenpromise: defer.promise
+  };
 }
