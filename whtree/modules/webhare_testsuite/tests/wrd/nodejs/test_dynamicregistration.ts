@@ -4,8 +4,9 @@
 
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { initializeIssuer } from "@webhare/auth";
+import { deletePeerRegistrations, registerAtRemoteWebHare } from "@mod-platform/js/remote/connect";
 import { decompressUUID, hashClientSecret } from "@webhare/auth/src/identity";
-import { getDynamicClientRegistration, registerDynamicClient, type DynamicClientRegistrationParameters } from "@webhare/auth/src/oauth2-client";
+import { deleteDynamicClientRegistration, getDynamicClientRegistration } from "@webhare/auth/src/oauth2-client";
 import { cleanupDynamicClients } from "@webhare/auth/src/maintenance";
 import { createOpenAPIClient } from "@webhare/openapi-client";
 import { broadcast, toResourcePath } from "@webhare/services";
@@ -32,6 +33,7 @@ async function setupDynamicRegistration() {
   broadcast("system:internal.clearopenidcaches");
 }
 
+// Verify a dynamically registered client is persisted in wrdauthServer and works in the OAuth login flow.
 async function testRegisterDynamicClient() {
   const testsite = await test.getTestSiteJS();
   const metadataResponse = await fetch(testsite.webRoot + ".well-known/openid-configuration");
@@ -41,47 +43,50 @@ async function testRegisterDynamicClient() {
 
   ////////////////////////////////////////////////////////////////
   // STORY: Register a dynamic client
-  const registration: DynamicClientRegistrationParameters = {
-    client_name: "Dynamic registration test client",
+  const registration = {
     redirect_uris: ["http://localhost:3000/cb"],
-    grant_types: ["authorization_code"],
-    response_types: ["code"]
   };
-  const registeredClient = await registerDynamicClient(testsite.webRoot, registration);
-  test.eq(testsite.webRoot + ".well-known/openid-configuration", registeredClient.metadataurl);
-  test.assert(registeredClient.clientid.length > 0);
-  test.assert(registeredClient.clientsecret.length > 0);
-  test.assert(registeredClient.registration_access_token);
-  test.assert(registeredClient.registration_client_uri);
-  test.eq(false, registeredClient.registration_access_token === registeredClient.clientsecret);
+  const userSchema = wrd<WRDSchemaLike["system:usermgmt"]>("webhare_testsuite:testschema");
+  const connectedServer = await registerAtRemoteWebHare(testsite.webRoot, {
+    wrdSchema: userSchema,
+    authCallback: registration.redirect_uris[0],
+    clientName: "Dynamic registration test client"
+  });
+  test.assert(connectedServer.status === "connected");
+  const registeredClient = await userSchema.getFields("wrdauthServer", connectedServer.server, ["metadataUrl", "clientId", "clientSigning", "registrationAccessToken", "registrationClientUri"]);
+  test.assert(registeredClient.clientId);
+  test.assert(registeredClient.clientSigning?.type === "client_secret");
+  test.assert(registeredClient.registrationAccessToken);
+  test.assert(registeredClient.registrationClientUri);
+  test.eq(false, registeredClient.registrationAccessToken === registeredClient.clientSigning?.secret);
 
   const storedRegistration = (await wrd<WRDSchemaLike["webhare_testsuite:oidcschema"]>("webhare_testsuite:testschema")
     .query("wrdauthApplication")
-    .where("wrdGuid", "=", decompressUUID(registeredClient.clientid))
+    .where("wrdGuid", "=", decompressUUID(registeredClient.clientId))
     .select("dynamicRegistration")
     .execute())[0];
   test.assert(storedRegistration);
-  test.eq(hashClientSecret(registeredClient.registration_access_token), storedRegistration.registrationAccessTokenHash);
+  test.eq(hashClientSecret(registeredClient.registrationAccessToken), storedRegistration.registrationAccessTokenHash);
 
-  const registrationDetailsResponse = await fetch(registeredClient.registration_client_uri, {
-    headers: { Authorization: "Bearer " + registeredClient.registration_access_token }
+  const registrationDetailsResponse = await fetch(registeredClient.registrationClientUri, {
+    headers: { Authorization: "Bearer " + registeredClient.registrationAccessToken }
   });
   test.eq(200, registrationDetailsResponse.status);
   test.eq("no-store", registrationDetailsResponse.headers.get("cache-control"));
-  test.eq(401, (await fetch(registeredClient.registration_client_uri)).status);
+  test.eq(401, (await fetch(registeredClient.registrationClientUri)).status);
 
   const testSchema = wrd<WRDSchemaLike["webhare_testsuite:oidcschema"]>("webhare_testsuite:testschema");
 
   // Verify it looks okay in the database
   const applications = await testSchema.query("wrdauthApplication")
-    .where("wrdGuid", "=", decompressUUID(registeredClient.clientid))
+    .where("wrdGuid", "=", decompressUUID(registeredClient.clientId))
     .select(["wrdId", "dynamicStatus", "dynamicRegistration", "callbackUrls", "clientSecrets"])
     .execute();
   test.eq(1, applications.length);
   const application = applications[0];
   test.eq("created", application.dynamicStatus);
   test.eq(registration.redirect_uris.map(url => ({ url })), application.callbackUrls);
-  test.eq(hashClientSecret(registeredClient.clientsecret), application.clientSecrets[0].secretHash);
+  test.eq(hashClientSecret(registeredClient.clientSigning?.secret), application.clientSecrets[0].secretHash);
   test.assert(application.dynamicRegistration && "clientIp" in application.dynamicRegistration && "request" in application.dynamicRegistration);
   test.assert(typeof application.dynamicRegistration.clientIp === "string" && application.dynamicRegistration.clientIp.length > 0);
   test.eqPartial({ request: registration }, application.dynamicRegistration);
@@ -89,23 +94,24 @@ async function testRegisterDynamicClient() {
   ////////////////////////////////////////////////////////////////
   // STORY: Verify the server still recognizes the client registration
   await test.throws(/Cannot retrieve dynamic client registration: HTTP 401/,
-    getDynamicClientRegistration(registeredClient.registration_client_uri, registeredClient.clientsecret));
-  const registrationDetails = await getDynamicClientRegistration(registeredClient.registration_client_uri, registeredClient.registration_access_token);
+    getDynamicClientRegistration(registeredClient.registrationClientUri, registeredClient.clientSigning?.secret));
+  const registrationDetails = await getDynamicClientRegistration(registeredClient.registrationClientUri, registeredClient.registrationAccessToken);
   test.eqPartial({
-    ...registration,
-    client_id: registeredClient.clientid,
-    registration_access_token: registeredClient.registration_access_token,
-    registration_client_uri: registeredClient.registration_client_uri
+    redirect_uris: registration.redirect_uris,
+    client_id: registeredClient.clientId,
+    registration_access_token: registeredClient.registrationAccessToken,
+    registration_client_uri: registeredClient.registrationClientUri
   }, registrationDetails);
+  await runInWork(() => userSchema.delete("wrdauthServer", connectedServer.server));
 
   ////////////////////////////////////////////////////////////////
   // STORY: Start a login flow with the dynamically registered client
 
   using browser = await test.openTestPuppeteer();
   await test.throws(/authorization response from the server is an error/, test.runOpenIDLoginFlow(browser, {
-    metadataUrl: registeredClient.metadataurl,
-    clientId: registeredClient.clientid,
-    clientSecret: registeredClient.clientsecret,
+    metadataUrl: registeredClient.metadataUrl,
+    clientId: registeredClient.clientId,
+    clientSecret: registeredClient.clientSigning?.secret,
     callbackUrl: registration.redirect_uris[0],
     scope: "platform:sysop",
     async handleConsent(page) {
@@ -124,9 +130,9 @@ async function testRegisterDynamicClient() {
   test.eq("created", (await testSchema.getFields("wrdauthApplication", application.wrdId, ["dynamicStatus"]))?.dynamicStatus);
 
   const { tokenSet: tokens } = await test.runOpenIDLoginFlow(browser, {
-    metadataUrl: registeredClient.metadataurl,
-    clientId: registeredClient.clientid,
-    clientSecret: registeredClient.clientsecret,
+    metadataUrl: registeredClient.metadataUrl,
+    clientId: registeredClient.clientId,
+    clientSecret: registeredClient.clientSigning.secret,
     callbackUrl: registration.redirect_uris[0],
     scope: "platform:sysop",
     async handleConsent(page) {
@@ -164,10 +170,12 @@ async function testRegisterDynamicClient() {
 
   ////////////////////////////////////////////////////////////////
   // STORY: Deleting the client invalidates its registration-management token
-  await runInWork(() => testSchema.delete("wrdauthApplication", [application.wrdId]));
+  await runInWork(async () => {
+    await testSchema.delete("wrdauthApplication", [application.wrdId]);
+  });
   test.eq(0, (await testSchema.query("wrdauthApplication").select("wrdId").execute()).length);
   await test.throws(/Cannot retrieve dynamic client registration: HTTP 401/,
-    getDynamicClientRegistration(registeredClient.registration_client_uri, registeredClient.registration_access_token));
+    getDynamicClientRegistration(registeredClient.registrationClientUri, registeredClient.registrationAccessToken));
 }
 
 async function disableDynamicRegistration() {
@@ -178,6 +186,20 @@ async function disableDynamicRegistration() {
 
   const testSchema = wrd<WRDSchemaLike["webhare_testsuite:oidcschema"]>("webhare_testsuite:testschema");
   await runInWork(() => updateSchemaSettings(testSchema, { dynamicRegistration: { enabled: false } }));
+
+  const userSchema = wrd<WRDSchemaLike["system:usermgmt"]>("webhare_testsuite:testschema");
+  const existingServers = await userSchema.query("wrdauthServer").select(["wrdId", "registrationAccessToken", "registrationClientUri"]).execute();
+
+  // Deprovision our existing registrations so registerAtRemoteWebHare can't just reuse them
+  for (const server of existingServers)
+    if (server.registrationAccessToken && server.registrationClientUri) {
+      await deleteDynamicClientRegistration(server.registrationClientUri, server.registrationAccessToken);
+      test.eq(401, (await fetch(server.registrationClientUri, { headers: { Authorization: "Bearer " + server.registrationAccessToken } })).status);
+    }
+
+  test.eq({ status: "dynamicRegistrationUnavailable" },
+    await registerAtRemoteWebHare(testsite.webRoot, { wrdSchema: userSchema }));
+  test.eq(existingServers.length, (await userSchema.query("wrdauthServer").select("wrdId").execute()).length);
 
   const disabledMetadataResponse = await fetch(metadataUrl);
   test.eq(200, disabledMetadataResponse.status);
@@ -191,6 +213,69 @@ async function disableDynamicRegistration() {
   });
   test.eq(403, registrationResponse.status);
   test.eq(0, (await testSchema.query("wrdauthApplication").select(["wrdId"]).execute()).length);
+}
+
+// Verify registration reuses a recognized client and replaces one the peer no longer recognizes.
+async function testRegisterAtRemoteWebHare() {
+  const testsite = await test.getTestSiteJS();
+  const userSchema = wrd<WRDSchemaLike["system:usermgmt"]>("webhare_testsuite:testschema");
+  const priorApplications = await userSchema.query("wrdauthApplication").select("wrdId").execute();
+  const connectedServer = await registerAtRemoteWebHare(testsite.webRoot, { wrdSchema: userSchema });
+  test.assert(connectedServer.status === "connected");
+  const storedServer = await userSchema.getFields("wrdauthServer", connectedServer.server, ["wrdTag", "isIdp", "isPeer", "clientId"]);
+
+  test.eq(true, connectedServer.registrationCreated);
+  test.eq(false, storedServer.isIdp, "A server we want to push modules to shouldn't become an identity provider for us");
+  test.eq(true, storedServer.isPeer, "Servers registered by registerAtRemoteWebHare should be marked as peers");
+
+  const reusedServer = await registerAtRemoteWebHare(testsite.webRoot, { wrdSchema: userSchema });
+  test.assert(reusedServer.status === "connected");
+  test.eq(connectedServer.server, reusedServer.server);
+  test.eq(false, reusedServer.registrationCreated);
+  test.eq(priorApplications.length + 1, (await userSchema.query("wrdauthApplication").select("wrdId").execute()).length);
+
+  //a changed callback URL requires a new registration, and the one it replaces should be deprovisioned
+  const replacedRegistration = await userSchema.getFields("wrdauthServer", connectedServer.server, ["clientId", "registrationAccessToken", "registrationClientUri"]);
+  const newCallbackServer = await registerAtRemoteWebHare(testsite.webRoot, { wrdSchema: userSchema, authCallback: "http://localhost:3000/othercb" });
+  test.assert(newCallbackServer.status === "connected");
+  test.eq(connectedServer.server, newCallbackServer.server);
+  test.eq(true, newCallbackServer.registrationCreated);
+  test.assert(replacedRegistration.clientId !== (await userSchema.getFields("wrdauthServer", connectedServer.server, ["clientId"])).clientId);
+  await test.throws(/Cannot retrieve dynamic client registration: HTTP 401/,
+    getDynamicClientRegistration(replacedRegistration.registrationClientUri, replacedRegistration.registrationAccessToken));
+  test.eq(priorApplications.length + 1, (await userSchema.query("wrdauthApplication").select("wrdId").execute()).length);
+
+  //zap the registration access token to force re-registration
+  const originalRegistration = await userSchema.getFields("wrdauthServer", connectedServer.server, ["registrationAccessToken", "registrationClientUri"]);
+  await runInWork(() => userSchema.update("wrdauthServer", connectedServer.server, { registrationAccessToken: "XXX" }));
+  const reconnectedServer = await registerAtRemoteWebHare(testsite.webRoot, { wrdSchema: userSchema });
+  test.assert(reconnectedServer.status === "connected");
+  test.eq(connectedServer.server, reconnectedServer.server);
+  test.eq(true, reconnectedServer.registrationCreated);
+  const refreshedServer = await userSchema.getFields("wrdauthServer", connectedServer.server, ["clientId", "registrationAccessToken", "registrationClientUri"]);
+  test.assert(refreshedServer.clientId !== storedServer.clientId);
+  test.eq(refreshedServer.clientId, (await getDynamicClientRegistration(refreshedServer.registrationClientUri, refreshedServer.registrationAccessToken)).client_id);
+
+  //the original registration is orphaned at the provider (we lost its token), clean it up so it doesn't linger
+  await deleteDynamicClientRegistration(originalRegistration.registrationClientUri, originalRegistration.registrationAccessToken);
+  test.eq(priorApplications.length + 1, (await userSchema.query("wrdauthApplication").select("wrdId").execute()).length);
+
+  //deleting the peer removes our wrdauthServer, the registration at the remote and the user's stored token for that peer
+  const userEntity = test.getUser("sysop").wrdId;
+  const [peerToken, otherPeerToken] = await runInWork(async () => [
+    await userSchema.insert("whuserPeerserver", { wrdLeftEntity: userEntity, serverurl: testsite.webRoot.replace(/\/$/, ""), wrdTitle: "this peer" }),
+    await userSchema.insert("whuserPeerserver", { wrdLeftEntity: userEntity, serverurl: "https://other.example.net/", wrdTitle: "other peer" })
+  ]);
+  test.eq({ authServers: [{ wrdId: connectedServer.server, wrdTitle: /.+/, remoteError: null }], peerServers: 1 },
+    await deletePeerRegistrations(testsite.webRoot, { wrdSchema: userSchema, userEntity }));
+  test.eq(null, await userSchema.search("whuserPeerserver", "wrdId", peerToken));
+  test.eq(otherPeerToken, await userSchema.search("whuserPeerserver", "wrdId", otherPeerToken));
+  await runInWork(() => userSchema.delete("whuserPeerserver", otherPeerToken));
+  test.eq(null, await userSchema.search("wrdauthServer", "wrdId", connectedServer.server));
+  await test.throws(/Cannot retrieve dynamic client registration: HTTP 401/,
+    getDynamicClientRegistration(refreshedServer.registrationClientUri, refreshedServer.registrationAccessToken));
+  test.eq(priorApplications.length, (await userSchema.query("wrdauthApplication").select("wrdId").execute()).length);
+  test.eq({ authServers: [], peerServers: 0 }, await deletePeerRegistrations(testsite.webRoot, { wrdSchema: userSchema, userEntity }));
 }
 
 async function testCleanupDynamicClients() {
@@ -231,6 +316,7 @@ async function testCleanupDynamicClients() {
 test.runTests([
   setupDynamicRegistration,
   testRegisterDynamicClient,
+  testRegisterAtRemoteWebHare,
   disableDynamicRegistration,
   testCleanupDynamicClients
 ]);
