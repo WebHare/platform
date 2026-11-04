@@ -694,6 +694,8 @@ $defs:
     description: Either an array of flags (to fully reset baseproperties) or a bag of mostly boolean properties to mutate base properties
     oneOf:
       - type: array
+        description: "The array form of baseProps will be deprecated, use the object form (eg 'baseProps: { seoTitle: true }') instead"
+        deprecated: true
         items:
           type: string
           enum:
@@ -746,14 +748,24 @@ $defs:
           # old baseprop names
           seotitle:
             type: boolean
+            description: Replace with 'seoTitle'
+            deprecated: true
           noindex:
             type: boolean
+            description: Replace with 'noIndex'
+            deprecated: true
           nofollow:
             type: boolean
+            description: Replace with 'noFollow'
+            deprecated: true
           noarchive:
             type: boolean
+            description: Replace with 'noArchive'
+            deprecated: true
           seotab:
             type: boolean
+            description: Replace with 'seoTab'
+            deprecated: true
 
   ApplyEditProps:
     description: Set up an editor for these metadata fields
