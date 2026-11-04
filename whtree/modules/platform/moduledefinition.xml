@@ -86,7 +86,7 @@
       <addheader header="Access-Control-Allow-Origin" value="*" />
       <addheader header="Access-Control-Max-Age" value="86400" />
     </webrule>
-    <webrule path="allroots:/.wh/openid/" match="initial" router="/js/auth/openid.ts#openIdRouter" />
+    <webrule path="allroots:/.wh/openid/" match="initial" router="/js/auth/openid.ts#openIdRouter" allowallmethods="true" />
     <webrule path="allroots:/.wh/rpc/" match="initial" router="/js/services/rpc-router.ts#RPCRouter" />
   </backend>
 

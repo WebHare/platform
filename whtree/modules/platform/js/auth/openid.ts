@@ -476,7 +476,7 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
 
       const applications = await wrdschema.query("wrdauthApplication")
         .where("wrdGuid", "=", decompressUUID(registrationClientId))
-        .select(["dynamicRegistration", "dynamicStatus", "callbackUrls"])
+        .select(["wrdId", "dynamicRegistration", "dynamicStatus", "callbackUrls"])
         .execute();
       const application = applications[0];
       const tokenHash = application?.dynamicRegistration?.registrationAccessTokenHash;
@@ -484,8 +484,12 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
       if (!application?.dynamicStatus || !tokenHash || tokenHash.length !== suppliedTokenHash.length
         || !crypto.timingSafeEqual(Buffer.from(tokenHash), Buffer.from(suppliedTokenHash)))
         return unauthorized();
+      if (req.method === "DELETE") { //RFC 7592 section 2.3: deprovision the client
+        await runInWork(() => wrdschema.delete("wrdauthApplication", application.wrdId));
+        return createWebResponse("", { status: 204, headers: { "cache-control": "no-store", pragma: "no-cache" } });
+      }
       if (req.method !== "GET")
-        return createJSONResponse(405, { error: "Client registration retrieval requires GET" }, { headers: { allow: "GET" } });
+        return createJSONResponse(405, { error: "Client registration management requires GET or DELETE" }, { headers: { allow: "GET, DELETE" } });
 
       const registration = application.dynamicRegistration!.request;
       return createJSONResponse(200, {
