@@ -75,6 +75,9 @@ properties:
   notifications:
     description: Notifications
     $ref: "#/$defs/Notifications"
+  reports:
+    description: Reports
+    $ref: "#/$defs/Reports"
 
 
 $defs:
@@ -699,3 +702,25 @@ $defs:
           defaultEnabled:
             type: boolean
             description: "Whether this notification is enabled by default"
+
+  Reports:
+    type: object
+    description: Declare reports offered by this module
+    additionalProperties: false
+    patternProperties:
+      "^[a-z_][-a-z0-9_]*$": # Report name
+        type: object
+        additionalProperties: false
+        required: [onGenerate, outputFormat]
+        properties:
+          configScreen:
+            type: string
+            description: "Tollium screen to configure the report before generating it"
+          onGenerate:
+            type: string
+            description: "JavaScript function that generates the report"
+          outputFormat:
+            type: string
+            description: "Mimetype of the data returned by onGenerate"
+            enum:
+              - application/x-webhare-spreadsheet

@@ -171,3 +171,12 @@ notifications:
     tid: module.eventservertest
     descriptionTid: module.eventservertest-desc
     defaultEnabled: true
+
+reports:
+  testreport:
+    configScreen: tolliumapps/reports/testreport.xml#config
+    onGenerate: js/reports/testreport.ts#generateTestReport
+    outputFormat: application/x-webhare-spreadsheet
+  testreport_noconfig:
+    onGenerate: js/reports/testreport.ts#generateTestReportNoConfig
+    outputFormat: application/x-webhare-spreadsheet
