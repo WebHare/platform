@@ -5,6 +5,8 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
+LOADLIB "mod::platform/lib/dialogs.whlib";
+
 LOADLIB "mod::publisher/lib/commondialogs.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/dialogs.whlib";
@@ -18,7 +20,6 @@ LOADLIB "mod::publisher/lib/internal/support.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/tolliumapps/filemanager/copymove.whlib";
 LOADLIB "mod::publisher/tolliumapps/filemanager/filemgrdialogs.whlib";
-LOADLIB "mod::publisher/tolliumapps/filemanager/reports/seoreport.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
@@ -922,10 +923,20 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase <
   // Helper functions - misc action helpers
   //
 
-  INTEGER FUNCTION GetCurrentlySelectedFSobject()
-  {
+  /** Return currently select object in the currently focused tree/list */
+  INTEGER FUNCTION GetCurrentlySelectedFSobject() {
     IF(^filelist->IsFocused())
       RETURN Length(^filelist->selection)=1 ? ^filelist->value[0] : 0;
+    RETURN ^foldertree->value;
+  }
+
+  /** If filelist has focus and selected a folder, return that folder. Otherwise the current tree folder */
+  INTEGER FUNCTION GetCurrentlySelectedFolder() {
+    IF(^filelist->IsFocused()) {
+      RECORD sel := PickFirst(^filelist->selection);
+      IF(RecordExists(sel) AND sel.isfolder)
+        RETURN sel.id;
+    }
     RETURN ^foldertree->value;
   }
 
@@ -2047,14 +2058,8 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase <
     this->tolliumcontroller->SendApplicationMessage("publisher:reportissues", DEFAULT RECORD, DEFAULT RECORD, TRUE);
   }
 
-  MACRO DoExportSEOReportTree()
-  {
-    RunSEOReport(this, ^foldertree->value);
-  }
-
-  MACRO DoExportSEOReportList()
-  {
-    RunSEOReport(this, ^filelist->selection.issite ? ^filelist->value[0] : ^foldertree->value);
+  MACRO DoExportSEOReport() {
+    RunReportDialog(this, "platform:seosettings", CELL[ folder := this->GetCurrentlySelectedFolder() ]);
   }
 
   MACRO DoManageFoldersync()
