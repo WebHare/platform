@@ -263,6 +263,7 @@ export type CSPBaseProperties = {
   requiretitle: boolean;
   seotitle: boolean;
   pageheading: boolean;
+  alternatelanguages: string[];
 };
 
 export interface CSPMemberOverride extends CSPMemberBasics {

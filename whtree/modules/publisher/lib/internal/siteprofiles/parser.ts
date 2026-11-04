@@ -683,6 +683,7 @@ function parseBaseProps(context: SiteProfileParserContext, props: Sp.ApplyBasePr
       // seotab probably shouldn't be configurable once you switch to YAML. or we make them explicit temporary opt-outs
       seotab: true,
       pageheading: false,
+      alternatelanguages: [],
       //NOTE these don't enable a configurable setting, but enforce it! it should probably not be part of <baseproperties>/baseProps
       noindex: false,
       nofollow: false,
@@ -707,7 +708,8 @@ function parseBaseProps(context: SiteProfileParserContext, props: Sp.ApplyBasePr
       noindex: props.noIndex || props.noindex || false,
       nofollow: props.noFollow || props.nofollow || false,
       noarchive: props.noArchive || props.noarchive || false,
-      pageheading: props.pageHeading || false
+      pageheading: props.pageHeading || false,
+      alternatelanguages: props.alternateLanguages || []
     };
   }
 }

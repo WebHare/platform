@@ -507,11 +507,14 @@ export class WHFSApplyTester {
       requiretitle: false,
       seotitle: false,
       pageheading: false,
+      alternatelanguages: [],
     };
     for (const apply of await this.getMatchingRules('baseproperties'))
-      for (const fld of apply.baseproperties.haslist)
-        if (fld.toLowerCase() in baseProperties)
-          baseProperties[fld.toLowerCase() as keyof CSPBaseProperties] = apply.baseproperties[fld.toLowerCase() as keyof CSPBaseProperties];
+      for (const fld of apply.baseproperties.haslist) {
+        const key = fld.toLowerCase() as keyof CSPBaseProperties;
+        if (key in baseProperties && key in apply.baseproperties)
+          (baseProperties as Record<string, unknown>)[key] = apply.baseproperties[key];
+      }
     return baseProperties;
   }
 
