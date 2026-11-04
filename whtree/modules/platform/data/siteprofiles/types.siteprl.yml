@@ -390,6 +390,16 @@ types:
       canonical:
         type: whfsRef
         comment: Points to the canonical URL of this page. No defined effect yet on folders
+      alternateLanguages:
+        type: array
+        comment: List of alternate language URLs for this page
+        members:
+          lang:
+            type: string
+            comment: Language code
+          link:
+            type: whfsRef
+            comment: Alternate version
 
 deleteTypes:
   - http://www.webhare.net/xmlns/publisher/version # redundant with fs_history table. Deleted in WH6.0
