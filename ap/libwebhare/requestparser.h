@@ -302,7 +302,9 @@ class BLEXLIB_PUBLIC RequestParser : private Blex::Mime::DecodeReceiver
                 ///Request parsing is complete (check error code)
                 ParsingDone,
                 ///Request parser has failed - terminate connection because satte is unknown
-                ParsingFailed
+                ParsingFailed,
+                ///The CR of a chunk delimiter has been consumed; require LF
+                ExpectLF
         };
 
         ErrorCode errorcode;
