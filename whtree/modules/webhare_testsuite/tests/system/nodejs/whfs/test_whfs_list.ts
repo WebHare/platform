@@ -63,6 +63,17 @@ async function testListObjects() {
     whfsPath: '/webhare-tests/webhare_testsuite.testsite/TestPages/staticpage-ps-af'
   }, list2.find(_ => _.name === 'staticpage-ps-af'));
 
+  //objectBaseURL is the object's own URL. for a folder without index that differs from 'link', for a file it's the same
+  const tmpfolder = await test.getTestSiteJSTemp();
+  test.eq([{ id: tmpfolder.id, name: "tmp", isFolder: true, link: "", objectBaseURL: testsitejs.webRoot + "tmp/" }],
+    await whfs.listWHFSObjects(["link", "objectBaseURL"], { ids: [tmpfolder.id] }));
+  const listUrls = await testpagesfolder.list(["link", "objectBaseURL"]);
+  test.eqPartial({ link: markdownfile.link, objectBaseURL: markdownfile.objectBaseURL }, listUrls.find(_ => _.id === markdownfile.id));
+  test.eq(null, tmpfolder.link);
+  test.eq(testsitejs.webRoot + "tmp/", tmpfolder.objectBaseURL);
+  test.eq(markdownfile.link, markdownfile.objectBaseURL);
+  test.eq(null, (await openFolder("/", { allowRoot: true })).objectBaseURL);
+
   const list3 = await testpagesfolder.list(["created", "modified", "contentModified"]);
   test.eqPartial({
     created: date => isTemporalInstant(date),
