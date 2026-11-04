@@ -311,6 +311,22 @@ apply:
     - type: atype
 `));
 
+  // Test alternateLanguages baseProp
+  const altLangResult = await parseSP(`---
+apply:
+- to: all
+  baseProps:
+    alternateLanguages: [ en, nl ]
+`);
+  test.eqPartial({
+    applyrules: [
+      {
+        baseproperties: { alternatelanguages: ["en", "nl"], haslist: ["ALTERNATELANGUAGES"] }
+      }
+    ]
+  }, altLangResult);
+  test.eq([], altLangResult.messages.filter(m => m.message.includes("baseProps")));
+
   // Array form of baseProps should warn about upcoming deprecation
   const arrayFormResult = await parseSP(`---
 apply:

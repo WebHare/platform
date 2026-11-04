@@ -744,6 +744,11 @@ $defs:
           requireTitle:
             type: boolean
             description: Require a title on all objects
+          alternateLanguages:
+            type: array
+            description: Languages for which alternate versions of this page can be configured
+            items:
+              type: string
 
           # old baseprop names
           seotitle:
