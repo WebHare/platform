@@ -59,6 +59,13 @@ export interface BackendEvents {
   "platform:appliedconfig": null;
   "system:managedtasks.any.new": { taskids: number[] };
   "system:modulesupdate": null;
+  /** Invoked when completing oauth2 authorization, used to inform HareScript token getters */
+  "platform:internal.peer_token_response": {
+    requestId: string;
+    /** The whuserPeerserver storing the token, 0 on error */
+    peerId: number;
+    error: string;
+  };
   "tollium:oauth_response": {
     responseid: string;
     responsetype: string;
