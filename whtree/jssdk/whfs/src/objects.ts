@@ -10,7 +10,7 @@ import * as std from "@webhare/std";
 import { backendConfig, encryptForThisServer, IntExtLink, readRegistryKey, type WebHareBlob } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
 import { whconstant_historytype_approved, whconstant_historytype_created, whconstant_webserver_indexpages, whconstant_whfsid_private_rootsettings, whconstant_historytype_final } from "@mod-system/js/internal/webhareconstants";
-import { selectFSFullPath, selectFSHighestParent, selectFSIsActive, selectFSLink, selectFSPublish, selectFSWHFSPath, selectSitesWebRoot } from "@webhare/whdb/src/functions";
+import { selectFSFullPath, selectFSHighestParent, selectFSIsActive, selectFSLink, selectFSObjectBaseURL, selectFSPublish, selectFSWHFSPath, selectSitesWebRoot } from "@webhare/whdb/src/functions";
 import { whfsFinishHandler } from "./finishhandler";
 import { listInstances, type ListInstancesOptions, type ListInstancesResult } from "./listinstances";
 import type { FileTypeInfo, FolderTypeInfo, WHFSTypeInfo, WHFSTypeName } from "@webhare/whfs/src/contenttypes";
@@ -25,6 +25,7 @@ export type WHFSObject = WHFSFile | WHFSFolder;
 
 export interface FsObjectRow extends Selectable<PlatformDB, "system.fs_objects"> {
   link: string;
+  objectbaseurl: string;
   fullpath: string;
   whfspath: string;
   parentsite: number | null;
@@ -259,6 +260,10 @@ abstract class WHFSBaseObject {
   get link(): string | null {
     return this.dbrecord.link || null;
   }
+  /** The URL of the object itself. For folders this is the folder's base URL (unlike 'link', which is the URL of its index document). null if the object has no URL */
+  get objectBaseURL(): string | null {
+    return this.dbrecord.objectbaseurl || null;
+  }
   get order(): number {
     return this.dbrecord.ordering;
   }
@@ -477,6 +482,7 @@ abstract class WHFSBaseObject {
       .set(storedata)
       .returning([
         selectFSLink().as("link"),
+        selectFSObjectBaseURL().as("objectbaseurl"),
         selectFSFullPath().as("fullpath"),
         selectFSWHFSPath().as("whfspath"),
         selectFSHighestParent().as("parentsite"),
@@ -889,6 +895,7 @@ async function getRootFolderDBRow(): Promise<FsObjectRow> {
     whfspath: "/",
     publish: false,
     link: "",
+    objectbaseurl: "",
     parentsite: null
   };
 }
@@ -901,6 +908,7 @@ async function getDBRecord(location: number) {
       .selectFrom("system.fs_objects")
       .selectAll()
       .select(selectFSLink().as("link"))
+      .select(selectFSObjectBaseURL().as("objectbaseurl"))
       .select(selectFSFullPath().as("fullpath"))
       .select(selectFSWHFSPath().as("whfspath"))
       .select(selectFSHighestParent().as("parentsite"))
