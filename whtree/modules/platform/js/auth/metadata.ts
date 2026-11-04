@@ -8,6 +8,7 @@ import { lookupURL, openFileOrFolder } from "@webhare/whfs";
 
 //wellKnownRouter implements .well-known/openid-configuration
 export async function wellKnownRouter(req: WebRequest): Promise<WebResponse> {
+  const incomingURL = new URL(req.url);
   const target = await lookupURL(new URL(req.url));
   const targetObj = target.file || target.folder;
   if (!targetObj)
@@ -21,7 +22,8 @@ export async function wellKnownRouter(req: WebRequest): Promise<WebResponse> {
   const authSchema = wrd<WRDSchemaLike["platform:basewrdschema"]>(wrdSchemaTag);
   const settings = await getSchemaSettings(authSchema, ["issuer", "signingKeys", "dynamicRegistration"]);
   if (!settings.issuer)
-    return createJSONResponse(HTTPErrorCode.NotFound, { error: `WRD schema '${wrdSchemaTag}' is not configured with a JWKS issuer` });
+    settings.issuer = incomingURL.origin;
+
 
   const id_token_signing_alg_values_supported: IdTokenSigningAlgValuesSupported[] = [];
   if (settings.signingKeys.find(_ => _.privateKey.kty === "RSA"))
