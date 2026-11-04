@@ -173,8 +173,17 @@ export class OAuth2Client {
     });
   }
 
-  /** Creates a link that initiates the oauth2flow. The redirect page should invoke RunOAuth2LandingPage which will read the system:oauth2 session, process/validate the tokens, store them in a session and finally
-   *  redirect to the finalurl with the ?oauth2sesson= parameter on the URL for the page to process the data
+  /** Create a redirect instruction that starts the OAuth2 authorization flow.
+   * @param finalurl - Absolute URL to visit after the OAuth2 landing page exchanges the authorization code for tokens.
+   * Receives an `oauth2session` query parameter; pass it to handleOAuth2AuthorizeLanding to retrieve the result.
+   * This is not the redirect URI registered with the provider.
+   * @param options - Optional authorization request settings.
+   * @param options.prompt - Provider prompt behavior, such as `login`, `consent`, or `none`.
+   * @param options.addScopes - Scopes to request in addition to the client's configured scopes.
+   * @param options.codeVerifier - PKCE verifier; enables an S256 challenge and is reused during token exchange.
+   * @param options.userData - Application data to return from handleOAuth2AuthorizeLanding.
+   * @param options.clientScope - Scope binding checked by handleOAuth2AuthorizeLanding; defaults to the client's scope.
+   * @param options.responseMode - Provider response mode; defaults to `form_post` when advertised, otherwise the provider's default.
    */
   async createAuthorizeLink(finalurl: string, options?: OAuth2AuthorizeRequestOptions): Promise<NavigateInstruction> {
     const metadata = await getOpenIDConnectMetadata(this.clientinfo.metadataUrl);
@@ -430,20 +439,23 @@ export type DynamicClientRegistrationParameters = {
   response_types?: ResponseType[];
 };
 
+/** Register a client, or return null when the provider does not advertise registration or refuses it with HTTP 403. */
 export async function registerDynamicClient(serviceRoot: string, registration: DynamicClientRegistrationParameters) {
-  const metadataurl = new URL(".well-known/openid-configuration", serviceRoot).toString();
-  const metadataResponse = await fetch(metadataurl);
+  const metadataUrl = new URL(".well-known/openid-configuration", serviceRoot).toString();
+  const metadataResponse = await fetch(metadataUrl);
   if (!metadataResponse.ok)
-    throw new Error(`Cannot load OpenID metadata from ${metadataurl}: HTTP ${metadataResponse.status}`);
+    throw new Error(`Cannot load OpenID metadata from ${metadataUrl}: HTTP ${metadataResponse.status}`);
   const metadata: { registration_endpoint?: unknown } = await metadataResponse.json();
   if (typeof metadata.registration_endpoint !== "string" || !metadata.registration_endpoint)
-    throw new Error("OpenID metadata does not advertise a registration_endpoint");
+    return null;
 
   const registrationResponse = await fetch(metadata.registration_endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(registration)
   });
+  if (registrationResponse.status === 403)
+    return null;
   if (registrationResponse.status !== 201)
     throw new Error(`Dynamic registration failed: HTTP ${registrationResponse.status}`);
   const registeredClient: {
@@ -464,11 +476,11 @@ export async function registerDynamicClient(serviceRoot: string, registration: D
     throw new Error("Dynamic registration returned an invalid registration_client_uri");
 
   return {
-    metadataurl,
-    clientid: registeredClient.client_id,
-    clientsecret: registeredClient.client_secret,
-    ...typeof registeredClient.registration_access_token === "string" ? { registration_access_token: registeredClient.registration_access_token } : {},
-    ...typeof registeredClient.registration_client_uri === "string" ? { registration_client_uri: registeredClient.registration_client_uri } : {}
+    metadataUrl,
+    clientId: registeredClient.client_id,
+    clientSigning: { type: "client_secret" as const, secret: registeredClient.client_secret },
+    ...typeof registeredClient.registration_access_token === "string" ? { registrationAccessToken: registeredClient.registration_access_token } : {},
+    ...typeof registeredClient.registration_client_uri === "string" ? { registrationClientUri: registeredClient.registration_client_uri } : {}
   };
 }
 
@@ -486,4 +498,14 @@ export async function getDynamicClientRegistration(registrationClientUri: string
     throw new Error("Dynamic client registration did not return a client_id");
 
   return { ...registration, client_id: registration.client_id };
+}
+
+/** Deprovision a client at its provider using its registration-management token (RFC 7592 section 2.3). */
+export async function deleteDynamicClientRegistration(registrationClientUri: string, registrationAccessToken: string): Promise<void> {
+  const response = await fetch(registrationClientUri, {
+    method: "DELETE",
+    headers: { Authorization: "Bearer " + registrationAccessToken }
+  });
+  if (response.status !== 204)
+    throw new Error(`Cannot delete dynamic client registration: HTTP ${response.status}`);
 }
