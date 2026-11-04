@@ -523,6 +523,7 @@ export function openType<Type extends keyof WHFSTypes>(ns: Type): WHFSTypeAccess
 /** @deprecated With WH5.9+ just use whfsType() as this call isn't really opening anything until a method is called */
 export function openType<GetFormat extends object = Record<string, unknown>>(ns: string): WHFSTypeAccessor<GetFormat, GetFormat, GetFormat>;
 
+/** @deprecated With WH5.9+ just use whfsType() as this call isn't really opening anything until a method is called */
 export function openType(ns: string): WHFSTypeAccessor<Record<string, unknown>, Record<string, unknown>, Record<string, unknown>> {
   //note that as we're sync, we can't actually promise to validate whether the type exists
   return new WHFSTypeAccessor(ns);

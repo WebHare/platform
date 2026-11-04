@@ -2,7 +2,7 @@ import { db, sql, type Selectable, type Updateable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { type WHFSFile, type WHFSFolder, __openWHFSObj, type OpenWHFSObjectOptions } from "./objects";
 import { excludeKeys, formatPathOrId } from "./support";
-import { openType, whfsType, type TypedInstanceData } from "./contenttypes";
+import { whfsType, type TypedInstanceData } from "./contenttypes";
 import { selectSitesWebRoot } from "@webhare/whdb/src/functions";
 import { ListingContext, listRecursive, type ListableFsObjectRow, type ListFSOptions, type ListFSRecursiveOptions, type WHFSRecursiveListResult, type WHFSListResult } from "./list";
 
@@ -110,12 +110,12 @@ export class Site {
 
   /** Get the webdesign for this site */
   async getWebDesign(): Promise<string> {
-    return (await openType("http://www.webhare.net/xmlns/publisher/sitesettings").get(this.id)).sitedesign as string;
+    return (await whfsType("platform:web.sitesettings").get(this.id)).sitedesign as string;
   }
 
   /** Get enabled webfeatures for this site */
   async getWebFeatures(): Promise<string[] | null> {
-    const features = (await openType("http://www.webhare.net/xmlns/publisher/sitesettings").get(this.id)).webfeatures as string[];
+    const features = (await whfsType("platform:web.sitesettings").get(this.id)).webfeatures as string[];
     return features.length ? features.sort() : null;
   }
 

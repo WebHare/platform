@@ -2,7 +2,7 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { buildRTD, buildWidget, IntExtLink, ResourceDescriptor, RichTextDocument, WebHareBlob } from "@webhare/services";
 import { buildRTDFromHareScriptRTD, exportAsHareScriptRTD, exportRTDToRawHTML, type HareScriptRTD } from "@webhare/hscompat";
 import { beginWork, commitWork, rollbackWork, runInWork } from "@webhare/whdb";
-import { openFile, openType, whfsType } from "@webhare/whfs";
+import { openFile, whfsType } from "@webhare/whfs";
 import { loadlib } from "@webhare/harescript";
 import { createWRDTestSchema, getLegacyWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { buildInstance, type RTDBlock, type RTDInlineItem, type RTDSource, type RTDExport, type Instance } from "@webhare/services/src/richdocument";
@@ -56,15 +56,15 @@ async function verifyRoundTrip(doc: RichTextDocument) {
   //Test roundtrip through WHFS
   await beginWork();
   const tempfile = await (await test.getTestSiteJSTemp()).ensureFile("roundtrip", { type: "platform:filetypes.richdocument" });
-  await openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").set(tempfile.id, { data: doc });
-  const doc3 = (await openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").get(tempfile.id)).data as RichTextDocument;
+  await whfsType("platform:filetypes.richdocument").set(tempfile.id, { data: doc });
+  const doc3 = (await whfsType("platform:filetypes.richdocument").get(tempfile.id)).data as RichTextDocument;
   test.eq(doc.blocks, doc3.blocks, { onCompare: compareRDIgnoreFilename });
 
   //Test roundtrip through HareScript WHFS SetInstanceData
   //FIXME this should also set whfsSettingId and whfsFileId again on instances?
   const hsWHFSType = await loadlib("mod::system/lib/whfs.whlib").openWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
   await hsWHFSType.setInstanceData(tempfile.id, { data: hs });
-  const doc4 = (await openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").get(tempfile.id)).data as RichTextDocument;
+  const doc4 = (await whfsType("platform:filetypes.richdocument").get(tempfile.id)).data as RichTextDocument;
   test.eq(doc.blocks, doc4.blocks, { onCompare: compareRDIgnoreFilename });
 
   //Test roundtrip through HareScript WHFS GetInstanceData
@@ -97,7 +97,7 @@ async function verifyWidgetRoundTrip(widget: Instance) {
 
 async function testReader() {
   const widgetHolder = await (await test.getTestSiteJS()).openFile("/testpages/widgetholder");
-  const aboutAFish = await openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").get(widgetHolder.id, { export: true });
+  const aboutAFish = await whfsType("platform:filetypes.richdocument").get(widgetHolder.id, { export: true });
 
   test.eq([
     {

@@ -4,7 +4,7 @@ import { loadlib } from "@webhare/harescript";
 import { backendConfig, ResourceDescriptor, toFSPath } from "@webhare/services";
 import { explainImageProcessing, getUCSubUrl, getUnifiedCC, packImageResizeMethod, unpackImageResizeMethod, type ResourceMetadata } from "@webhare/services/src/descriptor";
 import { beginWork, commitWork } from "@webhare/whdb";
-import { openType, whfsType } from "@webhare/whfs";
+import { whfsType } from "@webhare/whfs";
 import { getSharpResizeOptions, isImageLossless } from "@mod-platform/js/cache/imgcache";
 import { createSharpImage } from "@webhare/deps/src/deps";
 import { promises as fs } from "node:fs";
@@ -519,7 +519,7 @@ async function testImgCache() {
   test.assert(snowbeagleAvifFile.data.hash);
   test.eq(snowbeagleAvifFile.data.hash, avifBeagleAsAvif.resource.hash);
 
-  const kikkerdata = await openType("http://www.webhare.net/xmlns/beta/test").get(testsitejs.id) as any; //FIXME remove 'as any' as soon as we have typings
+  const kikkerdata = await whfsType("http://www.webhare.net/xmlns/beta/test").get(testsitejs.id) as any; //FIXME remove 'as any' as soon as we have typings
   const wrappedKikker = kikkerdata.arraytest[0].blobcell.toResized({ method: "none", fixorientation: true, format: "keep" });
   await fetchUCLink(wrappedKikker.link, "image/jpeg");
   test.eq(wrappedKikker.link, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(kikkerdata.arraytest[0].blobcell, { method: "none", fixorientation: true, format: "keep" })).link);

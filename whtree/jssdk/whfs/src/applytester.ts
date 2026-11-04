@@ -14,7 +14,7 @@ import type { GlobalRight, TargettedRight } from "@webhare/auth";
 import { describeWHFSType, getType } from "./describe";
 import { resolveResource } from "@webhare/services";
 import type { ApplyAuth, ApplySetMetadata } from "@mod-platform/generated/schema/siteprofile";
-import { openType, whfsType, type WHFSTypeInfo, type WHFSTypeName } from "@webhare/whfs/src/contenttypes";
+import { whfsType, type WHFSTypeInfo, type WHFSTypeName } from "@webhare/whfs/src/contenttypes";
 import { lookupURL, type LookupURLOptions } from "./lookupurl";
 import { isHistoricWHFSSpace } from "./path-support";
 import { whconstant_whfsid_repository } from "@mod-system/js/internal/webhareconstants";
@@ -261,7 +261,7 @@ export class WHFSApplyTester {
           return false;
 
         //TODO select only the field we need
-        const field = (await openType(element.typedef).get(totest))[element.membername];
+        const field = (await whfsType(element.typedef).get(totest))[element.membername];
 
         if (typeof field === "string")
           return field === (element?.value ?? '');
