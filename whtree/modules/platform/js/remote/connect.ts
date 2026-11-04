@@ -379,14 +379,16 @@ class TokenPromise {
  * @param entityId User to store the token for
  * @param authServer The wrdauthServer for the remote WebHare
  * @param options.prompt OAuth2 prompt behavior to request from the remote (eg 'login' or 'consent')
+ * @param options.scopes Scopes to request. Defaults to platform:sysop
  * @returns The URL the user must visit to authorize us, and a promise for the token once that completes */
 async function getOAuth2PeerServerTokenURL(remoteHost: string, userSchema: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>, entityId: number, authServer: number, options?: {
   prompt?: OAuth2PromptFlag;
+  scopes?: string[];
 }): Promise<{
   requesturl: string;
   tokenpromise: Promise<PeerServerToken>;
 }> {
-  const scopes = ["platform:sysop"];
+  const scopes = options?.scopes?.length ? options.scopes : ["platform:sysop"];
   const clientScope = "platform:connect-peer";
   const landing = Promise.withResolvers<PeerServerToken>();
   //Our OAuth2 landing page redirects the browser here with an oauth2session parameter once the authorization completes
@@ -434,6 +436,8 @@ export async function getPeerServerTokenURL(remoteHost: string, options?: {
   baseUrl?: string;
   /** OAuth2 prompt behavior to request from the remote (eg 'login' or 'consent'). Ignored by legacy (non OAuth2) peers */
   prompt?: OAuth2PromptFlag;
+  /** Scopes to request from the remote. Defaults to platform:sysop. Ignored by legacy (non OAuth2) peers */
+  scopes?: string[];
 }): Promise<{
   requesturl: string;
   tokenpromise: Promise<PeerServerToken>;
@@ -444,7 +448,7 @@ export async function getPeerServerTokenURL(remoteHost: string, options?: {
   //Attempt V2 connection first
   const peer = await registerAtRemoteWebHare(remoteHost, { wrdSchema: userSchema });
   if (peer.status === "connected")
-    return await getOAuth2PeerServerTokenURL(remoteHost, userSchema, entityId, peer.server, { prompt: options?.prompt });
+    return await getOAuth2PeerServerTokenURL(remoteHost, userSchema, entityId, peer.server, { prompt: options?.prompt, scopes: options?.scopes });
 
   const baseUrl = options?.baseUrl ?? backendConfig.backendURL;
   const defer = Promise.withResolvers<PeerServerToken>();
