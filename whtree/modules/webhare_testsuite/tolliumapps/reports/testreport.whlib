@@ -1,0 +1,18 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE Config EXTEND TolliumScreenBase <
+  MACRO Init(RECORD data) {
+    ^context->value := data.params.context;
+  }
+
+  RECORD FUNCTION Submit() {
+    OBJECT work := this->BeginFeedback();
+    IF(NOT work->Finish())
+      RETURN DEFAULT RECORD;
+
+    RETURN CELL[ extra := ^extra->value ];
+  }
+>;

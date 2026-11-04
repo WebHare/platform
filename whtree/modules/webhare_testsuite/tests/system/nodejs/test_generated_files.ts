@@ -108,6 +108,20 @@ async function testWebHareConfig() {
   test.eqPartial({
     spec: "mod::webhare_testsuite/tests/wh/webserver/remoting/openapi/testservice.yml"
   }, testclient);
+
+  const reports = getExtractedConfig("reports");
+  test.eq({
+    name: "webhare_testsuite:testreport",
+    configScreen: "mod::webhare_testsuite/tolliumapps/reports/testreport.xml#config",
+    onGenerate: "mod::webhare_testsuite/js/reports/testreport.ts#generateTestReport",
+    outputFormat: "application/x-webhare-spreadsheet"
+  }, reports.reports.find(_ => _.name === "webhare_testsuite:testreport"));
+  test.eq({
+    name: "webhare_testsuite:testreport_noconfig",
+    configScreen: "",
+    onGenerate: "mod::webhare_testsuite/js/reports/testreport.ts#generateTestReportNoConfig",
+    outputFormat: "application/x-webhare-spreadsheet"
+  }, reports.reports.find(_ => _.name === "webhare_testsuite:testreport_noconfig"));
 }
 
 async function testBasics() {

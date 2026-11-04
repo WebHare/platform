@@ -1,5 +1,8 @@
 <?wh
 
+LOADLIB "wh::javascript.whlib";
+
+LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
 
@@ -18,4 +21,23 @@ PUBLIC MACRO RunManageOIDCProvidersDialog(OBJECT opener, RECORD options DEFAULTS
   }
 
   opener->RunScreen("mod::wrd/tolliumapps/oidc/client.xml#providers", CELL [], CELL[ contexts := CELL[ wrdschema ]]);
+}
+
+/** Configure, generate and download a report declared in a moduledefinition's `reports`
+    @param opener Screen (or controller) to open the dialogs from
+    @param reportname Full module:report name of the report
+    @param params Initial parameters for the report. Passed to the report's configScreen (as params) and onGenerate
+    @return TRUE if the report was generated and the export dialog was completed */
+PUBLIC BOOLEAN FUNCTION RunReportDialog(OBJECT opener, STRING reportname, RECORD params DEFAULTSTO DEFAULT RECORD) {
+  RECORD report := CallJS([ camelcase := TRUE ], "mod::platform/js/reports/reports.ts#getReport", reportname);
+
+  RECORD settings;
+  IF(report.config_screen != "") {
+    settings := opener->RunScreen(report.config_screen, CELL[ params ]);
+    IF(NOT RecordExists(settings))
+      RETURN FALSE;
+  }
+
+  RECORD reportdata := CallJS([ camelcase := TRUE ], "mod::platform/js/reports/reports.ts#generateReport", reportname, params, settings, CELL[ lang_code := GetTidLanguage() ]);
+  RETURN RunColumnFileExportDialog(opener, reportdata);
 }

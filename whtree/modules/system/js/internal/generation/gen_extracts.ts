@@ -16,6 +16,7 @@ import { getAllModuleWRDSchemas } from "./gen_wrd";
 import { generateUserRights } from "./gen_extract_userrights";
 import { generatePlugins } from "./gen_plugins";
 import { generateTollium } from "./gen_extract_tollium";
+import { generateReports } from "./gen_extract_reports";
 
 const DefaultMaxBodySize = 64 * 1024;
 export interface AssetPack {
@@ -409,6 +410,11 @@ export async function listAllExtracts(): Promise<FileToUpdate[]> {
       module: "platform",
       type: "extracts",
       generator: (context: GenerateContext) => generateDebug(context)
+    }, {
+      path: `extracts/reports.json`,
+      module: "platform",
+      type: "extracts",
+      generator: (context: GenerateContext) => generateReports(context)
     }
   ];
 }
