@@ -1,9 +1,9 @@
 // @webhare/cli: Connect to remote WebHare servers
 
-import { deletePeerRegistrations, getPeerServerToken, listPeers, getPeerServerTokenURL, registerAtRemoteWebHare } from "@mod-platform/js/remote/connect";
+import { deletePeerRegistrations, getPeerServerToken, listPeers, getPeerServerTokenURL } from "@mod-platform/js/remote/connect";
 import { commonFlags } from "@mod-platform/js/cli/cli-tools";
 import { enumOption, runCli } from "@webhare/cli";
-import { attempt, omit, regExpFromWildcards } from "@webhare/std";
+import { attempt, regExpFromWildcards } from "@webhare/std";
 import { spawnSync } from "child_process";
 
 runCli({
@@ -43,12 +43,17 @@ runCli({
         prompt: {
           type: enumOption(["login", "none", "consent", "select_account"]),
           description: "Always request a new token, passing this OAuth2 prompt to the remote (eg 'login' to force logging in again)"
+        },
+        scopes: {
+          description: "Comma or space separated scopes to request (default: platform:sysop). Requests a new token if the current one lacks any of them"
         }
       },
       async main({ args, opts }) {
-        let token = opts.prompt ? null : await attempt(getPeerServerToken(args.url), null);
+        const scopes = opts.scopes?.split(/[\s,]+/).filter(scope => scope) ?? [];
+        const currentToken = opts.prompt ? null : await attempt(getPeerServerToken(args.url), null);
+        let token = currentToken && scopes.every(scope => currentToken.scopes.includes(scope)) ? currentToken : null;
         if (!token) {
-          const gettoken = await getPeerServerTokenURL(args.url, { prompt: opts.prompt });
+          const gettoken = await getPeerServerTokenURL(args.url, { prompt: opts.prompt, scopes });
           console.log("Go to the following URL:", gettoken.requesturl);
           spawnSync("/usr/bin/open", [gettoken.requesturl], { stdio: "inherit" });
           token = await gettoken.tokenpromise;
