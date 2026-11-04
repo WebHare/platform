@@ -4,6 +4,7 @@
   <test name="test_seosettings-jssite" script="test_seosettings.whscr">
     <arg value="--jssite"/>
   </test>
+  <test script="test_seoreport.ts" />
   <test script="test_siteprops.whscr" />
   <test script="test_types.whscr" />
   <test script="test_archive.whscr" />
