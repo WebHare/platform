@@ -135,8 +135,7 @@ PUBLIC RECORD FUNCTION ParseIndexmanagerConfiguration(STRING configuration)
   RETURN config;
 }
 
-PUBLIC RECORD ARRAY FUNCTION GetConsilioAppRunnerConfig()
-{
+PUBLIC RECORD ARRAY FUNCTION GetConsilioAppRunnerConfig() {
   OpenPrimary();
   RECORD ARRAY apps;
 
