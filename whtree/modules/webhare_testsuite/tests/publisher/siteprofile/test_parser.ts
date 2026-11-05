@@ -311,6 +311,29 @@ apply:
     - type: atype
 `));
 
+  // Array form of baseProps should warn about upcoming deprecation
+  const arrayFormResult = await parseSP(`---
+apply:
+- to: all
+  baseProps: [seoTitle]
+`);
+  test.eq([{ type: "warning", line: 4 }], arrayFormResult.messages.filter(m => m.message.includes("baseProps")).map(m => ({ type: m.type, line: m.line })));
+
+  // Old lowercase baseProps names should warn about upcoming deprecation
+  const lowercaseResult = await parseSP(`---
+apply:
+- to: all
+  baseProps:
+    seotitle: true
+    noIndex: true
+    noarchive: true
+`);
+  test.eqPartial([
+    { type: "warning", message: /'seotitle'.*'seoTitle'/ },
+    { type: "warning", message: /'noarchive'.*'noArchive'/ }
+  ], lowercaseResult.messages.filter(m => m.message.includes("baseProps")));
+  test.eqPartial({ applyrules: [{ baseproperties: { seotitle: true, noindex: true, noarchive: true } }] }, lowercaseResult);
+
   // Test input constraint merging
   test.eqPartial({
     rtdtypes: [

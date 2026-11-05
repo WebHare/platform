@@ -7,6 +7,11 @@
   <import definitionfile="mod::wrd/data/wrdschemas/authschema_oidc.xml" />
   <import definitionfile="mod::wrd/data/wrdschemas/idp.wrdschema.xml" />
 
+  <migration tag="platform:user_attachments_to_person"
+             at="update"
+             stage="beforeTypes"
+             updatefunction="mod::platform/lib/internal/migrations.whlib#MigrateUserAttachmentsToPerson" />
+
   <migration tag="platform:accountstatus"
              at="update"
              revision="3"
@@ -51,7 +56,7 @@
     </attributes>
   </attachment>
   -->
-  <attachment tag="whuser_appaccount" linkfrom="wrd_relation" title="WebHare app account">
+  <attachment tag="whuser_appaccount" linkfrom="wrd_person" title="WebHare app account">
     <attributes>
       <free tag="device" title="Device" />
       <datetime tag="lastuse" title="Last usage" />
@@ -62,7 +67,7 @@
     </attributes>
   </attachment>
 
-  <attachment tag="whuser_peerserver" linkfrom="wrd_relation" title="WebHare peer server">
+  <attachment tag="whuser_peerserver" linkfrom="wrd_person" title="WebHare peer server">
     <attributes>
       <free tag="wrd_title" title="Title" />
       <free tag="serverurl" title="Server URL" />

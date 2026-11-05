@@ -618,8 +618,9 @@ function parseEditProps(context: SiteProfileParserContext, gid: ResourceParserCo
   return rules;
 }
 
-function parseBaseProps(props: Sp.ApplyBaseProps): CSPApplyRule["baseproperties"] {
+function parseBaseProps(context: SiteProfileParserContext, props: Sp.ApplyBaseProps): CSPApplyRule["baseproperties"] {
   if (Array.isArray(props)) { //these are a 'full reset'
+    context.addMessage({ type: "warning", message: `The array form of 'baseProps' will be deprecated in the future, use the object form (eg 'baseProps: { seoTitle: true }') instead` }, props);
     return {
       haslist: ["DESCRIPTION", "ISUNLISTED", "KEYWORDS", "NOARCHIVE", "NOFOLLOW", "NOINDEX", "REQUIRETITLE", "SEOTITLE", "SEOTAB", "PAGEHEADING"],
       description: props.includes("description"),
@@ -636,6 +637,11 @@ function parseBaseProps(props: Sp.ApplyBaseProps): CSPApplyRule["baseproperties"
       noarchive: false
     };
   } else {
+    const deprecatedNames = { seotitle: "seoTitle", noindex: "noIndex", nofollow: "noFollow", noarchive: "noArchive", seotab: "seoTab" } as const;
+    for (const [oldName, newName] of Object.entries(deprecatedNames))
+      if (oldName in props)
+        context.addMessage({ type: "warning", message: `The baseProps property '${oldName}' will be deprecated in the future, use '${newName}' instead` }, props);
+
     const haslist = new Set(typedKeys(props).map(k => k.toUpperCase()));
 
     return {
@@ -722,7 +728,7 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
     rule.setmetadata = toSnakeCase(apply.setMetadata);
 
   if (apply.baseProps)
-    rule.baseproperties = parseBaseProps(apply.baseProps);
+    rule.baseproperties = parseBaseProps(context, apply.baseProps);
 
   if (apply.bodyRenderer)
     rule.bodyrenderer = {

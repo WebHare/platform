@@ -49,6 +49,38 @@ PUBLIC RECORD FUNCTION MigrateOIDCServerAttributes(OBJECT wrdschema) {
   RETURN DEFAULT RECORD;
 }
 
+/* Change linkfrom of whuser_appaccount and whuser_peerserver from wrd_relation to wrd_person. UpdateSchema refuses to change
+   the left type of a type that has entities, so we do it ourselves before the types are updated */
+PUBLIC RECORD FUNCTION MigrateUserAttachmentsToPerson(OBJECT wrdschema) {
+  OBJECT persontype := wrdschema->GetType("wrd_person");
+  IF(NOT ObjectExists(persontype))
+    RETURN DEFAULT RECORD;
+
+  RECORD result;
+  FOREVERY(STRING typetag FROM [ "whuser_appaccount", "whuser_peerserver" ]) {
+    OBJECT attachmenttype := wrdschema->GetType(typetag);
+    IF(NOT ObjectExists(attachmenttype) OR attachmenttype->linkfrom = persontype->id)
+      CONTINUE;
+
+    RECORD ARRAY entities := attachmenttype->RunQuery(CELL[ outputcolumns := CELL[ "wrd_id", "wrd_leftentity" ], historymode := "all" ]);
+    INTEGER ARRAY personids := SELECT AS INTEGER ARRAY wrd_id
+                                 FROM persontype->RunQuery(CELL[ outputcolumns := CELL[ "wrd_id" ]
+                                                               , filters := [[ field := "wrd_id", matchtype := "IN", value := SELECT AS INTEGER ARRAY DISTINCT wrd_leftentity FROM entities ]]
+                                                               , historymode := "all"
+                                                               ]);
+
+    //These should never exist (they're always created for users), but we can't keep them when requiring wrd_person
+    INTEGER ARRAY nonpersonentities := SELECT AS INTEGER ARRAY wrd_id FROM entities WHERE wrd_leftentity NOT IN personids;
+    IF(Length(nonpersonentities) > 0)
+      attachmenttype->DeleteEntities(nonpersonentities);
+
+    attachmenttype->UpdateMetadata(CELL[ linkfrom := persontype->id ]);
+    result := CellInsert(result, typetag, CELL[ total := Length(entities), deleted := Length(nonpersonentities) ]);
+  }
+
+  RETURN result;
+}
+
 PUBLIC RECORD FUNCTION MigrateAccountStatus(OBJECT wrdschema) {
   IF(NOT RecordExists(wrdschema->^wrd_person->GetAttribute("whuser_disabled")))
     RETURN DEFAULT RECORD; //this schema never had whuser_disabled. even though we use at=update this may happen if usermgmt is applied to an already created wrdschema
