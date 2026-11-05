@@ -1,318 +1,178 @@
 /**
  * WebHare MCP Server
  *
- * This MCP server provides a simple interface to the WebHare CLI.
+ * Tells AI clients where WebHare is installed and how to invoke 'wh', and offers the webhare.dev AI skills.
+ * It deliberately has no tools to run commands: clients that can run commands should invoke 'wh' themselves.
  */
-import { logDebug } from "@webhare/services";
+import { backendConfig } from "@webhare/services";
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
+  SubscribeRequestSchema,
+  UnsubscribeRequestSchema,
   ErrorCode,
   McpError
 } from "@modelcontextprotocol/sdk/types.js";
-import { exec, spawnSync, type ExecException } from "child_process";
-import { promisify } from "util";
-import { existsSync } from "fs";
-import { homedir } from "os";
+import { SkillProvider, skillToolName } from "./skills";
 
 
-// Promisify exec for async/await usage
-const execAsync = promisify(exec);
+// WebHare installation and data directories of the WebHare running this MCP server (without trailing slash)
+const WEBHARE_DIR = backendConfig.installationRoot.replace(/\/$/, "");
+const WEBHARE_DATAROOT = backendConfig.dataRoot.replace(/\/$/, "");
 
-// WebHare installation directory
-const WEBHARE_DIR = `${homedir()}/projects/webhare/whtree`;
-const WEBHARE_DATAROOT = `${homedir()}/whrunkit/myserver/whdata/`;
-
-/**
- * Execute a shell command and return the result
- */
-async function executeCommand(command: string): Promise<string> {
-  try {
-    const { stdout, stderr } = await execAsync(command, { encoding: "utf8" });
-
-    if (stderr) {
-      console.error(`Command stderr: ${stderr}`);
-    }
-
-    return stdout.trim();
-  } catch (error) {
-    const stdout = (error as ExecException).stdout;
-    if (stdout) {
-      return (typeof stdout === "string" ? stdout : stdout.toString("utf8")).trim();
-    }
-    throw new McpError(
-      ErrorCode.InternalError,
-      `Command execution failed: ${(error as Error).message}`
-    );
-  }
+/** Get the command line to invoke 'wh' for this WebHare. A bare bin/wh only works if the environment (eg WEBHARE_DATAROOT)
+    is set up, so if we were started through runkit, use runkit targeting the same server */
+function getWhCommand(): string[] {
+  const runkit = process.env.WHRUNKIT_ORIGCOMMAND;
+  const target = process.env.WHRUNKIT_TARGETSERVER;
+  if (runkit && target)
+    return [runkit, `@${target}`, "wh"];
+  return [`${WEBHARE_DIR}/bin/wh`];
 }
 
-/**
- * Execute a WebHare CLI command
- */
-async function executeWebHareCommand(command: string, args: string[] = []): Promise<string> {
-  try {
-    console.error("MUST EXECUTE", command, args);
-    logDebug("mcptest:whcommand", { command, args });
-
-    const result = spawnSync("runkit", ["wh", ...args], { shell: true, encoding: "utf8" });
-    logDebug("mcptest:whcommandoutput", { stdout: result.stdout });
-    if (result.error) {
-      console.error("executeWebHareCommand", result);
-      throw new Error(`Failed to execute WebHare command: ${result.error.message}`);
-    }
-    return result.stdout.trim();
-  } catch (error) {
-    throw new McpError(ErrorCode.InternalError, `WebHare command execution failed: ${(error as Error).message}`
-    );
-  }
+/** Server instructions describing the WebHare installation this server is connected to */
+function getInstallationInstructions(): string {
+  const whCommand = getWhCommand();
+  const usesRunkit = whCommand.length > 1;
+  return [
+    `This server is connected to WebHare ${backendConfig.whVersion} (server name '${backendConfig.serverName}', backend ${backendConfig.backendURL}).`,
+    `- WebHare installation (source tree): ${WEBHARE_DIR}/`,
+    `- Data root (database, storage, installed modules, logs): ${WEBHARE_DATAROOT}/`,
+    `- WebHare CLI: run \`${whCommand.join(" ")} <command>\` to invoke 'wh' for this WebHare. `
+    + (usesRunkit
+      ? `This goes through WebHare runkit, which sets up the environment for this server. Don't invoke ${WEBHARE_DIR}/bin/wh directly as it requires that environment (eg WEBHARE_DATAROOT).`
+      : `It requires WEBHARE_DATAROOT=${WEBHARE_DATAROOT}/ to be set in the environment.`),
+  ].join("\n");
 }
 
-/**
- * Create the MCP server
- */
-const server = new Server(
-  {
-    name: "webhare-server",
-    version: "0.1.0",
-  },
-  {
-    capabilities: {
-      tools: {},
+
+/** Create the MCP server */
+function createServer(skills: SkillProvider) {
+  /**
+   * Create the MCP server
+   */
+  const server = new Server(
+    {
+      name: "webhare-server",
+      version: "0.1.0",
     },
-  }
-);
-
-/**
- * Handler for listing available tools
- */
-server.setRequestHandler(ListToolsRequestSchema, async () => {
-  return {
-    tools: [
-      {
-        name: "wh_info",
-        description: "Get information about the WebHare installation",
-        inputSchema: {
-          type: "object",
-          properties: {}
-        }
+    {
+      capabilities: {
+        tools: { listChanged: true },
+        resources: { listChanged: true, subscribe: true },
+        prompts: { listChanged: true },
       },
-      {
-        name: "wh_command",
-        description: "Execute a command in the WebHare directory",
-        inputSchema: {
-          type: "object",
-          properties: {
-            command: {
-              type: "string",
-              description: "Command to execute"
-            }
-          },
-          required: ["command"]
-        }
-      },
-      {
-        name: "wh_cli",
-        description: "Execute a WebHare CLI command",
-        inputSchema: {
-          type: "object",
-          properties: {
-            command: {
-              type: "string",
-              description: "WebHare command to execute"
-            },
-            args: {
-              type: "array",
-              items: {
-                type: "string"
-              },
-              description: "Command arguments"
-            }
-          },
-          required: ["command"]
-        }
-      },
-      {
-        name: "wh_list_modules",
-        description: "List all installed WebHare modules",
-        inputSchema: {
-          type: "object",
-          properties: {}
-        }
-      },
-      {
-        name: "wh_status",
-        description: "Check if WebHare is installed and running",
-        inputSchema: {
-          type: "object",
-          properties: {}
-        }
-      }
-    ]
-  };
-});
-
-/**
- * Handler for tool execution
- */
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  try {
-    switch (request.params.name) {
-      case "wh_info": {
-        // Get information about the WebHare installation
-        const webhareExists = existsSync(WEBHARE_DIR);
-        const webhareCliExists = existsSync(`${WEBHARE_DIR}/bin/wh`);
-        const webhareFunctionsExists = existsSync(`${WEBHARE_DIR}/lib/wh-functions.sh`);
-        const webhareDataRootExists = existsSync(WEBHARE_DATAROOT);
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                webhareDir: WEBHARE_DIR,
-                webhareDataRoot: WEBHARE_DATAROOT,
-                webhareExists,
-                webhareCliExists,
-                webhareFunctionsExists,
-                webhareDataRootExists,
-                home: homedir()
-              }, null, 2)
-            }
-          ]
-        };
-      }
-
-      case "wh_command": {
-        const command = String(request.params.arguments?.command);
-
-        // Execute the command
-        const output = await executeCommand(`cd ${WEBHARE_DIR} && ${command}`);
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: output || "Command executed successfully with no output"
-            }
-          ]
-        };
-      }
-
-      case "wh_cli": {
-        const command = String(request.params.arguments?.command);
-        const args = request.params.arguments?.args as string[] || [];
-
-        // Execute the WebHare CLI command
-        const output = await executeWebHareCommand(command, args);
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: output || "Command executed successfully with no output"
-            }
-          ]
-        };
-      }
-
-      case "wh_list_modules": {
-        // Execute the WebHare CLI command to list modules
-        const output = await executeWebHareCommand("getmodulelist", []);
-
-        // Format the output as a JSON array for better parsing
-        const modules = output.split(/\s+/).filter(Boolean);
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                modules: modules,
-                count: modules.length
-              }, null, 2)
-            }
-          ]
-        };
-      }
-
-      case "wh_status": {
-        try {
-          // Check if WebHare is running
-          await executeWebHareCommand("isrunning", []);
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify({
-                  installed: true,
-                  running: true,
-                  message: "WebHare is installed and running"
-                }, null, 2)
-              }
-            ]
-          };
-        } catch (error) {
-          // If the command fails, WebHare might be installed but not running
-          const webhareExists = existsSync(WEBHARE_DIR);
-          const webhareCliExists = existsSync(`${WEBHARE_DIR}/bin/wh`);
-
-          if (webhareExists && webhareCliExists) {
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: JSON.stringify({
-                    installed: true,
-                    running: false,
-                    message: "WebHare is installed but not running"
-                  }, null, 2)
-                }
-              ]
-            };
-          } else {
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: JSON.stringify({
-                    installed: false,
-                    running: false,
-                    message: "WebHare is not installed"
-                  }, null, 2)
-                }
-              ]
-            };
-          }
-        }
-      }
-
-      default:
-        throw new McpError(
-          ErrorCode.MethodNotFound,
-          `Unknown tool: ${request.params.name}`
-        );
+      instructions: getInstallationInstructions() + "\n\n" + skills.getInstructions()
     }
-  } catch (error) {
-    return {
-      content: [
-        {
-          type: "text",
-          text: `Error: ${(error as Error).message}`
-        }
-      ],
-      isError: true
-    };
+  );
+
+  /**
+   * Skills (from the webhare_dev module) are offered as resources and as prompts
+   */
+  server.setRequestHandler(ListResourcesRequestSchema, async () => ({ resources: await skills.listResources() }));
+
+  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+    const resource = await skills.readResource(request.params.uri);
+    if (!resource)
+      throw new McpError(ErrorCode.InvalidParams, `Unknown resource: ${request.params.uri}`);
+    return { contents: [resource] };
+  });
+
+  const subscribedResources = new Set<string>();
+
+  server.setRequestHandler(SubscribeRequestSchema, async (request) => {
+    subscribedResources.add(request.params.uri);
+    return {};
+  });
+
+  server.setRequestHandler(UnsubscribeRequestSchema, async (request) => {
+    subscribedResources.delete(request.params.uri);
+    return {};
+  });
+
+  /** Inform clients about added, removed or modified skills */
+  async function onSkillsChanged(changedUris: string[]) {
+    try {
+      await server.sendToolListChanged();
+      await server.sendResourceListChanged();
+      await server.sendPromptListChanged();
+      for (const uri of changedUris)
+        if (subscribedResources.has(uri))
+          await server.sendResourceUpdated({ uri });
+    } catch (e) {
+      console.error("Failed to send skill change notifications:", e);
+    }
   }
-});
+
+  server.setRequestHandler(ListPromptsRequestSchema, async () => ({ prompts: await skills.listPrompts() }));
+
+  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+    const prompt = await skills.getPrompt(request.params.name);
+    if (!prompt)
+      throw new McpError(ErrorCode.InvalidParams, `Unknown prompt: ${request.params.name}`);
+    return prompt;
+  });
+
+  /**
+   * Handler for listing available tools
+   */
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    const skillTool = await skills.getTool();
+    return { tools: skillTool ? [skillTool] : [] };
+  });
+
+  /**
+   * Handler for tool execution
+   */
+  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    try {
+      switch (request.params.name) {
+        case skillToolName: {
+          const name = String(request.params.arguments?.name);
+          const file = request.params.arguments?.file ? String(request.params.arguments.file) : undefined;
+          const text = await skills.runTool(name, file);
+          if (text === null)
+            throw new Error(file ? `Skill '${name}' has no file '${file}'` : `Unknown skill '${name}'`);
+          return { content: [{ type: "text", text }] };
+        }
+
+
+        default:
+          throw new McpError(
+            ErrorCode.MethodNotFound,
+            `Unknown tool: ${request.params.name}`
+          );
+      }
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error: ${(error as Error).message}`
+          }
+        ],
+        isError: true
+      };
+    }
+  });
+
+  skills.watch(uris => void onSkillsChanged(uris));
+  return server;
+}
 
 export async function runMCPServer() {
   /**
    * Start the server using stdio transport
    */
+  const skills = await SkillProvider.open();
+  const server = createServer(skills);
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("WebHare MCP server running on stdio");
@@ -320,20 +180,6 @@ export async function runMCPServer() {
   // Log WebHare installation directory
   console.error(`Using WebHare installation at: ${WEBHARE_DIR}`);
   console.error(`Using WebHare data root at: ${WEBHARE_DATAROOT}`);
-
-  // Check if WebHare installation directory exists
-  const webhareExists = existsSync(WEBHARE_DIR);
-  console.error(`WebHare installation exists: ${webhareExists}`);
-
-  // Check if WebHare CLI exists
-  const webhareCliExists = existsSync(`${WEBHARE_DIR}/bin/wh`);
-  console.error(`WebHare CLI exists: ${webhareCliExists}`);
-
-  // Check if WebHare functions exist
-  const webhareFunctionsExists = existsSync(`${WEBHARE_DIR}/lib/wh-functions.sh`);
-  console.error(`WebHare functions exist: ${webhareFunctionsExists}`);
-
-  // Check if WebHare data root exists
-  const webhareDataRootExists = existsSync(WEBHARE_DATAROOT);
-  console.error(`WebHare data root exists: ${webhareDataRootExists}`);
+  console.error(`Using wh command: ${getWhCommand().join(" ")}`);
+  console.error(`Skills: ${skills.source.location}`);
 }
