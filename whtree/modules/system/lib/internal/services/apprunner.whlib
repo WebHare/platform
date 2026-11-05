@@ -102,8 +102,9 @@ RECORD ARRAY FUNCTION GetModuleApps()
     }
     CATCH (OBJECT e)
     {
-      PRINT("Could not get apprunner config from module " || node.module || ", lib " || library || " func " || func || "\n");
+      PrintTo(2, "Could not get apprunner config from module " || node.module || ", lib " || library || " func " || func || "\n");
       LogHarescriptException(e);
+      THROW e;
     }
   }
 
