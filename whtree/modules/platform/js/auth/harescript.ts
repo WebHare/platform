@@ -5,7 +5,7 @@ import { buildPublicAuthData, IdentityProvider, prepareLogin, verifyAllowedToLog
 import { getAuthSettings, prepAuth, type WRDAuthPluginSettings_Request } from "@webhare/auth/src/support";
 import { defaultDateTime, toCamelCase, type ToSnakeCase } from "@webhare/hscompat";
 import { importJSObject } from "@webhare/services";
-import { wrd, WRDSchema, type AnyWRDSchema, type AuthenticationSettings, type WRDSchemaLike } from "@webhare/wrd";
+import { wrd, WRDSchema, type AnyWRDSchema, type AuthenticationSettings } from "@webhare/wrd";
 import { doLoginHeaders, mapLoginError, closeAccessToken, doPublicAuthDataCookie } from "./authservice";
 import { parseUserAgent } from "@webhare/dompack/src/browser";
 import { verifyPasswordCompliance } from "@webhare/auth/src/passwords";
@@ -85,7 +85,7 @@ export async function login(targetUrl: WRDAuthPluginSettings_HS, loginHost: stri
 
   const { settings } = prepped;
   const customizer = settings.customizer ? await importJSObject<AuthCustomizer>(settings.customizer) : undefined;
-  const wrdschema = wrd<WRDSchemaLike["wrd:idp"]>(settings.wrdSchema);
+  const wrdschema = wrd<"wrd:idp">(settings.wrdSchema);
   const provider = new IdentityProvider(wrdschema);
 
   const browserTriplet = userAgent.match(/[a-z]+-[a-z]+-[0-9]+$/) ? userAgent : parseUserAgent(userAgent)?.triplet || "";
