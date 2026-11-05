@@ -3,8 +3,8 @@ import jwt, { type JwtPayload } from "jsonwebtoken";
 import { verifyJWT, type JWKS } from "./identity";
 import type { AnyWRDSchema, WRDEntityMatch, WRDSchema, WRDSchemaLike, WRDSchemaType } from "@webhare/wrd";
 import { encodeString, pick, throwError, toCamelCase, toSnakeCase, type ToSnakeCase } from "@webhare/std";
-import type { NavigateInstruction } from "@webhare/env";
-import { backendConfig, createServerSession, getServerSession, logNotice, subscribe, updateServerSession, type SessionScopes } from "@webhare/services";
+import { debugFlags, type NavigateInstruction } from "@webhare/env";
+import { backendConfig, createServerSession, getServerSession, logDebug, logNotice, subscribe, updateServerSession, type SessionScopes } from "@webhare/services";
 import type { GrantTypesSupported, OAuth2Tokens, OpenIdConfiguration, ResponseModesScopes, ResponseType } from "./types";
 import { runInWork } from "@webhare/whdb/src/impl";
 import * as crypto from "node:crypto";
@@ -242,6 +242,9 @@ export class OAuth2Client {
     for (const addVar of state.oauthconfig.extra_params)
       authurl.searchParams.set(addVar.param, addVar.value);
 
+    if (debugFlags.openid)
+      logDebug("platform:oauth2-client", { step: "createAuthorizeLink", finalurl, state, session, authurl: authurl.toString() });
+
     return { type: "redirect", url: authurl.toString() };
   }
 }
@@ -271,8 +274,10 @@ export async function handleOAuth2AuthorizeLanding(clientScope: string, oauth2Se
   idPayload?: JwtPayload;
   userData?: Record<string, unknown>;
 } | null> {
-
   const sessdata = await getServerSession("system:oauth2", oauth2Session);
+  if (debugFlags.openid)
+    logDebug("platform:oauth2-client", { step: "handleOAuth2AuthorizeLanding", clientScope, oauth2Session, sessdata });
+
   if (!sessdata || sessdata.client_scope !== clientScope)
     return null; //expired or invalid sessions
 
