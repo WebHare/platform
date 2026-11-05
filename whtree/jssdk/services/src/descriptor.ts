@@ -27,6 +27,8 @@ declare module "@webhare/services" {
     "platform:blob": {
       db: string;
       until: Date;
+      /** Media type to serve the blob as (only safe types are honoured by the download handler) */
+      mediaType?: string;
     };
   }
 }
@@ -312,13 +314,15 @@ export function isResourceDescriptor(value: unknown): value is ResourceDescripto
   return Boolean(value && getWHType(value) === "ResourceDescriptor");
 }
 
-export function exportFileAsFetch(file: WebHareBlob): ExportedBlobReference | undefined {
+export function exportFileAsFetch(file: WebHareBlob, info?: Pick<ResourceBaseMetadata, "mediaType">): ExportedBlobReference | undefined {
   const dbid = __getBlobDatabaseId(file);
-  if (dbid)
+  if (dbid) {
+    const mediaType = info?.mediaType && info.mediaType !== "application/octet-stream" ? info.mediaType : undefined;
     return {
-      fetch: backendConfig.backendURL + `.wh/common/download/blob.shtml?ref=${encryptForThisServer("platform:blob", { db: dbid, until: new Date(Date.now() + BlobLinkValidity) })}`,
+      fetch: backendConfig.backendURL + `.wh/common/download/blob.shtml?ref=${encryptForThisServer("platform:blob", { db: dbid, until: new Date(Date.now() + BlobLinkValidity), ...(mediaType ? { mediaType } : {}) })}`,
       size: file.size
     };
+  }
 }
 
 /** Get the proper or usual extension for the file's mimetype

@@ -310,25 +310,6 @@
 				}
 			}
 		],
-		"chatPromptFiles": [
-			{
-				"path": "./prompts/witty-to-litty.prompt.md"
-			},
-			{
-				"path": "./prompts/modernize-test.prompt.md"
-			}
-		],
-		"chatSkills": [
-			{
-				"path": "./skills/typescript-development/SKILL.md"
-			},
-			{
-				"path": "./skills/running-tests/SKILL.md"
-			},
-			{
-				"path": "./skills/build-modernize-tests/SKILL.md"
-			}
-		],
 		"mcpServerDefinitionProviders": [
 			{
 				"id": "webhare-devkit-mcp",

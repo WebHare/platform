@@ -7,8 +7,7 @@ import { appendToArray, throwError } from "@webhare/std";
 import { db, query, escapePGIdentifier } from "@webhare/whdb";
 import { getGuidForEntity } from "@webhare/wrd/src/db";
 import { getAuthSettings } from "./settings";
-import type { AnySchemaType } from "@webhare/wrd/src/types";
-import type { WRDSchemaType } from "@webhare/wrd";
+import type { AnyWRDSchema } from "@webhare/wrd";
 
 export type GlobalRight = "system:sysop" | "system:supervisor" | ModuleQualifiedName;
 export type TargettedRight = "system:fs_fullaccess" | ModuleQualifiedName;
@@ -412,7 +411,7 @@ export function __getAuthorizationInterfaceForUser(authObjectId: number) {
 }
 
 /** Gather information about users based on the current WRD Schema */
-export async function getAuthorizationUsers(wrdSchema: WRDSchemaType<AnySchemaType>, auths: AuthorizationInterface[]): Promise<Map<AuthorizationInterface, number>> {
+export async function getAuthorizationUsers(wrdSchema: AnyWRDSchema, auths: AuthorizationInterface[]): Promise<Map<AuthorizationInterface, number>> {
   const authSettings = await getAuthSettings(wrdSchema);
   if (!authSettings)
     throw new Error(`WRD Schema ${wrdSchema.getId()} does not have authentication settings, cannot get user information`);
@@ -443,7 +442,7 @@ export async function getAuthorizationUsers(wrdSchema: WRDSchemaType<AnySchemaTy
   return result;
 }
 
-export async function getAuthorizationUser(wrdSchema: WRDSchemaType<AnySchemaType>, auth: AuthorizationInterface): Promise<number | undefined> {
+export async function getAuthorizationUser(wrdSchema: AnyWRDSchema, auth: AuthorizationInterface): Promise<number | undefined> {
   return (await getAuthorizationUsers(wrdSchema, [auth])).get(auth);
 }
 
