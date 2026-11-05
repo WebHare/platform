@@ -4,10 +4,19 @@ import { deletePeerRegistrations, getPeerServerToken, listPeers, getPeerServerTo
 import { commonFlags } from "@mod-platform/js/cli/cli-tools";
 import { enumOption, runCli } from "@webhare/cli";
 import { attempt, regExpFromWildcards } from "@webhare/std";
+import { wrd, type WRDSchemaLike } from "@webhare/wrd";
 import { spawnSync } from "child_process";
+
+/** Get the user management schema to use, or undefined to let the APIs pick the primary auth schema */
+function getUserSchema(opts: { schema?: string }) {
+  return opts.schema ? wrd<WRDSchemaLike["system:usermgmt"]>(opts.schema) : undefined;
+}
 
 runCli({
   description: "Connect this WebHare to a remote WebHare server",
+  options: {
+    "s,schema": { description: "Schema to use (if not primary schema)" },
+  },
   subCommands: {
     list: {
       description: "List remote WebHares this server is registered with or has a token for",
@@ -19,7 +28,7 @@ runCli({
         const mask = args.mask ? regExpFromWildcards(args.mask, { caseInsensitive: true }) : null;
         //Matching the origin too allows masks without the trailing slash or path of the stored URL
         const matchesMask = (url: string) => !mask || mask.test(url) || (URL.canParse(url) && mask.test(new URL(url).origin));
-        const peers = (await listPeers()).filter(peer => matchesMask(peer.url));
+        const peers = (await listPeers({ wrdSchema: getUserSchema(opts) })).filter(peer => matchesMask(peer.url));
         if (opts.json)
           console.log(JSON.stringify(peers, null, 2));
         else if (!peers.length)
@@ -49,11 +58,12 @@ runCli({
         }
       },
       async main({ args, opts }) {
+        const userSchema = getUserSchema(opts);
         const scopes = opts.scopes?.split(/[\s,]+/).filter(scope => scope) ?? [];
-        const currentToken = opts.prompt ? null : await attempt(getPeerServerToken(args.url), null);
+        const currentToken = opts.prompt ? null : await attempt(getPeerServerToken(args.url, { userSchema }), null);
         let token = currentToken && scopes.every(scope => currentToken.scopes.includes(scope)) ? currentToken : null;
         if (!token) {
-          const gettoken = await getPeerServerTokenURL(args.url, { prompt: opts.prompt, scopes });
+          const gettoken = await getPeerServerTokenURL(args.url, { userSchema, prompt: opts.prompt, scopes });
           console.log("Go to the following URL:", gettoken.requesturl);
           spawnSync("/usr/bin/open", [gettoken.requesturl], { stdio: "inherit" });
           token = await gettoken.tokenpromise;
@@ -64,8 +74,8 @@ runCli({
     delete: {
       description: "Delete this server's registration with a remote WebHare",
       arguments: [{ name: "<url>", description: "Remote WebHare base URL" }],
-      async main({ args }) {
-        const deleted = await deletePeerRegistrations(args.url);
+      async main({ args, opts }) {
+        const deleted = await deletePeerRegistrations(args.url, { wrdSchema: getUserSchema(opts) });
         if (!deleted.authServers.length && !deleted.peerServers) {
           console.error(`No peer registration or token found for ${args.url}`);
           return 1;
