@@ -28,11 +28,6 @@ HERE
   exit 1
 }
 
-CONTAINERENGINE=docker
-if [ "$USEPODMAN" == "1" ]; then
-  CONTAINERENGINE=podman
-fi
-
 OUTPUTDIR="/tmp/output"
 
 if [ -n "$1" ]; then
@@ -41,19 +36,19 @@ fi
 
 if [ -n "$TESTENV_CONTAINER1" ]; then
   OUTPUTDIR="/output"
-  TH_EXEC1="$CONTAINERENGINE exec $TESTENV_CONTAINER1 wh"
-  TH_IP1=$($CONTAINERENGINE inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$TESTENV_CONTAINER1")
+  TH_EXEC1="podman exec $TESTENV_CONTAINER1 wh"
+  TH_IP1=$(podman inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$TESTENV_CONTAINER1")
   if [ -z "$TH_IP1" ]; then
-    $CONTAINERENGINE inspect "$TESTENV_CONTAINER1"
+    podman inspect "$TESTENV_CONTAINER1"
     die "Failed to obtain IP address for container 1"
   fi
   TH_WEBINTERFACE1="http://$TH_IP1"
 fi
 if [ -n "$TESTENV_CONTAINER2" ]; then
-  TH_EXEC2="$CONTAINERENGINE exec $TESTENV_CONTAINER2 wh"
-  TH_IP2=$($CONTAINERENGINE inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$TESTENV_CONTAINER2")
+  TH_EXEC2="podman exec $TESTENV_CONTAINER2 wh"
+  TH_IP2=$(podman inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$TESTENV_CONTAINER2")
   if [ -z "$TH_IP2" ]; then
-    $CONTAINERENGINE inspect "$TESTENV_CONTAINER2"
+    podman inspect "$TESTENV_CONTAINER2"
     die "Failed to obtain IP address for container 2"
   fi
   TH_WEBINTERFACE2="http://$TH_IP2"
