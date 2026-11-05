@@ -98,8 +98,11 @@ export class ValueQueryChecker {
           const hereMissing = value.value.filter(v => missing.includes(v));
           if (hereMissing.length) {
             const entity = await describeEntity(hereMissing[0]);
-            if (entity)
-              throw new Error(`Referential integrity violated - the value passed in ${this.typeTag}.${value.source} refers to entity #${hereMissing[0]} of type ${entity.type}, expected ${typeTag}`);
+            if (entity) {
+              //Name the schema if it differs, or the error is very confusing for same-named types in different schemas (eg wrdPerson)
+              const entityType = entity.schema !== this.schema.tag ? `${entity.type} in schema ${entity.schema}` : entity.type;
+              throw new Error(`Referential integrity violated - the value passed in ${this.typeTag}.${value.source} refers to entity #${hereMissing[0]} of type ${entityType}, expected ${typeTag}${entity.schema !== this.schema.tag ? ` in schema ${this.schema.tag}` : ""}`);
+            }
             throw new Error(`Referential integrity violated - the value passed in ${this.typeTag}.${value.source} refers to non-existing entity #${hereMissing[0]}`);
           }
         }
