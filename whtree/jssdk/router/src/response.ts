@@ -227,9 +227,11 @@ export function createJSONResponse(status: HTTPStatusCode, jsonbody: unknown, op
  * @param status - Status code to use (default for redirects is 303 See Other)
  * @param options - Optionals for body and headers
  */
-export function createRedirectResponse(location: string | NavigateInstruction, status?: HTTPRedirectCode, options?: { body?: string; headers?: Record<string, string> | Headers }): WebResponse {
+export function createRedirectResponse(location: string | URL | NavigateInstruction, status?: HTTPRedirectCode, options?: { body?: string; headers?: Record<string, string> | Headers }): WebResponse {
   if (typeof location === "string")
     location = { type: "redirect", url: location };
+  else if (location instanceof URL)
+    location = { type: "redirect", url: location.toString() };
 
   if (location.type === "redirect") {
     const body = options?.body ?? `<html><head><title>Redirecting</title></head><body><a href="${encodeString(location.url, "attribute")}">Click here to continue</a></body></html>`;
