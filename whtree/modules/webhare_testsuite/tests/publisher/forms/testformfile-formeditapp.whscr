@@ -10,16 +10,55 @@ LOADLIB "mod::platform/lib/applicationlinks.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/forms/api.whlib";
+LOADLIB "mod::publisher/lib/history.whlib";
+LOADLIB "mod::publisher/lib/preview.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/testfw/forms.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/internal/rtetesthelpers.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
 
+
+ASYNC MACRO TestFormWidgetPreviewBeforePublish()
+{
+  OBJECT webtoolsfolder := OpenTestsuiteSite()->OpenByPath("webtools");
+
+  //Create a new, empty (never published) form widget
+  testfw->BeginWork();
+  OBJECT existing := webtoolsfolder->OpenByName("new-form-widget");
+  IF(ObjectExists(existing))
+    existing->RecycleSelf();
+  OBJECT formwidget := webtoolsfolder->CreateFile([ name := "new-form-widget", type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/formwidget")->id ]);
+  testfw->CommitWork();
+
+  TestEq(FALSE, formwidget->publish, "Form widget should not be published yet");
+
+  //Previewing a form widget that has never been published crashed in FormWidgetBase::RenderLive
+  IF(NOT testfw->browser->GotoWebPage(GetPreviewLink(formwidget->id)))
+  {
+    Print(BlobToString(testfw->browser->content) || "\n");
+    TestEq(TRUE, FALSE, "Preview of unpublished form widget should not crash");
+  }
+
+  //Save a draft without publishing. The preview should show the draft's form
+  testfw->BeginWork();
+  OBJECT workflowmgr := NEW WorkflowManager(formwidget->id, [ user := GetEffectiveUser(), workflowtypes := ["platform:filetypes.form"] ]);
+  workflowmgr->SetInstanceData("platform:filetypes.form", [ data := GenerateTestForm(GetApplyTesterForObject(formwidget->id), [ firstgrouptitle := "Draft form group" ]) ]);
+  workflowmgr->Save();
+  testfw->CommitWork();
+
+  TestEq(FALSE, OpenWHFSObject(formwidget->id)->publish, "Saving a draft should not publish the form widget");
+  TestEq(TRUE, testfw->browser->GotoWebPage(GetPreviewLink(formwidget->id)));
+  TestEq(TRUE, ObjectExists(testfw->browser->QS("form")), "Preview should render the draft's form");
+  TestEqLike("*Draft form group*", BlobToString(testfw->browser->content));
+}
 
 PUBLIC ASYNC MACRO TestBuildCustomForm()
 {
@@ -345,7 +384,8 @@ ASYNC MACRO TestEditAsLisa()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
-RunTestframework([ PTR TestBuildCustomForm
+RunTestframework([ PTR TestFormWidgetPreviewBeforePublish
+                 , PTR TestBuildCustomForm
                  , PTR TestViewAsBart
                  , PTR TestEditAsLisa
                  ]
