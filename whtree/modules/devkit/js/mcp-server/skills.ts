@@ -380,7 +380,10 @@ export class SkillProvider {
   /** Server instructions pointing to the skill tool. The skill list and where the skills come from (which can change
       when the registry keys change) live in the tool description, as clients can refresh that (see above - unproven) */
   getInstructions(): string {
-    return `This server offers WebHare development skills. The description of the ${skillToolName} tool lists the available skills and where they come from. Before working on a task that matches one of these skills, use ${skillToolName} to load its instructions.`;
+    return `This server offers WebHare development skills. The description of the ${skillToolName} tool lists the available skills and where they come from. Before working on a task that matches one of these skills, use ${skillToolName} to load its instructions.\n\n`
+      + `Skills useful to WebHare module developers in general are maintained in the webhare_dev module (content/ai/skills/<skill-name>/SKILL.md), not in the project being worked on. `
+      + `Before creating or updating a skill, load the 'maintaining-skills' skill: it explains whether a skill belongs in webhare_dev or in a single repository. `
+      + `If webhare_dev isn't installed locally (\`wh getmoduledir webhare_dev\` fails), ask the user to check it out from https://github.com/WebHare/webhare_dev and install it before writing skills there.`;
   }
 
   /** Get the definition of the skill tool, listing all current skills. Returns null if there are no skills */
