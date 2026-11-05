@@ -5,7 +5,7 @@ import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 import { getSchemaSettings, wrd, type WRDSchema, type WRDSchemaLike, type WRDSchemaType } from "@webhare/wrd";
 import { listSites, openFileOrFolder, openFolder, openSite } from "@webhare/whfs";
 import { decompressUUID, hashClientSecret, IdentityProvider, listTokens, type AuthTokenOptions } from "@webhare/auth/src/identity";
-import { closeServerSession, createServerSession, encryptForThisServer, getServerSession, importJSObject, updateServerSession } from "@webhare/services";
+import { closeServerSession, createServerSession, encryptForThisServer, getServerSession, importJSObject, logDebug, updateServerSession } from "@webhare/services";
 import { registerOAuthApplication } from "@webhare/auth/src/oauth2";
 import type { AuthCustomizer, JWTPayload } from "@webhare/auth/src/customizer";
 import { getCookieBasedUser } from "@webhare/auth/src/authfrontend";
@@ -15,6 +15,7 @@ import type { OAuth2EndpointErrorCodes, OIDCEndpointErrorCodes, ResponseModesSco
 import type { OAuth2PromptFlag } from "@webhare/auth/src/oauth2-client";
 import { litty } from "@webhare/litty";
 import { permissionRequestPage } from "./authpages.litty";
+import { debugFlags } from "@webhare/env";
 
 type OIDCCallerInfo = {
   state: string | null;
@@ -181,6 +182,9 @@ function createOIDCErrorResponse(callerInfo: OIDCCallerInfo, errorCode: OAuth2En
 
 /** Start an oauth2/openid authorization flow */
 export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provider: IdentityProvider<T>, url: string, loginPage: string, curuser: { user: number; claims: JWTPayload } | null, customizer?: AuthCustomizer): Promise<WebResponse> {
+  if (debugFlags.openid)
+    logDebug("platform:openid-server", { step: "startAuthorizeFlow", url });
+
   const searchParams = new URL(url).searchParams;
   const clientid = searchParams.get("client_id") || '';
   const scopes = (searchParams.get("scope")?.split(" ") || []);
@@ -264,6 +268,9 @@ export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provide
   const loginToken = encryptForThisServer("wrd:authplugin.logincontroltoken", loginControl); //TODO merge into the idpstate session? but HS won't understand it without further changes
   const target = new URL(loginPage);
   target.searchParams.set("wrdauth_logincontrol", loginToken);
+
+  if (debugFlags.openid)
+    logDebug("platform:openid-server", { step: "startAuthorizeFlow-done", target: target.toString(), loginControl, returnInfo });
 
   return createRedirectResponse(target.toString());
 }
