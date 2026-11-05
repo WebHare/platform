@@ -801,6 +801,9 @@ void Parser::P_ObjectType_Field_Specification(Symbol *objtype)
                                                 }
                                         }
 
+                                        // The return type may have been changed by ASYNC or generator ('*') handling above
+                                        field.var_type = type;
+
                                         namepos = lexer.GetPosition();
                                         bool is_constructor = TryParse(Lexer::New);
                                         std::string func_name;
