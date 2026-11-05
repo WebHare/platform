@@ -14,6 +14,7 @@ import type { AnySchemaType, SchemaTypeDefinition } from "@webhare/wrd/src/types
 import type { OAuth2EndpointErrorCodes, OIDCEndpointErrorCodes, ResponseModesScopes, ResponseType } from "@webhare/auth/src/types";
 import type { OAuth2PromptFlag } from "@webhare/auth/src/oauth2-client";
 import { litty } from "@webhare/litty";
+import { permissionRequestPage } from "./authpages.litty";
 
 type OIDCCallerInfo = {
   state: string | null;
@@ -318,16 +319,7 @@ export async function returnAuthorizeFlow<T extends SchemaTypeDefinition>(provid
       const permissionrequest = await createContentPageRequest(await openFileOrFolder(site), { webRequest: req }); //TODO pass the webRequest too?
       //TODO pass a true FormsAPI body. or delegate this fully to HareScript
       //TODO Make it clear which client is asking. And if it's a dynamic client, make it especially clear that we can't verify the identity of the app
-      return await permissionrequest.buildWebPage(litty`
-        <form method="post" action="${req.url}" enctype="application/x-www-form-urlencoded">
-          <p>Do you approve the application to access the following on your behalf?</p>
-          <ul>
-            ${checkScopes.map(scope => litty`<li>${scope} - ${supportedAccessScopes[scope]}</li>`)}
-          </ul>
-          <button name="approve" value="no" type="submit">Deny</button>
-          <button name="approve" value="yes" type="submit">Approve</button>
-        </form>
-      `);
+      return await permissionrequest.buildWebPage(permissionRequestPage({ url: req.url, checkScopes, supportedAccessScopes }));
     } else {
       const formData = await req.formData();
       const approve = formData.get("approve") === "yes";

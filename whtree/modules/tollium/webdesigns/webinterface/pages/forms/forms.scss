@@ -182,6 +182,17 @@ body:has(.wh-wrdauth-form) {
 
   .wh-form__buttongroup {
     padding: calc(var(--form-padding) / 2);
+
+    /* Two buttons: place them next to each other. Used by eg. oauth permission dialog (DENY and APPROVE buttons) */
+    &:has(> .wh-form__button:first-child:nth-last-child(2)) {
+      display: flex;
+      gap: calc(var(--form-padding) / 2);
+
+      > .wh-form__button {
+        flex: 1 1 0;
+        min-width: 0;
+      }
+    }
   }
 
   /* Hide button groups without <a> links (e.g. 'Continue') if none of the navigation buttons are visible */
