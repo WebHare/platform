@@ -52,6 +52,30 @@ type EntityMatchSchema<Schema extends keyof WRDSchemaLike | AnyWRDSchema> =
 export type WRDEntityMatch<Schema extends keyof WRDSchemaLike | AnyWRDSchema, TypeName extends keyof EntityMatchSchema<Schema> & string> =
   number | MatchObjectQueryable<EntityMatchSchema<Schema>[TypeName]>;
 
+/** The fields you can supply to `createEntity` (or `insert`) to create an entity of the specified type.
+ * @typeParam Schema - A schema name registered in WRDSchemaLike, or a schema object type such as `typeof usermgmtSchema`.
+ * @typeParam TypeName - An entity type tag in the selected schema.
+ * @example
+ * ```typescript
+ * const newPerson: WRDInsertType<"system:usermgmt", "wrdPerson"> = { wrdFirstName: "John", wrdLastName: "Doe" };
+ * await wrd("system:usermgmt").getType("wrdPerson").createEntity(newPerson);
+ * ```
+ */
+export type WRDInsertType<Schema extends keyof WRDSchemaLike | AnyWRDSchema, TypeName extends keyof EntityMatchSchema<Schema> & string> =
+  WRDInsertable<EntityMatchSchema<Schema>[TypeName]>;
+
+/** The fields you can supply to `updateEntity` (or `update`) to update an entity of the specified type.
+ * @typeParam Schema - A schema name registered in WRDSchemaLike, or a schema object type such as `typeof usermgmtSchema`.
+ * @typeParam TypeName - An entity type tag in the selected schema.
+ * @example
+ * ```typescript
+ * const changes: WRDUpdateType<"system:usermgmt", "wrdPerson"> = { wrdLastName: "Doe" };
+ * await wrd("system:usermgmt").getType("wrdPerson").updateEntity(personId, changes);
+ * ```
+ */
+export type WRDUpdateType<Schema extends keyof WRDSchemaLike | AnyWRDSchema, TypeName extends keyof EntityMatchSchema<Schema> & string> =
+  WRDUpdatable<EntityMatchSchema<Schema>[TypeName]>;
+
 /** Get a list of WRD schemas
     @returns List of schemas
 */
