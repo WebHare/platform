@@ -797,54 +797,54 @@ PUBLIC STATIC OBJECTTYPE CertbotRequest EXTEND TolliumScreenBase
   {
     ^domainnames->value := Detokenize(data.names,'\n');
   }
-  ASYNC MACRO DoRequest()
+  MACRO DoRequest()
   {
     ^domainnames->enabled := FALSE;
     ^request->enabled := FALSE;
 
-    OBJECT work := this->BeginFeedback();
-    IF(work->HasFailed())
-    {
-      work->Finish();
+    IF(NOT this->BeginFeedback()->Finish())
       RETURN;
-    }
 
     STRING ARRAY names := ParseXSList(Substitute(^domainnames->value,',',' '));
 
-    TRY
-    {
-      // Run in a separate job so the interface isn't blocked
-      RECORD result := AWAIT AsyncCallFunctionFromJob(Resolve("#RequestCert"), names, FALSE);
-      IF(result.success)
-      {
-        work->Cancel();
-        work := this->BeginWork();
-        ScheduleTimedTask("system:checkwebservers");
-        work->Finish();
-        this->tolliumresult := "ok";
-        RETURN;
-      }
+    // Run in a separate job so the interface isn't blocked
+    AsyncCallFunctionFromJob(Resolve("#RequestCert"), names, FALSE)
+      ->Then(PTR this->GotRequestResult(#1))
+      ->OnError(PTR this->GotRequestError);
+  }
 
-      IF (result.error = "hostnotlocal")
-      {
-        work->AddError(this->GetTid(".nothostedhere", result.error_data));
-      }
-      ELSE
-      {
-        STRING errordata := CellExists(result, "error_data") ? result.error_data : "";
-        RECORD provider := CellExists(result, "provider") ? result.provider : DEFAULT RECORD;
-        STRING providerstr := RecordExists(provider) ? `${provider.domain} (${provider.id})` : "";
-        work->AddError(GetTid("system:tolliumapps.config.keystore.main.certificaterenewalerror", this->GetTid(".certificateerrors." || result.error, errordata), providerstr));
-      }
-
+  MACRO GotRequestResult(RECORD result) {
+    IF(result.success) {
+      OBJECT work := this->BeginWork();
+      ScheduleTimedTask("system:checkwebservers");
       work->Finish();
-    }
-    CATCH(OBJECT e)
-    {
-      LogHarescriptException(e);
-      RunExceptionReportDialog(this, e);
+      this->tolliumresult := "ok";
+      RETURN;
     }
 
+    OBJECT work := this->BeginFeedback();
+    IF (result.error = "hostnotlocal") {
+      work->AddError(this->GetTid(".nothostedhere", result.error_data));
+    } ELSE {
+      STRING errordata := CellExists(result, "error_data") ? result.error_data : "";
+      RECORD provider := CellExists(result, "provider") ? result.provider : DEFAULT RECORD;
+      STRING providerstr := RecordExists(provider) ? `${provider.domain} (${provider.id})` : "";
+      work->AddError(GetTid("system:tolliumapps.config.keystore.main.certificaterenewalerror", GetTid("system:tolliumapps.config.keystore.main.certificateerrors." || result.error, errordata), providerstr));
+    }
+
+    work->Finish();
+    this->ReenableRequest();
+  }
+
+  MACRO GotRequestError(OBJECT e)
+  {
+    LogHarescriptException(e);
+    RunExceptionReportDialog(this, e);
+    this->ReenableRequest();
+  }
+
+  MACRO ReenableRequest()
+  {
     ^domainnames->enabled := TRUE;
     ^request->enabled := TRUE;
   }

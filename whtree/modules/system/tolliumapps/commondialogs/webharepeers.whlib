@@ -1,8 +1,10 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
 
+LOADLIB "mod::system/lib/internal/cluster/logging.whlib";
 LOADLIB "mod::system/lib/internal/webharepeers/remoteserverapi.whlib";
 
+LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 PUBLIC STATIC OBJECTTYPE PeerServers EXTEND TolliumScreenBase
@@ -53,8 +55,7 @@ PUBLIC STATIC OBJECTTYPE AddPeer EXTEND TolliumScreenBase <
   {
     this->options := data.options;
   }
-  ASYNC MACRO OnConnect(OBJECT urlreceiver)
-  {
+  MACRO OnConnect(OBJECT urlreceiver) {
     OBJECT feedback := this->BeginFeedback();
     IF (feedback->HasFailed())
     {
@@ -66,11 +67,18 @@ PUBLIC STATIC OBJECTTYPE AddPeer EXTEND TolliumScreenBase <
     RECORD resp := GetWebHareRequestTokenURL(this, ^peer->value, [ scopes := this->options.scopes ]);
     urlreceiver->SendUrl(resp.requesturl);
 
-    RECORD result := AWAIT resp.tokenpromise;
+    resp.tokenpromise->Then(PTR this->HandleTokenPromiseResult, PTR this->HandleTokenPromiseError);
+  }
+  MACRO HandleTokenPromiseResult(RECORD result) {
     IF(RecordExists(result)) {
       // we're not getting the peer id, so look the peer up by the serverurl
       this->__SetScreenResult(result.peerid);
     }
+  }
+
+  MACRO HandleTokenPromiseError(OBJECT error) {
+    LogHarescriptException(error);
+    RunExceptionReportDialog(this, error);
   }
 
   INTEGER FUNCTION Submit()
@@ -79,8 +87,7 @@ PUBLIC STATIC OBJECTTYPE AddPeer EXTEND TolliumScreenBase <
   }
 >;
 
-PUBLIC STATIC OBJECTTYPE ReauthServer EXTEND TolliumScreenBase
-<
+PUBLIC STATIC OBJECTTYPE ReauthServer EXTEND TolliumScreenBase <
   RECORD options;
 
   MACRO Init(RECORD data)
@@ -88,11 +95,18 @@ PUBLIC STATIC OBJECTTYPE ReauthServer EXTEND TolliumScreenBase
     ^url->value := data.url;
     this->options := data.options;
   }
-  ASYNC MACRO DoAuthServer(OBJECT urlreceiver)
-  {
+  MACRO DoAuthServer(OBJECT urlreceiver) {
     RECORD resp := GetWebHareRequestTokenURL(this, ^url->value, [ scopes := this->options.scopes ]);
     urlreceiver->SendUrl(resp.requesturl);
-    AWAIT resp.tokenpromise;
+    resp.tokenpromise->Then(PTR this->HandleTokenPromiseResult, PTR this->HandleTokenPromiseError);
+  }
+
+  MACRO HandleTokenPromiseResult(RECORD result) {
     this->tolliumresult := "ok";
+  }
+
+  MACRO HandleTokenPromiseError(OBJECT error) {
+    LogHarescriptException(error);
+    RunExceptionReportDialog(this, error);
   }
 >;

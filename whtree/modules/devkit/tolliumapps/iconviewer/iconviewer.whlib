@@ -6,6 +6,7 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 
+LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/internal/icons.whlib";
 
@@ -45,10 +46,9 @@ PUBLIC STATIC OBJECTTYPE IconViewer EXTEND TolliumScreenBase
     this->GotIconSelection();
   }
 
-  ASYNC MACRO GotFileChange(RECORD ARRAY events)
+  MACRO GotFileChange(RECORD ARRAY events)
   {
-    AWAIT this->contexts->controller->ExecuteClientCall("ClearIconCache");
-    this->GotIconSelection();
+    this->ClearIconCacheAndRefresh();
   }
 
   MACRO GotIconSelection()
@@ -130,10 +130,27 @@ PUBLIC STATIC OBJECTTYPE IconViewer EXTEND TolliumScreenBase
     this->^w24->SetImageSrc(todisplay, "", "w");
   }
 
-  ASYNC MACRO DoRefresh()
+  MACRO DoRefresh()
   {
-    AWAIT this->contexts->controller->ExecuteClientCall("ClearIconCache");
+    this->ClearIconCacheAndRefresh();
+  }
+
+  MACRO ClearIconCacheAndRefresh()
+  {
+    // The client call is only sent after the handler returns, so we can't wait for it here
+    this->contexts->controller->ExecuteClientCall("ClearIconCache")->Then(
+        PTR this->OnIconCacheCleared,
+        PTR this->OnClientCallError);
+  }
+
+  MACRO OnIconCacheCleared(VARIANT result)
+  {
     this->GotIconSelection();
+  }
+
+  MACRO OnClientCallError(OBJECT error)
+  {
+    RunExceptionReportDialog(this, error);
   }
 >;
 
