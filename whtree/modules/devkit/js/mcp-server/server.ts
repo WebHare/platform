@@ -1,9 +1,10 @@
 /**
  * WebHare MCP Server
  *
- * This MCP server provides a simple interface to the WebHare CLI.
+ * Tells AI clients where WebHare is installed and how to invoke 'wh', and offers the webhare.dev AI skills.
+ * It deliberately has no tools to run commands: clients that can run commands should invoke 'wh' themselves.
  */
-import { backendConfig, logDebug } from "@webhare/services";
+import { backendConfig } from "@webhare/services";
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -19,13 +20,8 @@ import {
   ErrorCode,
   McpError
 } from "@modelcontextprotocol/sdk/types.js";
-import { exec, spawnSync, type ExecException } from "child_process";
-import { promisify } from "util";
-import { openSkillSource, SkillProvider, skillToolName } from "./skills";
+import { SkillProvider, skillToolName } from "./skills";
 
-
-// Promisify exec for async/await usage
-const execAsync = promisify(exec);
 
 // WebHare installation and data directories of the WebHare running this MCP server (without trailing slash)
 const WEBHARE_DIR = backendConfig.installationRoot.replace(/\/$/, "");
@@ -56,51 +52,6 @@ function getInstallationInstructions(): string {
   ].join("\n");
 }
 
-/**
- * Execute a shell command and return the result
- */
-async function executeCommand(command: string): Promise<string> {
-  try {
-    const { stdout, stderr } = await execAsync(command, { encoding: "utf8" });
-
-    if (stderr) {
-      console.error(`Command stderr: ${stderr}`);
-    }
-
-    return stdout.trim();
-  } catch (error) {
-    const stdout = (error as ExecException).stdout;
-    if (stdout) {
-      return (typeof stdout === "string" ? stdout : stdout.toString("utf8")).trim();
-    }
-    throw new McpError(
-      ErrorCode.InternalError,
-      `Command execution failed: ${(error as Error).message}`
-    );
-  }
-}
-
-/**
- * Execute a WebHare CLI command
- */
-async function executeWebHareCommand(command: string, args: string[] = []): Promise<string> {
-  try {
-    console.error("MUST EXECUTE", command, args);
-    logDebug("mcptest:whcommand", { command, args });
-
-    const [cmd, ...cmdargs] = getWhCommand();
-    const result = spawnSync(cmd, [...cmdargs, command, ...args], { encoding: "utf8" });
-    logDebug("mcptest:whcommandoutput", { stdout: result.stdout });
-    if (result.error) {
-      console.error("executeWebHareCommand", result);
-      throw new Error(`Failed to execute WebHare command: ${result.error.message}`);
-    }
-    return result.stdout.trim();
-  } catch (error) {
-    throw new McpError(ErrorCode.InternalError, `WebHare command execution failed: ${(error as Error).message}`
-    );
-  }
-}
 
 /** Create the MCP server */
 function createServer(skills: SkillProvider) {
@@ -174,46 +125,7 @@ function createServer(skills: SkillProvider) {
    */
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     const skillTool = await skills.getTool();
-    return {
-      tools: [
-        ...(skillTool ? [skillTool] : []),
-        {
-          name: "wh_command",
-          description: "Execute a command in the WebHare directory",
-          inputSchema: {
-            type: "object",
-            properties: {
-              command: {
-                type: "string",
-                description: "Command to execute"
-              }
-            },
-            required: ["command"]
-          }
-        },
-        {
-          name: "wh_cli",
-          description: "Execute a WebHare CLI command",
-          inputSchema: {
-            type: "object",
-            properties: {
-              command: {
-                type: "string",
-                description: "WebHare command to execute"
-              },
-              args: {
-                type: "array",
-                items: {
-                  type: "string"
-                },
-                description: "Command arguments"
-              }
-            },
-            required: ["command"]
-          }
-        }
-      ]
-    };
+    return { tools: skillTool ? [skillTool] : [] };
   });
 
   /**
@@ -231,38 +143,6 @@ function createServer(skills: SkillProvider) {
           return { content: [{ type: "text", text }] };
         }
 
-        case "wh_command": {
-          const command = String(request.params.arguments?.command);
-
-          // Execute the command
-          const output = await executeCommand(`cd ${WEBHARE_DIR} && ${command}`);
-
-          return {
-            content: [
-              {
-                type: "text",
-                text: output || "Command executed successfully with no output"
-              }
-            ]
-          };
-        }
-
-        case "wh_cli": {
-          const command = String(request.params.arguments?.command);
-          const args = request.params.arguments?.args as string[] || [];
-
-          // Execute the WebHare CLI command
-          const output = await executeWebHareCommand(command, args);
-
-          return {
-            content: [
-              {
-                type: "text",
-                text: output || "Command executed successfully with no output"
-              }
-            ]
-          };
-        }
 
         default:
           throw new McpError(
@@ -291,7 +171,7 @@ export async function runMCPServer() {
   /**
    * Start the server using stdio transport
    */
-  const skills = new SkillProvider(await openSkillSource());
+  const skills = await SkillProvider.open();
   const server = createServer(skills);
   const transport = new StdioServerTransport();
   await server.connect(transport);

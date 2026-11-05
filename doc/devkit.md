@@ -125,5 +125,5 @@ Claude Desktop doesn't expand `~`, so use the absolute path.
 ### Skills
 By default the skills are read from the locally installed `webhare_dev` module, so changes to skills are picked up
 immediately. If `webhare_dev` isn't installed, they're downloaded from webhare.dev. This is controlled by the registry
-keys `devkit:integrations.use_checkedout_site` and `devkit:integrations.webhare_dev_site`. Restart the MCP server
-(reconnect the client) after changing them.
+keys `devkit:integrations.use_checkedout_site` and `devkit:integrations.webhare_dev_site`. A running MCP server picks
+up changes to these keys immediately.
