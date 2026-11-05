@@ -89,7 +89,7 @@ async function testLookup() {
   test.eq(null, lookupresult.file);
   test.eq("", lookupresult.append);
 
-  await whfs.openType("http://www.webhare.net/xmlns/publisher/sitesettings").set(root.id, { productionurl: "https://www.example.com/subsite/" });
+  await whfs.whfsType("platform:web.sitesettings").set(root.id, { productionurl: "https://www.example.com/subsite/" });
   await whfs.whfsType("platform:web.config").set(root.id, { comments: "comment" });
   test.eq([ //This test seems a bit lost here, just drop it once we've sufficiently covered listInstances elsewhere
     {
@@ -284,7 +284,7 @@ async function testLookup() {
   lookupresult = await whfs.lookupURL(new URL(previewlink + "#bladiebla"));
   test.eq(testfile.id, lookupresult.file, "whfs.lookupURL did not crack the preview link");
 
-  await whfs.openType("http://www.webhare.net/xmlns/beta/test").set(testfile.id, {
+  await whfs.whfsType("http://www.webhare.net/xmlns/beta/test").set(testfile.id, {
     arraytest: [
       {
         blobcell: await ResourceDescriptor.from("1", { fileName: "1.txt", mediaType: "text/plain" })
@@ -295,7 +295,7 @@ async function testLookup() {
     ]
   });
 
-  const testdata = await whfs.openType("http://www.webhare.net/xmlns/beta/test").get(testfile.id) as any;
+  const testdata = await whfs.whfsType("http://www.webhare.net/xmlns/beta/test").get(testfile.id) as any;
   lookupresult = await whfs.lookupURL(new URL(testdata.arraytest[1].blobcell.toLink({ baseURL: root.webRoot })));
   test.eq(root.id, lookupresult.site);
   test.eq(testfolder.id, lookupresult.folder);
