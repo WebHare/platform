@@ -484,6 +484,15 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
         this->AddErrorForScope(scope, `No such icon '${icon}' - looking for colors: ${colors}`);
   }
 
+  /** Rejects handlers returning an OBJECT (ie ASYNC functions or generators) where no OBJECT return value is expected,
+      as the exceptions thrown by asynchronous event handlers would get lost */
+  MACRO ValidateHandlerNotAsync(RECORD handlerrec, STRING attributename, RECORD tolliumscope, INTEGER resulttype)
+  {
+    IF(resulttype = TypeID(OBJECT) AND handlerrec.req_retval != TypeID(OBJECT))
+      this->AddErrorForScope(tolliumscope,
+              `The '${attributename}' handler points to potentially ASYNC function '${handlerrec.name}'. Asynchronous event handlers are not supported, consider using WaitForPromise`);
+  }
+
   PUBLIC MACRO ValidateLocalHandler(RECORD handlerrec, STRING attributename, RECORD tolliumscope, STRING objtype)
   {
     IF(handlerrec.name LIKE "*!*" OR ToUppercase(handlerrec.name) IN ["CANCEL","SUBMIT","@NOTIMPLEMENTED"])
@@ -495,6 +504,7 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
       this->AddErrorForScope(tolliumscope, `No such method '${handlerrec.name}' in objecttype ${objtype}`);
       RETURN;
     }
+    this->ValidateHandlerNotAsync(handlerrec, attributename, tolliumscope, match.resulttype);
 
     IF(NOT __ValidateFunctionPtrSignature([ excessargstype := 0
                                           , returntype := match.resulttype
@@ -514,6 +524,8 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
     RECORD match := this->VerifyFunctionExistenceForScope(tolliumscope, handlerrec.name);
     IF(NOT RecordExists(match))
       RETURN; //already handled
+
+    this->ValidateHandlerNotAsync(handlerrec, attributename, tolliumscope, match.resulttype);
 
     INTEGER ARRAY expectargs := [TYPEID(OBJECT)] CONCAT handlerrec.req_args;
     IF(NOT __ValidateFunctionPtrSignature([ excessargstype := 0
