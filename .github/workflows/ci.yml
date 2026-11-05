@@ -173,7 +173,7 @@ jobs:
           - { name: wrd-nodejs, command: 'addons/docker-build/testcontainer.sh --podman --nocheckmodule --tag=-external,wrd-nodejs wrd', allow_failure: false }
           - { name: jscomponents, command: 'addons/docker-build/testcontainer.sh --podman --nocheckmodule --tag=-external wh.jscomponents', allow_failure: false }
           - { name: external, command: 'addons/docker-build/testcontainer.sh --podman --nocheckmodule --tag=external', allow_failure: true }
-          - { name: two-hares, command: 'addons/docker-build/testcontainer.sh --podman --nocheckmodule --twohares --testscript $PWD/whtree/modules/webhare_testsuite/scripts/whcommands/twoharetests.sh', allow_failure: false }
+          - { name: two-hares, command: 'WEBHARE_DEBUG=openid,$WEBHARE_DEBUG addons/docker-build/testcontainer.sh --podman --nocheckmodule --twohares --testscript $PWD/whtree/modules/webhare_testsuite/scripts/whcommands/twoharetests.sh', allow_failure: false }
           - { name: backup-restore, command: 'TESTFW_SKIP_FINALIZE_CI=1 addons/docker-build/testcontainer.sh --podman --nocheckmodule --testscript $PWD/whtree/modules/webhare_testsuite/scripts/whcommands/backup-restore-test.sh', allow_failure: false }
     steps:
       - uses: actions/checkout@v7
