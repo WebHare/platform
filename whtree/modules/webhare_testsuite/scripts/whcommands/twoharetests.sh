@@ -73,7 +73,7 @@ $TH_EXEC1 isrunning || die "Container 1 ($TH_EXEC1) is not running"
 $TH_EXEC2 isrunning || die "Container 2 ($TH_EXEC2) is not running - start it with a freshdbconsole"
 
 # Make sure the testserver knows it's supposed to be listening here (testfw configures in virtualhosting and assumes you want 127.0.0.1, and TH_WEBINTERFACE2 will often be 172.0.2.2)
-$TH_EXEC2 webserver addbackend "$TH_WEBINTERFACE2"
+$TH_EXEC2 webserver addbackend --virtual --primary  "$TH_WEBINTERFACE2"
 
 echo "Using Web interface for container 1 at $TH_WEBINTERFACE1"
 echo "Using Web interface for container 2 at $TH_WEBINTERFACE2"
