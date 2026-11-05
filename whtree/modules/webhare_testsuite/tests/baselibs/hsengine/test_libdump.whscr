@@ -51,6 +51,16 @@ OBJECTTYPE otype
 >;
 OBJECTTYPE otype2 < >;
 
+// Methods whose return type is implied by ASYNC or the generator '*'
+OBJECTTYPE resulttypes
+<
+  MACRO plainmacro() { }
+  ASYNC MACRO asyncmacro() { AWAIT 1; }
+  ASYNC FUNCTION asyncfunc() { RETURN AWAIT 1; }
+  OBJECT ASYNC FUNCTION typedasyncfunc() { RETURN AWAIT 1; }
+  FUNCTION *generator() { YIELD 1; RETURN 0; }
+>;
+
 TABLE< INTEGER id > t;
 
 MACRO Test(BOOLEAN bfalse)
@@ -212,6 +222,16 @@ MACRO TestLibdump()
 
     TestEQ(expect, len, `Length for opcode ${rec.code} wrong`);
   }
+
+  // Method result types must reflect the implied OBJECT return type of ASYNC and generator methods
+  RECORD resulttypes := SELECT * FROM dump.objs WHERE ToUppercase(name) = "RESULTTYPES";
+  TestEQ(TRUE, RecordExists(resulttypes));
+  RECORD ARRAY methods := SELECT name := ToUppercase(name), resulttype FROM resulttypes.members WHERE type = "METHOD";
+  TestEQ(2 /* NoReturn */, SELECT AS INTEGER resulttype FROM methods WHERE name = "PLAINMACRO");
+  TestEQ(TypeID(OBJECT), SELECT AS INTEGER resulttype FROM methods WHERE name = "ASYNCMACRO");
+  TestEQ(TypeID(OBJECT), SELECT AS INTEGER resulttype FROM methods WHERE name = "ASYNCFUNC");
+  TestEQ(TypeID(OBJECT), SELECT AS INTEGER resulttype FROM methods WHERE name = "TYPEDASYNCFUNC");
+  TestEQ(TypeID(OBJECT), SELECT AS INTEGER resulttype FROM methods WHERE name = "GENERATOR");
 }
 
 TestLibdump();
