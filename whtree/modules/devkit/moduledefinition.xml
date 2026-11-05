@@ -96,6 +96,14 @@
   <moduleregistry>
     <string name="webhareuser"
             description="The user account for the developer on this server. Used when a command line tool needs to act as a WebHare user" />
+    <node name="integrations">
+      <string name="webhare_dev_site"
+              description="URL of the webhare.dev site. The MCP server fetches the AI skills from its ai/ subpath"
+              initialval="https://www.webhare.dev/" />
+      <boolean name="use_checkedout_site"
+               description="Use the AI skills from the locally installed webhare_dev module instead of webhare_dev_site"
+               initialval="true" />
+    </node>
   </moduleregistry>
 
   <rewriters xmlns="http://www.webhare.net/xmlns/dev/moduledefinition">

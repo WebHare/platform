@@ -66,3 +66,64 @@ See those extensions for specific installation and configuration instructions.
 * The language server also defines custom actions, which are prefixed with `webHare/`, for example `webHare/getStackTrace`.
   These are defined in `protocol.ts`. The exported definitions of `protocol.ts` can be used in language clients that are
   written in TypeScript.
+
+## MCP server
+The Devkit module includes a [Model Context Protocol](https://modelcontextprotocol.io/) server for AI clients such as
+Claude. It tells the client where WebHare is installed and how to invoke `wh`, and offers the
+[webhare.dev](https://www.webhare.dev/) AI skills (as a `wh_get_skill` tool, as `skill://` resources and as prompts).
+
+The server runs over stdio and is started with `wh devkit:mcp-server`. AI clients don't load your shell's `wh`
+function, so configure them with the full path to runkit and the WebHare server to connect to (eg `@default`). WebHare
+must be running when the client starts the MCP server.
+
+### Claude Code
+To add the server for all your projects:
+
+```bash
+claude mcp add --scope user webhare -- ~/projects/webhare-runkit/bin/runkit @default wh devkit:mcp-server
+```
+
+Use `--scope project` instead to add it to the `.mcp.json` of the current project (which can be committed to share it),
+or leave out `--scope` to add it just for yourself in the current project. Use `claude mcp list` or `/mcp` inside a
+session to check whether it's connected. The skills are also available as slash commands, eg `/mcp__webhare__wrd`.
+
+### Claude Code in VS Code (without the `claude` command)
+The Claude Code extension for VS Code uses the same configuration as the command line, so you can also add the server
+by creating an `.mcp.json` file in the root of your project:
+
+```json
+{
+  "mcpServers": {
+    "webhare": {
+      "command": "/Users/<you>/projects/webhare-runkit/bin/runkit",
+      "args": ["@default", "wh", "devkit:mcp-server"]
+    }
+  }
+}
+```
+
+Start a new Claude session in VS Code. Claude asks once whether to trust the servers in `.mcp.json`. Use `/mcp` to check
+whether the server is connected. The runkit path and server name are specific to your machine, so think twice before
+committing this file.
+
+### Claude Desktop
+Add the server to `~/Library/Application Support/Claude/claude_desktop_config.json` and restart Claude:
+
+```json
+{
+  "mcpServers": {
+    "webhare": {
+      "command": "/Users/<you>/projects/webhare-runkit/bin/runkit",
+      "args": ["@default", "wh", "devkit:mcp-server"]
+    }
+  }
+}
+```
+
+Claude Desktop doesn't expand `~`, so use the absolute path.
+
+### Skills
+By default the skills are read from the locally installed `webhare_dev` module, so changes to skills are picked up
+immediately. If `webhare_dev` isn't installed, they're downloaded from webhare.dev. This is controlled by the registry
+keys `devkit:integrations.use_checkedout_site` and `devkit:integrations.webhare_dev_site`. Restart the MCP server
+(reconnect the client) after changing them.
