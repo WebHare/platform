@@ -17,8 +17,8 @@ export type PeerServerToken = {
   scopes: string[];
 };
 
-/** The token as stored in whuserPeerserver.currenttoken */
-type StoredPeerServerToken = Omit<PeerServerToken, "peerId">;
+/** The token as stored in whuserPeerserver.currentToken */
+export type StoredPeerServerToken = Omit<PeerServerToken, "peerId">;
 
 async function getUserApiSchemaName(opts?: { schema?: string }): Promise<string> {
   if (opts?.schema)
@@ -57,11 +57,11 @@ function isSamePeerServerURL(storedUrl: string, remoteHost: string) {
 
 /** Store the current token for a user's peer server
  * @returns The whuserPeerserver entity id */
-async function storePeerToken(userSchema: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>, userEntity: number, remoteHost: string, currenttoken: StoredPeerServerToken): Promise<number> {
+async function storePeerToken(userSchema: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>, userEntity: number, remoteHost: string, currentToken: StoredPeerServerToken): Promise<number> {
   return await runInSeparateWork(async () => {
     const [peerId] = await userSchema.upsert("whuserPeerserver",
       { wrdLeftEntity: userEntity, serverurl: remoteHost }, //key
-      { lastuse: Temporal.Now.instant(), currenttoken },
+      { lastuse: Temporal.Now.instant(), currentToken },
       { ifNew: { wrdTitle: new URL(remoteHost).host } });
     return peerId;
   }, { mutex: "system:remoteservertoken-" + userEntity }); //serializes updates to a user's peer server tokens
@@ -75,14 +75,14 @@ export async function getPeerServerToken(remoteHost: string, options?: {
   const entityId = options?.userEntity ?? await lookupCLIUser(userSchema);
 
   const peerServers = await userSchema.query("whuserPeerserver")
-    .select(["wrdId", "serverurl", "currenttoken"])
+    .select(["wrdId", "serverurl", "currentToken"])
     .where("wrdLeftEntity", "=", entityId).execute();
 
   const peer = peerServers.find(_ => isSamePeerServerURL(_.serverurl, remoteHost));
   if (!peer)
     throw new Error(`No peer server found for host ${remoteHost}`);
 
-  const currentToken = peer.currenttoken as StoredPeerServerToken | null;
+  const currentToken = peer.currentToken;
 
   if (!currentToken)
     throw new Error(`Peer server ${remoteHost} does not have a current token`);
@@ -133,7 +133,7 @@ export async function listPeers(options?: {
     .execute();
   const peerServers = await userSchema.query("whuserPeerserver")
     .where("wrdLeftEntity", "=", entityId)
-    .select(["wrdId", "wrdTitle", "serverurl", "currenttoken", "lastuse"])
+    .select(["wrdId", "wrdTitle", "serverurl", "currentToken", "lastuse"])
     .execute();
 
   const peers = authServers.map(server => ({
@@ -152,7 +152,7 @@ export async function listPeers(options?: {
       peer = { url: peerServer.serverurl, title: peerServer.wrdTitle, authServer: null, peerServer: null, tokenExpires: null, scopes: null, lastUse: null };
       peers.push(peer);
     }
-    const currentToken = peerServer.currenttoken as Partial<StoredPeerServerToken> | null;
+    const currentToken = peerServer.currentToken;
     peer.peerServer = peerServer.wrdId;
     peer.tokenExpires = currentToken?.expires ?? null;
     peer.scopes = currentToken?.scopes ?? null;

@@ -145,15 +145,15 @@ PUBLIC OBJECT FUNCTION OpenWebHarePeer(OBJECT screen, STRING url, RECORD options
 
   WHILE(TRUE)
   {
-    RECORD peer := peerservertype->RunQuery( [ outputcolumns := [ "WRD_ID", "CURRENTTOKEN" ]
+    RECORD peer := peerservertype->RunQuery( [ outputcolumns := [ "WRD_ID", "CURRENT_TOKEN" ]
                                              , filters := [[ field := "WRD_LEFTENTITY", value := wrdentity->id ]
                                                           ,[ field := "SERVERURL", value := url, matchcase := FALSE ]
                                                           ]
                                              ]);
 
     RECORD connectinfo;
-    IF(RecordExists(peer) AND RecordExists(peer.currenttoken))
-      connectinfo := GetWebHareConnectability(url, peer.currenttoken.token);
+    IF(RecordExists(peer) AND RecordExists(peer.current_token))
+      connectinfo := GetWebHareConnectability(url, peer.current_token.token);
 
     IF(NOT RecordExists(connectinfo) OR NOT connectinfo.isloggedin OR connectinfo.expires < options.validuntil)
     {
@@ -166,7 +166,7 @@ PUBLIC OBJECT FUNCTION OpenWebHarePeer(OBJECT screen, STRING url, RECORD options
       CONTINUE; //retry peer selection
     }
     //FIXME check our scopes are in that list
-    RETURN NEW RemoteWebHareConnection(url, "", "bearer:" || peer.currenttoken.token);
+    RETURN NEW RemoteWebHareConnection(url, "", "bearer:" || peer.current_token.token);
   }
 }
 
@@ -232,7 +232,7 @@ PUBLIC RECORD FUNCTION OpenUserWebHarePeer(OBJECT user, STRING url, RECORD optio
   OBJECT peerservertype := wrdentity->wrdtype->wrdschema->^whuser_peerserver;
 
   RECORD peer := peerservertype->RunQuery(
-      [ outputcolumns := [ "WRD_ID", "CURRENTTOKEN" ]
+      [ outputcolumns := [ "WRD_ID", "CURRENT_TOKEN" ]
       , filters := [ [ field := "WRD_LEFTENTITY", value := wrdentity->id ]
                                                  , [ field := "SERVERURL", value := url, matchcase := FALSE ]
                                                  ]
@@ -241,10 +241,10 @@ PUBLIC RECORD FUNCTION OpenUserWebHarePeer(OBJECT user, STRING url, RECORD optio
   IF (NOT RecordExists(peer))
     THROW NEW Exception(`No such peer '${url}'`);
 
-  IF (NOT RecordExists(peer.currenttoken))
+  IF (NOT RecordExists(peer.current_token))
     RETURN [ status := "neverconnected", peer := DEFAULT OBJECT ];
 
-  RECORD connectinfo := GetWebHareConnectability(url, peer.currenttoken.token);
+  RECORD connectinfo := GetWebHareConnectability(url, peer.current_token.token);
   IF (NOT RecordExists(connectinfo))
     RETURN [ status := "notconnected", peer := DEFAULT OBJECT ];
   IF (NOT connectinfo.isloggedin)
@@ -255,6 +255,6 @@ PUBLIC RECORD FUNCTION OpenUserWebHarePeer(OBJECT user, STRING url, RECORD optio
   //FIXME check our scopes are in that list
   RETURN
       [ status :=   "ok"
-      , peer :=     NEW RemoteWebHareConnection(url, "", "bearer:" || peer.currenttoken.token)
+      , peer :=     NEW RemoteWebHareConnection(url, "", "bearer:" || peer.current_token.token)
       ];
 }
