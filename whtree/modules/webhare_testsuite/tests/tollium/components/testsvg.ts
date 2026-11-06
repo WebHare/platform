@@ -9,6 +9,14 @@ function getWrapper() {
   return test.qR(getSVGComp(), ".wrapper");
 }
 
+/** Get the root containing the SVG itself */
+function getSVGRoot() {
+  const root = getWrapper().shadowRoot;
+  if (!root)
+    throw new Error("The SVG should be embedded in a shadow root");
+  return root;
+}
+
 function getLog() {
   return test.qR<HTMLTextAreaElement>(test.compByName("log"), "textarea").value;
 }
@@ -24,8 +32,12 @@ test.runTests(
       test.assert(comp.classList.contains("clickable"), "Should be clickable, it has both an action and an onclick");
       test.eq("0.75", getComputedStyle(getWrapper()).opacity);
 
-      const box = test.qR(comp, "svg #box");
+      const box = test.qR(getSVGRoot(), "svg #box");
       test.eq("rgb(255, 0, 0)", getComputedStyle(box).fill, "--fill should have been set by the screen's Init");
+
+      // The SVG is isolated in a shadow root: its ids and styles shouldn't leak into the document
+      test.eq(null, comp.ownerDocument.getElementById("box"));
+      test.assert(getComputedStyle(test.qR(test.compByName("log"), "textarea")).color !== "rgb(1, 2, 3)", "The SVG's <style> should not apply outside of the SVG");
     },
 
     "Tollium CSS variables",
@@ -45,7 +57,7 @@ test.runTests(
 
     "Click with action and onclick",
     async function () {
-      test.click(test.qR(getSVGComp(), "#box"));
+      test.click(test.qR(getSVGRoot(), "#box"));
       await test.waitForUI();
       test.eq(/^action\nclick box \d+ \d+$/, getLog());
     },
@@ -54,7 +66,7 @@ test.runTests(
     async function () {
       test.click(test.getMenu(["S01"]));
       await test.waitForUI();
-      test.eq("rgb(0, 0, 255)", getComputedStyle(test.qR(getSVGComp(), "#box")).fill);
+      test.eq("rgb(0, 0, 255)", getComputedStyle(test.qR(getSVGRoot(), "#box")).fill);
     },
 
     "Update source",
@@ -62,9 +74,9 @@ test.runTests(
       test.click(test.getMenu(["S02"]));
       await test.waitForUI();
 
-      const comp = getSVGComp();
-      test.assert(!comp.querySelector("#box"), "The old SVG should have been replaced");
-      const dot = test.qR(comp, "svg #dot");
+      test.assert(!getSVGRoot().querySelector("#box"), "The old SVG should have been replaced");
+      const dot = test.qR(getSVGRoot(), "svg #dot");
+      test.assert(!getSVGRoot().querySelector("foreignObject, #foreign"), "foreignObject nodes should have been removed");
       test.eq("rgb(0, 0, 255)", getComputedStyle(dot).fill, "CSS variables should be kept when the source changes");
       test.eq("0.75", getComputedStyle(getWrapper()).opacity, "Opacity should be kept when the source changes");
     },
@@ -75,7 +87,7 @@ test.runTests(
       await test.waitForUI();
 
       test.eq("0.5", getComputedStyle(getWrapper()).opacity);
-      test.assert(getSVGComp().querySelector("svg #dot"), "The SVG should be kept when the opacity changes");
+      test.assert(getSVGRoot().querySelector("svg #dot"), "The SVG should be kept when the opacity changes");
     },
 
     "Click with only onclick",
@@ -84,7 +96,7 @@ test.runTests(
       await test.waitForUI();
       test.assert(getSVGComp().classList.contains("clickable"), "Should still be clickable, it has an onclick");
 
-      test.click(test.qR(getSVGComp(), "#dot"));
+      test.click(test.qR(getSVGRoot(), "#dot"));
       await test.waitForUI();
       test.eq(/^action\nclick box \d+ \d+\nclick dot \d+ \d+$/, getLog());
     },
@@ -95,7 +107,7 @@ test.runTests(
       await test.waitForUI();
       test.assert(!getSVGComp().classList.contains("clickable"));
 
-      test.click(test.qR(getSVGComp(), "#dot"));
+      test.click(test.qR(getSVGRoot(), "#dot"));
       await test.waitForUI();
       test.eq(/^action\nclick box \d+ \d+\nclick dot \d+ \d+$/, getLog(), "Clicking should not have logged anything");
     }
