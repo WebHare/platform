@@ -1043,6 +1043,7 @@
         <text tid="title-placeholder">Bv: productie, ontwikkeling, groen…</text>
       </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.auth.settings -->
+        <text tid="api_token_duration">OAuth2-toegangstokens verlopen na</text>
         <text tid="authtexts-intro">Overschrijf de standaardteksten op de authenticatiepagina's</text>
         <text tid="completeaccount-intro-desc"><html:i>De reden voor de wijziging wordt automatisch toegevoegd</html:i></text>
         <text tid="defaults">Standaardtekst:</text>

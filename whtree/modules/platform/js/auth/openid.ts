@@ -429,7 +429,8 @@ export async function retrieveTokens<T extends SchemaTypeDefinition>(provider: I
   const tokens = await provider.createTokens("oidc", returnInfo.user, returnInfo.clientid, sessionid, returnInfo.nonce, {
     scopes: returnInfo.scopes,
     customizer: options?.customizer,
-    expires: options?.expires || openIdTokenExpiry
+    expires: options?.expires, //if not set, createTokens falls back to loginSettings.apiTokenDuration and eventually defaultAccessTokenExpiry
+    idTokenExpires: openIdTokenExpiry
   });
 
   return {

@@ -14,7 +14,7 @@ import type { AuthCustomizer, JWTPayload, LoginDeniedInfo, LoginUsernameLookupOp
 import type { WRDAuthAccountStatus } from "@webhare/auth";
 import type { ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { getAuditContext, writeAuthAuditEvent, type AuthAuditContext } from "./audit";
-import { calculateWRDSessionExpiry, defaultWRDAuthLoginSettings, getAuthPageURL, getAuthSettings, getUserValidationSettings, prepAuth, prepAuthForURL, type PrepAuthResult, type WRDAuthPluginSettings_Request } from "./support";
+import { calculateWRDSessionExpiry, defaultAccessTokenExpiry, defaultWRDAuthLoginSettings, getAuthPageURL, getAuthSettings, getUserValidationSettings, prepAuth, prepAuthForURL, type PrepAuthResult, type WRDAuthPluginSettings_Request } from "./support";
 import { tagToHS, tagToJS } from "@webhare/wrd/src/wrdsupport";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
 import { checkPasswordCompliance, verifyPasswordCompliance, type PasswordCheck, type PasswordCheckResult } from "./passwords";
@@ -31,8 +31,10 @@ export interface AuthTokenOptions {
   customizer?: AuthCustomizer;
   /** Set or override the time of day used for expiration calculations  */
   now?: Temporal.Instant;
-  /** Expiration date for the token. If not set, will fallback to any configuration and eventually 1 day */
+  /** Expiration date for the token. If not set, falls back to the schema's loginSettings: apiTokenDuration (eventually 7 days) for API/OAuth2 tokens, expireLogin and friends (eventually 1 day) for ID tokens */
   expires?: WaitPeriod;
+  /** Expiration date for the OpenID id_token, if different from the access token. Defaults to 'expires' */
+  idTokenExpires?: WaitPeriod;
   /** Prefix for API tokens, defaults to 'secret-token:' (see RFC 8959) */
   prefix?: string;
   /** Scopes associated with the API token */
@@ -450,13 +452,16 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
   }
 
   //TODO with proper caching we can avoid async/DB queries here. and we really should
-  async getExpiration(relativeTo: Temporal.Instant, options?: AuthTokenOptions): Promise<null | Temporal.Instant> {
+  async getExpiration(type: "id" | "api" | "oidc", relativeTo: Temporal.Instant, options?: AuthTokenOptions): Promise<null | Temporal.Instant> {
     if (options?.expires === Infinity)
       return null;
     if (options?.expires)
       return convertWaitPeriodToDate(options.expires, { relativeTo });
 
     const loginSettings = { ...defaultWRDAuthLoginSettings, ...(await getSchemaSettings(this.wrdschema, ["loginSettings"]))?.loginSettings };
+    if (type !== "id") //API and OAuth2 access tokens aren't login sessions, so don't round them
+      return convertWaitPeriodToDate(loginSettings.apiTokenDuration || defaultAccessTokenExpiry, { relativeTo });
+
     const expiry = options?.thirdParty ? loginSettings?.expireThirdPartyLogin : options?.persistent ? loginSettings?.expirePersistentLogin : loginSettings?.expireLogin;
     return calculateWRDSessionExpiry(loginSettings, relativeTo, expiry);
   }
@@ -501,7 +506,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       throw new Error(`Unable to find '${subjectValue}' for subject #${subject}`);
 
     const relativeTo = (options?.now ?? Temporal.Now.instant()).round({ smallestUnit: "seconds", roundingMode: "floor" }); //round down as the JWT fields have second precision
-    const validUntil = await this.getExpiration(relativeTo, options);
+    const validUntil = await this.getExpiration(type, relativeTo, options);
 
     //Figure out signature parameters
     const config = await this.getKeyConfig();
@@ -515,7 +520,8 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       if (!(client && clientInfo))
         throw new Error("Unable to create ID token without a thirdparty client");
 
-      const payload = preparePayload(subjectValue, relativeTo, validUntil, { audiences: [compressUUID(clientInfo?.wrdGuid)], nonce });
+      const idTokenValidUntil = options?.idTokenExpires ? convertWaitPeriodToDate(options.idTokenExpires, { relativeTo }) : validUntil;
+      const payload = preparePayload(subjectValue, relativeTo, idTokenValidUntil, { audiences: [compressUUID(clientInfo?.wrdGuid)], nonce });
       if (options?.scopes?.includes("email")) { //TODO authorize somewhere whether 'email' is allowed for this client
         if (authsettings.emailAttribute) {
           const { email } = await (this.wrdschema as AnyWRDSchema).getFields("wrdPerson", subject, { email: authsettings.emailAttribute });

@@ -142,6 +142,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthSettings EXTEND TolliumScreenBase <
     RECORD settings := EnforceStructure(wrdauth_defaultconfiguration, GetWRDSetting(this->contexts->wrdschema, "login_settings"));
     SetTimeUnit(^expire_login, ^expire_login_unit, settings.expire_login);
     SetTimeUnit(^expire_persistent_login, ^expire_persistentlogin_unit, settings.expire_persistent_login);
+    SetTimeUnit(^api_token_duration, ^api_token_duration_unit, settings.api_token_duration);
 
     IF(settings.round_long_logins_to >= 0) {
       ^roundlogins->value := TRUE;
@@ -169,6 +170,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthSettings EXTEND TolliumScreenBase <
       CELL[ ...GetWRDSetting(this->contexts->wrdschema, "login_settings")
           , expire_login := GetTimeUnit(^expire_login, ^expire_login_unit)
           , expire_persistent_login := GetTimeUnit(^expire_persistent_login, ^expire_persistentlogin_unit)
+          , api_token_duration := GetTimeUnit(^api_token_duration, ^api_token_duration_unit)
           , round_min_duration := GetTimeUnit(^round_min_duration, ^round_min_duration_unit)
           , round_long_logins_to := ^roundlogins->value ? ^round_long_logins_to->value : -1
           , round_long_logins_t_z := ^round_long_logins_t_z->value
