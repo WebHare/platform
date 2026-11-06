@@ -4,6 +4,7 @@
 
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { initializeIssuer } from "@webhare/auth";
+import { defaultWRDAuthLoginSettings } from "@webhare/auth/src/support";
 import { deletePeerRegistrations, getPeerServerToken, getPeerServerTokenURL, registerAtRemoteWebHare } from "@mod-platform/js/remote/connect";
 import { decompressUUID, hashClientSecret } from "@webhare/auth/src/identity";
 import { deleteDynamicClientRegistration, getDynamicClientRegistration } from "@webhare/auth/src/oauth2-client";
@@ -148,6 +149,8 @@ async function testRegisterDynamicClient() {
   test.eq("bearer", tokens.token_type);
   test.eq(undefined, tokens.id_token);
   test.assert(tokens.access_token);
+  //Without loginSettings.apiTokenDuration access tokens fall back to a 7 day expiry
+  test.assert(tokens.expires_in && tokens.expires_in > 7 * 86400 - 60 && tokens.expires_in <= 7 * 86400, `Expected ~7 days expiry, got ${tokens.expires_in} seconds`);
   test.eq("active", (await testSchema.getFields("wrdauthApplication", application.wrdId, ["dynamicStatus"])).dynamicStatus);
 
   //////////////////////////////////////////////////////////////
@@ -286,6 +289,11 @@ async function testPeerServerToken() {
   const userEntity = test.getUser("sysop").wrdId;
   const priorApplications = await userSchema.query("wrdauthApplication").select("wrdId").execute();
 
+  //Configure a shorter access token duration so we can verify it's applied to OAuth2 access tokens
+  const apiTokenDuration = 2 * 3600 * 1000; //2 hours
+  const testSchema = wrd<WRDSchemaLike["webhare_testsuite:oidcschema"]>("webhare_testsuite:testschema");
+  await runInWork(() => updateSchemaSettings(testSchema, { loginSettings: { ...defaultWRDAuthLoginSettings, apiTokenDuration } }));
+
   ////////////////////////////////////////////////////////////////
   // STORY: Request a token, registering ourselves as a dynamic client at the remote
   const { requesturl, tokenpromise } = await getPeerServerTokenURL(testsite.webRoot, { userSchema, userEntity });
@@ -307,7 +315,7 @@ async function testPeerServerToken() {
 
     const token = await tokenpromise;
     test.eq(["platform:sysop"], token.scopes);
-    test.assert(token.expires.getTime() > Date.now());
+    test.assert(token.expires.getTime() > Date.now() + apiTokenDuration - 60_000 && token.expires.getTime() <= Date.now() + apiTokenDuration, `Expected the configured apiTokenDuration, got expiry ${token.expires.toISOString()}`);
     test.eqPartial({ peerId: token.peerId, token: token.token }, await getPeerServerToken(testsite.webRoot, { userSchema, userEntity }));
   } finally {
     await context.close();
@@ -327,6 +335,7 @@ async function testPeerServerToken() {
   test.eqPartial({ authServers: [{ wrdId: authServer[0].wrdId, remoteError: null }], peerServers: 1 },
     await deletePeerRegistrations(testsite.webRoot, { wrdSchema: userSchema, userEntity }));
   test.eq(priorApplications.length, (await userSchema.query("wrdauthApplication").select("wrdId").execute()).length);
+  await runInWork(() => updateSchemaSettings(testSchema, { loginSettings: null }));
 }
 
 async function testCleanupDynamicClients() {

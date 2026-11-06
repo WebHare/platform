@@ -22,6 +22,10 @@
             <textedit name="expire_persistent_login" maxlength="12" required="true" valuetype="integer64" />
             <select name="expire_persistentlogin_unit" type="pulldown" title="" />
           </line>
+          <line>
+            <textedit name="api_token_duration" maxlength="12" required="true" valuetype="integer64" />
+            <select name="api_token_duration_unit" type="pulldown" title="" />
+          </line>
 
           <!-- FIXME broken: enablecomponents="round_long_logins_to round_long_logins_t_z round_min_duration round_min_duration_unit" /> -->
           <heading name="roundlogins"

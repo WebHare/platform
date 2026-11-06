@@ -445,7 +445,10 @@ async function testAuthAPI() {
   //Fonzie-check the token. because its json.json.sig we'll see at least "ey" twice (encoded {})
   //WebHare as IDP currently follows MS' default and sets the id_token to a 60 minutes expiry (openIdTokenExpiry)
   test.eq(/^ey[^.]+\.ey[^.]+\.[^.]+$/, authresult.idToken);
-  test.assert(authresult.expiresIn && authresult.expiresIn > 59 * 60 && authresult.expiresIn <= 60 * 60, `We expect ~60 minutes expiry, got ${authresult.expiresIn! / 60} minutes`);
+  const idTokenLifetime = decodeJWT(authresult.idToken!).exp! - Date.now() / 1000;
+  test.assert(idTokenLifetime > 59 * 60 && idTokenLifetime <= 60 * 60, `We expect ~60 minutes id_token expiry, got ${idTokenLifetime / 60} minutes`);
+  //The access token (which expires_in describes) defaults to 7 days (defaultAccessTokenExpiry)
+  test.assert(authresult.expiresIn && authresult.expiresIn > 7 * 86400 - 60 && authresult.expiresIn <= 7 * 86400, `We expect ~7 days access token expiry, got ${authresult.expiresIn! / 3600} hours`);
 
   await test.throws(/audience invalid/, provider.validateToken(authresult.idToken!, { audience: peopleClient!.clientId }));
 
@@ -874,6 +877,9 @@ async function testApiTokens() {
   const testUnit = await oidcAuthSchema.find("whuserUnit", { wrdTitle: "tempTestUnit" }) ?? throwError("No test unit found");
   const testUnitKey = await createFirstPartyToken(oidcAuthSchema, "api", testUnit);
   test.eq(/^secret-token:/, testUnitKey.accessToken);
+  //API tokens without an explicit expiry fall back to defaultAccessTokenExpiry (7 days)
+  const apiTokenLifetime = testUnitKey.expires!.epochMilliseconds - Date.now();
+  test.assert(apiTokenLifetime > 7 * 86400_000 - 60_000 && apiTokenLifetime <= 7 * 86400_000, `Expected ~7 days API token expiry, got ${apiTokenLifetime / 3600_000} hours`);
 
   const provider = new IdentityProvider(oidcAuthSchema);
   test.eqPartial({ entity: testUnit }, await provider.verifyAccessToken("api", testUnitKey.accessToken));
