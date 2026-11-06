@@ -508,7 +508,7 @@ AP_libwebhare = lib/libblex_webhare$(DLL_SUFFIX)
 
 PCH_HEADERS_NATIVE+=ap/libwebhare/allincludes.h
 
-ap_SRCDIRS = addons addons/system_geoip libwebhare utils webserver whmanager
+ap_SRCDIRS = addons addons/system_geoip libwebhare libwebhare/tests utils webserver whmanager
 
 # WASM
 wasm_SRCDIRS = .
@@ -821,8 +821,15 @@ ap-clean:
 build.ap: $(ap_DEPLOYABLES) $(ap_NONDEPLOYABLES)
 	>build.ap
 
-success.ap ap-test: build.ap
+success.ap ap-test: build.ap bin/requestparser-test-native
+	$(TESTRUNNER) bin/requestparser-test-native
+	$(TESTRUNNER) bin/requestparser-test-native --large-sizes
 	> success.ap
+
+bin/requestparser-test-native: ap/libwebhare/tests/requestparser.native-obj $(AP_libwebhare)
+	$(call LinkExecutable,$<,$@,blex_webhare $(HS_LIBS))
+
+ALL_TESTFILES+=bin/requestparser-test-native
 
 ap_libwebhare_CPPFILES = $(call GetSrcFiles,ap/libwebhare/*.cpp)
 ap_libwebhare_OBJFILES = $(call Src2ObjFiles, $(ap_libwebhare_CPPFILES))
