@@ -35,6 +35,12 @@ declare module "@webhare/services" {
       tokeninfo?: OAuth2Tokens;
       /** Set if the authorization or token request failed */
       error?: { error: string; error_description: string | null };
+      /** Login name of the local user this authorization was completed for, if the caller recorded it */
+      local_user?: string;
+      /** Scopes requested from the authorization server (not set by HS) */
+      scopes?: string[];
+      /** WRD schema of the client's wrdauthServer, if known (not set by HS) */
+      wrd_schema?: string;
     };
   }
 }
@@ -152,6 +158,8 @@ type OAuth2ClientInfo = {
   /** Holds client signing information, will replace clientSecret in the future */
   clientSigning?: ClientSigning;
   additionalScopes: string[];
+  /** WRD schema containing the wrdauthServer (clientWrdId) */
+  wrdSchema?: string;
   clientWrdId?: number;
   extraParams: Array<{ param: string; value: string }>;
 };
@@ -219,12 +227,15 @@ export class OAuth2Client {
       }
     };
 
-    const scopes: string[] = this.clientinfo.additionalScopes;
+    const scopes: string[] = [...this.clientinfo.additionalScopes]; //copy, don't modify the client's configuration
     if (options?.addScopes)
       for (const s of options.addScopes) {
         if (!scopes.includes(s))
           scopes.push(s);
       }
+    state.scopes = scopes;
+    if (this.clientinfo.wrdSchema)
+      state.wrd_schema = this.clientinfo.wrdSchema;
 
     const session = await runInWork(() => createServerSession("system:oauth2", state, { expires: "PT90M" }));
     const authurl = new URL(authorizeurl);
@@ -277,6 +288,7 @@ export async function createOAuth2Client<S extends SchemaTypeDefinition>(wrdSche
     clientId: spData.clientId,
     clientSigning: spData.clientSigning || undefined,
     additionalScopes: spData.additionalScopes.split(" ").map(s => s.trim()).filter(s => s),
+    wrdSchema: wrdSchema.tag,
     clientWrdId: spData.wrdId,
     extraParams: spData.extraParams
   });

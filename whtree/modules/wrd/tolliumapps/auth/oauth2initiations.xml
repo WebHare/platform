@@ -1,0 +1,31 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.auth.oauth2initiations" library="oauth2initiations.whlib">
+
+  <!-- Dashboard panel showing the OAuth2 authorizations we recently initiated as a client. Same data as `wh auth list-oauth2-initiations` -->
+  <screen name="oauth2initiations" tid=".title">
+    <body height="1pr" spacers="none">
+      <panel backgroundcolor="#f0f0f0" borders="bottom" spacers="left right">
+        <line>
+          <select name="statusfilter" type="pulldown" onchange="onfilterchange" rowkeytype="string" tid=".status">
+            <option rowkey="" tid=".status-all" />
+            <option rowkey="failed" tid=".status-failed" />
+            <option rowkey="pending" tid=".status-pending" />
+            <option rowkey="completed" tid=".status-completed" />
+          </select>
+          <select name="schemafilter" type="pulldown" onchange="onfilterchange" rowkeytype="string" tid="tolliumapps.common.schema" />
+        </line>
+      </panel>
+      <list name="initiations" height="1pr" borders="none" ongetrows="OnGetInitiations" rowkeytype="integer" selectmode="single" sortascending="false" sortcolumn="created">
+        <column name="created" type="datetime" width="20x" storeutc="true" />
+        <column name="statustext" type="text" width="12x" tid=".status" />
+        <column name="wrd_schema" type="text" width="25x" tid="tolliumapps.common.schema" />
+        <column name="client_scope" type="text" width="25x" tid=".clientscope" />
+        <column name="scopes" type="text" width="25x" />
+        <column name="remote_user" type="text" width="25x" tid=".remoteuser" />
+        <column name="local_user" type="text" width="20x" tid=".localuser" />
+        <column name="error" type="text" width="20x" />
+        <column name="error_description" type="text" width="1pr" tid=".errordescription" />
+      </list>
+    </body>
+  </screen>
+
+</screens>

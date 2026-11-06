@@ -106,8 +106,11 @@ MACRO RunOpenIDAuth() {
                                                                     , remoteip := GetClientRemoteIP()
                                                                     , thirdparty := TRUE
                                                                     ]);
-  IF(loginres.success)
+  IF(loginres.success) {
+    //Record who logged in, for wh auth list-oauth2-initiations and the dashboard
+    CallJS([ runinseparatework := TRUE ], "@mod-platform/js/auth/oauth2-initiations.ts#setOAuth2InitiationLocalUser", GetWebVariable("oauth2session"), wrdschema->tag, userid);
     Redirect(decodedinfo.userdata.redirect);
+  }
   ELSE
     AbortLogin(decodedinfo.userdata.redirect, CELL[ reason := loginres.code ]);
 }

@@ -5,16 +5,15 @@ import { type AnyWRDSchema, type WRDSchemaLike, type WRDSchemaType, getSchemaSet
 import YAML from 'yaml';
 import { loadlib } from '@webhare/harescript/src/contextvm';
 import type { HSVMObject } from '@webhare/harescript/src/harescript';
-import { importJSObject, type SessionScopes } from '@webhare/services';
-import { beginWork, commitWork, db } from '@webhare/whdb';
+import { importJSObject } from '@webhare/services';
+import { beginWork, commitWork } from '@webhare/whdb';
 import { compressUUID, createFirstPartyToken, decodeJWT, IdentityProvider, type AuthTokenOptions } from "@webhare/auth/src/identity";
 import { pick } from '@webhare/std';
 import { CLIRuntimeError, runCli } from "@webhare/cli";
 import { registerOAuthApplication, enableOpenIDServer, getOpenIDIssuer, getOpenIDMetadataURL, type AuthCustomizer, getDefaultOAuth2RedirectURL } from '@webhare/auth';
 import { getAuthServerMetadataURL } from '@mod-platform/js/auth/openid';
 import { prepAuthForURL } from '@webhare/auth/src/support';
-import type { PlatformDB } from '@mod-platform/generated/db/platform';
-import { readAnyFromDatabase } from '@webhare/whdb/src/formats';
+import { listOAuth2Initiations } from '@mod-platform/js/auth/oauth2-initiations';
 
 async function getUserApiSchemaName(opts: { schema?: string }): Promise<string> {
   if (opts?.schema)
@@ -93,19 +92,21 @@ runCli({
         "tokens": { description: "Show raw tokens too" }
       },
       main: async ({ opts, args }) => {
-        //TODO a listSessions API which understands scope and decodes data would be nice? or two apis, one for raw lists and one for decoding data too ?
-        const sessions = await db<PlatformDB>().selectFrom("system.sessions").select(["id", "data", "datablob", "sessionid", "created"]).where("scope", "=", "system:oauth2").execute();
-        const withData = await Promise.all(sessions.map(async s => ({ ...s, data: await readAnyFromDatabase(s.data, s.datablob) as SessionScopes["system:oauth2"] })));
-        const finalList = withData.map(s => ({
+        const finalList = (await listOAuth2Initiations()).map(s => ({
           created: s.created,
-          sessionid: s.sessionid,
-          //pending: the user hasn't returned from the authorization server (yet)
-          status: s.data?.error ? "failed" : s.data?.tokeninfo ? "completed" : "pending",
-          error: s.data?.error || null,
+          sessionid: s.sessionId,
+          status: s.status,
+          error: s.error,
+          clientScope: s.clientScope,
+          authorizeUrl: s.authorizeUrl,
+          scopes: s.scopes,
+          wrdSchema: s.wrdSchema,
+          remoteUser: s.remoteUser,
+          localUser: s.localUser,
           userData: s.data?.user_data || null,
           idToken: s.data?.tokeninfo?.id_token ? jwt.decode(s.data.tokeninfo.id_token) : null,
           ...opts.tokens ? { tokens: s.data?.tokeninfo || null } : {}
-        })).toSorted((lhs, rhs) => lhs.created < rhs.created ? 1 : -1); //show most recent first
+        }));
         if (opts.json)
           console.log(JSON.stringify(finalList, null, 2));
         else

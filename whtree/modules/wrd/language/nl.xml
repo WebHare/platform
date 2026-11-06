@@ -1043,6 +1043,21 @@
         <text tid="title">Sleutelnaam</text>
         <text tid="title-placeholder">Bv: productie, ontwikkeling, groen…</text>
       </textgroup>
+      <textgroup gid="oauth2initiations">   <!-- tolliumapps.auth.oauth2initiations -->
+        <text tid="clientscope">Client scope</text>
+        <text tid="created">Gestart</text>
+        <text tid="error">Fout</text>
+        <text tid="errordescription">Foutomschrijving</text>
+        <text tid="localuser">Lokale gebruiker</text>
+        <text tid="remoteuser">Externe gebruiker</text>
+        <text tid="scopes">Gevraagde scopes</text>
+        <text tid="status">Status</text>
+        <text tid="status-all">Alle</text>
+        <text tid="status-completed">Voltooid</text>
+        <text tid="status-failed">Mislukt</text>
+        <text tid="status-pending">Bezig</text>
+        <text tid="title">Recente OAuth2-autorisaties</text>
+      </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.auth.settings -->
         <text tid="api_token_duration">OAuth2-toegangstokens verlopen na</text>
         <text tid="authtexts-intro">Overschrijf de standaardteksten op de authenticatiepagina's</text>

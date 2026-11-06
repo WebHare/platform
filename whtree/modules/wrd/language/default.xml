@@ -1043,6 +1043,21 @@
         <text tid="title">Key name</text>
         <text tid="title-placeholder">Eg: production, dev, green…</text>
       </textgroup>
+      <textgroup gid="oauth2initiations">   <!-- tolliumapps.auth.oauth2initiations -->
+        <text tid="clientscope">Client scope</text>
+        <text tid="created">Started</text>
+        <text tid="error">Error</text>
+        <text tid="errordescription">Error description</text>
+        <text tid="localuser">Local user</text>
+        <text tid="remoteuser">Remote user</text>
+        <text tid="scopes">Requested scopes</text>
+        <text tid="status">Status</text>
+        <text tid="status-all">All</text>
+        <text tid="status-completed">Completed</text>
+        <text tid="status-failed">Failed</text>
+        <text tid="status-pending">Pending</text>
+        <text tid="title">Recent OAuth2 authorizations</text>
+      </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.auth.settings -->
         <text tid="api_token_duration">OAuth2 access tokens expire after</text>
         <text tid="authtexts-intro">Overwrite the standard authentication page texts</text>
