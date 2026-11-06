@@ -464,6 +464,37 @@
     </body>
   </screen>
 
+  <screen name="svgtest" allowresize="true" menubar="menubar" title="SVG test">
+    <actions>
+      <action name="updatevars" onexecute="doupdatevars" title="S01 Update vars" />
+      <action name="updatesource" onexecute="doupdatesource" title="S02 Update source" />
+      <action name="updateopacity" onexecute="doupdateopacity" title="S03 Update opacity" />
+      <action name="clearaction" onexecute="doclearaction" title="S04 Clear action" />
+      <action name="clearonclick" onexecute="doclearonclick" title="S05 Clear onclick" />
+      <action name="actionclick" onexecute="doactionclick" title="Click" />
+    </actions>
+
+    <menus>
+      <menu name="menubar">
+        <item action="updatevars" />
+        <item action="updatesource" />
+        <item action="updateopacity" />
+        <item action="clearaction" />
+        <item action="clearonclick" />
+      </menu>
+    </menus>
+
+    <body>
+      <svg name="svg"
+           resource="mod::webhare_testsuite/tests/tollium/data/svgtest.svg"
+           action="actionclick"
+           onclick="ondirectclick"
+           opacity="0.75"
+           title="SVG" />
+      <textarea name="log" height="200px" title="" />
+    </body>
+  </screen>
+
   <screen name="downloadactiontest" width="120x" menubar="menubar" title="Downloadaction test">
     <actions>
       <downloadaction name="download" ondownload="dodownload" title="I01a Download" />

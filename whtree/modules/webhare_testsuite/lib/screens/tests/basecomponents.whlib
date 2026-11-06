@@ -565,6 +565,54 @@ PUBLIC OBJECTTYPE ImageTest EXTEND TolliumScreenBase
   }
 >;
 
+PUBLIC OBJECTTYPE SVGTest EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    ^svg->css_vars := CellInsert(DEFAULT RECORD, "--fill", "rgb(255, 0, 0)");
+  }
+
+  MACRO AddLog(STRING line)
+  {
+    ^log->value := TrimWhitespace(TrimWhitespace(^log->value) || "\n" || line);
+  }
+
+  MACRO DoUpdateVars()
+  {
+    ^svg->css_vars := CellInsert(DEFAULT RECORD, "--fill", "rgb(0, 0, 255)");
+  }
+
+  MACRO DoUpdateSource()
+  {
+    ^svg->svg_source := `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><circle id="dot" cx="50" cy="50" r="50" style="fill: var(--fill, rgb(0, 0, 0))" /></svg>`;
+  }
+
+  MACRO DoUpdateOpacity()
+  {
+    ^svg->opacity := 0.5;
+  }
+
+  MACRO DoClearAction()
+  {
+    ^svg->action := DEFAULT OBJECT;
+  }
+
+  MACRO DoClearOnClick()
+  {
+    ^svg->onclick := DEFAULT FUNCTION PTR;
+  }
+
+  MACRO DoActionClick()
+  {
+    this->AddLog("action");
+  }
+
+  MACRO OnDirectClick(RECORD data)
+  {
+    this->AddLog(`click ${data.id} ${data.x} ${data.y}`);
+  }
+>;
+
 PUBLIC OBJECTTYPE DownloadActionTest EXTEND TolliumScreenBase
 < MACRO DoDownload(OBJECT stuff)
   {
