@@ -551,6 +551,131 @@ types:
                 valueType: integer
       `));
 
+  // Test tids in components: 'tid' (title) and '...Tid' properties are resolved to full tids, at any depth
+  test.eqPartial({
+    contenttypes: [
+      {
+        members:
+          [
+            {
+              jsname: "tidField",
+              component: {
+                component: "textedit",
+                yamlprops: {
+                  tid: "webhare_testsuite:root.sub.test_type.lbl",
+                  empty_text_tid: "webhare_testsuite:abs.empty",
+                  hint_tid: "~yes",
+                  placeholder_tid: "othermod:x.y",
+                  label_tid: ":Literal text",
+                  value_constraints: { max_bytes: 10 }
+                }
+              }
+            },
+            {
+              jsname: "tidLines",
+              component: {
+                component: "__yamlholder",
+                yamlprops: {
+                  lines: [
+                    {
+                      line: {
+                        parts: [
+                          { textedit: { name: "a", tid: "webhare_testsuite:root.sub.test_type.part_a" } },
+                          { text: { value_tid: "webhare_testsuite:root.sub.test_type.sep" } }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+      }
+    ],
+    applyrules: [
+      {
+        extendproperties: [
+          {
+            override: [["tidField", { props: { empty_text_tid: "webhare_testsuite:override.empty" } }]]
+          }
+        ]
+      }
+    ]
+  }, await parseSP(`---
+gid: root
+types:
+  sub.test_type:
+    members:
+      tidField:
+        type: string
+        component:
+          textedit:
+            tid: .lbl
+            emptyTextTid: webhare_testsuite:abs.empty
+            hintTid: ~yes
+            placeholderTid: othermod:x.y
+            labelTid: ":Literal text"
+            valueConstraints:
+              maxBytes: 10
+      tidLines:
+        type: string
+        lines:
+        - line:
+            parts:
+            - textedit:
+                name: a
+                tid: .part_a
+            - text:
+                valueTid: .sep
+apply:
+- to:
+    type: http://www.webhare.net/xmlns/publisher/richdocumentfile
+  editProps:
+    - type: sub.test_type
+      override:
+        tidField:
+          props:
+            emptyTextTid: webhare_testsuite:override.empty
+      `));
+
+  //Bare tids are neither absolute nor relative
+  await test.throws(/Invalid tid 'common.none'/, parseSP(`---
+gid: root
+types:
+  sub.test_type:
+    members:
+      tidField:
+        type: string
+        component:
+          textedit:
+            emptyTextTid: common.none
+      `));
+
+  //Relative tids require a gid
+  await test.throws(/without a gid/, parseSP(`---
+types:
+  sub.test_type:
+    members:
+      tidField:
+        type: string
+        component:
+          textedit:
+            emptyTextTid: .none
+      `));
+
+  await test.throws(/cannot be combined with 'title'/, parseSP(`---
+gid: root
+types:
+  sub.test_type:
+    members:
+      tidField:
+        type: string
+        component:
+          textedit:
+            title: Literal
+            tid: .lbl
+      `));
+
   // Test widget type and setWidget
   test.eqPartial({
     contenttypes: [
