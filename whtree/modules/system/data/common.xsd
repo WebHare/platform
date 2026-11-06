@@ -35,6 +35,13 @@
     </xs:restriction>
   </xs:simpleType>
 
+  <!-- Absolute WebHare resource path (e.g. mod::system/data/common.xsd) -->
+  <xs:simpleType name="AbsResource">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[a-z]+::.+"/>
+    </xs:restriction>
+  </xs:simpleType>
+
   <!-- An image source link: (modulename ":")? (pathpart "/")* name -->
   <xs:simpleType name="ImageSrc">
     <xs:restriction base="xs:string">
