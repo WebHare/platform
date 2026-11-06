@@ -1969,6 +1969,7 @@ To change a <xs:attribute /> for adding descriptions
       <xs:element name="coloredit" type="ColorEdit" />
       <xs:element name="image" type="Image" />
       <xs:element name="imgedit" type="ImgEdit" />
+      <xs:element name="svg" type="SVGImage" />
       <xs:element ref="includefragment" />
       <xs:element ref="progress" />
       <xs:element name="radiobutton" type="RadioButton" />
@@ -2470,6 +2471,36 @@ To change a <xs:attribute /> for adding descriptions
         </xs:attribute>
       </xs:extension>
     </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="SVGImage">
+    <xs:annotation>
+      <xs:appinfo>
+        <tai:tolliumcomponent objecttype="/lib/components/svg.whlib#TolliumSVGImage" placement="inline" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:attributeGroup ref="ComposableComponentBase" />
+    <xs:attributeGroup ref="sc:TidOrTitle" />
+    <xs:attribute name="resource" type="sc:AbsResource">
+      <xs:annotation>
+        <xs:documentation>
+          Specifies an image from a module (format module ':' icon-dir '/' icon-name ).
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="action" type="ComponentRef">
+      <xs:annotation>
+        <xs:documentation>
+          Action to use when the image is clicked.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="opacity" type="sc:Float_0_1" default="1">
+      <xs:annotation>
+        <xs:documentation>Opacity (0..1), defaults to 1</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attributeGroup ref="OnClick" />
   </xs:complexType>
 
   <xs:complexType name="CheckBox">
@@ -5837,6 +5868,8 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="image" type="Image" />
 
   <xs:element name="imgedit" type="ImgEdit" />
+
+  <xs:element name="svg" type="SVGImage" />
 
   <xs:element name="includefragment">
     <xs:annotation>
