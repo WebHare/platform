@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+  <rect id="box" x="0" y="0" width="100" height="100" style="fill: var(--fill, rgb(0, 0, 0))" />
+  <!-- Uses a tollium styling variable (testsvg.ts verifies it's applied). Kept in a corner so clicking the center still hits #box -->
+  <rect id="accent" x="80" y="80" width="20" height="20" style="fill: var(--tollium-color-accent, rgb(0, 0, 0))" />
+</svg>
