@@ -1,4 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+  <!-- This style should not leak out of the svg component's shadow root (testsvg.ts verifies the log textarea is unaffected) -->
+  <style>textarea { color: rgb(1, 2, 3); }</style>
   <rect id="box" x="0" y="0" width="100" height="100" style="fill: var(--fill, rgb(0, 0, 0))" />
   <!-- Uses a tollium styling variable (testsvg.ts verifies it's applied). Kept in a corner so clicking the center still hits #box -->
   <rect id="accent" x="80" y="80" width="20" height="20" style="fill: var(--tollium-color-accent, rgb(0, 0, 0))" />

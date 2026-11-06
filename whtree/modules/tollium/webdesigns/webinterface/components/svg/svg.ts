@@ -1,4 +1,5 @@
 import * as dompack from "dompack";
+import DOMPurify from "dompurify";
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import { ActionableComponent, type ActionableAttributes, type ComponentBaseUpdate, type ToddCompBase } from "@mod-tollium/web/ui/js/componentbase";
 import "./svg.scss";
@@ -38,6 +39,8 @@ export class ObjSVGImage extends ActionableComponent<SVGAttributes> {
   private svgSrc = "";
   private opacity = 1;
   private wrapperNode!: HTMLDivElement;
+  // Shadow root holding the SVG, so its <style> elements and ids don't leak into (or collide with) the rest of the document
+  private svgRoot!: ShadowRoot;
 
 
   // ------------------------------------------------------------------------------------------------------------------------
@@ -66,6 +69,21 @@ export class ObjSVGImage extends ActionableComponent<SVGAttributes> {
   private updateClickable() {
     this.clickable = this.unmasked_events?.includes("click") || Boolean(this.action);
     this.node.classList.toggle("clickable", this.clickable);
+  }
+
+  private importSVG(src: string): HTMLElement | undefined {
+    this.svgSrc = src;
+    if (!this.svgSrc)
+      return;
+
+    // Strip all content from SVG that might enable XSS attacks (we can whitelist tags and attributes when needed)
+    const svgSrc = DOMPurify.sanitize(this.svgSrc, { USE_PROFILES: { svg: true } });
+    const svgDoc = new DOMParser().parseFromString(svgSrc, "text/xml");
+    if (svgDoc.documentElement.namespaceURI !== "http://www.w3.org/2000/svg" || svgDoc.documentElement.localName !== "svg")
+      return;
+    try {
+      return document.importNode(svgDoc.documentElement, true);
+    } catch (_) { }
   }
 
 
@@ -105,17 +123,17 @@ export class ObjSVGImage extends ActionableComponent<SVGAttributes> {
         mousedown: evt => this.gotMouseDown(evt),
       },
     });
+    this.svgRoot = this.wrapperNode.attachShadow({ mode: "open" });
     this.node.append(this.wrapperNode);
   }
 
   private updateNode(data: { src?: string; opacity?: number }) {
     if (data.src !== undefined && data.src !== this.svgSrc) {
-      this.svgSrc = data.src;
-      const svgDoc = new DOMParser().parseFromString(this.svgSrc, "text/xml");
-      try {
-        const svgNode = document.importNode(svgDoc.documentElement, true);
-        this.wrapperNode.replaceChildren(svgNode);
-      } catch (_) { }
+      const svgNode = this.importSVG(data.src);
+      if (svgNode)
+        this.svgRoot.replaceChildren(svgNode);
+      else
+        this.svgRoot.replaceChildren();
     }
     if (data.opacity !== undefined && data.opacity !== this.opacity) {
       this.opacity = data.opacity;
@@ -195,9 +213,11 @@ export class ObjSVGImage extends ActionableComponent<SVGAttributes> {
     if (!this.isEventUnmasked("click"))
       return;
 
-    const idNode = (event.target as Element | null)?.closest("[id]");
+    // Events from within the shadow root are retargeted to the wrapper node, so get the actual target from the composed path
+    const target = event.composedPath()[0];
+    const idNode = target instanceof Element ? target.closest("[id]") : null;
     let id = "";
-    if (idNode && this.wrapperNode.contains(idNode))
+    if (idNode && this.svgRoot.contains(idNode))
       id = idNode.id;
     void this.asyncMessage("click", {
       absolutex: event.offsetX,
