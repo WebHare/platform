@@ -898,6 +898,7 @@
       <text tid="default_sender_mail">Default sender email</text>
       <text tid="default_sender_name">Default sender name</text>
       <text tid="dynamic_registration">Dynamic client registrations</text>
+      <text tid="open_id_server">OpenID Connect provider</text>
       <text tid="oauth">OAuth</text>
       <text tid="payments">Payments</text>
       <text tid="protect">Protect this schema against imports and deletes</text>

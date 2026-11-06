@@ -8,7 +8,7 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 import { fetchUserInfo, randomNonce, randomPKCECodeVerifier } from 'openid-client';
 import type { Puppeteer } from "@webhare/deps";
-import { registerOAuthApplication, initializeIssuer, type WRDAuthLoginSettings } from "@webhare/auth";
+import { registerOAuthApplication, enableOpenIDServer, type WRDAuthLoginSettings } from "@webhare/auth";
 import { createCodeVerifier, IdentityProvider } from "@webhare/auth/src/identity";
 import { broadcast, toResourcePath } from "@webhare/services";
 import { AuthenticationSettings, createSchema, updateSchemaSettings, wrd, type WRDSchemaLike } from "@webhare/wrd";
@@ -105,7 +105,7 @@ async function setupOIDC() {
       userManagement: true
     });
 
-    await initializeIssuer(oidcAuthSchema, "https://my.webhare.dev/testfw/issuer");
+    await enableOpenIDServer(oidcAuthSchema);
 
     //TODO convert client creation to a @webhare/wrd or wrdauth api ?
     ({ wrdId: clientWrdId, clientId, clientSecret } = await registerOAuthApplication(oidcAuthSchema, { title: "testClient", callbackUrls: [await loadlib("mod::system/lib/webapi/oauth2.whlib").GetDefaultOauth2RedirectURL(), callbackUrl] }));
@@ -145,7 +145,7 @@ async function verifyRoutes_HSClient() {
   const openidconfigReq = await fetch(testsite.webRoot + ".well-known/openid-configuration");
   test.assert(openidconfigReq.ok, "Cannot find config on " + openidconfigReq.url);
   const openidconfig = await openidconfigReq.json();
-  test.assert('https://beta.webhare.net/', openidconfig.issuer);
+  test.eq(testsite.webRoot.replace(/\/$/, ""), openidconfig.issuer);
 
   const jwksReq = await fetch(openidconfig.jwks_uri);
   const jwks = await jwksReq.json();
@@ -196,10 +196,15 @@ async function verifyRoutes_TSClient() {
   const openidconfigReq = await fetch(metadataUrl);
   test.assert(openidconfigReq.ok, "Cannot find config on " + openidconfigReq.url);
   const openidconfig = await openidconfigReq.json();
-  test.assert('https://beta.webhare.net/', openidconfig.issuer);
+  test.eq(testsite.webRoot.replace(/\/$/, ""), openidconfig.issuer);
   const jwksReq = await fetch(openidconfig.jwks_uri);
   const jwks = await jwksReq.json();
   test.eq(2, jwks.keys.length);
+
+  //RFC 8414 metadata should offer the same server, including its OpenID fields
+  const oauthconfigReq = await fetch(testsite.webRoot + ".well-known/oauth-authorization-server");
+  test.assert(oauthconfigReq.ok, "Cannot find config on " + oauthconfigReq.url);
+  test.eq(openidconfig, await oauthconfigReq.json());
 
   //Run the new client
   const client = new OAuth2Client({
@@ -290,7 +295,7 @@ async function verifyOpenIDClient() {
     scope: 'openid email'
   });
 
-  test.eq('https://my.webhare.dev/testfw/issuer', config?.serverMetadata().issuer);
+  test.eq(testsite.webRoot.replace(/\/$/, ""), config?.serverMetadata().issuer);
   test.assert(tokenSet);
 
   test.eq("bearer", tokenSet.token_type);

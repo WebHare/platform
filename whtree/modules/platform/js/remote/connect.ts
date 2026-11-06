@@ -128,7 +128,10 @@ async function getStoredPeerServerToken(remoteHost: string, userSchema: WRDSchem
   return { status: "ok", token: { peerId: peer.wrdId, ...pick(currentToken, ["token", "expires", "scopes"]) } };
 }
 
-/** Validate and normalize a remote WebHare base URL, and derive the OpenID metadata URL used to identify its wrdauthServer */
+const metadataSuffixes = [".well-known/oauth-authorization-server", ".well-known/openid-configuration"];
+
+/** Validate and normalize a remote WebHare base URL, and derive the metadata URLs that may identify its wrdauthServer
+ * (registerDynamicClient stores whichever one the remote offers, preferring RFC 8414 oauth-authorization-server) */
 function parseRemoteWebHareURL(serverUrl: string) {
   const remoteUrl = new URL(serverUrl);
   if (remoteUrl.protocol !== "http:" && remoteUrl.protocol !== "https:")
@@ -139,7 +142,7 @@ function parseRemoteWebHareURL(serverUrl: string) {
     remoteUrl.pathname += "/";
 
   const serviceRoot = remoteUrl.toString();
-  return { remoteUrl, serviceRoot, metadataUrl: new URL(".well-known/openid-configuration", serviceRoot).toString() };
+  return { remoteUrl, serviceRoot, metadataUrls: metadataSuffixes.map(suffix => new URL(suffix, serviceRoot).toString()) };
 }
 
 /** List the remote WebHares we're registered with as a peer (isPeer wrdauthServer entries) and those the user has a stored token (whuserPeerserver) for.
@@ -173,7 +176,7 @@ export async function listPeers(options?: {
     .execute();
 
   const peers = authServers.map(server => ({
-    url: server.metadataUrl.replace(/\.well-known\/openid-configuration$/, ""),
+    url: server.metadataUrl.replace(/\.well-known\/(oauth-authorization-server|openid-configuration)$/, ""),
     title: server.wrdTitle,
     authServer: server.wrdId as number | null,
     peerServer: null as number | null,
@@ -220,7 +223,7 @@ export async function deletePeerRegistrations(serverUrl: string, options?: {
   }>;
   peerServers: number;
 }> {
-  const { metadataUrl } = parseRemoteWebHareURL(serverUrl);
+  const { metadataUrls } = parseRemoteWebHareURL(serverUrl);
   const userSchema = options?.wrdSchema ?? await getUserMgmtSchema();
   const entityId = options?.userEntity === null ? null : options?.userEntity ?? await lookupCLIUser(userSchema);
   const peerServers = entityId === null ? [] : (await userSchema.query("whuserPeerserver")
@@ -228,7 +231,7 @@ export async function deletePeerRegistrations(serverUrl: string, options?: {
     .where("wrdLeftEntity", "=", entityId)
     .execute()).filter(peer => isSamePeerServerURL(peer.serverurl, serverUrl));
   const servers = await userSchema.query("wrdauthServer")
-    .where("metadataUrl", "=", metadataUrl)
+    .where("metadataUrl", "in", metadataUrls)
     .where("isPeer", "=", true)
     .select(["wrdId", "wrdTitle", "registrationAccessToken", "registrationClientUri"])
     .execute();
@@ -284,11 +287,11 @@ export async function registerAtRemoteWebHare(serverUrl: string, options?: {
 } | {
   status: "dynamicRegistrationUnavailable";
 }> {
-  const { remoteUrl, serviceRoot, metadataUrl: metadataurl } = parseRemoteWebHareURL(serverUrl);
+  const { remoteUrl, serviceRoot, metadataUrls } = parseRemoteWebHareURL(serverUrl);
   const userSchema = options?.wrdSchema ?? await getUserMgmtSchema();
   const redirectUri = options?.authCallback ?? getDefaultOAuth2RedirectURL();
   const existing = await userSchema.query("wrdauthServer")
-    .where("metadataUrl", "=", metadataurl)
+    .where("metadataUrl", "in", metadataUrls)
     .select(["wrdId", "wrdTag", "wrdTitle", "clientId", "registrationAccessToken", "registrationClientUri"])
     .execute();
   const existingServer = existing[0];

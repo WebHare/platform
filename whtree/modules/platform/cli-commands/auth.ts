@@ -5,12 +5,13 @@ import { type AnyWRDSchema, type WRDSchemaLike, type WRDSchemaType, getSchemaSet
 import YAML from 'yaml';
 import { loadlib } from '@webhare/harescript/src/contextvm';
 import type { HSVMObject } from '@webhare/harescript/src/harescript';
-import { backendConfig, importJSObject, type SessionScopes } from '@webhare/services';
+import { importJSObject, type SessionScopes } from '@webhare/services';
 import { beginWork, commitWork, db } from '@webhare/whdb';
 import { compressUUID, createFirstPartyToken, decodeJWT, IdentityProvider, type AuthTokenOptions } from "@webhare/auth/src/identity";
 import { pick } from '@webhare/std';
 import { CLIRuntimeError, runCli } from "@webhare/cli";
-import { registerOAuthApplication, initializeIssuer, getOpenIDMetadataURL, type AuthCustomizer, getDefaultOAuth2RedirectURL } from '@webhare/auth';
+import { registerOAuthApplication, enableOpenIDServer, getOpenIDIssuer, getOpenIDMetadataURL, type AuthCustomizer, getDefaultOAuth2RedirectURL } from '@webhare/auth';
+import { getAuthServerMetadataURL } from '@mod-platform/js/auth/openid';
 import { prepAuthForURL } from '@webhare/auth/src/support';
 import type { PlatformDB } from '@mod-platform/generated/db/platform';
 import { readAnyFromDatabase } from '@webhare/whdb/src/formats';
@@ -24,11 +25,13 @@ async function getUserApiSchemaName(opts: { schema?: string }): Promise<string> 
 }
 
 async function describeIdp(schema: WRDSchemaType<WRDSchemaLike["wrd:idp"]>) {
-  const settings = await getSchemaSettings(schema, ["issuer", "signingKeys"]);
+  const settings = await getSchemaSettings(schema, ["signingKeys", "loginSettings"]);
   return {
-    issuer: settings.issuer,
+    openIdServer: settings.loginSettings?.openIdServer === true,
+    issuer: await getOpenIDIssuer(schema.tag),
     keys: pick(settings.signingKeys, ["availableSince", "keyId"]),
-    metadataUrl: await getOpenIDMetadataURL(schema.tag)
+    metadataUrl: await getOpenIDMetadataURL(schema.tag),
+    authServerMetadataUrl: await getAuthServerMetadataURL(schema.tag)
   };
 }
 
@@ -77,8 +80,10 @@ runCli({
           }));
         } else {
           console.log("WRD Schema:      " + wrdSchema);
-          console.log("OpenID Issuer:   " + (idp.issuer || "not set"));
-          console.log("OpenID Metadata: " + (idp.metadataUrl || "not set"));
+          console.log("Issuer:          " + (idp.issuer || "no identity provider site"));
+          console.log("OAuth2 Metadata: " + (idp.authServerMetadataUrl || "not available"));
+          console.log("OpenID Provider: " + (idp.openIdServer ? "enabled" : "disabled"));
+          console.log("OpenID Metadata: " + (idp.metadataUrl || "not available"));
         }
       }
     },
@@ -113,24 +118,26 @@ runCli({
       }
     },
     "idp-setup": {
-      shortDescription: "Setup an identity provider for a schema",
-      options: { "issuer": { description: "Issuer name. Defaults to " + backendConfig.backendURL } },
+      shortDescription: "Enable a schema as an OpenID Connect provider",
       main: async ({ opts, args }) => {
         const wrdSchema = await getUserApiSchemaName(opts);
         const schema = wrd<WRDSchemaLike["wrd:idp"]>(wrdSchema);
-        const settings = await getSchemaSettings(schema, ["issuer"]);
+        const settings = await getSchemaSettings(schema, ["loginSettings"]);
 
-        if (settings.issuer)
-          throw new Error(`Identity provider already set up for schema ${wrdSchema} with issuer: ${settings.issuer}`);
+        if (settings.loginSettings?.openIdServer)
+          throw new Error(`Schema ${wrdSchema} is already an OpenID Connect provider`);
 
         await beginWork();
-        await initializeIssuer(schema, opts.issuer || backendConfig.backendURL);
+        await enableOpenIDServer(schema);
         await commitWork();
 
+        const idp = await describeIdp(schema);
         if (opts.json) {
-          console.log(JSON.stringify(await describeIdp(schema)));
+          console.log(JSON.stringify(idp));
         } else {
-          console.log("Created identity provider");
+          console.log("Enabled OpenID Connect provider");
+          if (!idp.issuer)
+            console.log("Warning: no site with the platform:identityprovider webfeature hosts this schema yet, so its issuer is unknown");
         }
       }
     },
@@ -145,7 +152,7 @@ runCli({
       shortDescription: "Get an identity provider's metadata url",
       main: async ({ opts, args }) => {
         const wrdSchema = await getUserApiSchemaName(opts);
-        const url = await getOpenIDMetadataURL(wrdSchema);
+        const url = await getOpenIDMetadataURL(wrdSchema) ?? await getAuthServerMetadataURL(wrdSchema);
         console.log(opts.json ? JSON.stringify({ url }) : url);
       }
     },
@@ -290,7 +297,7 @@ runCli({
         await beginWork();
         const newSp = {
           ...await registerOAuthApplication(schema, { title: args.name, callbackUrls: [args.callbackurl] }),
-          metadataUrl: await getOpenIDMetadataURL(schema.tag)
+          metadataUrl: await getOpenIDMetadataURL(schema.tag) ?? await getAuthServerMetadataURL(schema.tag)
         };
         await commitWork();
 

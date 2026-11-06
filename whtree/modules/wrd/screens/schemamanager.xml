@@ -145,6 +145,7 @@
         </tab>
         <tab name="oauth">
           <heading name="dynamic_registration" checkbox="true" />
+          <heading name="open_id_server" checkbox="true" />
         </tab>
       </tabs>
     </body>
