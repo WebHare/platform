@@ -3,7 +3,6 @@
 */
 
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
-import { initializeIssuer } from "@webhare/auth";
 import { defaultWRDAuthLoginSettings } from "@webhare/auth/src/support";
 import { deletePeerRegistrations, getPeerServerToken, registerAtRemoteWebHare } from "@mod-platform/js/remote/connect";
 import { decompressUUID, hashClientSecret } from "@webhare/auth/src/identity";
@@ -25,9 +24,10 @@ async function setupDynamicRegistration() {
 
   await runInWork(async () => {
     const testSchema = wrd<WRDSchemaLike["webhare_testsuite:oidcschema"]>("webhare_testsuite:testschema");
-    await initializeIssuer(testSchema, "https://my.webhare.dev/testfw/issuer");
+    //Dynamic registration and OAuth2 shouldn't require the schema to be an OpenID Connect provider
     await updateSchemaSettings(testSchema, {
-      dynamicRegistration: { enabled: true }
+      dynamicRegistration: { enabled: true },
+      loginSettings: null
     });
   });
 
@@ -37,10 +37,20 @@ async function setupDynamicRegistration() {
 // Verify a dynamically registered client is persisted in wrdauthServer and works in the OAuth login flow.
 async function testRegisterDynamicClient() {
   const testsite = await test.getTestSiteJS();
-  const metadataResponse = await fetch(testsite.webRoot + ".well-known/openid-configuration");
+  //We're not an OpenID Connect provider, so no OpenID metadata
+  test.eq(404, (await fetch(testsite.webRoot + ".well-known/openid-configuration")).status);
+
+  const metadataResponse = await fetch(testsite.webRoot + ".well-known/oauth-authorization-server");
   test.assert(metadataResponse.ok, "Cannot find config on " + metadataResponse.url);
-  const metadata: { registration_endpoint?: string } = await metadataResponse.json();
-  test.assert(metadata.registration_endpoint, "OpenID metadata must advertise a registration_endpoint");
+  const metadata: Record<string, unknown> & { registration_endpoint?: string } = await metadataResponse.json();
+  test.assert(metadata.registration_endpoint, "OAuth2 metadata must advertise a registration_endpoint");
+  test.eq(testsite.webRoot.replace(/\/$/, ""), metadata.issuer, "Issuer should be derived from the identity provider site");
+  for (const oidcField of ["jwks_uri", "userinfo_endpoint", "id_token_signing_alg_values_supported", "scopes_supported"])
+    test.eq(false, oidcField in metadata, `OAuth2-only metadata should not contain ${oidcField}`);
+
+  const oidcEndpointBase = new URL(".", metadata.authorization_endpoint as string).toString();
+  test.eq(404, (await fetch(oidcEndpointBase + "jwks")).status);
+  test.eq(404, (await fetch(oidcEndpointBase + "userinfo")).status);
 
   ////////////////////////////////////////////////////////////////
   // STORY: Register a dynamic client
@@ -160,6 +170,16 @@ async function testRegisterDynamicClient() {
   test.eqPartial({ status: 200, body: { user: { email: test.getUser("sysop").login } } }, await api.get("/meta"));
 
   ////////////////////////////////////////////////////////////////
+  // STORY: OpenID scopes are refused as we're not an OpenID Connect provider
+  test.eqPartial({ error: "invalid_scope" }, await test.runOpenIDLoginFlow(browser, {
+    metadataUrl: registeredClient.metadataUrl,
+    clientId: registeredClient.clientId,
+    clientSecret: registeredClient.clientSigning.secret,
+    callbackUrl: registration.redirect_uris[0],
+    scope: "openid platform:sysop"
+  }));
+
+  ////////////////////////////////////////////////////////////////
   // STORY: Verify error handling/edge cases
   const wrongMethodResponse = await fetch(metadata.registration_endpoint);
   test.eq(405, wrongMethodResponse.status);
@@ -183,7 +203,7 @@ async function testRegisterDynamicClient() {
 
 async function disableDynamicRegistration() {
   const testsite = await test.getTestSiteJS();
-  const metadataUrl = testsite.webRoot + ".well-known/openid-configuration";
+  const metadataUrl = testsite.webRoot + ".well-known/oauth-authorization-server";
   const metadata: { registration_endpoint?: string } = await (await fetch(metadataUrl)).json();
   test.assert(metadata.registration_endpoint);
 
@@ -301,7 +321,7 @@ async function testPeerServerToken() {
   test.assert(tokenRequest.status === "interactionRequired");
   test.eq(priorApplications.length + 1, (await userSchema.query("wrdauthApplication").select("wrdId").execute()).length, "Expected a new dynamic client registration");
   const authServer = await userSchema.query("wrdauthServer").where("isPeer", "=", true).select(["wrdId", "metadataUrl"]).execute();
-  test.eq([{ wrdId: authServer[0].wrdId, metadataUrl: testsite.webRoot + ".well-known/openid-configuration" }], authServer);
+  test.eq([{ wrdId: authServer[0].wrdId, metadataUrl: testsite.webRoot + ".well-known/oauth-authorization-server" }], authServer);
 
   ////////////////////////////////////////////////////////////////
   // STORY: Log in at the remote and approve the request

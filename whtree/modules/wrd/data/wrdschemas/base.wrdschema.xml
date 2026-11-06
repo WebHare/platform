@@ -6,6 +6,11 @@
              stage="afterEntities"
              updatefunction="mod::wrd/lib/internal/metadata/migrations.whlib#MigrateSettings" />
 
+  <migration tag="platform:openid_issuer"
+             at="update"
+             stage="beforeTypes"
+             updatefunction="mod::platform/lib/internal/migrations.whlib#MigrateOpenIDIssuer" />
+
   <object tag="wrd_relation" title="Relation" />
 
   <object tag="wrd_person" haspersonaldata="true" parent="wrd_relation" title="Person" />
@@ -57,7 +62,6 @@
               gid="tolliumapps.auth.settings.authtexts" />
         <richdocument tag="text" />
       </array>
-      <free tag="issuer" description="JWT issuer" unsafetocopy="true" />  <!-- attempting to sync an existing issuer will only generate confusing tokens. it's better to maintain this per server -->
       <json tag="dynamic_registration" unsafetocopy="true"
             description="Dynamic registration configuration"
             typedeclaration="@webhare/auth/src/support.ts#WRDDynamicRegistrationSettings" />

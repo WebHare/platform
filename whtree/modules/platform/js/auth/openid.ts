@@ -123,7 +123,37 @@ async function findLoginPageForSchema(schema: string) {
 
     loginPage = joinURL(site.webRoot, targeted[2]);
   }
-  return { loginPage, metadataUrl: candidates[0].webRoot + ".well-known/openid-configuration", wrdauth: candidates[0].wrdauth, site: candidates[0].id };
+  return {
+    loginPage,
+    issuer: getIssuerForWebRoot(candidates[0].webRoot),
+    metadataUrl: candidates[0].webRoot + ".well-known/openid-configuration",
+    authServerMetadataUrl: candidates[0].webRoot + ".well-known/oauth-authorization-server",
+    wrdauth: candidates[0].wrdauth,
+    site: candidates[0].id
+  };
+}
+
+/** Derive the OAuth2/OpenID issuer from the webroot of the identity provider site. RFC 8414 and OpenID Connect Discovery
+ * require the issuer to match the location of the metadata, so this is not configurable */
+export function getIssuerForWebRoot(webRoot: string) {
+  return webRoot.endsWith("/") ? webRoot.slice(0, -1) : webRoot;
+}
+
+/** Get the OpenID/OAuth2 issuer for a WRD schema
+ * @param schema - WRD schema tag
+ * @returns The issuer, or null if no (single) site hosts an identity provider for this schema
+ */
+export async function getOpenIDIssuer(schema: string): Promise<string | null> {
+  try {
+    return (await findLoginPageForSchema(schema)).issuer;
+  } catch (ignore) {
+    return null;
+  }
+}
+
+/** Check whether a schema has been enabled as an OpenID Connect provider (loginSettings.openIdServer) */
+export async function isOpenIDServer(wrdschema: WRDSchemaType<WRDSchemaLike["wrd:idp"]>) {
+  return (await getSchemaSettings(wrdschema, ["loginSettings"])).loginSettings?.openIdServer === true;
 }
 
 function getOpenIdBase(wrdschema: WRDSchemaType<WRDSchemaLike["wrd:idp"]>) {
@@ -236,7 +266,12 @@ export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provide
       return createOIDCErrorResponse(callerInfo, "invalid_request", `Invalid code challenge method '${code_challenge_method}', allowed are 'plain' or 'S256`);
   }
 
-  const invalidScopes = scopes.filter(scope => !builtinScopes.includes(scope) && !Object.keys(supportedAccessScopes).includes(scope));
+  const openIdServer = await isOpenIDServer(provider.wrdschema as unknown as WRDSchemaType<WRDSchemaLike["wrd:idp"]>);
+  if (!openIdServer && response_type.includes("id_token"))
+    return createOIDCErrorResponse(callerInfo, "unsupported_response_type", `This server is not an OpenID Connect provider and cannot return an id_token`);
+
+  const allowedScopes = [...(openIdServer ? builtinScopes : []), ...Object.keys(supportedAccessScopes)];
+  const invalidScopes = scopes.filter(scope => !allowedScopes.includes(scope));
   if (invalidScopes.length > 0)
     return createOIDCErrorResponse(callerInfo, "invalid_scope", `Invalid scope requested: ${invalidScopes.join(", ")}`);
 
@@ -426,7 +461,13 @@ export async function retrieveTokens<T extends SchemaTypeDefinition>(provider: I
       return { error: "Wrong code_verifier" };
   }
 
+  //Only look up the issuer if we need it, plain OAuth2 doesn't
+  const issuer = returnInfo.scopes.includes("openid") ? options?.issuer ?? await getOpenIDIssuer(provider.wrdschema.tag) : undefined;
+  if (returnInfo.scopes.includes("openid") && !issuer)
+    return { error: "Unable to determine the OpenID issuer" };
+
   const tokens = await provider.createTokens("oidc", returnInfo.user, returnInfo.clientid, sessionid, returnInfo.nonce, {
+    issuer: issuer ?? undefined,
     scopes: returnInfo.scopes,
     customizer: options?.customizer,
     expires: options?.expires, //if not set, createTokens falls back to loginSettings.apiTokenDuration and eventually defaultAccessTokenExpiry
@@ -445,13 +486,28 @@ export async function retrieveTokens<T extends SchemaTypeDefinition>(provider: I
 }
 
 
+/** Get the OpenID Connect Discovery metadata URL for a schema
+ * @returns The metadata URL, or null if no (single) site hosts an identity provider for this schema or the schema is not an OpenID Connect provider
+ */
 export async function getOpenIDMetadataURL(schema: string) {
+  if (!await isOpenIDServer(wrd<WRDSchemaLike["wrd:idp"]>(schema)))
+    return null;
+  return (await getAuthServerMetadataURLs(schema))?.metadataUrl ?? null;
+}
+
+/** Get the OAuth2 Authorization Server Metadata (RFC 8414) URL for a schema
+ * @returns The metadata URL, or null if no (single) site hosts an identity provider for this schema
+ */
+export async function getAuthServerMetadataURL(schema: string) {
+  return (await getAuthServerMetadataURLs(schema))?.authServerMetadataUrl ?? null;
+}
+
+async function getAuthServerMetadataURLs(schema: string) {
   try {
-    const loginInfo = await findLoginPageForSchema(schema);
-    return loginInfo.metadataUrl;
+    return await findLoginPageForSchema(schema);
   } catch (ignore) {
+    return null;
   }
-  return null;
 }
 
 export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
@@ -573,6 +629,9 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
   const login = await findLoginPageForSchema(wrdschemaTag);
 
   const customizer = login.wrdauth.customizer ? await importJSObject(login.wrdauth.customizer) as AuthCustomizer : undefined;
+  if (["userinfo", "jwks"].includes(endpoint[3]) && !await isOpenIDServer(wrdschema)) //these are only used by OpenID Connect
+    return createJSONResponse(404, { error: `Schema '${wrdschemaTag}' is not an OpenID Connect provider` });
+
   if (endpoint[3] === 'userinfo') {
     const authorization = req.headers.get("Authorization")?.match(/^bearer +(.+)$/i);
     if (!authorization || !authorization[1])
@@ -608,7 +667,7 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
   if (endpoint[3] === 'token') {
     const body = await req.text();
     const form = new URLSearchParams(body);
-    const response = await retrieveTokens(provider, form, req.headers, { customizer });
+    const response = await retrieveTokens(provider, form, req.headers, { customizer, issuer: login.issuer });
     if (response.error !== null)
       return createJSONResponse(400, { error: response.error });
     else {

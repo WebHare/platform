@@ -124,5 +124,6 @@ PUBLIC BOOLEAN FUNCTION IsWHSafePublicEndpoint(STRING url)
           OR relpath LIKE ".publisher/common/debug/*"
           OR relpath LIKE ".publisher/common/find/*"
           // third parties need to be able to access this if it exists
-          OR relpath LIKE ".well-known/openid-configuration";
+          OR relpath LIKE ".well-known/openid-configuration"
+          OR relpath LIKE ".well-known/oauth-authorization-server";
 }

@@ -22,6 +22,8 @@ export type WRDAuthLoginSettings = {
   roundMinDuration: number;
   /** Duration of access tokens handed out over OAuth2 (milliseconds). If not set, falls back to defaultAccessTokenExpiry (7 days) */
   apiTokenDuration?: number;
+  /** Act as an OpenID Connect provider (offer openid-configuration metadata, ID tokens and userinfo). Plain OAuth2 doesn't require this */
+  openIdServer?: boolean;
 };
 
 export const defaultWRDAuthLoginSettings: WRDAuthLoginSettings = {

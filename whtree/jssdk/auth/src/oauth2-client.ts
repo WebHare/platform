@@ -456,15 +456,28 @@ export type DynamicClientRegistrationParameters = {
   response_types?: ResponseType[];
 };
 
-/** Register a client, or return null when there is no OpenID provider (metadata returns HTTP 404), the provider does not advertise registration or refuses it with HTTP 403. */
+/** Find the authorization server metadata for a service root. Tries OAuth 2.0 Authorization Server Metadata (RFC 8414) first and falls back to OpenID Connect Discovery
+ * @returns The metadata URL and its contents, or null if neither is available (HTTP 404)
+ */
+async function discoverAuthServerMetadata(serviceRoot: string) {
+  for (const wellKnown of [".well-known/oauth-authorization-server", ".well-known/openid-configuration"]) {
+    const metadataUrl = new URL(wellKnown, serviceRoot).toString();
+    const metadataResponse = await fetch(metadataUrl);
+    if (metadataResponse.status === 404)
+      continue;
+    if (!metadataResponse.ok)
+      throw new Error(`Cannot load authorization server metadata from ${metadataUrl}: HTTP ${metadataResponse.status}`);
+    return { metadataUrl, metadata: await metadataResponse.json() as { registration_endpoint?: unknown } };
+  }
+  return null;
+}
+
+/** Register a client, or return null when there is no authorization server (metadata returns HTTP 404), the server does not advertise registration or refuses it with HTTP 403. */
 export async function registerDynamicClient(serviceRoot: string, registration: DynamicClientRegistrationParameters) {
-  const metadataUrl = new URL(".well-known/openid-configuration", serviceRoot).toString();
-  const metadataResponse = await fetch(metadataUrl);
-  if (metadataResponse.status === 404) //eg. a WebHare without OpenID support, which may still support legacy peering
+  const discovered = await discoverAuthServerMetadata(serviceRoot);
+  if (!discovered) //eg. a WebHare without OAuth2 server support, which may still support legacy peering
     return null;
-  if (!metadataResponse.ok)
-    throw new Error(`Cannot load OpenID metadata from ${metadataUrl}: HTTP ${metadataResponse.status}`);
-  const metadata: { registration_endpoint?: unknown } = await metadataResponse.json();
+  const { metadataUrl, metadata } = discovered;
   if (typeof metadata.registration_endpoint !== "string" || !metadata.registration_endpoint)
     return null;
 

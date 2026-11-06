@@ -255,6 +255,9 @@ PUBLIC STATIC OBJECTTYPE SchemaProps EXTEND TolliumScreenBase <
 
     RECORD dynamic_registration := GetWRDSetting(this->contexts->wrdschema, "dynamic_registration");
     ^dynamic_registration->value := CellExists(dynamic_registration,"enabled") AND dynamic_registration.enabled;
+
+    RECORD login_settings := GetWRDSetting(this->contexts->wrdschema, "login_settings");
+    ^open_id_server->value := CellExists(login_settings,"open_id_server") AND login_settings.open_id_server;
   }
 
   MACRO OnAccountTypeChange()
@@ -284,13 +287,16 @@ PUBLIC STATIC OBJECTTYPE SchemaProps EXTEND TolliumScreenBase <
 
     IF(NOT work->HasFailed()) {
       SetupWRDAddressVerification(this->contexts->wrdschema, ^validationsettings->value);
-      RECORD cursettings := GetWRDSettings(this->contexts->wrdschema, ["dynamic_registration"]);
+      RECORD cursettings := GetWRDSettings(this->contexts->wrdschema, ["dynamic_registration", "login_settings"]);
       SetWRDSettings(this->contexts->wrdschema,
         CELL[ default_sender_mail := ^default_sender_mail->value
             , default_sender_name := ^default_sender_name->value
             , dynamic_registration := CELL[ ...cursettings.dynamic_registration,
                                             enabled := ^dynamic_registration->value
                                           ]
+            , login_settings := CELL[ ...cursettings.login_settings
+                                    , open_id_server := ^open_id_server->value
+                                    ]
           ]);
       this->contexts->wrdschema->UpdateMetadata(CELL[...^wrdschema->value, DELETE creationdate]);
     }
