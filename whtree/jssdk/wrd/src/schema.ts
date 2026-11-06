@@ -324,7 +324,13 @@ export class WRDSchemaType<S extends SchemaTypeDefinition = AnySchemaType> {
     using invalidationCollector = new SchemaDataInvalidationCollector(schemaUpdateListener);
     const data = getSchemaData(this.tag);
     this.schemaData = data;
-    schemaUpdateListener.addSchema(this, await data, invalidationCollector.invalidations, () => this.__clearCache());
+    const loaded = await data.catch(error => {
+      // Allow a later call to retry, while preserving any newer refresh.
+      if (this.schemaData === data)
+        this.schemaData = undefined;
+      throw error;
+    });
+    schemaUpdateListener.addSchema(this, loaded, invalidationCollector.invalidations, () => this.__clearCache());
     return data;
   }
 
