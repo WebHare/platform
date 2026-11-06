@@ -243,7 +243,14 @@ export class OAuth2Client {
       authurl.searchParams.set(addVar.param, addVar.value);
 
     if (debugFlags.openid)
-      logDebug("platform:oauth2-client", { step: "createAuthorizeLink", finalurl, state, session, authurl: authurl.toString() });
+      logDebug("platform:oauth2-client", {
+        step: "createAuthorizeLink",
+        clientId: this.clientinfo.clientId,
+        metadataUrl: this.clientinfo.metadataUrl,
+        authURLOrigin: authurl.origin,
+        rediredctURLOrigin: URL.parse(redirecturl)?.origin,
+        returnURLOrigin: URL.parse(finalurl)?.origin
+      });
 
     return { type: "redirect", url: authurl.toString() };
   }
@@ -276,7 +283,12 @@ export async function handleOAuth2AuthorizeLanding(clientScope: string, oauth2Se
 } | null> {
   const sessdata = await getServerSession("system:oauth2", oauth2Session);
   if (debugFlags.openid)
-    logDebug("platform:oauth2-client", { step: "handleOAuth2AuthorizeLanding", clientScope, oauth2Session, sessdata });
+    logDebug("platform:oauth2-client", {
+      step: "handleOAuth2AuthorizeLanding",
+      clientScope,
+      hasSession: Boolean(sessdata),
+      hasTokens: Boolean(sessdata?.tokeninfo)
+    });
 
   if (!sessdata || sessdata.client_scope !== clientScope)
     return null; //expired or invalid sessions
