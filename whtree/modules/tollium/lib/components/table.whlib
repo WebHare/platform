@@ -557,7 +557,7 @@ PUBLIC OBJECTTYPE TolliumTable EXTEND TolliumComponentBase
       }
       CASE "magicaction"
       {
-        IF(NOT this->contexts->controller->IsTrustedToDebug())
+        IF(NOT this->contexts->controller->IsTrustedToDebug(FALSE))
           RETURN;
 
         SWITCH (msgdata.type)

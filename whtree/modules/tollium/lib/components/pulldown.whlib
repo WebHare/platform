@@ -101,7 +101,7 @@ PUBLIC OBJECTTYPE TolliumPulldown EXTEND TolliumComponentBase
     {
       CASE "inspectoptions"
       {
-        IF(this->contexts->controller->IsTrustedToDebug())
+        IF(this->contexts->controller->IsTrustedToDebug(FALSE))
           Reflect(this->options);
         RETURN;
       }
