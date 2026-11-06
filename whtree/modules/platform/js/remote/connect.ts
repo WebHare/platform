@@ -5,10 +5,11 @@ import { getAuthSettings } from "@webhare/auth/src/support";
 import { setOAuth2InitiationLocalUser } from "@mod-platform/js/auth/oauth2-initiations";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { createEphemeralEndpoint, createRedirectResponse, createWebResponse, HTTPErrorCode } from "@webhare/router";
-import { backendConfig, broadcast, logError, subscribe, type BackendEvent, type BackendEvents } from "@webhare/services";
+import { backendConfig, broadcast, lockMutex, logError, subscribe, type BackendEvent, type BackendEvents } from "@webhare/services";
 import { generateRandomId, pick, updateURL } from "@webhare/std";
 import { runInSeparateWork, runInWork } from "@webhare/whdb";
 import { wrd, type WRDInsertable, type WRDSchemaLike, type WRDSchemaType } from "@webhare/wrd";
+import { createHash } from "node:crypto";
 
 export type PeerServerToken = {
   /** The whuserPeerserver entity storing the token */
@@ -294,6 +295,13 @@ export async function registerAtRemoteWebHare(serverUrl: string, options?: {
   const { remoteUrl, serviceRoot, metadataUrls } = parseRemoteWebHareURL(serverUrl);
   const userSchema = options?.wrdSchema ?? await getUserMgmtSchema();
   const redirectUri = options?.authCallback ?? getDefaultOAuth2RedirectURL();
+
+  /* Serialize registrations for the same remote, from looking up an existing registration until the new one is stored. Otherwise concurrent
+     first connections would both register at the remote and only one could store its registration (wrdTitle is unique), leaving the other
+     orphaned at the remote. Mutex names only allow a limited character set, so hash the schema and remote */
+  using lock = await lockMutex("platform:peer-registration-" + createHash("sha256").update(userSchema.tag + "\t" + serviceRoot).digest("hex"));
+  void (lock);
+
   const existing = await userSchema.query("wrdauthServer")
     .where("metadataUrl", "in", metadataUrls)
     .select(["wrdId", "wrdTag", "wrdTitle", "clientId", "registrationAccessToken", "registrationClientUri"])
