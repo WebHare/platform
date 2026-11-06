@@ -1,0 +1,245 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::float.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/internal/components.whlib";
+
+
+PUBLIC OBJECTTYPE TolliumSVGImage EXTEND TolliumComponentBase <
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING __svg_source;
+
+  RECORD __css_vars;
+  STRING css_vars_hash;
+
+  FUNCTION PTR __onclick;
+
+  OBJECT __action;
+
+  FLOAT __opacity;
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Public variables & properties
+  //
+
+  /// The SVG source
+  PUBLIC PROPERTY svg_source(__svg_source, SetSVGSource);
+
+  /// CSS variables for usage within the SVG (prefixed with '--'). Note that tollium iframe styling variables are available
+  /// as well, see @webhare/tollium-iframe-api for more information.
+  PUBLIC PROPERTY css_vars(__css_vars, SetCSSVars);
+
+  /// Onclick. Signature macro func(record data) (data.id, data.x, data.y)
+  PUBLIC PROPERTY onclick(__onclick, SetOnClick);
+
+  /// Action fired when image is clicked
+  PUBLIC PROPERTY action(__action, SetAction);
+
+  /// Image opacity
+  PUBLIC PROPERTY opacity(__opacity, SetOpacity);
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Constructor & tollium stuff
+  //
+
+  MACRO NEW() {
+    EXTEND this BY TolliumIsComposable;
+
+    this->componenttype := "svg";
+    this->formfieldtype := "string";
+    this->__opacity := 1;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def) {
+    TolliumComponentBase::StaticInit(def);
+
+    this->__onclick := def.onclick;
+    this->__action := def.action;
+    this->__opacity := def.opacity;
+
+    this->LoadResource(def.resource);
+  }
+
+  UPDATE RECORD FUNCTION GetExtraDirtyFlags() {
+    RETURN MakeMergedRecord(TolliumComponentBase::GetExtraDirtyFlags(), [
+      source := FALSE,
+      vars := FALSE,
+      eventmask := FALSE,
+      action := FALSE,
+      opacity := FALSE,
+    ]);
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender() {
+    IF (this->dirtyflags.fully) {
+      RECORD compinfo := CELL[
+        src := this->svg_source,
+        vars := this->css_vars,
+        this->hint,
+        unmasked_events := GetUnmask(this, ["click"]),
+        action := GetComponentName(this->__action),
+        this->opacity,
+      ];
+
+      this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    } ELSE {
+      IF (this->dirtyflags.source)
+        this->ToddUpdate([ type := "source", src := this->svg_source ]);
+
+      IF (this->dirtyflags.vars)
+        this->ToddUpdate([ type := "vars", vars := this->css_vars ]);
+
+      IF (this->dirtyflags.eventmask)
+        this->ToddUpdate([ type := "eventmask", unmasked_events := GetUnmask(this, ["click"]) ]);
+
+      IF (this->dirtyflags.action)
+        this->ToddUpdate([ type := "action", action := GetComponentName(this->__action) ]);
+
+      IF (this->dirtyflags.opacity)
+        this->ToddUpdate(CELL[ type := "opacity", this->opacity ]);
+    }
+
+    TolliumComponentBase::TolliumWebRender();
+  }
+
+  UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata) {
+    IF (type = "click") {
+      IF (this->__onclick != DEFAULT FUNCTION PTR) {
+        this->__onclick(CELL[
+          msgdata.id,
+          x := FloatToInteger(msgdata.absolutex+0.5),
+          y := FloatToInteger(msgdata.absolutey+0.5),
+        ]);
+      }
+      RETURN;
+    }
+    TolliumComponentBase::ProcessInboundMessage(type,msgdata);
+  }
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  UPDATE PUBLIC STRING FUNCTION GetDefaultWidth() {
+    RETURN "100px";
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetDefaultHeight() {
+    RETURN "100px";
+  }
+
+  MACRO SetSVGSource(STRING svg_source) {
+    IF (this->__svg_source != svg_source) {
+      this->__svg_source := svg_source;
+      this->ExtUpdatedSource();
+    }
+  }
+
+  MACRO SetCSSVars(RECORD css_vars) {
+    RECORD ARRAY unpacked := UnpackRecord(css_vars);
+    STRING invalid_var := SELECT AS STRING ToLowercase(name) FROM unpacked WHERE name NOT LIKE "--?*";
+    IF (invalid_var != "")
+      THROW NEW TolliumException(this, `Invalid CSS variable name '${invalid_var}', it should start with '--'`);
+    RECORD invalid_value := SELECT name := ToLowercase(name), * FROM unpacked WHERE TypeID(value) != TypeID(STRING);
+    IF (RecordExists(invalid_value))
+      THROW NEW TolliumException(this, `Invalid CSS variable value '${invalid_value.value}' for '${invalid_value.name}', only strings are allowed`);
+
+    STRING hash := GetMD5Hash(EncodeJSON(css_vars));
+    IF (hash != this->css_vars_hash) {
+      this->__css_vars := css_vars;
+      this->css_vars_hash := hash;
+      this->ExtUpdatedVars();
+    }
+  }
+
+  UPDATE MACRO SetOnClick(FUNCTION PTR onclick) {
+    IF (onclick != DEFAULT FUNCTION PTR AND NOT ValidateFunctionPtr(onclick, 0, [ TypeID(RECORD) ]))
+      THROW NEW TolliumException(this, "The callback set in onclick has an invalid function signature. Expected: MACRO func(RECORD data), got " || ExplainFunctionPtrSignature(onclick));
+
+    this->__onclick := onclick;
+    this->ExtUpdatedEventMask();
+  }
+
+  UPDATE MACRO SetAction(OBJECT action) {
+    this->__action := action;
+    this->ExtUpdatedAction();
+  }
+
+  MACRO SetOpacity(FLOAT opacity) {
+    IF (this->__opacity = opacity)
+      RETURN;
+    IF (opacity < 0 OR opacity > 1)
+      THROW NEW TolliumException(this, `Invalid opacity '${FormatFloat(opacity, 5)}' - must be in range [0,1]`);
+
+    this->__opacity := opacity;
+    this->ExtUpdatedOpacity();
+  }
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // ExtXXX functions
+  //
+
+  MACRO ExtUpdatedSource()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.source := TRUE;
+  }
+
+  MACRO ExtUpdatedVars()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.vars := TRUE;
+  }
+
+  MACRO ExtUpdatedEventMask()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.eventmask := TRUE;
+  }
+
+  MACRO ExtUpdatedAction()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.action := TRUE;
+  }
+
+  MACRO ExtUpdatedOpacity()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.opacity := TRUE;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO LoadResource(STRING resource) {
+    IF (resource = "") {
+      this->svg_source := "";
+      RETURN;
+    }
+    RECORD svg := WrapBlob(RetrieveWebHareResource(resource).data, GetNameFromPath(resource));
+    IF (svg.mimetype != "image/svg+xml")
+      THROW NEW TolliumException(this, `Only SVG resources can be loaded in an <svg> component`);
+    this->svg_source := BlobToString(svg.data);
+  }
+>;
