@@ -6,6 +6,9 @@ import { OpenAPIApiClient } from "@mod-platform/generated/openapi/platform/api";
 import type { ExportedResource } from "@webhare/services/src/descriptor";
 import { readFileSync } from "node:fs";
 import { toFSPath } from "@webhare/services";
+import { loadlib, type HSVMObject } from "@webhare/harescript";
+import { runInWork } from "@webhare/whdb";
+import { resolvePath } from "@mod-platform/openapi/api/whfs";
 
 const jsAuthSchema = wrd<WRDSchemaLike["webhare_testsuite:jsschema"]>("webhare_testsuite:testschema");
 
@@ -19,6 +22,7 @@ async function setup() {
     users: {
       sysop: { grantRights: ["system:sysop", "platform:api"] },
       marge: { grantRights: ["platform:api"] },
+      homer: { grantRights: ["platform:api"] }, //will receive WHFS rights on the testsite in testWHFSasHomer
     }
   });
 
@@ -338,11 +342,42 @@ async function testWHFSasMarge() {
   const result = await api.get("/whfs/object");
   test.assert(result.status === 403, `No permission`);
 
-  //TODO test also with limited WHFS rights
+}
+
+async function testWHFSasHomer() {
+  /* The API currently requires sysop rights and scopes for everyone (see verifyUser in meta.ts), so we can't reach the WHFS endpoints
+     with limited WHFS rights yet. Verify resolvePath, which the endpoints use to check the rights they need, directly instead */
+  const testSite = await test.getTestSiteJS();
+  const testRoot = await testSite.openFolder("/");
+  const tmpFolder = await testSite.openFolder("tmp");
+  const homerReq = (path: string) => ({ params: { path }, authorization: { userId: test.getUser("homer").wrdId } });
+
+  //Grant homer browse rights on the testsite (no TS API for granting yet)
+  const hsWRDSchema = await loadlib("mod::wrd/lib/api.whlib").openWRDSchema("webhare_testsuite:testschema");
+  const rightsApi = await loadlib("mod::wrd/lib/auth.whlib").GetWRDAuthUserAPI(hsWRDSchema);
+  const sysop = await rightsApi.GetUser(test.getUser("sysop").wrdId) as HSVMObject;
+  const homer = await rightsApi.GetUser(test.getUser("homer").wrdId) as HSVMObject;
+  await runInWork(() => sysop.UpdateGrant("grant", "system:fs_browse", testRoot.id, homer, {}));
+
+  //Homer can browse the site but not the WHFS root
+  await test.throws(/Access denied/, resolvePath(homerReq("/")));
+  test.eq(testRoot.id, (await resolvePath(homerReq(testRoot.whfsPath))).id);
+  test.eq(tmpFolder.id, (await resolvePath(homerReq(tmpFolder.whfsPath))).id);
+
+  //Browse rights do not grant write access (as required by POST and PATCH)
+  await test.throws(/Access denied/, resolvePath(homerReq(tmpFolder.whfsPath), { right: "system:fs_fullaccess" }));
+
+  //Full access on the tmp folder allows modifications inside it, but not outside it
+  await runInWork(() => sysop.UpdateGrant("grant", "system:fs_fullaccess", tmpFolder.id, homer, {}));
+  test.eq(tmpFolder.id, (await resolvePath(homerReq(tmpFolder.whfsPath), { right: "system:fs_fullaccess" })).id);
+  await resolvePath(homerReq(tmpFolder.whfsPath + "newfolder/newfile"), { right: "system:fs_fullaccess" });
+  await test.throws(/Access denied/, resolvePath(homerReq(testRoot.whfsPath), { right: "system:fs_fullaccess" }));
+  await test.throws(/Access denied/, resolvePath(homerReq(testRoot.whfsPath + "TestPages/simpletest.rtd"), { right: "system:fs_fullaccess" }));
 }
 
 test.runTests([
   setup,
   testWHFSAPI,
-  testWHFSasMarge
+  testWHFSasMarge,
+  testWHFSasHomer
 ]);
