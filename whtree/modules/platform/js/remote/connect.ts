@@ -435,7 +435,12 @@ async function getOAuth2PeerServerTokenURL(remoteHost: string, userSchema: WRDSc
   const endpoint = cleanup.use(await createEphemeralEndpoint(async request => {
     const oauth2session = new URL(request.url).searchParams.get("oauth2session");
     const oauthinfo = oauth2session ? await handleOAuth2AuthorizeLanding(clientScope, oauth2session) : null;
-    if (!oauthinfo?.tokens?.access_token || !oauthinfo?.expires) {
+    //A missing, unknown or expired session isn't the outcome of our authorization (eg. a stray or repeated request), so don't let it end the flow
+    if (!oauthinfo)
+      return createWebResponse("Invalid or expired authorization session", { status: HTTPErrorCode.BadRequest });
+
+    //A valid session without tokens means the authorization failed, eg. the user denied consent
+    if (!oauthinfo.tokens?.access_token || !oauthinfo.expires) {
       landing.resolve({ status: "error", error: "authorizationFailed", message: "Authorization failed or expired" });
       return createWebResponse("Authorization failed or expired", { status: HTTPErrorCode.BadRequest });
     }
