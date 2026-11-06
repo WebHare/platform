@@ -2,11 +2,12 @@ import { getDefaultOAuth2RedirectURL } from "@webhare/auth";
 import { IdentityProvider } from "@webhare/auth/src/identity";
 import { createOAuth2Client, deleteDynamicClientRegistration, getDynamicClientRegistration, handleOAuth2AuthorizeLanding, registerDynamicClient, type OAuth2PromptFlag } from "@webhare/auth/src/oauth2-client";
 import { getAuthSettings } from "@webhare/auth/src/support";
+import { setOAuth2InitiationLocalUser } from "@mod-platform/js/auth/oauth2-initiations";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { createEphemeralEndpoint, createRedirectResponse, createWebResponse, HTTPErrorCode } from "@webhare/router";
 import { backendConfig, broadcast, logError, subscribe, type BackendEvent, type BackendEvents } from "@webhare/services";
 import { generateRandomId, pick, updateURL } from "@webhare/std";
-import { runInSeparateWork } from "@webhare/whdb";
+import { runInSeparateWork, runInWork } from "@webhare/whdb";
 import { wrd, type WRDInsertable, type WRDSchemaLike, type WRDSchemaType } from "@webhare/wrd";
 
 export type PeerServerToken = {
@@ -93,16 +94,19 @@ function isSamePeerServerURL(storedUrl: string, remoteHost: string) {
   return storedUrl === remoteHost || storedUrl + "/" === remoteHost || storedUrl === remoteHost + "/";
 }
 
-/** Store the current token for a user's peer server
+/** Mutex to hold in the work that stores a user's peer server token. Serializes updates to a user's peer server tokens */
+function getPeerTokenMutex(userEntity: number) {
+  return "system:remoteservertoken-" + userEntity;
+}
+
+/** Store the current token for a user's peer server. Must be invoked inside work holding getPeerTokenMutex(userEntity)
  * @returns The whuserPeerserver entity id */
 async function storePeerToken(userSchema: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>, userEntity: number, remoteHost: string, currentToken: StoredPeerServerToken): Promise<number> {
-  return await runInSeparateWork(async () => {
-    const [peerId] = await userSchema.upsert("whuserPeerserver",
-      { wrdLeftEntity: userEntity, serverurl: remoteHost }, //key
-      { lastuse: Temporal.Now.instant(), currentToken },
-      { ifNew: { wrdTitle: new URL(remoteHost).host } });
-    return peerId;
-  }, { mutex: "system:remoteservertoken-" + userEntity }); //serializes updates to a user's peer server tokens
+  const [peerId] = await userSchema.upsert("whuserPeerserver",
+    { wrdLeftEntity: userEntity, serverurl: remoteHost }, //key
+    { lastuse: Temporal.Now.instant(), currentToken },
+    { ifNew: { wrdTitle: new URL(remoteHost).host } });
+  return peerId;
 }
 
 /** Look up the user's stored token for a peer server
@@ -403,7 +407,7 @@ class TokenPromise {
           scopes: evt.data.scopes
         };
 
-        const peerId = await storePeerToken(this.wrdschema, this.wrdentity, this.url, token);
+        const peerId = await runInWork(() => storePeerToken(this.wrdschema, this.wrdentity, this.url, token), { mutex: getPeerTokenMutex(this.wrdentity) });
         this.resolve({ status: "ok", token: { ...token, peerId } });
         break;
       }
@@ -454,7 +458,10 @@ async function getOAuth2PeerServerTokenURL(remoteHost: string, userSchema: WRDSc
       expires: new Date(oauthinfo.expires.epochMilliseconds),
       scopes: scopes
     };
-    const peerId = await storePeerToken(userSchema, entityId, remoteHost, token);
+    const peerId = await runInWork(async () => {
+      await setOAuth2InitiationLocalUser(oauth2session!, userSchema.tag, entityId); //for list-oauth2-initiations and the dashboard
+      return await storePeerToken(userSchema, entityId, remoteHost, token);
+    }, { mutex: getPeerTokenMutex(entityId) });
     landing.resolve({ status: "ok", token: { ...token, peerId } });
 
     return createRedirectResponse({ type: "close" });

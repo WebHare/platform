@@ -1,0 +1,65 @@
+<?wh
+
+LOADLIB "wh::javascript.whlib";
+
+LOADLIB "mod::system/lib/screenbase.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE OAuth2Initiations EXTEND DashboardPanelBase <
+  /// All initiations as retrieved by the last refresh, before filtering
+  RECORD ARRAY initiations;
+
+  MACRO Init(RECORD data) {
+    ^statusfilter->value := "failed"; //failures are what you'd usually come here for
+    this->UpdateSchemaFilterOptions();
+  }
+
+  UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency() {
+    RETURN 15;
+  }
+
+  UPDATE PUBLIC MACRO RefreshDashboardPanel() {
+    this->initiations := CallJS([ camelcase := TRUE ], "mod::platform/js/auth/oauth2-initiations.ts#getOAuth2InitiationsForDashboard");
+    this->UpdateSchemaFilterOptions();
+    ^initiations->Invalidate();
+  }
+
+  RECORD ARRAY FUNCTION GetStatusFiltered() {
+    RETURN SELECT * FROM this->initiations WHERE ^statusfilter->value = "" OR status = ^statusfilter->value;
+  }
+
+  /// Only offer the schemas currently in the (status filtered) list, but keep the current selection
+  MACRO UpdateSchemaFilterOptions() {
+    STRING ARRAY schemas := SELECT AS STRING ARRAY DISTINCT wrd_schema FROM this->GetStatusFiltered() WHERE wrd_schema != "" ORDER BY wrd_schema;
+    STRING current := ^schemafilter->value;
+    IF(current != "" AND current NOT IN schemas)
+      INSERT current INTO schemas AT END;
+
+    RECORD ARRAY options := [[ rowkey := "", title := "" ]]; //no filter
+    FOREVERY(STRING schematag FROM schemas)
+      INSERT [ rowkey := schematag, title := schematag ] INTO options AT END;
+    ^schemafilter->options := options;
+    ^schemafilter->value := current;
+  }
+
+  MACRO OnFilterChange() {
+    this->UpdateSchemaFilterOptions();
+    ^initiations->Invalidate();
+  }
+
+  RECORD ARRAY FUNCTION OnGetInitiations() {
+    RETURN
+      SELECT rowkey := #initiations + 1
+           , created
+           , statustext := this->GetTid(".status-" || status)
+           , wrd_schema
+           , client_scope
+           , scopes
+           , remote_user
+           , local_user
+           , error
+           , error_description
+        FROM this->GetStatusFiltered() AS initiations
+       WHERE ^schemafilter->value = "" OR wrd_schema = ^schemafilter->value;
+  }
+>;
