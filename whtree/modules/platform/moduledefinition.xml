@@ -130,6 +130,7 @@
     <debugflag name="test-keepbrowser" description="Keep browser open when running tests" />
     <debugflag name="calljs-alt" description="Use alternative CallJS service" />
     <debugflag name="nodeservices" description="Log node services activity" />
+    <debugflag name="openid" description="Log OpenID/OAuth2 server and client authorization flow steps to the debug log" />
   </development>
 
   <moduleregistry>
