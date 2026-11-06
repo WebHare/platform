@@ -4,7 +4,7 @@
 
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { initializeIssuer } from "@webhare/auth";
-import { deletePeerRegistrations, registerAtRemoteWebHare } from "@mod-platform/js/remote/connect";
+import { deletePeerRegistrations, getPeerServerToken, getPeerServerTokenURL, registerAtRemoteWebHare } from "@mod-platform/js/remote/connect";
 import { decompressUUID, hashClientSecret } from "@webhare/auth/src/identity";
 import { deleteDynamicClientRegistration, getDynamicClientRegistration } from "@webhare/auth/src/oauth2-client";
 import { cleanupDynamicClients } from "@webhare/auth/src/maintenance";
@@ -107,7 +107,7 @@ async function testRegisterDynamicClient() {
   ////////////////////////////////////////////////////////////////
   // STORY: Start a login flow with the dynamically registered client
 
-  using browser = await test.openTestPuppeteer();
+  const browser = await test.openTestPuppeteer(); //managed by the test framework, don't dispose
   await test.throws(/authorization response from the server is an error/, test.runOpenIDLoginFlow(browser, {
     metadataUrl: registeredClient.metadataUrl,
     clientId: registeredClient.clientId,
@@ -278,6 +278,57 @@ async function testRegisterAtRemoteWebHare() {
   test.eq({ authServers: [], peerServers: 0 }, await deletePeerRegistrations(testsite.webRoot, { wrdSchema: userSchema, userEntity }));
 }
 
+// Verify a peer can obtain an access token for the WebHare API through DCR and the regular login screens.
+// We act as our own peer: the testsite (backed by the testschema) is the 'remote' WebHare
+async function testPeerServerToken() {
+  const testsite = await test.getTestSiteJS();
+  const userSchema = wrd<WRDSchemaLike["system:usermgmt"]>("webhare_testsuite:testschema");
+  const userEntity = test.getUser("sysop").wrdId;
+  const priorApplications = await userSchema.query("wrdauthApplication").select("wrdId").execute();
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Request a token, registering ourselves as a dynamic client at the remote
+  const { requesturl, tokenpromise } = await getPeerServerTokenURL(testsite.webRoot, { userSchema, userEntity });
+  test.eq(priorApplications.length + 1, (await userSchema.query("wrdauthApplication").select("wrdId").execute()).length, "Expected a new dynamic client registration");
+  const authServer = await userSchema.query("wrdauthServer").where("isPeer", "=", true).select(["wrdId", "metadataUrl"]).execute();
+  test.eq([{ wrdId: authServer[0].wrdId, metadataUrl: testsite.webRoot + ".well-known/openid-configuration" }], authServer);
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Log in at the remote and approve the request
+  const browser = await test.openTestPuppeteer(); //managed by the test framework, don't dispose
+  const context = await browser.createBrowserContext();
+  try {
+    const page = await context.newPage();
+    await page.goto(requesturl);
+    await test.runWebHareLoginFlow(page);
+    await page.waitForSelector('button[name="approve"][value="yes"]');
+    test.eq([/sysop/], await page.$$eval("form ul li", items => items.map(item => item.textContent?.trim())));
+    await page.click('button[name="approve"][value="yes"]');
+
+    const token = await tokenpromise;
+    test.eq(["platform:sysop"], token.scopes);
+    test.assert(token.expires.getTime() > Date.now());
+    test.eqPartial({ peerId: token.peerId, token: token.token }, await getPeerServerToken(testsite.webRoot, { userSchema, userEntity }));
+  } finally {
+    await context.close();
+  }
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Verify the token gives us access to the WebHare API as the user that approved it
+  const { token } = await getPeerServerToken(testsite.webRoot, { userSchema, userEntity });
+  const api = createOpenAPIClient<"platform:api">(testsite.webRoot + "testsuiteportal/.wh/api/v1/", { bearerToken: token });
+  test.eqPartial({ status: 200, body: { user: { email: test.getUser("sysop").login } } }, await api.get("/meta"));
+
+  const badApi = createOpenAPIClient<"platform:api">(testsite.webRoot + "testsuiteportal/.wh/api/v1/", { bearerToken: token + "x" });
+  test.eqPartial({ status: 401 }, await badApi.get("/meta"));
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Clean up the peering
+  test.eqPartial({ authServers: [{ wrdId: authServer[0].wrdId, remoteError: null }], peerServers: 1 },
+    await deletePeerRegistrations(testsite.webRoot, { wrdSchema: userSchema, userEntity }));
+  test.eq(priorApplications.length, (await userSchema.query("wrdauthApplication").select("wrdId").execute()).length);
+}
+
 async function testCleanupDynamicClients() {
   const testSchema = wrd<WRDSchemaLike["webhare_testsuite:oidcschema"]>("webhare_testsuite:testschema");
   const now = Temporal.Now.instant().round({ smallestUnit: "milliseconds" });
@@ -317,6 +368,7 @@ test.runTests([
   setupDynamicRegistration,
   testRegisterDynamicClient,
   testRegisterAtRemoteWebHare,
+  testPeerServerToken,
   disableDynamicRegistration,
   testCleanupDynamicClients
 ]);
