@@ -186,3 +186,8 @@ paymentProviders:
     title: Test Payment Provider
     # paymentInfoScreen:
     configExtensions: packages/psp-testdriver/testdriver.screens.xml#configtestdriver
+
+reports:
+  seosettings:
+    onGenerate: mod::publisher/tolliumapps/filemanager/reports/seoreport.ts#getSEOReport
+    outputFormat: application/x-webhare-spreadsheet

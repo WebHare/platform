@@ -2,7 +2,7 @@ import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import type { FsObjectRow } from "./objects";
 import { excludeKeys, getFSObjectData, isHistoricWHFSSpace, isPublish } from "./support";
 import { db } from "@webhare/whdb";
-import { selectFSCurrentDraft, selectFSCurrentFinal, selectFSFullPath, selectFSHighestParent, selectFSLink, selectFSWHFSPath } from "@webhare/whdb/src/functions";
+import { selectFSCurrentDraft, selectFSCurrentFinal, selectFSFullPath, selectFSHighestParent, selectFSLink, selectFSObjectBaseURL, selectFSWHFSPath } from "@webhare/whdb/src/functions";
 import { describeWHFSType } from "./describe";
 import { appendToArray, emplace, isDate } from "@webhare/std";
 import type { WHFSTypeName } from "@webhare/whfs/src/contenttypes";
@@ -77,8 +77,8 @@ export interface ListableFsObjectRow {
   title: string;
   /// The file's type. See the file type list for more information on the currently supported file ids.
   type: string;
-  /// The URL to (the first page of) the published file. An empty string if this file will not be published.
-  // url: string;
+  /// The URL of the object itself. For folders this is the folder's base URL (unlike 'link', which is the URL of its index document). An empty string if this file will not be published.
+  objectBaseURL: string | null;
   /// Checks if the current selected item is active
   // isActive: boolean;
   /// If pinned the item cannot be replaced/renamed or deleted.
@@ -123,6 +123,7 @@ const fsObjects_js_to_db: Record<keyof ListableFsObjectRow, keyof FsObjectRow | 
   "data": ["scandata", "data", "creationdate"],
   "currentDraft": "currentDraft",
   "currentFinal": "currentFinal",
+  "objectBaseURL": "objectbaseurl",
 };
 
 // const fsObjects_db_to_js: Partial<Record<keyof FsObjectRow, keyof ListableFsObjectRow>> = Object.fromEntries(Object.entries(fsObjects_js_to_db).map(([k, v]) => [v, k]));
@@ -229,9 +230,10 @@ export class ListingContext<K extends keyof ListableFsObjectRow = never> {
         eb("type", "in", [...this.limitTypeIds!]),
         ...this.allowNullTypes ? [eb("type", "is", null)] : []
       ])))
-      .select(excludeKeys([...this.selectkeys], ["link", "fullpath", "whfspath", "parentsite", "publish", "currentDraft", "currentFinal"]))
+      .select(excludeKeys([...this.selectkeys], ["link", "fullpath", "whfspath", "parentsite", "publish", "currentDraft", "currentFinal", "objectbaseurl"]))
       .$if(this.addTypeColumn, qb => qb.select("type"))
       .$if(this.getkeys.has("link"), qb => qb.select(selectFSLink().as("link")))
+      .$if(this.getkeys.has("objectBaseURL"), qb => qb.select(selectFSObjectBaseURL().as("objectbaseurl")))
       .$if(this.getkeys.has("sitePath"), qb => qb.select(selectFSFullPath().as("fullpath")))
       .$if(this.getkeys.has("whfsPath") || this.addWHFSPathColumn, qb => qb.select(selectFSWHFSPath().as("whfspath")))
       .$if(this.getkeys.has("parentSite"), qb => qb.select(selectFSHighestParent().as("parentsite")))

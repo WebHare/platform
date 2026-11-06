@@ -32,6 +32,7 @@
 
   <test script="components.whscr" />
   <test script="test-tabular-data.whscr" />
+  <test script="test-reports.whscr" />
 
   <test path="language/" />
 

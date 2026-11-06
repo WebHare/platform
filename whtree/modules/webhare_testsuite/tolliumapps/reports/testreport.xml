@@ -1,0 +1,21 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="testreport.whlib">
+
+  <screen name="config" defaultbutton="generatebutton" title="Configure test report">
+    <actions>
+      <action name="act_submit" onexecute="submit" title="Generate" />
+    </actions>
+
+    <body>
+      <text name="context" title="Context" />
+      <textedit name="extra" title="Extra" required="true" />
+    </body>
+
+    <footer>
+      <line layout="right">
+        <button name="generatebutton" action="act_submit" />
+        <button name="cancelbutton" title="Cancel" tolliumresult="cancel" />
+      </line>
+    </footer>
+  </screen>
+
+</screens>

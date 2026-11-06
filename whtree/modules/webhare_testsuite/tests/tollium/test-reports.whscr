@@ -1,0 +1,45 @@
+<?wh
+
+LOADLIB "wh::ooxml/spreadsheet.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::platform/lib/dialogs.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+
+ASYNC MACRO TestReportDialog() {
+  //Cancelling the config screen should not generate the report
+  AWAIT ExpectScreenChange(+1, PTR RunReportDialog(GetTestController(), "webhare_testsuite:testreport", [ context := "Initial context" ]));
+  TestEq("Initial context", TT("context")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTClick("cancelbutton"));
+
+  //Run it for real
+  AWAIT ExpectScreenChange(+1, PTR RunReportDialog(GetTestController(), "webhare_testsuite:testreport", [ context := "Initial context" ]));
+  TestEq("Initial context", TT("context")->value);
+  TT("extra")->value := "Additional parameter";
+  AWAIT ExpectScreenChange(0, PTR TTClick("generatebutton")); //replaces the config screen with the export dialog
+
+  RECORD exportfile := (AWAIT ExpectSentWebFile(PTR TTClick(":Download"))).file;
+  TestEqLike("test-report*.xlsx", exportfile.filename);
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR); //download self-closes
+
+  TestEq([[ context := "Initial context", extra := "Additional parameter", language := GetTidLanguage() ]], GetOOXMLSpreadsheetRows(exportfile.data));
+}
+
+ASYNC MACRO TestReportWithoutConfigScreen() {
+  //No configScreen, so we should go straight to the export dialog
+  AWAIT ExpectScreenChange(+1, PTR RunReportDialog(GetTestController(), "webhare_testsuite:testreport_noconfig", [ context := "Direct context" ]));
+
+  RECORD exportfile := (AWAIT ExpectSentWebFile(PTR TTClick(":Download"))).file;
+  TestEqLike("test-report-without-config*.xlsx", exportfile.filename);
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR); //download self-closes
+
+  TestEq([[ context := "Direct context" ]], GetOOXMLSpreadsheetRows(exportfile.data));
+}
+
+RunTestFramework([ PTR TestReportDialog
+                 , PTR TestReportWithoutConfigScreen
+                 ]);
