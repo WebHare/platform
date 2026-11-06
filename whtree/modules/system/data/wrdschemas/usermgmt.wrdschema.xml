@@ -75,7 +75,8 @@
       <obsolete tag="password" />
       <datetime tag="lastuse" title="Last usage" />
       <record tag="versioninfo" />
-      <record tag="currenttoken" />
+      <obsolete tag="currenttoken" />
+      <json tag="current_token" typedeclaration="mod::platform/js/remote/connect.ts#StoredPeerServerToken" />
     </attributes>
   </attachment>
 
