@@ -530,6 +530,9 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
       if (!registrationAccessToken)
         return unauthorized();
 
+      if (!/^[A-Za-z0-9_-]{22}$/.test(registrationClientId))
+        return unauthorized();
+
       const applications = await wrdschema.query("wrdauthApplication")
         .where("wrdGuid", "=", decompressUUID(registrationClientId))
         .select(["wrdId", "dynamicRegistration", "dynamicStatus", "callbackUrls"])
