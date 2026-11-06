@@ -33,8 +33,18 @@ declare module "@webhare/services" {
         extra_params: Array<{ param: string; value: string }>;
       };
       tokeninfo?: OAuth2Tokens;
+      /** Set if the authorization or token request failed */
+      error?: { error: string; error_description: string | null };
     };
   }
+}
+
+/** Error from an OAuth2 authorization, see RFC 6749 sections 4.1.2.1 and 5.2 */
+export interface OAuth2AuthorizeError {
+  /** Error code, eg 'access_denied'. 'token_request_failed' if the token request failed without a proper OAuth2 error response */
+  error: string;
+  /** Human readable description, if provided */
+  errorDescription: string | null;
 }
 
 export type OAuth2PromptFlag = "" | "login" | "none" | "consent" | "select_account";
@@ -280,6 +290,8 @@ export async function handleOAuth2AuthorizeLanding(clientScope: string, oauth2Se
   expires?: Temporal.Instant;
   idPayload?: JwtPayload;
   userData?: Record<string, unknown>;
+  /** Set if the authorization failed (eg. the user denied consent) or the tokens could not be retrieved */
+  error?: OAuth2AuthorizeError;
 } | null> {
   const sessdata = await getServerSession("system:oauth2", oauth2Session);
   if (debugFlags.openid)
@@ -319,7 +331,8 @@ export async function handleOAuth2AuthorizeLanding(clientScope: string, oauth2Se
     tokens: sessdata.tokeninfo || undefined,
     userData: sessdata.user_data ? toCamelCase(sessdata.user_data) : undefined,
     idPayload,
-    expires: sessdata.tokeninfo?.expires_in ? Temporal.Instant.fromEpochMilliseconds(sessdata.requeststart.getTime()).add({ seconds: sessdata.tokeninfo.expires_in }) : undefined
+    expires: sessdata.tokeninfo?.expires_in ? Temporal.Instant.fromEpochMilliseconds(sessdata.requeststart.getTime()).add({ seconds: sessdata.tokeninfo.expires_in }) : undefined,
+    ...sessdata.error ? { error: { error: sessdata.error.error, errorDescription: sessdata.error.error_description } } : {}
   };
 }
 
@@ -389,9 +402,10 @@ export async function handleOAuth2LandingPage(req: WebRequest): Promise<WebRespo
 
   if (error || error_description) {
     logNotice("error", "Error from oauth2 redirect", { data: { error, error_description } });
-  }
-
-  if (code) {
+    //Record the error so handleOAuth2AuthorizeLanding can report it
+    sessdata.error = { error: error || "unknown_error", error_description: error_description || null };
+    await runInWork(() => updateServerSession("system:oauth2", state, sessdata));
+  } else if (code) {
     const tokenRequest = new URLSearchParams;
     tokenRequest.set("code", code);
     tokenRequest.set("client_id", sessdata.oauthconfig.clientid);
@@ -413,15 +427,25 @@ export async function handleOAuth2LandingPage(req: WebRequest): Promise<WebRespo
       body: tokenRequest,
     });
     if (!res.ok) {
-      logNotice("error", "Error retrieving tokens", { data: await res.json() });
-      return createError(`Error retrieving tokens`);
+      /* Still return to the caller, so it learns about the failure instead of waiting for a result that never comes.
+         RFC 6749 5.2 error responses are JSON with error/error_description, but don't count on getting one */
+      const body = await res.text();
+      let tokenError: { error?: unknown; error_description?: unknown } = {};
+      try {
+        tokenError = JSON.parse(body);
+      } catch (ignore) {
+      }
+      logNotice("error", "Error retrieving tokens", { data: { status: res.status, body: body.substring(0, 4000) } });
+      sessdata.error = {
+        error: typeof tokenError.error === "string" && tokenError.error ? tokenError.error : "token_request_failed",
+        error_description: typeof tokenError.error_description === "string" && tokenError.error_description ? tokenError.error_description : `Token request failed with HTTP ${res.status}`
+      };
+    } else {
+      sessdata.tokeninfo = pick(await res.json(), ["access_token", "refresh_token", "expires_in", "token_type", "id_token"]) as OAuth2Tokens;
     }
-
-    const tokeninfo = pick(await res.json(), ["access_token", "refresh_token", "expires_in", "token_type", "id_token"]) as OAuth2Tokens;
-    sessdata.tokeninfo = tokeninfo;
     await runInWork(() => updateServerSession("system:oauth2", state, sessdata));
   }
-  //TODO Forward error/error_description?
+
   const gotoUrl = new URL(sessdata.finalreturnurl);
   gotoUrl.searchParams.set("oauth2session", state);
   return createRedirectResponse(gotoUrl.toString());

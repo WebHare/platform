@@ -441,8 +441,11 @@ async function getOAuth2PeerServerTokenURL(remoteHost: string, userSchema: WRDSc
 
     //A valid session without tokens means the authorization failed, eg. the user denied consent
     if (!oauthinfo.tokens?.access_token || !oauthinfo.expires) {
-      landing.resolve({ status: "error", error: "authorizationFailed", message: "Authorization failed or expired" });
-      return createWebResponse("Authorization failed or expired", { status: HTTPErrorCode.BadRequest });
+      const message = oauthinfo.error
+        ? `Authorization failed: ${oauthinfo.error.error}${oauthinfo.error.errorDescription ? ` (${oauthinfo.error.errorDescription})` : ""}`
+        : "Authorization failed or expired";
+      landing.resolve({ status: "error", error: "authorizationFailed", message });
+      return createWebResponse(message, { status: HTTPErrorCode.BadRequest });
     }
 
     //The token response doesn't tell us the granted scopes, so record the ones we requested
