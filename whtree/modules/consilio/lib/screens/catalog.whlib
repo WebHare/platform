@@ -614,7 +614,7 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
       ^fieldgroups->visible := FALSE;
     }
     ^attachedindices->AddAction(this->GetTid(".refreshsizes"), PTR this->DoRefreshSizes, [ requireselection := FALSE ]);
-    this->GotInterval();
+    this->RefreshCatalogSizesDeferred();
   }
 
   RECORD ARRAY FUNCTION GetAttachedIndices()
@@ -631,9 +631,15 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
     RETURN JoinArrays(rows, "sizekey", this->catalogsizes, [ size := -1 ], [ rightouterjoin := TRUE ]);
   }
 
-  ASYNC MACRO GotInterval()
+  ASYNC MACRO RefreshCatalogSizesDeferred()
   {
+    // Defer so Init isn't blocked by the (potentially slow) index size lookups
     AWAIT CreateSleepPromise(1);
+    this->RefreshCatalogSizes();
+  }
+
+  MACRO GotInterval()
+  {
     this->RefreshCatalogSizes();
   }
 

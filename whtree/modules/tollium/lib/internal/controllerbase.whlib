@@ -608,8 +608,7 @@ PUBLIC STATIC OBJECTTYPE __ScreenBuilder <
     }
   }
 
-  FUNCTION PTR FUNCTION LookupAndValidateLocalHandler(OBJECT obj, RECORD handlerrec, STRING attributename, RECORD tolliumscope)
-  {
+  FUNCTION PTR FUNCTION LookupAndValidateLocalHandler(OBJECT obj, RECORD handlerrec, STRING attributename, RECORD tolliumscope) {
     STRING scopename, membername;
     IF(handlerrec.name LIKE "*!*")
     {
