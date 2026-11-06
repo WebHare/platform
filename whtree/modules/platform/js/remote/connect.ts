@@ -20,6 +20,44 @@ export type PeerServerToken = {
 /** The token as stored in whuserPeerserver.currentToken */
 export type StoredPeerServerToken = Omit<PeerServerToken, "peerId">;
 
+export type PeerServerTokenError =
+  /** No token is stored for this peer server */
+  | "noToken"
+  /** The stored token has expired (or is about to) */
+  | "expired"
+  /** The stored token lacks some of the requested scopes */
+  | "insufficientScopes"
+  /** A new token is needed, but interaction was disallowed */
+  | "interactionRequired"
+  /** The remote didn't complete the authorization */
+  | "authorizationFailed"
+  /** The user didn't complete the authorization in time */
+  | "timeout";
+
+/** Outcome of obtaining a peer server token */
+export type PeerServerTokenResult = {
+  status: "ok";
+  token: PeerServerToken;
+} | {
+  status: "error";
+  error: PeerServerTokenError;
+  message: string;
+};
+
+/** Result of getPeerServerToken: either a usable token, or a URL the user must visit to obtain one */
+export type GetPeerServerTokenResult = PeerServerTokenResult | {
+  status: "interactionRequired";
+  /** URL the user must visit to authorize us */
+  requestUrl: string;
+  /** Settles once the authorization completes (or fails). Never rejects for expected failures */
+  tokenPromise: Promise<PeerServerTokenResult>;
+};
+
+/** Normalize the scopes to request. HareScript callers still use the legacy builtin.oauth name for the sysop scope */
+function normalizeScopes(scopes: string[] | undefined) {
+  return [...new Set((scopes ?? []).map(scope => scope === "system:sysop" ? "platform:sysop" : scope))];
+}
+
 async function getUserApiSchemaName(opts?: { schema?: string }): Promise<string> {
   if (opts?.schema)
     return opts.schema;
@@ -67,29 +105,27 @@ async function storePeerToken(userSchema: WRDSchemaType<WRDSchemaLike["system:us
   }, { mutex: "system:remoteservertoken-" + userEntity }); //serializes updates to a user's peer server tokens
 }
 
-export async function getPeerServerToken(remoteHost: string, options?: {
-  userSchema?: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>;
-  userEntity?: number;
-}): Promise<PeerServerToken> {
-  const userSchema = options?.userSchema ?? await getUserMgmtSchema();
-  const entityId = options?.userEntity ?? await lookupCLIUser(userSchema);
-
+/** Look up the user's stored token for a peer server
+ * @returns The token, or an error result if there's no usable stored token */
+async function getStoredPeerServerToken(remoteHost: string, userSchema: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>, entityId: number, scopes: string[]): Promise<PeerServerTokenResult> {
   const peerServers = await userSchema.query("whuserPeerserver")
     .select(["wrdId", "serverurl", "currentToken"])
     .where("wrdLeftEntity", "=", entityId).execute();
 
   const peer = peerServers.find(_ => isSamePeerServerURL(_.serverurl, remoteHost));
   if (!peer)
-    throw new Error(`No peer server found for host ${remoteHost}`);
+    return { status: "error", error: "noToken", message: `No peer server found for host ${remoteHost}` };
 
   const currentToken = peer.currentToken;
-
   if (!currentToken)
-    throw new Error(`Peer server ${remoteHost} does not have a current token`);
+    return { status: "error", error: "noToken", message: `Peer server ${remoteHost} does not have a current token` };
   if (currentToken.expires.getTime() < Date.now() + 60_000) //token is expired or will expire in the next minute
-    throw new Error(`Current token for peer server ${remoteHost} has expired`);
+    return { status: "error", error: "expired", message: `Current token for peer server ${remoteHost} has expired` };
+  const missingScopes = scopes.filter(scope => !currentToken.scopes.includes(scope));
+  if (missingScopes.length)
+    return { status: "error", error: "insufficientScopes", message: `Current token for peer server ${remoteHost} lacks scopes ${missingScopes.join(" ")}` };
 
-  return { peerId: peer.wrdId, ...pick(currentToken, ["token", "expires", "scopes"]) };
+  return { status: "ok", token: { peerId: peer.wrdId, ...pick(currentToken, ["token", "expires", "scopes"]) } };
 }
 
 /** Validate and normalize a remote WebHare base URL, and derive the OpenID metadata URL used to identify its wrdauthServer */
@@ -328,21 +364,18 @@ class TokenPromise {
   requestid = generateRandomId();
   sub;
   timeout;
-  public resolve: (value: PeerServerToken) => void;
-  public reject: (reason?: Error) => void;
+  public resolve: (value: PeerServerTokenResult) => void;
   public url: string;
   public wrdschema: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>;
   public wrdentity: number;
 
   constructor(
-    resolve: (value: PeerServerToken) => void,
-    reject: (reason?: Error) => void,
+    resolve: (value: PeerServerTokenResult) => void,
     url: string,
     wrdschema: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>,
     wrdentity: number) {
 
     this.resolve = resolve;
-    this.reject = reject;
     this.url = url;
     this.wrdschema = wrdschema;
     this.wrdentity = wrdentity;
@@ -368,13 +401,13 @@ class TokenPromise {
         };
 
         const peerId = await storePeerToken(this.wrdschema, this.wrdentity, this.url, token);
-        this.resolve({ ...token, peerId });
+        this.resolve({ status: "ok", token: { ...token, peerId } });
         break;
       }
   }
 
   gotTimeout() {
-    this.reject(new Error("Timeout on oauth response"));
+    this.resolve({ status: "error", error: "timeout", message: "Timeout on oauth response" });
     this.end(); //cleanup the subscription and timeout
   }
 }
@@ -385,26 +418,24 @@ class TokenPromise {
  * @param entityId User to store the token for
  * @param authServer The wrdauthServer for the remote WebHare
  * @param options.prompt OAuth2 prompt behavior to request from the remote (eg 'login' or 'consent')
- * @param options.scopes Scopes to request. Defaults to platform:sysop. The legacy system:sysop scope is translated to platform:sysop
+ * @param options.scopes Scopes to request (already normalized). Defaults to platform:sysop
  * @returns The URL the user must visit to authorize us, and a promise for the token once that completes */
 async function getOAuth2PeerServerTokenURL(remoteHost: string, userSchema: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>, entityId: number, authServer: number, options?: {
   prompt?: OAuth2PromptFlag;
   scopes?: string[];
-}): Promise<{
-  requesturl: string;
-  tokenpromise: Promise<PeerServerToken>;
-}> {
-  //HareScript callers still use the legacy builtin.oauth name for the sysop scope
-  const scopes = options?.scopes?.length ? [...new Set(options.scopes.map(scope => scope === "system:sysop" ? "platform:sysop" : scope))] : ["platform:sysop"];
+}): Promise<GetPeerServerTokenResult & { status: "interactionRequired" }> {
+  const scopes = options?.scopes?.length ? options.scopes : ["platform:sysop"];
   const clientScope = "platform:connect-peer";
-  const landing = Promise.withResolvers<PeerServerToken>();
+  const landing = Promise.withResolvers<PeerServerTokenResult>();
   //Our OAuth2 landing page redirects the browser here with an oauth2session parameter once the authorization completes
-  using cleanup = new DisposableStack; //closes the endpoint if we throw before handing it off to tokenpromise
+  using cleanup = new DisposableStack; //closes the endpoint if we throw before handing it off to tokenPromise
   const endpoint = cleanup.use(await createEphemeralEndpoint(async request => {
     const oauth2session = new URL(request.url).searchParams.get("oauth2session");
     const oauthinfo = oauth2session ? await handleOAuth2AuthorizeLanding(clientScope, oauth2session) : null;
-    if (!oauthinfo?.tokens?.access_token || !oauthinfo?.expires)
+    if (!oauthinfo?.tokens?.access_token || !oauthinfo?.expires) {
+      landing.resolve({ status: "error", error: "authorizationFailed", message: "Authorization failed or expired" });
       return createWebResponse("Authorization failed or expired", { status: HTTPErrorCode.BadRequest });
+    }
 
     //The token response doesn't tell us the granted scopes, so record the ones we requested
     const token: StoredPeerServerToken = {
@@ -413,7 +444,7 @@ async function getOAuth2PeerServerTokenURL(remoteHost: string, userSchema: WRDSc
       scopes: scopes
     };
     const peerId = await storePeerToken(userSchema, entityId, remoteHost, token);
-    landing.resolve({ ...token, peerId });
+    landing.resolve({ status: "ok", token: { ...token, peerId } });
 
     return createRedirectResponse({ type: "close" });
   }));
@@ -422,57 +453,72 @@ async function getOAuth2PeerServerTokenURL(remoteHost: string, userSchema: WRDSc
   const authLink = await client.createAuthorizeLink(endpoint.url, {
     clientScope,
     prompt: options?.prompt,
-    addScopes: scopes, //TODO getPeerServerTokenURL needs token parameter and users need to learn to verify getPeerServerToken's existing scopes
+    addScopes: scopes,
   });
   if (authLink.type !== "redirect") //we only understand redirects here
     throw new Error("Failed to create OAuth2 auth link for remote host");
 
   const endpointOwner = cleanup.move(); //we're returning successfully, so the endpoint now lives until the landing settles
-  const timeout = setTimeout(() => landing.reject(new Error("Timeout on oauth response")), 15 * 60 * 1000); //15 minutes should be enough for the user to complete the oauth flow
-  const tokenpromise = landing.promise.finally(() => {
+  const timeout = setTimeout(() => landing.resolve({ status: "error", error: "timeout", message: "Timeout on oauth response" }), 15 * 60 * 1000); //15 minutes should be enough for the user to complete the oauth flow
+  const tokenPromise = landing.promise.finally(() => {
     clearTimeout(timeout);
     setTimeout(() => endpointOwner.dispose(), 1000); //give the endpoint a chance to deliver its final response
   });
-  return { requesturl: authLink.url, tokenpromise };
+  return { status: "interactionRequired", requestUrl: authLink.url, tokenPromise };
 }
 
-export async function getPeerServerTokenURL(remoteHost: string, options?: {
+/** Get a token for a peer server, starting an authorization at the remote if the user has no usable stored token.
+ *
+ * A stored token is used if it hasn't expired and has all requested scopes, unless `prompt` is set.
+ * @param remoteHost Remote WebHare base URL
+ * @returns `ok` with the token, `interactionRequired` with the URL the user must visit and a promise for the outcome,
+ *   or `error` if no token is available and `interactive` is false
+ */
+export async function getPeerServerToken(remoteHost: string, options?: {
   userSchema?: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>;
   userEntity?: number;
   /** URL to return to (eg to stay on the proper host and avoid cross-origin issues) */
   baseUrl?: string;
-  /** OAuth2 prompt behavior to request from the remote (eg 'login' or 'consent'). Ignored by legacy (non OAuth2) peers */
+  /** OAuth2 prompt behavior to request from the remote (eg 'login' or 'consent'). Always requests a new token, ignoring any stored token. Ignored by legacy (non OAuth2) peers */
   prompt?: OAuth2PromptFlag;
-  /** Scopes to request from the remote. Defaults to platform:sysop */
+  /** Scopes the token needs. Defaults to platform:sysop when requesting a new token */
   scopes?: string[];
-}): Promise<{
-  requesturl: string;
-  tokenpromise: Promise<PeerServerToken>;
-}> {
+  /** Set to false to only return a stored token, and never start an authorization (defaults to true) */
+  interactive?: boolean;
+}): Promise<GetPeerServerTokenResult> {
   const userSchema = options?.userSchema ?? await getUserMgmtSchema();
   const entityId = options?.userEntity ?? await lookupCLIUser(userSchema);
+  const scopes = normalizeScopes(options?.scopes);
+
+  if (!options?.prompt) {
+    const stored = await getStoredPeerServerToken(remoteHost, userSchema, entityId, scopes);
+    if (stored.status === "ok" || options?.interactive === false)
+      return stored;
+  } else if (options?.interactive === false)
+    return { status: "error", error: "interactionRequired", message: `A new token for ${remoteHost} requires interaction` };
 
   //Attempt V2 connection first
   const peer = await registerAtRemoteWebHare(remoteHost, { wrdSchema: userSchema });
   if (peer.status === "connected")
-    return await getOAuth2PeerServerTokenURL(remoteHost, userSchema, entityId, peer.server, { prompt: options?.prompt, scopes: options?.scopes });
+    return await getOAuth2PeerServerTokenURL(remoteHost, userSchema, entityId, peer.server, { prompt: options?.prompt, scopes });
 
   const baseUrl = options?.baseUrl ?? backendConfig.backendURL;
-  const defer = Promise.withResolvers<PeerServerToken>();
-  const tokprom = new TokenPromise(defer.resolve, defer.reject, remoteHost, userSchema, entityId);
+  const defer = Promise.withResolvers<PeerServerTokenResult>();
+  const tokprom = new TokenPromise(defer.resolve, remoteHost, userSchema, entityId);
 
   //TODO why is the backend webhare interface processing this, why aren't we using our default oauth landings?
   const redirecturl = updateURL(baseUrl, { oauth_responseid: tokprom.requestid });
 
-  const requesturl = new URL("/", remoteHost);
-  requesturl.searchParams.set("app", "tollium:builtin.oauth");
-  requesturl.searchParams.set("oauth_clientid", baseUrl);
-  requesturl.searchParams.set("oauth_scopes", "webhare");
-  requesturl.searchParams.set("oauth_redirect", redirecturl.toString());
+  const requestUrl = new URL("/", remoteHost);
+  requestUrl.searchParams.set("app", "tollium:builtin.oauth");
+  requestUrl.searchParams.set("oauth_clientid", baseUrl);
+  requestUrl.searchParams.set("oauth_scopes", "webhare");
+  requestUrl.searchParams.set("oauth_redirect", redirecturl.toString());
 
   return {
-    requesturl: requesturl.toString(),
-    tokenpromise: defer.promise
+    status: "interactionRequired",
+    requestUrl: requestUrl.toString(),
+    tokenPromise: defer.promise
   };
 }
 
@@ -490,9 +536,15 @@ export async function startPeerTokenRequestHS(remoteHost: string, userEntity: nu
 }): Promise<{ requestUrl: string; requestId: string }> {
   const requestId = generateRandomId();
   const userSchema = wrd<WRDSchemaLike["system:usermgmt"]>(options.userSchema);
-  const { requesturl, tokenpromise } = await getPeerServerTokenURL(remoteHost, { userSchema, userEntity, baseUrl: options.baseUrl, scopes: options.scopes });
-  tokenpromise.then(
-    token => broadcast("platform:internal.peer_token_response", { requestId, peerId: token.peerId, error: "" }),
+  //The HareScript UI always wants an URL to send the user to, so don't reuse stored tokens but have the user (re)approve
+  const result = await getPeerServerToken(remoteHost, { userSchema, userEntity, baseUrl: options.baseUrl, scopes: options.scopes, prompt: "consent" });
+  if (result.status !== "interactionRequired")
+    throw new Error(result.status === "error" ? result.message : "Unexpected token result");
+
+  result.tokenPromise.then(
+    outcome => broadcast("platform:internal.peer_token_response", outcome.status === "ok"
+      ? { requestId, peerId: outcome.token.peerId, error: "" }
+      : { requestId, peerId: 0, error: outcome.message || "Failed to obtain a token" }),
     error => broadcast("platform:internal.peer_token_response", { requestId, peerId: 0, error: (error as Error).message || "Failed to obtain a token" }));
-  return { requestUrl: requesturl, requestId };
+  return { requestUrl: result.requestUrl, requestId };
 }

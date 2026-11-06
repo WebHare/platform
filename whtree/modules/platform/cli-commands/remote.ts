@@ -1,9 +1,9 @@
 // @webhare/cli: Connect to remote WebHare servers
 
-import { deletePeerRegistrations, getPeerServerToken, listPeers, getPeerServerTokenURL } from "@mod-platform/js/remote/connect";
+import { deletePeerRegistrations, getPeerServerToken, listPeers } from "@mod-platform/js/remote/connect";
 import { commonFlags } from "@mod-platform/js/cli/cli-tools";
-import { enumOption, runCli } from "@webhare/cli";
-import { attempt, regExpFromWildcards } from "@webhare/std";
+import { CLIRuntimeError, enumOption, runCli } from "@webhare/cli";
+import { regExpFromWildcards } from "@webhare/std";
 import { wrd, type WRDSchemaLike } from "@webhare/wrd";
 import { spawnSync } from "child_process";
 
@@ -60,14 +60,16 @@ runCli({
       async main({ args, opts }) {
         const userSchema = getUserSchema(opts);
         const scopes = opts.scopes?.split(/[\s,]+/).filter(scope => scope) ?? [];
-        const currentToken = opts.prompt ? null : await attempt(getPeerServerToken(args.url, { userSchema }), null);
-        let token = currentToken && scopes.every(scope => currentToken.scopes.includes(scope)) ? currentToken : null;
-        if (!token) {
-          const gettoken = await getPeerServerTokenURL(args.url, { userSchema, prompt: opts.prompt, scopes });
-          console.log("Go to the following URL:", gettoken.requesturl);
-          spawnSync("/usr/bin/open", [gettoken.requesturl], { stdio: "inherit" });
-          token = await gettoken.tokenpromise;
+        let result = await getPeerServerToken(args.url, { userSchema, prompt: opts.prompt, scopes });
+        if (result.status === "interactionRequired") {
+          console.log("Go to the following URL:", result.requestUrl);
+          spawnSync("/usr/bin/open", [result.requestUrl], { stdio: "inherit" });
+          result = await result.tokenPromise;
         }
+        if (result.status === "error")
+          throw new CLIRuntimeError(`Failed to obtain a token: ${result.message}`);
+
+        const token = result.token;
         console.log(`Connected. Token with scopes ${token.scopes?.join(" ") ?? ""} expires at ${token.expires?.toISOString() ?? ""}`);
       }
     },

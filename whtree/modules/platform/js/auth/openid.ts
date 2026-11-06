@@ -314,7 +314,7 @@ export async function returnAuthorizeFlow<T extends SchemaTypeDefinition>(provid
         currentTokens.add(scope);
 
     for (const scope of protectedScopes)
-      if (!currentTokens.has(scope))
+      if (!currentTokens.has(scope) || returnInfo.prompt === "consent") //prompt=consent asks for approval even if the scope was granted before
         checkScopes.push(scope);
   }
 

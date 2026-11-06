@@ -5,7 +5,7 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { initializeIssuer } from "@webhare/auth";
 import { defaultWRDAuthLoginSettings } from "@webhare/auth/src/support";
-import { deletePeerRegistrations, getPeerServerToken, getPeerServerTokenURL, registerAtRemoteWebHare } from "@mod-platform/js/remote/connect";
+import { deletePeerRegistrations, getPeerServerToken, registerAtRemoteWebHare } from "@mod-platform/js/remote/connect";
 import { decompressUUID, hashClientSecret } from "@webhare/auth/src/identity";
 import { deleteDynamicClientRegistration, getDynamicClientRegistration } from "@webhare/auth/src/oauth2-client";
 import { cleanupDynamicClients } from "@webhare/auth/src/maintenance";
@@ -296,7 +296,9 @@ async function testPeerServerToken() {
 
   ////////////////////////////////////////////////////////////////
   // STORY: Request a token, registering ourselves as a dynamic client at the remote
-  const { requesturl, tokenpromise } = await getPeerServerTokenURL(testsite.webRoot, { userSchema, userEntity });
+  test.eqPartial({ status: "error", error: "noToken" }, await getPeerServerToken(testsite.webRoot, { userSchema, userEntity, interactive: false }));
+  const tokenRequest = await getPeerServerToken(testsite.webRoot, { userSchema, userEntity });
+  test.assert(tokenRequest.status === "interactionRequired");
   test.eq(priorApplications.length + 1, (await userSchema.query("wrdauthApplication").select("wrdId").execute()).length, "Expected a new dynamic client registration");
   const authServer = await userSchema.query("wrdauthServer").where("isPeer", "=", true).select(["wrdId", "metadataUrl"]).execute();
   test.eq([{ wrdId: authServer[0].wrdId, metadataUrl: testsite.webRoot + ".well-known/openid-configuration" }], authServer);
@@ -307,23 +309,41 @@ async function testPeerServerToken() {
   const context = await browser.createBrowserContext();
   try {
     const page = await context.newPage();
-    await page.goto(requesturl);
+    await page.goto(tokenRequest.requestUrl);
     await test.runWebHareLoginFlow(page);
     await page.waitForSelector('button[name="approve"][value="yes"]');
     test.eq([/sysop/], await page.$$eval("form ul li", items => items.map(item => item.textContent?.trim())));
     await page.click('button[name="approve"][value="yes"]');
 
-    const token = await tokenpromise;
+    const result = await tokenRequest.tokenPromise;
+    test.assert(result.status === "ok");
+    const token = result.token;
     test.eq(["platform:sysop"], token.scopes);
     test.assert(token.expires.getTime() > Date.now() + apiTokenDuration - 60_000 && token.expires.getTime() <= Date.now() + apiTokenDuration, `Expected the configured apiTokenDuration, got expiry ${token.expires.toISOString()}`);
-    test.eqPartial({ peerId: token.peerId, token: token.token }, await getPeerServerToken(testsite.webRoot, { userSchema, userEntity }));
+    test.eqPartial({ status: "ok", token: { peerId: token.peerId, token: token.token } }, await getPeerServerToken(testsite.webRoot, { userSchema, userEntity }));
+    test.eqPartial({ status: "error", error: "insufficientScopes" }, await getPeerServerToken(testsite.webRoot, { userSchema, userEntity, scopes: ["platform:other"], interactive: false }));
+
+    ////////////////////////////////////////////////////////////////
+    // STORY: prompt=consent (as used by the HareScript peer dialog) skips the stored token and asks for approval again, even though we're logged in and approved before
+    const consentRequest = await getPeerServerToken(testsite.webRoot, { userSchema, userEntity, prompt: "consent" });
+    test.assert(consentRequest.status === "interactionRequired");
+    await page.goto(consentRequest.requestUrl);
+    await page.waitForSelector('button[name="approve"][value="yes"]');
+    await page.click('button[name="approve"][value="yes"]');
+
+    const consentResult = await consentRequest.tokenPromise;
+    test.assert(consentResult.status === "ok");
+    test.eq(token.peerId, consentResult.token.peerId);
+    test.assert(consentResult.token.token !== token.token, "Expected a new token");
   } finally {
     await context.close();
   }
 
   ////////////////////////////////////////////////////////////////
   // STORY: Verify the token gives us access to the WebHare API as the user that approved it
-  const { token } = await getPeerServerToken(testsite.webRoot, { userSchema, userEntity });
+  const stored = await getPeerServerToken(testsite.webRoot, { userSchema, userEntity, interactive: false });
+  test.assert(stored.status === "ok");
+  const { token } = stored.token;
   const api = createOpenAPIClient<"platform:api">(testsite.webRoot + "testsuiteportal/.wh/api/v1/", { bearerToken: token });
   test.eqPartial({ status: 200, body: { user: { email: test.getUser("sysop").login } } }, await api.get("/meta"));
 
