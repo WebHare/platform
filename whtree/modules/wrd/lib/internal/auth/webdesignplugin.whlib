@@ -266,8 +266,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
     RECORD logincontrol := this->__DecryptLoginControlToken(logincontroltoken);
 
     // External login requires a login box, so no redirects
-    // Only prompt modes "" and "none" allow immediate backredirection
-    IF ("wrdauth" NOT IN logincontrol.logintypes OR logincontrol.prompt NOT IN [ "", "none", "login" ])
+    // Only prompt modes "", "none", "login" and "consent" allow immediate backredirection ("consent" is handled by the OpenID return flow)
+    IF ("wrdauth" NOT IN logincontrol.logintypes OR logincontrol.prompt NOT IN [ "", "none", "login", "consent" ])
       RETURN DEFAULT RECORD;
 
     RETURN this->__HandleAfterLogin(logincontrol, "wrdauth");
