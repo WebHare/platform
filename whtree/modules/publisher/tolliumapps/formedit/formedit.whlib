@@ -845,9 +845,14 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase <
   RECORD ARRAY FUNCTION GetConditionSources(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     BOOLEAN haslistfields := CellExists(options, "__listfields");
-    options := ValidateOptions([ scope := "", __listfields := DEFAULT RECORD ARRAY ]
-                               , options
-                               , [ enums := [ scope := [ "", "frontend", "backend" ]]]);
+    options := ValidateOptions(
+        [ scope := ""
+        , fornode := DEFAULT OBJECT
+        , __listfields := DEFAULT RECORD ARRAY
+        ]
+        , options,
+        [ enums := [ scope := [ "", "frontend", "backend" ] ]
+        ]);
 
     RECORD ARRAY sources;
 
@@ -888,29 +893,48 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase <
 
     IF(this->allowsubmittype OR this->confirmationhandler != DEFAULT OBJECT)
     {
-      RECORD ARRAY submittypes :=
-          [ [ rowkey := "new", title := this->GetTid(".formsubmittype-new") ]
-          ];
-
-      IF(this->allowsubmittype)
+      RECORD comp;
+      IF (ObjectExists(options.fornode))
       {
-        submittypes := submittypes CONCAT
-          [ [ rowkey := "change", title := this->GetTid(".formsubmittype-change") ]
-          , [ rowkey := "cancel", title := this->GetTid(".formsubmittype-cancel") ]
-          ];
+        STRING name := options.fornode->localname;
+        IF (options.fornode->namespaceuri != xmlns_forms)
+          name := options.fornode->namespaceuri || "#" || name;
+        BOOLEAN on_thankyou_page := ObjectExists(options.fornode->parentnode)
+            AND options.fornode->parentnode->namespaceuri = xmlns_forms AND options.fornode->parentnode->localname = "page"
+            AND options.fornode->parentnode->GetAttribute("role") = "thankyou";
+        BOOLEAN is_handler := ObjectExists(options.fornode->parentnode)
+            AND options.fornode->parentnode->namespaceuri = xmlns_forms AND options.fornode->parentnode->localname = "handlers";
+        comp := CELL[ name, on_thankyou_page, is_handler ];
       }
-
-      IF (this->confirmationhandler != DEFAULT OBJECT)
+      // For the confirmation handler itself, the submittype source isn't available at all (it runs before the actual form submission)
+      IF (NOT RecordExists(comp) OR comp.name != "mailconfirmationhandler")
       {
-        submittypes := submittypes CONCAT this->confirmationhandler->GetConfirmationFormSubmitTypes();
-      }
+        RECORD ARRAY submittypes :=
+            [ [ rowkey := "new", title := this->GetTid(".formsubmittype-new") ]
+            ];
 
-      INSERT [ rowkey := "formsubmittype"
-             , title := this->GetTid(".formsubmittype")
-             , options := submittypes
-             , type := "in"
-             , supportedvalues := [ "string" ]
-             ] INTO sources AT END;
+        IF(this->allowsubmittype)
+        {
+          INSERT [ rowkey := "change", title := this->GetTid(".formsubmittype-change") ] INTO submittypes AT END;
+
+          // 'cancel' is only available for components on the 'thankyou' page
+          // Note that if we don't have a comp, we just return everything for formatting and validation purposes
+          IF (NOT RecordExists(comp) OR comp.on_thankyou_page)
+            INSERT [ rowkey := "cancel", title := this->GetTid(".formsubmittype-cancel") ] INTO submittypes AT END;
+        }
+
+        IF (this->confirmationhandler != DEFAULT OBJECT)
+        {
+          submittypes := submittypes CONCAT this->confirmationhandler->GetConfirmationFormSubmitTypesForComp(comp);
+        }
+
+        INSERT [ rowkey := "formsubmittype"
+              , title := this->GetTid(".formsubmittype")
+              , options := submittypes
+              , type := "in"
+              , supportedvalues := [ "string" ]
+              ] INTO sources AT END;
+      }
     }
 
     RETURN sources;

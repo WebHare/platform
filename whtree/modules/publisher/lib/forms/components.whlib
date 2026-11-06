@@ -46,6 +46,13 @@ PUBLIC STATIC OBJECTTYPE FormHandlerBase
     RETURN "cancel" IN this->__handlerinfo.handler.handlertaskfor;
   }
 
+  // @cell(string) comp.name Local name for nodes within the xmlns_forms namespace, fully qualified name (namespaceuri#localname) otherwise
+  // @cell(boolean) comp.on_thankyou_page Is this a component on the thank you page?
+  // @cell(boolean) comp.is_handler Is this a handler?
+  PUBLIC RECORD ARRAY FUNCTION GetConfirmationFormSubmitTypesForComp(RECORD comp)
+  {
+    RETURN this->GetConfirmationFormSubmitTypes();
+  }
   PUBLIC RECORD ARRAY FUNCTION GetConfirmationFormSubmitTypes()
   {
     RETURN RECORD[];
