@@ -355,6 +355,17 @@ async function testPeerServerToken() {
     test.assert(consentResult.status === "ok");
     test.eq(token.peerId, consentResult.token.peerId);
     test.assert(consentResult.token.token !== token.token, "Expected a new token");
+
+    ////////////////////////////////////////////////////////////////
+    // STORY: Denying consent settles the request right away, reporting the remote's error
+    const deniedRequest = await getPeerServerToken(testsite.webRoot, { userSchema, userEntity, prompt: "consent" });
+    test.assert(deniedRequest.status === "interactionRequired");
+    await page.goto(deniedRequest.requestUrl);
+    await page.waitForSelector('button[name="approve"][value="no"]');
+    await page.click('button[name="approve"][value="no"]');
+
+    test.eq({ status: "error", error: "authorizationFailed", message: /^Authorization failed: interaction_required/ }, await deniedRequest.tokenPromise);
+    test.eqPartial({ status: "ok", token: { token: consentResult.token.token } }, await getPeerServerToken(testsite.webRoot, { userSchema, userEntity, interactive: false }), "Denying shouldn't affect the stored token");
   } finally {
     await context.close();
   }

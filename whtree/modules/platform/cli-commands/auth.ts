@@ -99,6 +99,9 @@ runCli({
         const finalList = withData.map(s => ({
           created: s.created,
           sessionid: s.sessionid,
+          //pending: the user hasn't returned from the authorization server (yet)
+          status: s.data?.error ? "failed" : s.data?.tokeninfo ? "completed" : "pending",
+          error: s.data?.error || null,
           userData: s.data?.user_data || null,
           idToken: s.data?.tokeninfo?.id_token ? jwt.decode(s.data.tokeninfo.id_token) : null,
           ...opts.tokens ? { tokens: s.data?.tokeninfo || null } : {}
