@@ -1,14 +1,13 @@
 <?wh
 
-LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/remoting/client.whlib";
 
@@ -29,78 +28,53 @@ PUBLIC RECORD FUNCTION GetWebHareConnectability(STRING url, STRING currenttoken)
   }
 }
 
-INTEGER FUNCTION StoreToken(OBJECT wrdentity, STRING url, RECORD tokenmsg) {
-  GetPrimary()->BeginWork([mutex := "system:remoteservertoken-" || wrdentity->id]);
-
-  RECORD currenttoken := [ scopes :=   tokenmsg.scopes
-                         , token :=    tokenmsg.token
-                         , version :=  tokenmsg.version
-                         , expires :=  tokenmsg.expires
-                         ];
-
-  OBJECT peerservertype := wrdentity->wrdtype->wrdschema->^whuser_peerserver;
-  RECORD peer := peerservertype->RunQuery( [ outputcolumns := [ "WRD_ID" ]
-                                           , filters := [[ field := "WRD_LEFTENTITY", value := wrdentity->id ]
-                                                        ,[ field := "SERVERURL", value := url, matchcase := FALSE ]
-                                                        ]
-                                           ]);
-
-  INTEGER peerid;
-  IF(RecordExists(peer)) {
-    peerservertype->UpdateEntity(peer.wrd_id, CELL[ currenttoken, lastuse := GetCurrentDatetime() ]);
-    peerid := peer.wrd_id;
-  } ELSE {
-    peerid := peerservertype->CreateEntity(
-                                 CELL[ currenttoken
-                                     , lastuse := GetCurrentDatetime()
-                                     , wrd_leftentity := wrdentity->id
-                                     , serverurl := url
-                                     , wrd_title := UnpackURL(url).host
-                                     ])->id;
-  }
-
-  GetPrimary()->CommitWork();
-  RETURN peerid;
-}
-
-STATIC OBJECTTYPE TokenPromise
+/* Waits for the outcome of a startPeerTokenRequestHS call. The token itself has already been stored by the TypeScript code
+   by the time platform:internal.peer_token_response is broadcast, so we only receive the peer server id */
+STATIC OBJECTTYPE PeerTokenRequest
 <
-  PUBLIC STRING requestid;
-  STRING url;
-  OBJECT wrdentity;
+  STRING requestid;
   MACRO PTR resolve;
   MACRO PTR reject;
   INTEGER callback;
+  INTEGER timeoutcallback;
 
-  MACRO NEW(MACRO PTR resolve, MACRO PTR reject, STRING url, OBJECT wrdentity)
+  MACRO NEW(MACRO PTR resolve, MACRO PTR reject, STRING requestid)
   {
-    this->requestid := GenerateUFS128BitId();
+    this->requestid := requestid;
     this->resolve := resolve;
     this->reject := reject;
-    this->url := url;
-    this->wrdentity := wrdentity;
 
-    this->callback := RegisterEventCallback("tollium:oauth_response", PTR this->GotOauthResponse);
-    RegisterTimedCallback(AddTimeToDate(15*60*1000, GetCurrentDatetime()), PTR this->GotTimeout);
+    this->callback := RegisterEventCallback("platform:internal.peer_token_response", PTR this->GotResponse);
+    //The TypeScript side gives up after 15 minutes too, but we can't rely on its event arriving (eg if platform:calljs restarts)
+    this->timeoutcallback := RegisterTimedCallback(AddTimeToDate(16*60*1000, GetCurrentDatetime()), PTR this->GotTimeout);
   }
 
-  MACRO GotOauthResponse(STRING event, RECORD msg)
+  MACRO Finish()
   {
-    IF(msg.responseid != this->requestid)
+    IF(this->callback != 0)
+      UnregisterCallback(this->callback);
+    IF(this->timeoutcallback != 0)
+      UnregisterCallback(this->timeoutcallback);
+    this->callback := 0;
+    this->timeoutcallback := 0;
+  }
+
+  MACRO GotResponse(STRING event, RECORD msg)
+  {
+    IF(msg.requestid != this->requestid)
       RETURN;
 
-    IF(this->callback != 0)
-      UnregisterCallback(this->callback);
-    this->callback := 0;
-
-    INTEGER peerid := RunInSeparatePrimary(PTR StoreToken(this->wrdentity, this->url, msg));
-    this->resolve(CELL[ peerid, msg.token ]);
+    this->Finish();
+    IF(msg.error != "")
+      this->reject(NEW Exception(msg.error));
+    ELSE
+      this->resolve(CELL[ msg.peerid ]);
   }
+
   MACRO GotTimeout()
   {
-    IF(this->callback != 0)
-      UnregisterCallback(this->callback);
-    this->callback := 0;
+    this->timeoutcallback := 0; //it already fired
+    this->Finish();
     this->reject(NEW Exception("Timeout on oauth response"));
   }
 >;
@@ -171,15 +145,15 @@ PUBLIC OBJECT FUNCTION OpenWebHarePeer(OBJECT screen, STRING url, RECORD options
 
   WHILE(TRUE)
   {
-    RECORD peer := peerservertype->RunQuery( [ outputcolumns := [ "WRD_ID", "CURRENTTOKEN" ]
+    RECORD peer := peerservertype->RunQuery( [ outputcolumns := [ "WRD_ID", "CURRENT_TOKEN" ]
                                              , filters := [[ field := "WRD_LEFTENTITY", value := wrdentity->id ]
                                                           ,[ field := "SERVERURL", value := url, matchcase := FALSE ]
                                                           ]
                                              ]);
 
     RECORD connectinfo;
-    IF(RecordExists(peer) AND RecordExists(peer.currenttoken))
-      connectinfo := GetWebHareConnectability(url, peer.currenttoken.token);
+    IF(RecordExists(peer) AND RecordExists(peer.current_token))
+      connectinfo := GetWebHareConnectability(url, peer.current_token.token);
 
     IF(NOT RecordExists(connectinfo) OR NOT connectinfo.isloggedin OR connectinfo.expires < options.validuntil)
     {
@@ -192,7 +166,7 @@ PUBLIC OBJECT FUNCTION OpenWebHarePeer(OBJECT screen, STRING url, RECORD options
       CONTINUE; //retry peer selection
     }
     //FIXME check our scopes are in that list
-    RETURN NEW RemoteWebHareConnection(url, "", "bearer:" || peer.currenttoken.token);
+    RETURN NEW RemoteWebHareConnection(url, "", "bearer:" || peer.current_token.token);
   }
 }
 
@@ -201,22 +175,13 @@ RECORD FUNCTION GetWHRequestTokenURL(STRING baseurl, OBJECT userentity, STRING u
                                   ], options);
   url := ResolveToAbsoluteURL(url,"/");
 
+  RECORD request := CallJS([ camelcase := TRUE ], "mod::platform/js/remote/connect.ts#startPeerTokenRequestHS", url, userentity->id,
+                          [ user_schema := userentity->wrdtype->wrdschema->tag, base_url := baseurl, scopes := options.scopes ]);
+
   RECORD defer := CreateDeferredPromise();
-  OBJECT tokprom := NEW TokenPromise(defer.resolve, defer.reject, url, userentity);
+  NEW PeerTokenRequest(defer.resolve, defer.reject, request.request_id);
 
-  STRING redirecturl := UpdateURLVariables(baseurl,
-      [ oauth_responseid :=    tokprom->requestid
-      ]);
-
-  url := UpdateURLVariables(url,
-        [ app :=            "tollium:builtin.oauth"
-        , oauth_clientid := baseurl
-        , oauth_scopes :=   "webhare"
-        , oauth_redirect := redirecturl
-        , scopes := Detokenize(options.scopes, " ")
-        ]);
-
-  RETURN [ requesturl := url
+  RETURN [ requesturl := request.request_url
          , tokenpromise := defer.promise
          ];
 }
@@ -267,7 +232,7 @@ PUBLIC RECORD FUNCTION OpenUserWebHarePeer(OBJECT user, STRING url, RECORD optio
   OBJECT peerservertype := wrdentity->wrdtype->wrdschema->^whuser_peerserver;
 
   RECORD peer := peerservertype->RunQuery(
-      [ outputcolumns := [ "WRD_ID", "CURRENTTOKEN" ]
+      [ outputcolumns := [ "WRD_ID", "CURRENT_TOKEN" ]
       , filters := [ [ field := "WRD_LEFTENTITY", value := wrdentity->id ]
                                                  , [ field := "SERVERURL", value := url, matchcase := FALSE ]
                                                  ]
@@ -276,10 +241,10 @@ PUBLIC RECORD FUNCTION OpenUserWebHarePeer(OBJECT user, STRING url, RECORD optio
   IF (NOT RecordExists(peer))
     THROW NEW Exception(`No such peer '${url}'`);
 
-  IF (NOT RecordExists(peer.currenttoken))
+  IF (NOT RecordExists(peer.current_token))
     RETURN [ status := "neverconnected", peer := DEFAULT OBJECT ];
 
-  RECORD connectinfo := GetWebHareConnectability(url, peer.currenttoken.token);
+  RECORD connectinfo := GetWebHareConnectability(url, peer.current_token.token);
   IF (NOT RecordExists(connectinfo))
     RETURN [ status := "notconnected", peer := DEFAULT OBJECT ];
   IF (NOT connectinfo.isloggedin)
@@ -290,6 +255,6 @@ PUBLIC RECORD FUNCTION OpenUserWebHarePeer(OBJECT user, STRING url, RECORD optio
   //FIXME check our scopes are in that list
   RETURN
       [ status :=   "ok"
-      , peer :=     NEW RemoteWebHareConnection(url, "", "bearer:" || peer.currenttoken.token)
+      , peer :=     NEW RemoteWebHareConnection(url, "", "bearer:" || peer.current_token.token)
       ];
 }

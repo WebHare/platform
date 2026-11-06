@@ -14,7 +14,7 @@ import type { AuthCustomizer, JWTPayload, LoginDeniedInfo, LoginUsernameLookupOp
 import type { WRDAuthAccountStatus } from "@webhare/auth";
 import type { ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { getAuditContext, writeAuthAuditEvent, type AuthAuditContext } from "./audit";
-import { calculateWRDSessionExpiry, defaultWRDAuthLoginSettings, getAuthPageURL, getAuthSettings, getUserValidationSettings, prepAuth, prepAuthForURL, type PrepAuthResult, type WRDAuthPluginSettings_Request } from "./support";
+import { calculateWRDSessionExpiry, defaultAccessTokenExpiry, defaultWRDAuthLoginSettings, getAuthPageURL, getAuthSettings, getUserValidationSettings, prepAuth, prepAuthForURL, type PrepAuthResult, type WRDAuthPluginSettings_Request } from "./support";
 import { tagToHS, tagToJS } from "@webhare/wrd/src/wrdsupport";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
 import { checkPasswordCompliance, verifyPasswordCompliance, type PasswordCheck, type PasswordCheckResult } from "./passwords";
@@ -31,8 +31,12 @@ export interface AuthTokenOptions {
   customizer?: AuthCustomizer;
   /** Set or override the time of day used for expiration calculations  */
   now?: Temporal.Instant;
-  /** Expiration date for the token. If not set, will fallback to any configuration and eventually 1 day */
+  /** Expiration date for the token. If not set, falls back to the schema's loginSettings: apiTokenDuration (eventually 7 days) for API/OAuth2 tokens, expireLogin and friends (eventually 1 day) for ID tokens */
   expires?: WaitPeriod;
+  /** Expiration date for the OpenID id_token, if different from the access token. Defaults to 'expires' */
+  idTokenExpires?: WaitPeriod;
+  /** Issuer to set in the OpenID id_token. Required when creating OpenID tokens (derive it with getOpenIDIssuer) */
+  issuer?: string;
   /** Prefix for API tokens, defaults to 'secret-token:' (see RFC 8959) */
   prefix?: string;
   /** Scopes associated with the API token */
@@ -220,7 +224,7 @@ export async function createSigningKey(type: "ec" | "rsa"): Promise<JsonWebKey> 
 }
 
 export interface JWKS {
-  keys: Array<JsonWebKey & { issuer: string; kid: string }>;
+  keys: Array<JsonWebKey & { kid: string }>;
 }
 
 export interface JWTCreationOptions {
@@ -322,9 +326,14 @@ export function decodeJWT(token: string): JwtPayload {
   return decoded.payload;
 }
 
-export async function verifyJWT(key: JsonWebKey, issuer: string, token: string, options?: JWTVerificationOptions): Promise<JwtPayload> {
+/** Verify a JWT
+ * @param issuer - Expected issuer, or null to not check the issuer
+ */
+export async function verifyJWT(key: JsonWebKey, issuer: string | null, token: string, options?: JWTVerificationOptions): Promise<JwtPayload> {
   const jwk = createPublicKey({ key: key, format: 'jwk' });
-  const verifyoptions: VerifyOptions = { issuer, clockTolerance: defaultClockTolerance };
+  const verifyoptions: VerifyOptions = { clockTolerance: defaultClockTolerance };
+  if (issuer !== null)
+    verifyoptions.issuer = issuer;
   if (options?.audience)
     verifyoptions.audience = options.audience;
 
@@ -414,7 +423,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
   }
 
   private async getKeyConfig() {
-    const settings = await getSchemaSettings(this.wrdschema, ["issuer", "signingKeys"]);
+    const settings = await getSchemaSettings(this.wrdschema, ["signingKeys"]);
     if (!haveValidKeys(settings.signingKeys).valid)
       settings.signingKeys = await this.ensureSigningKeys();
     return settings;
@@ -426,7 +435,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     for (const key of config.signingKeys) {
       //Load the key
       const jwk = createPublicKey({ key: key.privateKey, format: 'jwk' }).export({ format: 'jwk' });
-      jwks.keys.push({ ...jwk, issuer: config.issuer, use: "sig", kid: key.keyId });
+      jwks.keys.push({ ...jwk, use: "sig", kid: key.keyId });
     }
     return jwks;
   }
@@ -450,13 +459,16 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
   }
 
   //TODO with proper caching we can avoid async/DB queries here. and we really should
-  async getExpiration(relativeTo: Temporal.Instant, options?: AuthTokenOptions): Promise<null | Temporal.Instant> {
+  async getExpiration(type: "id" | "api" | "oidc", relativeTo: Temporal.Instant, options?: AuthTokenOptions): Promise<null | Temporal.Instant> {
     if (options?.expires === Infinity)
       return null;
     if (options?.expires)
       return convertWaitPeriodToDate(options.expires, { relativeTo });
 
     const loginSettings = { ...defaultWRDAuthLoginSettings, ...(await getSchemaSettings(this.wrdschema, ["loginSettings"]))?.loginSettings };
+    if (type !== "id") //API and OAuth2 access tokens aren't login sessions, so don't round them
+      return convertWaitPeriodToDate(loginSettings.apiTokenDuration || defaultAccessTokenExpiry, { relativeTo });
+
     const expiry = options?.thirdParty ? loginSettings?.expireThirdPartyLogin : options?.persistent ? loginSettings?.expirePersistentLogin : loginSettings?.expireLogin;
     return calculateWRDSessionExpiry(loginSettings, relativeTo, expiry);
   }
@@ -501,12 +513,12 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       throw new Error(`Unable to find '${subjectValue}' for subject #${subject}`);
 
     const relativeTo = (options?.now ?? Temporal.Now.instant()).round({ smallestUnit: "seconds", roundingMode: "floor" }); //round down as the JWT fields have second precision
-    const validUntil = await this.getExpiration(relativeTo, options);
+    const validUntil = await this.getExpiration(type, relativeTo, options);
 
     //Figure out signature parameters
     const config = await this.getKeyConfig();
     if (!config || !config.signingKeys?.length)
-      throw new Error(`Schema ${this.wrdschema.tag} is not configured properly. Missing issuer or signingKeys`);
+      throw new Error(`Schema ${this.wrdschema.tag} is not configured properly. Missing signingKeys`);
 
     //ID tokens are only generated for 3rd party clients requesting an openid scope. They shouldn't be providing access to APIs and cannot be retracted by us, so they won't appear in the wrd.tokens table either
     let id_token: string | undefined;
@@ -515,7 +527,8 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       if (!(client && clientInfo))
         throw new Error("Unable to create ID token without a thirdparty client");
 
-      const payload = preparePayload(subjectValue, relativeTo, validUntil, { audiences: [compressUUID(clientInfo?.wrdGuid)], nonce });
+      const idTokenValidUntil = options?.idTokenExpires ? convertWaitPeriodToDate(options.idTokenExpires, { relativeTo }) : validUntil;
+      const payload = preparePayload(subjectValue, relativeTo, idTokenValidUntil, { audiences: [compressUUID(clientInfo?.wrdGuid)], nonce });
       if (options?.scopes?.includes("email")) { //TODO authorize somewhere whether 'email' is allowed for this client
         if (authsettings.emailAttribute) {
           const { email } = await (this.wrdschema as AnyWRDSchema).getFields("wrdPerson", subject, { email: authsettings.emailAttribute });
@@ -533,10 +546,10 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
           client
         }, payload as JWTPayload);
 
-      if (!config.issuer)
-        throw new Error(`Schema ${this.wrdschema.tag} is not configured properly. Missing issuer or signingKeys`);
+      if (!options?.issuer)
+        throw new Error(`Unable to create ID token for schema ${this.wrdschema.tag} without an issuer`);
 
-      payload.iss = config.issuer;
+      payload.iss = options.issuer;
 
       //FIXME use ES256 if client selected it
       id_token = this.signJWT(payload, config.signingKeys, "RSA");
@@ -668,7 +681,8 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     if (!matchkey)
       throw new Error(`Unable to find key '${decoded?.header.kid}'`);
 
-    const payload = await verifyJWT(matchkey.privateKey, keys.issuer, token, verifyOptions);
+    //We don't check the issuer: only ID tokens carry one, and the signature already proves we created the token
+    const payload = await verifyJWT(matchkey.privateKey, null, token, verifyOptions);
     if (!payload.jti || !payload.sub)
       throw new Error(`Invalid token - missing jti or sub`);
 

@@ -3,9 +3,9 @@ import jwt, { type JwtPayload } from "jsonwebtoken";
 import { verifyJWT, type JWKS } from "./identity";
 import type { AnyWRDSchema, WRDEntityMatch, WRDSchema, WRDSchemaLike, WRDSchemaType } from "@webhare/wrd";
 import { encodeString, pick, throwError, toCamelCase, toSnakeCase, type ToSnakeCase } from "@webhare/std";
-import type { NavigateInstruction } from "@webhare/env";
-import { backendConfig, createServerSession, getServerSession, logNotice, subscribe, updateServerSession, type SessionScopes } from "@webhare/services";
-import type { OAuth2Tokens, OpenIdConfiguration, ResponseModesScopes } from "./types";
+import { debugFlags, type NavigateInstruction } from "@webhare/env";
+import { backendConfig, createServerSession, getServerSession, logDebug, logNotice, subscribe, updateServerSession, type SessionScopes } from "@webhare/services";
+import type { GrantTypesSupported, OAuth2Tokens, OpenIdConfiguration, ResponseModesScopes, ResponseType } from "./types";
 import { runInWork } from "@webhare/whdb/src/impl";
 import * as crypto from "node:crypto";
 import type { WebRequestInfo, WebResponseInfo } from "@mod-system/js/internal/types";
@@ -33,8 +33,24 @@ declare module "@webhare/services" {
         extra_params: Array<{ param: string; value: string }>;
       };
       tokeninfo?: OAuth2Tokens;
+      /** Set if the authorization or token request failed */
+      error?: { error: string; error_description: string | null };
+      /** Login name of the local user this authorization was completed for, if the caller recorded it */
+      local_user?: string;
+      /** Scopes requested from the authorization server (not set by HS) */
+      scopes?: string[];
+      /** WRD schema of the client's wrdauthServer, if known (not set by HS) */
+      wrd_schema?: string;
     };
   }
+}
+
+/** Error from an OAuth2 authorization, see RFC 6749 sections 4.1.2.1 and 5.2 */
+export interface OAuth2AuthorizeError {
+  /** Error code, eg 'access_denied'. 'token_request_failed' if the token request failed without a proper OAuth2 error response */
+  error: string;
+  /** Human readable description, if provided */
+  errorDescription: string | null;
 }
 
 export type OAuth2PromptFlag = "" | "login" | "none" | "consent" | "select_account";
@@ -142,6 +158,8 @@ type OAuth2ClientInfo = {
   /** Holds client signing information, will replace clientSecret in the future */
   clientSigning?: ClientSigning;
   additionalScopes: string[];
+  /** WRD schema containing the wrdauthServer (clientWrdId) */
+  wrdSchema?: string;
   clientWrdId?: number;
   extraParams: Array<{ param: string; value: string }>;
 };
@@ -173,8 +191,17 @@ export class OAuth2Client {
     });
   }
 
-  /** Creates a link that initiates the oauth2flow. The redirect page should invoke RunOAuth2LandingPage which will read the system:oauth2 session, process/validate the tokens, store them in a session and finally
-   *  redirect to the finalurl with the ?oauth2sesson= parameter on the URL for the page to process the data
+  /** Create a redirect instruction that starts the OAuth2 authorization flow.
+   * @param finalurl - Absolute URL to visit after the OAuth2 landing page exchanges the authorization code for tokens.
+   * Receives an `oauth2session` query parameter; pass it to handleOAuth2AuthorizeLanding to retrieve the result.
+   * This is not the redirect URI registered with the provider.
+   * @param options - Optional authorization request settings.
+   * @param options.prompt - Provider prompt behavior, such as `login`, `consent`, or `none`.
+   * @param options.addScopes - Scopes to request in addition to the client's configured scopes.
+   * @param options.codeVerifier - PKCE verifier; enables an S256 challenge and is reused during token exchange.
+   * @param options.userData - Application data to return from handleOAuth2AuthorizeLanding.
+   * @param options.clientScope - Scope binding checked by handleOAuth2AuthorizeLanding; defaults to the client's scope.
+   * @param options.responseMode - Provider response mode; defaults to `form_post` when advertised, otherwise the provider's default.
    */
   async createAuthorizeLink(finalurl: string, options?: OAuth2AuthorizeRequestOptions): Promise<NavigateInstruction> {
     const metadata = await getOpenIDConnectMetadata(this.clientinfo.metadataUrl);
@@ -200,12 +227,15 @@ export class OAuth2Client {
       }
     };
 
-    const scopes: string[] = this.clientinfo.additionalScopes;
+    const scopes: string[] = [...this.clientinfo.additionalScopes]; //copy, don't modify the client's configuration
     if (options?.addScopes)
       for (const s of options.addScopes) {
         if (!scopes.includes(s))
           scopes.push(s);
       }
+    state.scopes = scopes;
+    if (this.clientinfo.wrdSchema)
+      state.wrd_schema = this.clientinfo.wrdSchema;
 
     const session = await runInWork(() => createServerSession("system:oauth2", state, { expires: "PT90M" }));
     const authurl = new URL(authorizeurl);
@@ -233,6 +263,16 @@ export class OAuth2Client {
     for (const addVar of state.oauthconfig.extra_params)
       authurl.searchParams.set(addVar.param, addVar.value);
 
+    if (debugFlags.openid)
+      logDebug("platform:oauth2-client", {
+        step: "createAuthorizeLink",
+        clientId: this.clientinfo.clientId,
+        metadataUrl: this.clientinfo.metadataUrl,
+        authURLOrigin: authurl.origin,
+        rediredctURLOrigin: URL.parse(redirecturl)?.origin,
+        returnURLOrigin: URL.parse(finalurl)?.origin
+      });
+
     return { type: "redirect", url: authurl.toString() };
   }
 }
@@ -248,6 +288,7 @@ export async function createOAuth2Client<S extends SchemaTypeDefinition>(wrdSche
     clientId: spData.clientId,
     clientSigning: spData.clientSigning || undefined,
     additionalScopes: spData.additionalScopes.split(" ").map(s => s.trim()).filter(s => s),
+    wrdSchema: wrdSchema.tag,
     clientWrdId: spData.wrdId,
     extraParams: spData.extraParams
   });
@@ -261,9 +302,18 @@ export async function handleOAuth2AuthorizeLanding(clientScope: string, oauth2Se
   expires?: Temporal.Instant;
   idPayload?: JwtPayload;
   userData?: Record<string, unknown>;
+  /** Set if the authorization failed (eg. the user denied consent) or the tokens could not be retrieved */
+  error?: OAuth2AuthorizeError;
 } | null> {
-
   const sessdata = await getServerSession("system:oauth2", oauth2Session);
+  if (debugFlags.openid)
+    logDebug("platform:oauth2-client", {
+      step: "handleOAuth2AuthorizeLanding",
+      clientScope,
+      hasSession: Boolean(sessdata),
+      hasTokens: Boolean(sessdata?.tokeninfo)
+    });
+
   if (!sessdata || sessdata.client_scope !== clientScope)
     return null; //expired or invalid sessions
 
@@ -293,7 +343,8 @@ export async function handleOAuth2AuthorizeLanding(clientScope: string, oauth2Se
     tokens: sessdata.tokeninfo || undefined,
     userData: sessdata.user_data ? toCamelCase(sessdata.user_data) : undefined,
     idPayload,
-    expires: sessdata.tokeninfo?.expires_in ? Temporal.Instant.fromEpochMilliseconds(sessdata.requeststart.getTime()).add({ seconds: sessdata.tokeninfo.expires_in }) : undefined
+    expires: sessdata.tokeninfo?.expires_in ? Temporal.Instant.fromEpochMilliseconds(sessdata.requeststart.getTime()).add({ seconds: sessdata.tokeninfo.expires_in }) : undefined,
+    ...sessdata.error ? { error: { error: sessdata.error.error, errorDescription: sessdata.error.error_description } } : {}
   };
 }
 
@@ -363,9 +414,10 @@ export async function handleOAuth2LandingPage(req: WebRequest): Promise<WebRespo
 
   if (error || error_description) {
     logNotice("error", "Error from oauth2 redirect", { data: { error, error_description } });
-  }
-
-  if (code) {
+    //Record the error so handleOAuth2AuthorizeLanding can report it
+    sessdata.error = { error: error || "unknown_error", error_description: error_description || null };
+    await runInWork(() => updateServerSession("system:oauth2", state, sessdata));
+  } else if (code) {
     const tokenRequest = new URLSearchParams;
     tokenRequest.set("code", code);
     tokenRequest.set("client_id", sessdata.oauthconfig.clientid);
@@ -387,15 +439,25 @@ export async function handleOAuth2LandingPage(req: WebRequest): Promise<WebRespo
       body: tokenRequest,
     });
     if (!res.ok) {
-      logNotice("error", "Error retrieving tokens", { data: await res.json() });
-      return createError(`Error retrieving tokens`);
+      /* Still return to the caller, so it learns about the failure instead of waiting for a result that never comes.
+         RFC 6749 5.2 error responses are JSON with error/error_description, but don't count on getting one */
+      const body = await res.text();
+      let tokenError: { error?: unknown; error_description?: unknown } = {};
+      try {
+        tokenError = JSON.parse(body);
+      } catch (ignore) {
+      }
+      logNotice("error", "Error retrieving tokens", { data: { status: res.status, body: body.substring(0, 4000) } });
+      sessdata.error = {
+        error: typeof tokenError.error === "string" && tokenError.error ? tokenError.error : "token_request_failed",
+        error_description: typeof tokenError.error_description === "string" && tokenError.error_description ? tokenError.error_description : `Token request failed with HTTP ${res.status}`
+      };
+    } else {
+      sessdata.tokeninfo = pick(await res.json(), ["access_token", "refresh_token", "expires_in", "token_type", "id_token"]) as OAuth2Tokens;
     }
-
-    const tokeninfo = pick(await res.json(), ["access_token", "refresh_token", "expires_in", "token_type", "id_token"]) as OAuth2Tokens;
-    sessdata.tokeninfo = tokeninfo;
     await runInWork(() => updateServerSession("system:oauth2", state, sessdata));
   }
-  //TODO Forward error/error_description?
+
   const gotoUrl = new URL(sessdata.finalreturnurl);
   gotoUrl.searchParams.set("oauth2session", state);
   return createRedirectResponse(gotoUrl.toString());
@@ -421,4 +483,97 @@ export async function fetchUserInfo(wrdSchema: AnyWRDSchema, server: WRDEntityMa
     throw new Error(`Error retrieving userinfo`);
 
   return await res.json();
+}
+
+export type DynamicClientRegistrationParameters = {
+  client_name: string;
+  redirect_uris: string[];
+  grant_types?: GrantTypesSupported[];
+  response_types?: ResponseType[];
+};
+
+/** Find the authorization server metadata for a service root. Tries OAuth 2.0 Authorization Server Metadata (RFC 8414) first and falls back to OpenID Connect Discovery
+ * @returns The metadata URL and its contents, or null if neither is available (HTTP 404)
+ */
+async function discoverAuthServerMetadata(serviceRoot: string) {
+  for (const wellKnown of [".well-known/oauth-authorization-server", ".well-known/openid-configuration"]) {
+    const metadataUrl = new URL(wellKnown, serviceRoot).toString();
+    const metadataResponse = await fetch(metadataUrl);
+    if (metadataResponse.status === 404)
+      continue;
+    if (!metadataResponse.ok)
+      throw new Error(`Cannot load authorization server metadata from ${metadataUrl}: HTTP ${metadataResponse.status}`);
+    return { metadataUrl, metadata: await metadataResponse.json() as { registration_endpoint?: unknown } };
+  }
+  return null;
+}
+
+/** Register a client, or return null when there is no authorization server (metadata returns HTTP 404), the server does not advertise registration or refuses it with HTTP 403. */
+export async function registerDynamicClient(serviceRoot: string, registration: DynamicClientRegistrationParameters) {
+  const discovered = await discoverAuthServerMetadata(serviceRoot);
+  if (!discovered) //eg. a WebHare without OAuth2 server support, which may still support legacy peering
+    return null;
+  const { metadataUrl, metadata } = discovered;
+  if (typeof metadata.registration_endpoint !== "string" || !metadata.registration_endpoint)
+    return null;
+
+  const registrationResponse = await fetch(metadata.registration_endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(registration)
+  });
+  if (registrationResponse.status === 403)
+    return null;
+  if (registrationResponse.status !== 201)
+    throw new Error(`Dynamic registration failed: HTTP ${registrationResponse.status}`);
+  const registeredClient: {
+    client_id?: unknown;
+    client_secret?: unknown;
+    registration_access_token?: unknown;
+    registration_client_uri?: unknown;
+  } = await registrationResponse.json();
+  if (typeof registeredClient.client_id !== "string" || !registeredClient.client_id
+    || typeof registeredClient.client_secret !== "string" || !registeredClient.client_secret)
+    throw new Error("Dynamic registration did not return client credentials");
+
+  if (registeredClient.registration_access_token !== undefined
+    && (typeof registeredClient.registration_access_token !== "string" || !registeredClient.registration_access_token))
+    throw new Error("Dynamic registration returned an invalid registration_access_token");
+  if (registeredClient.registration_client_uri !== undefined
+    && (typeof registeredClient.registration_client_uri !== "string" || !URL.canParse(registeredClient.registration_client_uri)))
+    throw new Error("Dynamic registration returned an invalid registration_client_uri");
+
+  return {
+    metadataUrl,
+    clientId: registeredClient.client_id,
+    clientSigning: { type: "client_secret" as const, secret: registeredClient.client_secret },
+    ...typeof registeredClient.registration_access_token === "string" ? { registrationAccessToken: registeredClient.registration_access_token } : {},
+    ...typeof registeredClient.registration_client_uri === "string" ? { registrationClientUri: registeredClient.registration_client_uri } : {}
+  };
+}
+
+/** Read a client's current registration using its registration-management token. */
+export async function getDynamicClientRegistration(registrationClientUri: string, registrationAccessToken: string): Promise<Record<string, unknown> & { client_id: string }> {
+  const response = await fetch(registrationClientUri, {
+    headers: { Authorization: "Bearer " + registrationAccessToken }
+  });
+  if (!response.ok)
+    throw new Error(`Cannot retrieve dynamic client registration: HTTP ${response.status}`);
+
+  const registration: unknown = await response.json();
+  if (!registration || typeof registration !== "object" || Array.isArray(registration)
+    || !("client_id" in registration) || typeof registration.client_id !== "string" || !registration.client_id)
+    throw new Error("Dynamic client registration did not return a client_id");
+
+  return { ...registration, client_id: registration.client_id };
+}
+
+/** Deprovision a client at its provider using its registration-management token (RFC 7592 section 2.3). */
+export async function deleteDynamicClientRegistration(registrationClientUri: string, registrationAccessToken: string): Promise<void> {
+  const response = await fetch(registrationClientUri, {
+    method: "DELETE",
+    headers: { Authorization: "Bearer " + registrationAccessToken }
+  });
+  if (response.status !== 204)
+    throw new Error(`Cannot delete dynamic client registration: HTTP ${response.status}`);
 }

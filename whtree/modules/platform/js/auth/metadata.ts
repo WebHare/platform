@@ -1,13 +1,17 @@
-import { HTTPErrorCode, type WebHareRouter, type WebRequest, type WebResponse, createJSONResponse } from "@webhare/router";
+import { HTTPErrorCode, type WebHareRouter, type WebRequest, type WebResponse, createJSONResponse, createWebResponse } from "@webhare/router";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 //TOOD make this a public export somewhere? but should it include wrdOrg and wrdPerson though
 import { wrd, type WRDSchemaLike } from "@webhare/wrd";
 import { getSchemaSettings } from "@webhare/wrd/src/settings";
 import type { IdTokenSigningAlgValuesSupported, OpenIdConfiguration } from "@webhare/auth/src/types";
 import { lookupURL, openFileOrFolder } from "@webhare/whfs";
+import { getOpenIDIssuer } from "./openid";
 
-//wellKnownRouter implements .well-known/openid-configuration
-export async function wellKnownRouter(req: WebRequest): Promise<WebResponse> {
+/* TODO RFC 8414 expects the metadata of an issuer with a path component (ie an identity provider site that isn't hosted
+   at the root of its host) at /.well-known/oauth-authorization-server/<path>, which a site webrule can't serve. These
+   sites currently only offer the OpenID Connect style /<path>/.well-known/ metadata URLs */
+
+async function buildMetadata(req: WebRequest, type: "oauth" | "openid"): Promise<WebResponse> {
   const target = await lookupURL(new URL(req.url));
   const targetObj = target.file || target.folder;
   if (!targetObj)
@@ -19,9 +23,49 @@ export async function wellKnownRouter(req: WebRequest): Promise<WebResponse> {
     return createJSONResponse(HTTPErrorCode.NotFound, { error: `No WRD schema defined for this location` });
 
   const authSchema = wrd<WRDSchemaLike["platform:basewrdschema"]>(wrdSchemaTag);
-  const settings = await getSchemaSettings(authSchema, ["issuer", "signingKeys"]);
-  if (!settings.issuer)
-    return createJSONResponse(HTTPErrorCode.NotFound, { error: `WRD schema '${wrdSchemaTag}' is not configured with a JWKS issuer` });
+  const settings = await getSchemaSettings(authSchema, ["signingKeys", "dynamicRegistration", "loginSettings"]);
+  const openIdServer = settings.loginSettings?.openIdServer === true;
+  if (type === "openid" && !openIdServer)
+    return createJSONResponse(HTTPErrorCode.NotFound, { error: `WRD schema '${wrdSchemaTag}' is not an OpenID Connect provider` });
+
+  const issuer = await getOpenIDIssuer(wrdSchemaTag);
+  if (!issuer)
+    return createJSONResponse(HTTPErrorCode.NotFound, { error: `No identity provider site found for WRD schema '${wrdSchemaTag}'` });
+
+  /* The issuer must match the location the metadata was retrieved from (RFC 8414 section 3.3, OpenID Connect Discovery
+     section 4.3), so we refuse to serve metadata through an alias hostname or other URL than the identity provider site's webroot */
+  const requestedUrl = new URL(req.url);
+  requestedUrl.search = "";
+  const expectedUrl = issuer + requestedUrl.pathname.substring(requestedUrl.pathname.lastIndexOf("/.well-known/"));
+  if (requestedUrl.toString() !== expectedUrl)
+    return createWebResponse(`This metadata is only available at ${expectedUrl}\n\n`
+      + `The issuer of WRD schema '${wrdSchemaTag}' is ${issuer} (derived from the webroot of the site with the platform:identityprovider webfeature). `
+      + `RFC 8414 and OpenID Connect Discovery require the issuer to match the URL the metadata is retrieved from, `
+      + `so clients would reject the metadata if we served it at ${requestedUrl.toString()}\n`, {
+      status: HTTPErrorCode.NotFound,
+      headers: { "content-type": "text/plain; charset=utf-8" }
+    });
+
+  //Encode wrd:schema as /wrd/schema/ in the URL
+  const oidc_baseurl = new URL(`/.wh/openid/${encodeURIComponent(wrdSchemaTag).replace(/%3A/g, '/')}/`, req.baseURL).toString();
+
+  //RFC 8414 fields. See also https://www.iana.org/assignments/oauth-parameters/oauth-parameters.xhtml#authorization-server-metadata
+  const oauthMetadata = {
+    issuer,
+    authorization_endpoint: oidc_baseurl + "authorize",
+    token_endpoint: oidc_baseurl + "token",
+    ...settings.dynamicRegistration?.enabled === true ? { registration_endpoint: oidc_baseurl + "register" } : {},
+    token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
+    code_challenge_methods_supported: ["S256"],
+    grant_types_supported: ["authorization_code"],
+    response_modes_supported: ["query", "fragment", "form_post"],
+    //we many need to add various id_token/token combinations too? but they may only apply to implicit flows?
+    //see also https://openid.net/specs/oauth-v2-multiple-response-types-1_0.html
+    response_types_supported: ["code"],
+  } satisfies OpenIdConfiguration;
+
+  if (!openIdServer)
+    return createJSONResponse(200, oauthMetadata);
 
   const id_token_signing_alg_values_supported: IdTokenSigningAlgValuesSupported[] = [];
   if (settings.signingKeys.find(_ => _.privateKey.kty === "RSA"))
@@ -30,27 +74,27 @@ export async function wellKnownRouter(req: WebRequest): Promise<WebResponse> {
   // if (settings.signingKeys.find(_ => _.privateKey.kty === "EC"))
   //   id_token_signing_alg_values_supported.push("ES256");
 
-  //Encode wrd:schema as /wrd/schema/ in the URL
-  const oidc_baseurl = new URL(`/.wh/openid/${encodeURIComponent(wrdSchemaTag).replace('%3A', '/')}/`, req.baseURL).toString();
   //See https://openid.net/specs/openid-connect-discovery-1_0.html for the basic field list
   return createJSONResponse(200, {
-    issuer: settings.issuer,
+    ...oauthMetadata,
     jwks_uri: oidc_baseurl + 'jwks',
-    authorization_endpoint: oidc_baseurl + "authorize",
-    token_endpoint: oidc_baseurl + "token",
     userinfo_endpoint: oidc_baseurl + "userinfo",
     id_token_signing_alg_values_supported,
-    token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
-    code_challenge_methods_supported: ["S256"],
     scopes_supported: ["openid", "email", "profile"],
-    response_modes_supported: ["query", "fragment", "form_post"],
-    //we many need to add various id_token/token combinations too? but they may only apply to implicit flows?
-    //see also https://openid.net/specs/oauth-v2-multiple-response-types-1_0.html
-    response_types_supported: ["code"],
     subject_types_supported: ["public"]
   } satisfies OpenIdConfiguration);
+}
 
+/** Implements .well-known/openid-configuration (OpenID Connect Discovery). Only available if the schema is an OpenID Connect provider */
+export async function wellKnownRouter(req: WebRequest): Promise<WebResponse> {
+  return await buildMetadata(req, "openid");
+}
+
+/** Implements .well-known/oauth-authorization-server (RFC 8414). Includes the OpenID fields if the schema is an OpenID Connect provider */
+export async function oauthAuthorizationServerRouter(req: WebRequest): Promise<WebResponse> {
+  return await buildMetadata(req, "oauth");
 }
 
 // validate signatures
 wellKnownRouter satisfies WebHareRouter;
+oauthAuthorizationServerRouter satisfies WebHareRouter;

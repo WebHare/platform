@@ -1,6 +1,6 @@
 import * as whdb from "@webhare/whdb";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
-import { createFirstPartyToken, type LookupUsernameParameters, type OpenIdRequestParameters, type AuthCustomizer, type JWTPayload, type ReportedUserInfo, type ClientConfig, registerOAuthApplication, initializeIssuer, prepareFrontendLogin, writeAuthAuditEvent, getAuditEvents, type AuthEventData } from "@webhare/auth";
+import { createFirstPartyToken, type LookupUsernameParameters, type OpenIdRequestParameters, type AuthCustomizer, type JWTPayload, type ReportedUserInfo, type ClientConfig, registerOAuthApplication, enableOpenIDServer, prepareFrontendLogin, writeAuthAuditEvent, getAuditEvents, type AuthEventData } from "@webhare/auth";
 import { AuthenticationSettings, createSchema, describeEntity, extendSchema, getSchemaSettings, updateSchemaSettings, wrd, type WRDSchemaLike } from "@webhare/wrd";
 import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, decodeJWT, createCodeVerifier, type FrontendAuthResult, type FrontendLoginRequest } from "@webhare/auth/src/identity";
 import { createCodeChallenge, retrieveTokens, returnAuthorizeFlow, startAuthorizeFlow, type CodeChallengeMethod } from "@mod-platform/js/auth/openid.ts";
@@ -18,6 +18,7 @@ import { IncomingWebRequest } from "@webhare/router/src/request";
 
 const cbUrl = "https://www.example.net/cb/";
 const loginUrl = "https://www.example.net/login/";
+const testIssuer = "https://my.webhare.dev/testfw/issuer";
 let robotClient: ClientConfig | undefined;
 let peopleClient: ClientConfig | undefined;
 let evilClient: ClientConfig | undefined;
@@ -218,30 +219,30 @@ async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: Ident
 
   //our evil client should not be able to get the token
   const evilparams = { ...formparams, client_id: evilClient!.clientId, client_secret: evilClient!.clientSecret };
-  test.eq({ error: /Invalid or expired/ }, await retrieveTokens(provider, new URLSearchParams(evilparams), new Headers, { customizer }));
+  test.eq({ error: /Invalid or expired/ }, await retrieveTokens(provider, new URLSearchParams(evilparams), new Headers, { customizer, issuer: testIssuer }));
 
   const badcodeparams = { ...formparams, code: formparams.code.substring(1) };
-  test.eq({ error: /Invalid or expired/ }, await retrieveTokens(provider, new URLSearchParams(badcodeparams), new Headers, { customizer }));
+  test.eq({ error: /Invalid or expired/ }, await retrieveTokens(provider, new URLSearchParams(badcodeparams), new Headers, { customizer, issuer: testIssuer }));
 
   if (challenge) {
     //not supplying code_verifier when code_challenge was present is an error
-    test.eq({ error: /Missing code_verifier/ }, await retrieveTokens(provider, new URLSearchParams(formparams), new Headers, { customizer }));
+    test.eq({ error: /Missing code_verifier/ }, await retrieveTokens(provider, new URLSearchParams(formparams), new Headers, { customizer, issuer: testIssuer }));
 
     //invalid code_verifier (should be 43-128 characters long)
     const invalidverifierparams = { ...formparams, code_verifier: "tooshort" };
-    test.eq({ error: /Invalid code_verifier/ }, await retrieveTokens(provider, new URLSearchParams(invalidverifierparams), new Headers, { customizer }));
+    test.eq({ error: /Invalid code_verifier/ }, await retrieveTokens(provider, new URLSearchParams(invalidverifierparams), new Headers, { customizer, issuer: testIssuer }));
 
     //non-matching code_verifier
     const wrongverifierparams = { ...formparams, code_verifier: "1234567890123456789012345678901234567890123" };
-    test.eq({ error: /Wrong code_verifier/ }, await retrieveTokens(provider, new URLSearchParams(wrongverifierparams), new Headers, { customizer }));
+    test.eq({ error: /Wrong code_verifier/ }, await retrieveTokens(provider, new URLSearchParams(wrongverifierparams), new Headers, { customizer, issuer: testIssuer }));
 
     formparams.code_verifier = code_verifier;
   }
-  const tokens = await retrieveTokens(provider, new URLSearchParams(formparams), new Headers, { customizer });
+  const tokens = await retrieveTokens(provider, new URLSearchParams(formparams), new Headers, { customizer, issuer: testIssuer });
   test.assert(tokens.error === null);
   if (tokens.body.id_token)
     test.eqPartial({ id_token: scopes.includes("openid") ? /^eyJ/ : undefined, access_token: /^secret-token:eyJ/ }, tokens.body);
-  test.eq({ error: /Invalid or expired/, }, await retrieveTokens(provider, new URLSearchParams(formparams), new Headers, { customizer }));
+  test.eq({ error: /Invalid or expired/, }, await retrieveTokens(provider, new URLSearchParams(formparams), new Headers, { customizer, issuer: testIssuer }));
   if (tokens.body.id_token)
     test.eqPartial({ error: "Token is invalid" }, await provider.verifyAccessToken("id", tokens.body.id_token));
   test.eqPartial({ entity: user, scopes: scopes, client: clientWrdId, accountStatus: { status: "active" } }, await provider.verifyAccessToken("api", tokens.body.access_token));
@@ -250,7 +251,7 @@ async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: Ident
 
   if (tokens.body.id_token) {
     const verifyresult = await provider.validateToken(tokens.body.id_token);
-    test.eqPartial({ aud: clientId, iss: "https://my.webhare.dev/testfw/issuer" }, verifyresult);
+    test.eqPartial({ aud: clientId, iss: testIssuer }, verifyresult);
   }
   if (scopes.includes("openid"))
     test.assert(tokens.body.id_token, "We did an openid login so there should be a id_token");
@@ -300,11 +301,11 @@ async function setupOpenID() {
   //Setup test keys. even if WRD learns to do this automatically for new schemas we'd still want to overwrite them for proper tests
   await whdb.beginWork();
   const provider = new IdentityProvider(oidcAuthSchema);
-  await initializeIssuer(oidcAuthSchema, "https://my.webhare.dev/testfw/issuer");
+  await enableOpenIDServer(oidcAuthSchema);
 
   const jwks = await provider.getPublicJWKS();
   test.eq(2, jwks.keys.length);
-  test.eqPartial({ "use": "sig", "issuer": "https://my.webhare.dev/testfw/issuer" }, jwks.keys[0]);
+  test.eqPartial({ "use": "sig" }, jwks.keys[0]);
   test.assert("kid" in jwks.keys[0]);
   test.assert(!("d" in jwks.keys[0]), "no private key info!");
 
@@ -445,7 +446,10 @@ async function testAuthAPI() {
   //Fonzie-check the token. because its json.json.sig we'll see at least "ey" twice (encoded {})
   //WebHare as IDP currently follows MS' default and sets the id_token to a 60 minutes expiry (openIdTokenExpiry)
   test.eq(/^ey[^.]+\.ey[^.]+\.[^.]+$/, authresult.idToken);
-  test.assert(authresult.expiresIn && authresult.expiresIn > 59 * 60 && authresult.expiresIn <= 60 * 60, `We expect ~60 minutes expiry, got ${authresult.expiresIn! / 60} minutes`);
+  const idTokenLifetime = decodeJWT(authresult.idToken!).exp! - Date.now() / 1000;
+  test.assert(idTokenLifetime > 59 * 60 && idTokenLifetime <= 60 * 60, `We expect ~60 minutes id_token expiry, got ${idTokenLifetime / 60} minutes`);
+  //The access token (which expires_in describes) defaults to 7 days (defaultAccessTokenExpiry)
+  test.assert(authresult.expiresIn && authresult.expiresIn > 7 * 86400 - 60 && authresult.expiresIn <= 7 * 86400, `We expect ~7 days access token expiry, got ${authresult.expiresIn! / 3600} hours`);
 
   await test.throws(/audience invalid/, provider.validateToken(authresult.idToken!, { audience: peopleClient!.clientId }));
 
@@ -874,6 +878,9 @@ async function testApiTokens() {
   const testUnit = await oidcAuthSchema.find("whuserUnit", { wrdTitle: "tempTestUnit" }) ?? throwError("No test unit found");
   const testUnitKey = await createFirstPartyToken(oidcAuthSchema, "api", testUnit);
   test.eq(/^secret-token:/, testUnitKey.accessToken);
+  //API tokens without an explicit expiry fall back to defaultAccessTokenExpiry (7 days)
+  const apiTokenLifetime = testUnitKey.expires!.epochMilliseconds - Date.now();
+  test.assert(apiTokenLifetime > 7 * 86400_000 - 60_000 && apiTokenLifetime <= 7 * 86400_000, `Expected ~7 days API token expiry, got ${apiTokenLifetime / 3600_000} hours`);
 
   const provider = new IdentityProvider(oidcAuthSchema);
   test.eqPartial({ entity: testUnit }, await provider.verifyAccessToken("api", testUnitKey.accessToken));

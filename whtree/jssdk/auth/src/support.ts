@@ -7,7 +7,6 @@ import { getSchemaSettings } from "@webhare/wrd/src/settings";
 import { updateURL } from "@webhare/std";
 export { getAuthSettings } from "./settings";
 
-//TODO Export from @webhare/auth? but camelcase first
 export type WRDAuthLoginSettings = {
   /** Expire normal login after this time (milliseconds) */
   expireLogin: number;
@@ -21,6 +20,10 @@ export type WRDAuthLoginSettings = {
   roundLongLoginsTZ: string;
   /** Minimum duration of sessions when rounding (milliseconds) */
   roundMinDuration: number;
+  /** Duration of access tokens handed out over OAuth2 (milliseconds). If not set, falls back to defaultAccessTokenExpiry (7 days) */
+  apiTokenDuration?: number;
+  /** Act as an OpenID Connect provider (offer openid-configuration metadata, ID tokens and userinfo). Plain OAuth2 doesn't require this */
+  openIdServer?: boolean;
 };
 
 export const defaultWRDAuthLoginSettings: WRDAuthLoginSettings = {
@@ -32,9 +35,18 @@ export const defaultWRDAuthLoginSettings: WRDAuthLoginSettings = {
   roundMinDuration: 3 * 3600 * 1000, // sessions last at least 3 hours
 };
 
+/** Default duration of API/OAuth2 access tokens if neither the token request nor loginSettings.apiTokenDuration specify one (milliseconds) */
+export const defaultAccessTokenExpiry = 7 * 86400 * 1000; // 7 days
+
 export type WRDDynamicRegistrationSettings = {
   /** Is dynamic registration currently enabled */
   enabled: boolean;
+};
+
+export type WRDDynamicClientRegistration = {
+  request: Record<string, unknown>;
+  clientIp: string;
+  registrationAccessTokenHash?: string;
 };
 
 export type PrepAuthResult = {

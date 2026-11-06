@@ -107,6 +107,16 @@
                     group="wrd"
                     screen="/tolliumapps/payments/dashboard.xml#paymentsdashboard"
                     tid="tolliumapps.payments.dashboard.paymentsdashboard" />
+
+    <!-- The sessions contain authorization details of other users, so restrict it to sysops -->
+    <dashboardpanel name="oauth2initiations"
+                    group="wrd"
+                    screen="/tolliumapps/auth/oauth2initiations.xml#oauth2initiations"
+                    tid="tolliumapps.auth.oauth2initiations.title">
+      <accesscheck>
+        <requireright right="system:sysop" />
+      </accesscheck>
+    </dashboardpanel>
   </portal>
 
   <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">

@@ -2,6 +2,8 @@
 
 LOADLIB "mod::system/lib/configure.whlib";
 
+LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
+
 PUBLIC RECORD FUNCTION RenameSP(OBJECT wrdschema) {
   OBJECT wrdauth_service_provider := wrdschema->GetType("wrdauth_service_provider");
   IF(ObjectExists(wrdauth_service_provider))
@@ -78,6 +80,28 @@ PUBLIC RECORD FUNCTION MigrateUserAttachmentsToPerson(OBJECT wrdschema) {
     result := CellInsert(result, typetag, CELL[ total := Length(entities), deleted := Length(nonpersonentities) ]);
   }
 
+  RETURN result;
+}
+
+/* The configurable OpenID issuer is replaced by an issuer derived from the identity provider site. Schemas which had an
+   issuer configured were acting as OpenID Connect provider, so set login_settings.open_id_server for them. We delete the
+   issuer attribute ourselves so we don't depend on the order of this migration and the metadata update */
+PUBLIC RECORD FUNCTION MigrateOpenIDIssuer(OBJECT wrdschema) {
+  OBJECT settingstype := wrdschema->GetType("wrd_settings");
+  IF(NOT ObjectExists(settingstype) OR NOT RecordExists(settingstype->GetAttribute("issuer")))
+    RETURN DEFAULT RECORD;
+
+  INTEGER settingsentity := settingstype->Search("wrd_guid", wrd_settings_guid, [ historymode := "all" ]);
+  RECORD result := CELL[ openidserver := FALSE ];
+  IF(settingsentity != 0) {
+    RECORD cursettings := settingstype->GetEntityFields(settingsentity, [ "issuer", "login_settings" ]);
+    IF(cursettings.issuer != "") {
+      settingstype->UpdateEntity(settingsentity, CELL[ login_settings := CELL[ ...cursettings.login_settings, open_id_server := TRUE ] ]);
+      result := CELL[ openidserver := TRUE, oldissuer := cursettings.issuer ];
+    }
+  }
+
+  settingstype->DeleteAttribute("issuer");
   RETURN result;
 }
 

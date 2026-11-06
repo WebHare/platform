@@ -1110,10 +1110,10 @@ async function testBaseTypes() {
   test.eq({ domainSecret: /^[-_0-9a-zA-Z]{44}$/ }, settings);
 
   await whdb.beginWork();
-  await updateSchemaSettings(schema, { issuer: "https://example.net" });
+  await updateSchemaSettings(schema, { defaultSenderName: "Example sender" });
   await whdb.commitWork();
 
-  test.eq({ domainSecret: settings.domainSecret, issuer: "https://example.net" }, await getSchemaSettings(schema, ["domainSecret", "issuer"]));
+  test.eq({ domainSecret: settings.domainSecret, defaultSenderName: "Example sender" }, await getSchemaSettings(schema, ["domainSecret", "defaultSenderName"]));
 }
 
 async function testMetaData() {

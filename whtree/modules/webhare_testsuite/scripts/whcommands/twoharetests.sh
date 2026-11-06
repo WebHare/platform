@@ -28,11 +28,6 @@ HERE
   exit 1
 }
 
-CONTAINERENGINE=docker
-if [ "$USEPODMAN" == "1" ]; then
-  CONTAINERENGINE=podman
-fi
-
 OUTPUTDIR="/tmp/output"
 
 if [ -n "$1" ]; then
@@ -41,19 +36,19 @@ fi
 
 if [ -n "$TESTENV_CONTAINER1" ]; then
   OUTPUTDIR="/output"
-  TH_EXEC1="$CONTAINERENGINE exec $TESTENV_CONTAINER1 wh"
-  TH_IP1=$($CONTAINERENGINE inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$TESTENV_CONTAINER1")
+  TH_EXEC1="podman exec $TESTENV_CONTAINER1 wh"
+  TH_IP1=$(podman inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$TESTENV_CONTAINER1")
   if [ -z "$TH_IP1" ]; then
-    $CONTAINERENGINE inspect "$TESTENV_CONTAINER1"
+    podman inspect "$TESTENV_CONTAINER1"
     die "Failed to obtain IP address for container 1"
   fi
   TH_WEBINTERFACE1="http://$TH_IP1"
 fi
 if [ -n "$TESTENV_CONTAINER2" ]; then
-  TH_EXEC2="$CONTAINERENGINE exec $TESTENV_CONTAINER2 wh"
-  TH_IP2=$($CONTAINERENGINE inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$TESTENV_CONTAINER2")
+  TH_EXEC2="podman exec $TESTENV_CONTAINER2 wh"
+  TH_IP2=$(podman inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$TESTENV_CONTAINER2")
   if [ -z "$TH_IP2" ]; then
-    $CONTAINERENGINE inspect "$TESTENV_CONTAINER2"
+    podman inspect "$TESTENV_CONTAINER2"
     die "Failed to obtain IP address for container 2"
   fi
   TH_WEBINTERFACE2="http://$TH_IP2"
@@ -78,16 +73,14 @@ $TH_EXEC1 isrunning || die "Container 1 ($TH_EXEC1) is not running"
 $TH_EXEC2 isrunning || die "Container 2 ($TH_EXEC2) is not running - start it with a freshdbconsole"
 
 # Make sure the testserver knows it's supposed to be listening here (testfw configures in virtualhosting and assumes you want 127.0.0.1, and TH_WEBINTERFACE2 will often be 172.0.2.2)
-$TH_EXEC2 webserver addbackend "$TH_WEBINTERFACE2"
-TESTTOKEN="$($TH_EXEC2 test generate-token)"
+$TH_EXEC2 webserver addbackend --virtual --primary  "$TH_WEBINTERFACE2"
 
 echo "Using Web interface for container 1 at $TH_WEBINTERFACE1"
 echo "Using Web interface for container 2 at $TH_WEBINTERFACE2"
 
-#$TH_EXEC1 run mod::webhare_testsuite/tests/system/twohare/prepare1.whscr
 # debugging may require setting WEBHARE_DEBUG=test-keepbrowser
 if ! $TH_EXEC1 registry set webhare_testsuite.tests.secondhareinterface "$TH_WEBINTERFACE2" ||
    ! $TH_EXEC2 run mod::webhare_testsuite/tests/system/twohare/prepare-server2.ts ||
-   ! $TH_EXEC1 runtest --outputdir "$OUTPUTDIR" system.twohare.test_peerserver;then
+   ! $TH_EXEC1 runtest -d -e -o --outputdir "$OUTPUTDIR" system.twohare.test_peerserver;then
   die "tests failed"
 fi
