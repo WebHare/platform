@@ -47,7 +47,7 @@ async function buildMetadata(req: WebRequest, type: "oauth" | "openid"): Promise
     });
 
   //Encode wrd:schema as /wrd/schema/ in the URL
-  const oidc_baseurl = new URL(`/.wh/openid/${encodeURIComponent(wrdSchemaTag).replace('%3A', '/')}/`, req.baseURL).toString();
+  const oidc_baseurl = new URL(`/.wh/openid/${encodeURIComponent(wrdSchemaTag).replace(/%3A/g, '/')}/`, req.baseURL).toString();
 
   //RFC 8414 fields. See also https://www.iana.org/assignments/oauth-parameters/oauth-parameters.xhtml#authorization-server-metadata
   const oauthMetadata = {
