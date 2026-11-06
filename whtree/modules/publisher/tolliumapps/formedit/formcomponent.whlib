@@ -136,6 +136,7 @@ PUBLIC STATIC OBJECTTYPE EditComponent EXTEND TolliumScreenBase
   //
 
   OBJECT node;
+  PUBLIC PROPERTY __node(node, -);
   BOOLEAN existing;
   RECORD compdef;
   OBJECT compfragment;

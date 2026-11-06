@@ -9,9 +9,16 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 OBJECT __condition_parent;
 
 
-OBJECTTYPE ConditionContext
+STATIC OBJECTTYPE ConditionContext
 <
-  PUBLIC RECORD ARRAY conditionsources;
+  RECORD ARRAY sources;
+
+  PUBLIC PROPERTY conditionsources(sources, -);
+
+  MACRO NEW(OBJECT comp)
+  {
+    this->sources := comp->contexts->formcomponentapi->GetConditionSources(CELL[ comp->scope, fornode := comp->owner->__node ]);
+  }
 >;
 
 PUBLIC OBJECTTYPE FormCondition EXTEND TolliumFragmentBase
@@ -42,12 +49,6 @@ PUBLIC OBJECTTYPE FormCondition EXTEND TolliumFragmentBase
   MACRO NEW()
   {
     EXTEND this BY TolliumIsComposable;
-  }
-
-  UPDATE MACRO PreInitComponent()
-  {
-    this->contexts->^conditioncontext := NEW ConditionContext();
-    this->contexts->^conditioncontext->conditionsources := this->contexts->formcomponentapi->GetConditionSources([ scope := this->scope]);
   }
 
   UPDATE PUBLIC MACRO StaticInit(RECORD description)
@@ -95,6 +96,11 @@ PUBLIC OBJECTTYPE FormCondition EXTEND TolliumFragmentBase
 
   MACRO SetValue(RECORD value)
   {
+    // The condition sources cannot be read in PreInitComponent, as EditComponent::Init hasn't run yet and we don't have any
+    // form component context, so just initialize it here if not already initialized
+    IF (NOT ObjectExists(this->contexts->^conditioncontext))
+      this->contexts->^conditioncontext := NEW ConditionContext(this);
+
     TRY
     {
       this->condition->value := this->contexts->formcomponentapi->FormatFormCondition(value);
