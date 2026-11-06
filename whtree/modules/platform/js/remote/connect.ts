@@ -53,9 +53,9 @@ export type GetPeerServerTokenResult = PeerServerTokenResult | {
   tokenPromise: Promise<PeerServerTokenResult>;
 };
 
-/** Normalize the scopes to request. HareScript callers still use the legacy builtin.oauth name for the sysop scope */
+/** Normalize the scopes to request, defaulting to platform:sysop. HareScript callers still use the legacy builtin.oauth name for the sysop scope */
 function normalizeScopes(scopes: string[] | undefined) {
-  return [...new Set((scopes ?? []).map(scope => scope === "system:sysop" ? "platform:sysop" : scope))];
+  return scopes?.length ? [...new Set(scopes.map(scope => scope === "system:sysop" ? "platform:sysop" : scope))] : ["platform:sysop"];
 }
 
 async function getUserApiSchemaName(opts?: { schema?: string }): Promise<string> {
@@ -418,13 +418,13 @@ class TokenPromise {
  * @param entityId User to store the token for
  * @param authServer The wrdauthServer for the remote WebHare
  * @param options.prompt OAuth2 prompt behavior to request from the remote (eg 'login' or 'consent')
- * @param options.scopes Scopes to request (already normalized). Defaults to platform:sysop
+ * @param options.scopes Scopes to request (see normalizeScopes)
  * @returns The URL the user must visit to authorize us, and a promise for the token once that completes */
-async function getOAuth2PeerServerTokenURL(remoteHost: string, userSchema: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>, entityId: number, authServer: number, options?: {
+async function getOAuth2PeerServerTokenURL(remoteHost: string, userSchema: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>, entityId: number, authServer: number, options: {
   prompt?: OAuth2PromptFlag;
-  scopes?: string[];
+  scopes: string[];
 }): Promise<GetPeerServerTokenResult & { status: "interactionRequired" }> {
-  const scopes = options?.scopes?.length ? options.scopes : ["platform:sysop"];
+  const scopes = options.scopes;
   const clientScope = "platform:connect-peer";
   const landing = Promise.withResolvers<PeerServerTokenResult>();
   //Our OAuth2 landing page redirects the browser here with an oauth2session parameter once the authorization completes
@@ -452,7 +452,7 @@ async function getOAuth2PeerServerTokenURL(remoteHost: string, userSchema: WRDSc
   const client = await createOAuth2Client(userSchema, authServer);
   const authLink = await client.createAuthorizeLink(endpoint.url, {
     clientScope,
-    prompt: options?.prompt,
+    prompt: options.prompt,
     addScopes: scopes,
   });
   if (authLink.type !== "redirect") //we only understand redirects here
@@ -481,7 +481,7 @@ export async function getPeerServerToken(remoteHost: string, options?: {
   baseUrl?: string;
   /** OAuth2 prompt behavior to request from the remote (eg 'login' or 'consent'). Always requests a new token, ignoring any stored token. Ignored by legacy (non OAuth2) peers */
   prompt?: OAuth2PromptFlag;
-  /** Scopes the token needs. Defaults to platform:sysop when requesting a new token */
+  /** Scopes the token needs. Defaults to platform:sysop */
   scopes?: string[];
   /** Set to false to only return a stored token, and never start an authorization (defaults to true) */
   interactive?: boolean;
