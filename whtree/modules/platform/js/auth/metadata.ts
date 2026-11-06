@@ -1,4 +1,4 @@
-import { HTTPErrorCode, type WebHareRouter, type WebRequest, type WebResponse, createJSONResponse } from "@webhare/router";
+import { HTTPErrorCode, type WebHareRouter, type WebRequest, type WebResponse, createJSONResponse, createWebResponse } from "@webhare/router";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 //TOOD make this a public export somewhere? but should it include wrdOrg and wrdPerson though
 import { wrd, type WRDSchemaLike } from "@webhare/wrd";
@@ -31,6 +31,20 @@ async function buildMetadata(req: WebRequest, type: "oauth" | "openid"): Promise
   const issuer = await getOpenIDIssuer(wrdSchemaTag);
   if (!issuer)
     return createJSONResponse(HTTPErrorCode.NotFound, { error: `No identity provider site found for WRD schema '${wrdSchemaTag}'` });
+
+  /* The issuer must match the location the metadata was retrieved from (RFC 8414 section 3.3, OpenID Connect Discovery
+     section 4.3), so we refuse to serve metadata through an alias hostname or other URL than the identity provider site's webroot */
+  const requestedUrl = new URL(req.url);
+  requestedUrl.search = "";
+  const expectedUrl = issuer + requestedUrl.pathname.substring(requestedUrl.pathname.lastIndexOf("/.well-known/"));
+  if (requestedUrl.toString() !== expectedUrl)
+    return createWebResponse(`This metadata is only available at ${expectedUrl}\n\n`
+      + `The issuer of WRD schema '${wrdSchemaTag}' is ${issuer} (derived from the webroot of the site with the platform:identityprovider webfeature). `
+      + `RFC 8414 and OpenID Connect Discovery require the issuer to match the URL the metadata is retrieved from, `
+      + `so clients would reject the metadata if we served it at ${requestedUrl.toString()}\n`, {
+      status: HTTPErrorCode.NotFound,
+      headers: { "content-type": "text/plain; charset=utf-8" }
+    });
 
   //Encode wrd:schema as /wrd/schema/ in the URL
   const oidc_baseurl = new URL(`/.wh/openid/${encodeURIComponent(wrdSchemaTag).replace('%3A', '/')}/`, req.baseURL).toString();
