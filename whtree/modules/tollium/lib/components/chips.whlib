@@ -170,7 +170,7 @@ PUBLIC OBJECTTYPE TolliumChips EXTEND TolliumComponentBase <
         RETURN;
       }
       CASE "inspectoptions" {
-        IF(this->contexts->controller->IsTrustedToDebug()) {
+        IF(this->contexts->controller->IsTrustedToDebug(FALSE)) {
           IF (msgdata.value = -1)
             Reflect(this->chips);
           ELSE

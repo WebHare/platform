@@ -46,6 +46,8 @@
     <textgroup gid="rights">   <!-- module.rights -->
       <text tid="api">WebHare API toegang</text>
       <text tid="api-description">Heeft toegang tot de WebHare Platform API</text>
+      <text tid="debug">WebHare debuggen</text>
+      <text tid="debug-description">Heeft toegang tot debugopties</text>
     </textgroup>
   </textgroup>
   <textgroup gid="siteprofiles">   <!-- siteprofiles -->

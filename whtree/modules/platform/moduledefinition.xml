@@ -189,6 +189,9 @@
     <right name="api" descriptiontid="module.rights.api-description" isrootright="true" tid="module.rights.api">
       <impliedby right="system:sysop" />
     </right>
+    <right name="debug" descriptiontid="module.rights.debug-description" tid="module.rights.debug">
+      <impliedby right="system:sysop" />
+    </right>
   </rights>
 
   <documentation>

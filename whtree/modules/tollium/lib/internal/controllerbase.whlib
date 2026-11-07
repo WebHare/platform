@@ -1684,10 +1684,11 @@ PUBLIC OBJECTTYPE TolliumControllerBase <
   }
 
   /** Would we trust this user with the debugger or other 'raw' access ? */
-  PUBLIC BOOLEAN FUNCTION IsTrustedToDebug()
+  PUBLIC BOOLEAN FUNCTION IsTrustedToDebug(BOOLEAN require_sysop)
   {
-    //TODO  trust non-sysops being impersonated by sysops too ?
-    RETURN GetEffectiveUser()->HasRight("system:sysop") OR IsDebugTagEnabled(debugflag_trustparams);
+    //TODO  trust non-debuggers being impersonated by debuggers too ?
+    RETURN (require_sysop ? GetEffectiveUser()->HasRight("system:sysop") : TRUE)
+           AND (GetEffectiveUser()->HasRight("platform:debug") OR IsDebugTagEnabled(debugflag_trustparams));
   }
 
   /** Setup dynamic embedded documentation
@@ -2178,7 +2179,8 @@ PUBLIC OBJECTTYPE TolliumControllerBase <
     BOOLEAN errorhandled; // sysop-only warning given so no need to give a generic applaunchfailure message?
 
     this->ValidateControllerSetup();
-    IF(Length(this->pvt_inapppath) > 0 AND NOT this->IsTrustedToDebug())
+    // even though inappaths should be safe, they are easily unstable between versions. so don't allow them in normal usage
+    IF(Length(this->pvt_inapppath) > 0 AND NOT this->IsTrustedToDebug(FALSE))
       this->pvt_inapppath := STRING[];
 
     this->LaunchApplicationInsideApp(apppath,data,options);
@@ -2194,8 +2196,8 @@ PUBLIC OBJECTTYPE TolliumControllerBase <
       RETURN;
     }
 
-    IF(Length(data.params) >0 AND NOT options.allowuntrustedparams AND NOT app.allowuntrustedparams AND NOT this->IsTrustedToDebug())
-    {
+    // Require sysop debuggers, test users shouldn't be allowed to use untrusted params as that would invalidate their test
+    IF(Length(data.params) > 0 AND NOT options.allowuntrustedparams AND NOT app.allowuntrustedparams AND NOT this->IsTrustedToDebug(TRUE)) {
       STRING message := GetTid("tollium:shell.controller.untrustedparams");
       IF(GetDtapStage() = "development")
         message := message || "\n\n" || GetTid("tollium:shell.controller.untrustedparams_debugflag", debugflag_trustparams);
@@ -3104,8 +3106,8 @@ PUBLIC OBJECTTYPE TolliumControllerBase <
 
       CASE "$devhook"
       {
-        IF(NOT this->contexts->controller->IsTrustedToDebug())
-          THROW NEW Exception("Devhooks are only allowed for sysops or if debugflag tollium:trustparams is set");
+        IF(NOT this->contexts->controller->IsTrustedToDebug(FALSE))
+          THROW NEW Exception("Devhooks are only allowed with the platform:debug right or if debugflag tollium:trustparams is set");
 
         SWITCH (todd_request.param.action) {
           CASE "openineditor" {

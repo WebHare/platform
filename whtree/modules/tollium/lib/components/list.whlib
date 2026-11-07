@@ -2189,7 +2189,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase <
 
   MACRO ExecuteMagicAction(STRING type, RECORD row)
   {
-    IF(NOT this->contexts->controller->IsTrustedToDebug())
+    IF(NOT this->contexts->controller->IsTrustedToDebug(FALSE))
       RETURN;
 
     IF(type="inspectrow")

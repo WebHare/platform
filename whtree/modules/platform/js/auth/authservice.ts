@@ -21,7 +21,7 @@ export function doPublicAuthDataCookie(cookieName: string, cookieSettings: Serve
   hdrs.append("Set-Cookie", buildCookieHeader(cookieName + PublicCookieSuffix, stringify(authData, { typed: true }), { ...cookieSettings, httpOnly: false, expires: cookieExpiry }));
 }
 
-export function doLoginHeaders(authCookies: SetAuthCookies, hdrs: Headers): void {
+export function doLoginHeaders(authCookies: Pick<SetAuthCookies, "persistent" | "expires" | "cookieName" | "cookieSettings" | "publicAuthData" | "idCookie" | "value" | "ignoreCookies">, hdrs: Headers): void {
   // We record the accesstoken expiry in the public cookie but if we expect the browser to discard the session we'll make them session cookies
   const cookieExpiry = authCookies.persistent ? authCookies.expires : null;
 

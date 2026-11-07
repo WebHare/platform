@@ -3,6 +3,7 @@ import { handleOAuth2AuthorizeLanding } from "@webhare/auth/src/oauth2-client";
 import { parseUserAgent } from "@webhare/dompack/src/browser";
 import { createRedirectResponse, createWebResponse, HTTPErrorCode, HTTPSuccessCode, type WebHareRouter, type WebRequest, type WebResponse } from "@webhare/router";
 import { decryptForThisServer } from "@webhare/services";
+import { redeemTestUserLogin } from "@webhare/auth/src/testusers";
 import { getApplyTesterForURL } from "@webhare/whfs/src/applytester";
 
 export async function authRouter(req: WebRequest): Promise<WebResponse> {
@@ -27,6 +28,18 @@ export async function authRouter(req: WebRequest): Promise<WebResponse> {
     const responseHeaders = new Headers;
     doLoginHeaders(settoken, responseHeaders);
     return createRedirectResponse(settoken.target, HTTPSuccessCode.Found, { headers: responseHeaders });
+  }
+
+  if (url.pathname.startsWith("/.wh/auth/testlogin/")) {
+    const redeemed = await redeemTestUserLogin(url.pathname.substring("/.wh/auth/testlogin/".length));
+    if (!redeemed)
+      return createWebResponse("Test login link expired", { status: HTTPErrorCode.Gone });
+    if (!redeemed.target.startsWith(url.origin + '/'))
+      return createWebResponse("Invalid target", { status: HTTPErrorCode.BadRequest });
+
+    const responseHeaders = new Headers;
+    doLoginHeaders(redeemed.setAuth, responseHeaders);
+    return createRedirectResponse(redeemed.target, HTTPSuccessCode.Found, { headers: responseHeaders });
   }
 
   if (url.pathname === "/.wh/auth/logout") {

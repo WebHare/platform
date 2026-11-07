@@ -36,6 +36,7 @@ export interface AuthEventData {
   "platform:secondfactor.challenge": { challenge: string };
   "platform:secondfactor.ok": { code: string };
   "platform:secondfactor.failed": { failurecode: string };
+  "platform:testuser-created": { rights: string[]; roles: string[]; expires: Temporal.Instant };
   //FIXME old style, remove
   "wrd:loginbyid:ok": void;
 }
