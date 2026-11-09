@@ -10,7 +10,7 @@ import { beginWork, db } from "@webhare/whdb";
 import { loadlib } from "@webhare/harescript";
 import { lookupURL, openFileOrFolder, openFolder, openSite, type WHFSObject } from "@webhare/whfs";
 import { convertWaitPeriodToDate, generateRandomId, isDate, throwError, type WaitPeriod } from "@webhare/std";
-import { createSchema, deleteSchema, listSchemas, WRDSchema, type WRDSchemaType } from "@webhare/wrd";
+import { createSchema, deleteSchema, listSchemas, wrd, type AnySchemaType, type WRDSchemaType } from "@webhare/wrd";
 import { whconstant_wrd_testschema } from "@mod-system/js/internal/webhareconstants";
 import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import { getAuthorizationInterface, type AuthAuditEvent, type AuthEventData, type AuthorizationInterface } from "@webhare/auth";
@@ -129,7 +129,7 @@ export async function reset(options?: ResetOptions): Promise<void> {
       });
 
       if (!setupWrdAuth) { //mark unit as not-required for compatibility with all existing tests
-        const persontype = new WRDSchema(wrdSchema).getType("wrdPerson");
+        const persontype = wrd<AnySchemaType>(wrdSchema, { writeMetadata: true }).getType("wrdPerson");
         if (await persontype.describeAttribute("whuserUnit"))
           await persontype.updateAttribute("whuserUnit", { isRequired: false });
       }

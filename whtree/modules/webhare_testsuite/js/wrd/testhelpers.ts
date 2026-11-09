@@ -1,4 +1,4 @@
-import { wrd, WRDSchema, type AnySchemaType, type WRDSchemaLike, type WRDSchemaType } from "@webhare/wrd";
+import { wrd, WRDSchema, type AnySchemaType, type WRDSchemaLike, type WRDSchemaType, type WRDWritableSchema } from "@webhare/wrd";
 import * as test from "@webhare/test-backend";
 import * as whdb from "@webhare/whdb";
 import type { WRDAttributeTypeId, Combine, WRDAttr, IsRequired, WRDTypeBaseSettings, WRDBaseAttributeTypeId, IsNonUpdatable, SchemaTypeDefinition, WRDTypeBaseSettingsModern } from "@webhare/wrd/src/types"; //FIXME shouldn't need an internal API for WRDMetaType
@@ -198,6 +198,14 @@ export async function getExtendedWRDSchema() {
   return wrdschema as unknown as WRDSchemaType<Combined>;
 }
 
+/** Get the test schema opened for metadata changes */
+export async function getMetaWritableWRDSchema<T extends SchemaTypeDefinition = AnySchemaType>(): Promise<WRDWritableSchema<T>> {
+  const wrdschema = wrd<"*">(testSchemaTag, { writeMetadata: true });
+  if (!await wrdschema.exists())
+    throw new Error(`${testSchemaTag} not found. wrd not enabled for this test run?`);
+  return wrdschema as unknown as WRDWritableSchema<T>;
+}
+
 export async function getLegacyWRDSchema<T extends SchemaTypeDefinition = AnySchemaType>(): Promise<WRDSchema<T>> {
   const wrdschema = new WRDSchema<T>(testSchemaTag);
   if (!await wrdschema.exists())
@@ -219,7 +227,8 @@ export async function getLegacyExtendedWRDSchema() {
 
 async function setupTheWRDTestSchema(schemaobj: WRDSchemaType, options: { deleteClosedAfter?: number; keepHistoryDays?: number; withRichDoc?: boolean } = {}) {
   options = { withRichDoc: true, deleteClosedAfter: 0, keepHistoryDays: 0, ...options };
-  const persontype = schemaobj.getType("wrdPerson");
+  const metaschema = wrd<"*">(schemaobj.tag, { writeMetadata: true });
+  const persontype = metaschema.getType("wrdPerson");
 
 
   // Initialize the schema, and test the attribute name function
@@ -238,18 +247,18 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchemaType, options: { delete
   await persontype.createAttribute("url", { attributeType: "url", title: "URL" });
 
   // Create a domain with some values
-  await schemaobj.createType("testDomain_1", { metaType: "domain", title: "Domain 1" });
+  await metaschema.createType("testDomain_1", { metaType: "domain", title: "Domain 1" });
   test.eq("domain", (await schemaobj.describeType("testDomain_1"))?.metaType);
   //TestEq(TRUE, ObjectExists(domain1_obj));
 
-  await schemaobj.createType("testDomain1Child", { metaType: "domain", title: "Domain 1 Child", parent: "testDomain_1" });
+  await metaschema.createType("testDomain1Child", { metaType: "domain", title: "Domain 1 Child", parent: "testDomain_1" });
 
   await schemaobj.insert("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_1", wrdTitle: "Domain value 1.1", wrdOrdering: 3 });
   await schemaobj.insert("testDomain1Child", { wrdTag: "TEST_DOMAINVALUE_1_2", wrdTitle: "Domain value 1.2", wrdOrdering: 2 });
   await schemaobj.insert("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_3", wrdTitle: "Domain value 1.3", wrdOrdering: 1 });
 
   // Create another domain with some values
-  /*const domain2_obj = */await schemaobj.createType("testDomain_2", { metaType: "domain", title: "Domain 2" });
+  /*const domain2_obj = */await metaschema.createType("testDomain_2", { metaType: "domain", title: "Domain 2" });
   //TestEq(TRUE, ObjectExists(domain2_obj));
 
   /*domain2value1:= */await schemaobj.insert("testDomain_2", { wrdTag: "TEST_DOMAINVALUE_2_1", wrdTitle: "Domain value 2.1", wrdGuid: "00000000-0020-1000-0002-010000002010" });
@@ -291,25 +300,25 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchemaType, options: { delete
   await persontype.createAttribute("richie", { attributeType: "richTextDocument", title: "Rich document" });
   await persontype.createAttribute("linkie", { attributeType: "intExtLink", title: "Internal/external link" });
 
-  const personattachment = await schemaobj.createType("personattachment", { metaType: "attachment", title: "Test person attachments", left: "wrdPerson", deleteClosedAfter: options.deleteClosedAfter, keepHistoryDays: options.keepHistoryDays });
+  const personattachment = await metaschema.createType("personattachment", { metaType: "attachment", title: "Test person attachments", left: "wrdPerson", deleteClosedAfter: options.deleteClosedAfter, keepHistoryDays: options.keepHistoryDays });
   await personattachment.createAttribute("attachfree", { attributeType: "string", title: "Free text attribute" });
 
 
 
   //OBJECT org: schemaobj ->^ wrdOrganization -> CreateEntity([wrd_orgname : "The Org"]);
 
-  const personorglink = await schemaobj.createType("personorglink", { metaType: "link", title: "Test person/org link", left: "wrdPerson", right: "wrdOrganization" });
+  const personorglink = await metaschema.createType("personorglink", { metaType: "link", title: "Test person/org link", left: "wrdPerson", right: "wrdOrganization" });
   await personorglink.createAttribute("text", { attributeType: "string" });
   //FIXME temp support in insert? await personorglink.CreateEntity({ text: "Some text" }, { temp: true });
 
-  const payprov = await schemaobj.createType("payprov", { metaType: "domain", deleteClosedAfter: options.deleteClosedAfter, keepHistoryDays: options.keepHistoryDays });
+  const payprov = await metaschema.createType("payprov", { metaType: "domain", deleteClosedAfter: options.deleteClosedAfter, keepHistoryDays: options.keepHistoryDays });
   await payprov.createAttribute("method", { attributeType: "paymentProvider", isRequired: true });
 
-  const paydata = await schemaobj.createType("paydata", { metaType: "object" });
+  const paydata = await metaschema.createType("paydata", { metaType: "object" });
   await paydata.createAttribute("data", { attributeType: "payment", domain: "payprov" });
   await paydata.createAttribute("log", { attributeType: "hson" });
 
-  const paydata2 = await schemaobj.createType("paydata2", { metaType: "object" });
+  const paydata2 = await metaschema.createType("paydata2", { metaType: "object" });
   await paydata2.createAttribute("data", { attributeType: "payment", domain: "payprov" });
   await paydata2.createAttribute("log", { attributeType: "hson" });
 

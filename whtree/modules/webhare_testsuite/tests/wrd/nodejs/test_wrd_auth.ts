@@ -834,7 +834,7 @@ async function testAuthStatus() {
 
   //Deactivate user. should block login
   await whdb.runInWork(async () => {
-    await oidcAuthSchema.getType("wrdPerson").updateAttribute("wrdauthAccountStatus", { isRequired: false });
+    await wrd("webhare_testsuite:testschema", { writeMetadata: true }).getType("wrdPerson").updateAttribute("wrdauthAccountStatus", { isRequired: false });
     //@ts-expect-error TS doesn't know we dropped isRequired
     await oidcAuthSchema.update("wrdPerson", testuser, { wrdauthAccountStatus: null });
   });
@@ -848,7 +848,7 @@ async function testAuthStatus() {
        <import definitionfile="mod::webhare_testsuite/tests/wrd/nodejs/data/usermgmt_oidc.wrdschema.xml" />
       </schemadefinition>`
   });
-  await oidcAuthSchema.getType("wrdPerson").deleteAttribute("wrdauthAccountStatus");
+  await wrd("webhare_testsuite:testschema", { writeMetadata: true }).getType("wrdPerson").deleteAttribute("wrdauthAccountStatus");
   await whdb.commitWork();
 
   //Now we can login again even without an active wrdauthAccountStatus

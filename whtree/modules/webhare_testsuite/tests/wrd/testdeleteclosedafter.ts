@@ -1,7 +1,7 @@
 import { addDuration } from "@webhare/std";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
-import { WRDSchema } from "@webhare/wrd";
+import { WRDSchema, wrd } from "@webhare/wrd";
 import { createWRDTestSchema, testSchemaTag } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { cleanupOutdatedEntities } from "@mod-wrd/js/internal/tasks";
 
@@ -9,6 +9,7 @@ const deleteClosedAfter = 2;
 
 async function testDeleteClosedAfter() {
   const schema = new WRDSchema(testSchemaTag);
+  const metaschema = wrd<"*">(testSchemaTag, { writeMetadata: true });
 
   // Add an entity. Create it 7 days in the past so wrdLimitDate > wrdCreationDate holds during the tests
   await whdb.beginWork();
@@ -51,7 +52,7 @@ async function testDeleteClosedAfter() {
 
   // Update the schema to not delete closed entities and re-add the entity with a limitdate and modification date in the past
   await whdb.beginWork();
-  await schema.getType("wrdPerson").updateMetadata({ deleteClosedAfter: 0 });
+  await metaschema.getType("wrdPerson").updateMetadata({ deleteClosedAfter: 0 });
   test.eq(0, (await schema.describeType("wrdPerson"))!.deleteClosedAfter);
   person = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", wrdLimitDate: limitDate, wrdModificationDate: limitDate, wrdContactEmail: "testdelete2@beta.webhare.net", wrdauthAccountStatus: { status: "active" } });
   await whdb.commitWork();
@@ -62,7 +63,7 @@ async function testDeleteClosedAfter() {
 
   // Update the schema to delete closed entities
   await whdb.beginWork();
-  await schema.getType("wrdPerson").updateMetadata({ deleteClosedAfter });
+  await metaschema.getType("wrdPerson").updateMetadata({ deleteClosedAfter });
   test.eq(deleteClosedAfter, (await schema.describeType("wrdPerson"))!.deleteClosedAfter);
   await whdb.commitWork();
   // Cleanup, the entity should now be gone

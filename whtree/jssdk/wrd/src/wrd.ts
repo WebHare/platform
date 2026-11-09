@@ -3,6 +3,7 @@ declare module "@webhare/wrd" {
 }
 
 import { WRDLegacySchema, WRDSchemaType, type WRDSchemaTypeOf, type AnyWRDSchema } from "./schema";
+import { WRDWritableSchema, type WRDWritableType } from "./writableschema";
 export { AuthenticationSettings } from "./authsettings";
 export { isValidWRDTag } from "./wrdsupport";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
@@ -15,7 +16,7 @@ import { scheduleTask, scheduleTimedTask } from "@webhare/services";
 export { getSchemaSettings, updateSchemaSettings } from "./settings";
 export { importIntoWRDSchema } from "./import";
 export { WRDLegacySchema as WRDSchema, type WRDAttributeType, type WRDMetaType, type AnyWRDSchema };
-export type { WRDInsertable, WRDUpdatable, WRDSchemaTypeOf, WRDSchemaType };
+export type { WRDInsertable, WRDUpdatable, WRDSchemaTypeOf, WRDSchemaType, WRDWritableSchema, WRDWritableType };
 
 import { parseModuleQualifiedName } from "@webhare/services/src/naming";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
@@ -190,22 +191,47 @@ export async function extendSchema(tag: string, options: { schemaDefinitionXML: 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const schemaCache: Map<string, WeakRef<WRDSchemaType<any>>> = new Map();
 
+/** Options for opening a WRD schema */
+export interface WRDSchemaOpenOptions {
+  /** Open the schema for metadata changes (eg. createType, createAttribute, updateAttribute). The returned schema
+   * object is a WRDWritableSchema and is not shared with other callers of wrd() */
+  writeMetadata?: boolean;
+}
+
+/** Open a WRD schema by tag for metadata changes */
+export function wrd<T extends keyof WRDSchemaLike>(tag: T, options: { writeMetadata: true }): WRDWritableSchema<WRDSchemaLike[T]>;
+
+/** Open a WRD schema by tag for metadata changes
+ * @typeParam S - Specify the schema structure. Use AnySchemaType to disable type checking
+*/
+export function wrd<S extends SchemaTypeDefinitionModern = never>(tag: [S] extends [never] ? "You must provide a type argument <T> for custom tags" : string, options: { writeMetadata: true })
+  : WRDWritableSchema<S>;
+
+export function wrd<S extends AnySchemaType = never>(tag: [S] extends [never] ? "You must provide a type argument <T> for custom tags" : string, options: { writeMetadata: true })
+  : WRDWritableSchema<S>;
+
+export function wrd<S extends keyof WRDSchemaLike = never>(tag: [S] extends [never] ? "You must provide a type argument <T> for custom tags" : string, options: { writeMetadata: true })
+  : WRDWritableSchema<WRDSchemaLike[S]>;
+
 /** Open a WRD schema by tag */
-export function wrd<T extends keyof WRDSchemaLike>(tag: T): WRDSchemaType<WRDSchemaLike[T]>;
+export function wrd<T extends keyof WRDSchemaLike>(tag: T, options?: WRDSchemaOpenOptions): WRDSchemaType<WRDSchemaLike[T]>;
 
 /** Open a WRD schema by tag
  * @typeParam S - Specify the schema structure. Use AnySchemaType to disable type checking
 */
-export function wrd<S extends SchemaTypeDefinitionModern = never>(tag: [S] extends [never] ? "You must provide a type argument <T> for custom tags" : string)
+export function wrd<S extends SchemaTypeDefinitionModern = never>(tag: [S] extends [never] ? "You must provide a type argument <T> for custom tags" : string, options?: WRDSchemaOpenOptions)
   : WRDSchemaType<S>; //not defaulting to AnySchemaTypeDefinition .. so you need to be explicit about unrecognized schemas
 
-export function wrd<S extends AnySchemaType = never>(tag: [S] extends [never] ? "You must provide a type argument <T> for custom tags" : string)
+export function wrd<S extends AnySchemaType = never>(tag: [S] extends [never] ? "You must provide a type argument <T> for custom tags" : string, options?: WRDSchemaOpenOptions)
   : WRDSchemaType<S>;
 
-export function wrd<S extends keyof WRDSchemaLike = never>(tag: [S] extends [never] ? "You must provide a type argument <T> for custom tags" : string)
+export function wrd<S extends keyof WRDSchemaLike = never>(tag: [S] extends [never] ? "You must provide a type argument <T> for custom tags" : string, options?: WRDSchemaOpenOptions)
   : WRDSchemaType<WRDSchemaLike[S]>;
 
-export function wrd(tag: string): WRDSchemaType {
+export function wrd(tag: string, options?: WRDSchemaOpenOptions): WRDSchemaType {
+  if (options?.writeMetadata) //metadata writers get their own unshared instance
+    return new WRDWritableSchema(tag);
+
   let schema = schemaCache?.get(tag)?.deref();
   if (!schema)
     schemaCache.set(tag, new WeakRef(schema = new WRDSchemaType(tag)));

@@ -1,6 +1,6 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
-import { createWRDTestSchema, getExtendedWRDSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
+import { createWRDTestSchema, getExtendedWRDSchema, getMetaWritableWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { ResourceDescriptor } from "@webhare/services";
 import { wrdSettingId } from "@webhare/services/src/symbols";
 import { fenceEvents } from "@webhare/services/src/backendevents";
@@ -119,7 +119,7 @@ async function testPaymentTypes() {
   };
 
   await whdb.beginWork();
-  const wrdschema = await getWRDSchema<MySchema>();
+  const wrdschema = await getMetaWritableWRDSchema<MySchema>();
   const wrdProviderType = await wrdschema.createType("testPaymentProvider", { metaType: "domain" });
   await wrdProviderType.createAttribute("data", { attributeType: "paymentProvider", isRequired: true });
   const wrdPaymentType = await wrdschema.createType("testPayment", { metaType: "domain" });
