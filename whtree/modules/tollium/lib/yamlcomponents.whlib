@@ -25,6 +25,39 @@ RECORD FUNCTION ResolveYamlComponent(RECORD compdef)
   ];
 }
 
+/** Replace 'tid' and 'xyz_tid' cells (at any depth) by 'title' and 'xyz' with the translated text.
+    The siteprofile parser has already rewritten these to fully qualified tids */
+VARIANT FUNCTION ResolveYamlTids(VARIANT value)
+{
+  INTEGER type := TYPEID(value);
+  IF(type = TYPEID(RECORD ARRAY) OR type = TYPEID(VARIANT ARRAY))
+  {
+    FOREVERY(VARIANT item FROM value)
+      value[#item] := ResolveYamlTids(item);
+    RETURN value;
+  }
+  IF(type != TYPEID(RECORD) OR NOT RecordExists(value))
+    RETURN value;
+
+  RECORD result;
+  FOREVERY(RECORD prop FROM UnpackRecord(value))
+  {
+    STRING name := ToLowercase(prop.name);
+    IF(name = "tid" OR name LIKE "?*_tid")
+    {
+      STRING literalname := name = "tid" ? "title" : Left(name, Length(name) - 4);
+      IF(CellExists(value, literalname))
+        THROW NEW Exception(`YAML property '${name}' cannot be combined with '${literalname}'`);
+      result := CellInsert(result, literalname, GetTid(prop.value));
+    }
+    ELSE
+    {
+      result := CellInsert(result, name, ResolveYamlTids(prop.value));
+    }
+  }
+  RETURN result;
+}
+
 PUBLIC STATIC OBJECTTYPE YamlScope
 <
   RECORD ARRAY map;
@@ -79,7 +112,7 @@ PUBLIC OBJECT FUNCTION CreateYamlComponent(OBJECT targetscreen, RECORD compdef, 
   IF(MemberExists(newcomp, 'dirtylistener'))
     newcomp->dirtylistener := context.dirtylistener;
 
-  newcomp->SetYamlProps(compdef.yamlprops);
+  newcomp->SetYamlProps(ResolveYamlTids(compdef.yamlprops));
   IF(NOT newcomp->__yaml)
     THROW NEW Exception(`Component '${compdef.ns}#${compdef.component} has overridden SetYamlProps but not invoked its parent methods.`);
   RETURN newcomp;
