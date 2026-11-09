@@ -135,7 +135,7 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLLocks EXTEND DashboardPanelBase
     LaunchOpeninEditor(this, sel.filename, [ line := sel.line, col := sel.col ]);
   }
 
-  ASYNC MACRO DoKillBackend()
+  MACRO DoKillBackend()
   {
     IF (this->RunSimpleScreen("confirm", this->GetTid(".surekillbackend")) != "yes")
       RETURN;
