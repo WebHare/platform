@@ -71,6 +71,7 @@ PUBLIC OBJECTTYPE ColorEdit EXTEND TolliumFragmentBase
     }
     CATCH (OBJECT e)
     {
+      changed := this->pvt_value != "";
       this->pvt_value := "";
     }
     this->UpdateComponentState();
