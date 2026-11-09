@@ -28,6 +28,9 @@
         <text tid="getentities">Getting entities for type '<param p="1"/>'</text>
       </textgroup>
     </textgroup>
+    <textgroup gid="editsource">   <!-- browser.editsource -->
+      <text tid="title">Edit source</text>
+    </textgroup>
     <textgroup gid="main">   <!-- browser.main -->
       <text tid="creationdate">Creation date</text>
       <text tid="currententity">Current entity</text>
@@ -71,6 +74,7 @@
         <text tid="editlink">Edit link</text>
         <text tid="editlog">Edit log</text>
         <text tid="editregistry">Edit entity registry</text>
+        <text tid="editsource">Edit source</text>
         <text tid="exitapplication">Close application</text>
         <text tid="exportdotstructure">Export schema structure as DOT</text>
         <text tid="exportschema">Export current schema</text>
