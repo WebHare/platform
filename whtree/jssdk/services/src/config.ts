@@ -30,7 +30,7 @@ export type BackendConfiguration = {
   dataroot: string;
   /** @deprecated Switch the camel-cased version `installationRoot` in WH 5.7+ */
   installationroot: string;
-  /** @deprecated Switch the camel-cased version `installationRoot` in WH 5.7+ */
+  /** @deprecated Switch the camel-cased version `serverName` in WH 5.7+ */
   servername: string;
 };
 
