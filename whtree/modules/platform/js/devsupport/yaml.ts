@@ -46,8 +46,9 @@ export class TrackedYAML<T> {
   }
 
   getPositionForPointer(pointer: string): ResourcePosition | null {
-    const pointsto = this.sourcedoc.getIn(pointerToYamlPath(pointer)) as { range?: [number] } | undefined;
-    return pointsto?.range?.[0] ? this.lineCounter.linePos(pointsto.range[0]) : null;
+    //keepScalar: without it getIn returns plain values for scalars (which have no range), only maps/seqs come back as nodes
+    const pointsto = this.sourcedoc.getIn(pointerToYamlPath(pointer), true) as { range?: [number] } | undefined;
+    return pointsto?.range?.[0] !== undefined ? this.lineCounter.linePos(pointsto.range[0]) : null;
   }
 
   // Parse the document to JS but record offsets of all objects/arrays
