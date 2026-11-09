@@ -1,7 +1,10 @@
 // @webhare/cli: Manage WebHare file system (WHFS)
 
 import { createWHFSExportZip, describeWHFSType, lookupURL, openFileOrFolder, openSite, storeWHFSExport, type ExportWHFSOptions, type WHFSFile } from '@webhare/whfs';
-import { CLIRuntimeError, CLISyntaxError, floatOption, intOption, runCli } from "@webhare/cli";
+import { CLIRuntimeError, CLISyntaxError, enumOption, floatOption, intOption, runCli, type CLIArgumentType } from "@webhare/cli";
+import { describeContentType, findContentType, getAllContentTypes, getTypeName, listContentTypes, metaTypeCategories } from '@mod-platform/js/cli/whfs-types';
+import type { CSPContentType } from '@webhare/whfs/src/siteprofiles';
+import { getBestMatch } from "@webhare/js-api-tools";
 import { storeDiskFile } from "@webhare/system-tools";
 import type { PlatformDB } from '@mod-platform/generated/db/platform';
 import { db, runInWork, sql } from '@webhare/whdb';
@@ -14,6 +17,7 @@ import { readFileSync } from 'fs';
 import { loadlib } from '@webhare/harescript';
 import { join } from 'path';
 import { exportFileAsFetch, WebHareBlob } from '@webhare/services';
+import { omit } from '@webhare/std';
 
 
 async function displayUsage(opts: { threshold: number; maxDepth?: number; versionsInSite?: boolean; format: "table" | "json" }) {
@@ -162,6 +166,20 @@ async function displayUsage(opts: { threshold: number; maxDepth?: number; versio
     console.log(JSON.stringify(toPrint, null, 2));
 }
 
+const whfsTypeOption: CLIArgumentType<CSPContentType> = {
+  parseValue(input: string) {
+    const type = findContentType(input);
+    if (type)
+      return type;
+    const bestMatch = getBestMatch(input, getAllContentTypes().map(getTypeName));
+    throw new CLISyntaxError(`No such WHFS type '${input}'${bestMatch ? `, did you mean '${bestMatch}'?` : ""}`);
+  },
+  autoComplete(startsWith: string): readonly string[] {
+    return getAllContentTypes().map(getTypeName).filter(name => name.startsWith(startsWith)).sort();
+  },
+  description: "WHFS type, by scoped type (eg platform:filetypes.richdocument), namespace or id",
+};
+
 runCli({
   description: '',
   flags: {
@@ -260,6 +278,38 @@ runCli({
         if (opts.json)
           console.log(null);
         return 1;
+      }
+    },
+    "list-types": {
+      description: "List installed WHFS types (file, folder, widget and instance types)",
+      options: {
+        "kind": {
+          description: "Only show types of this kind (repeatable). 'file' includes pages, uploads and data files, 'instance' types are not a file, folder or widget",
+          type: enumOption(metaTypeCategories),
+          multiple: true
+        },
+      },
+      flags: {
+        "members": "Include the full description of each type (including its members), as shown by describe-type",
+      },
+      arguments: [{ name: "[masks...]", description: "Only show types whose scoped type or namespace matches one of these masks (eg 'platform:*', '*.richdocument')" }],
+      main: ({ opts, args }) => {
+        const types = listContentTypes({ masks: args.masks, categories: opts.kind, members: opts.members });
+        if (opts.json)
+          console.log(JSON.stringify(types, null, 2));
+        else //no need to repeat the namespace if it's identical to the scoped type
+          process.stdout.write(YAML.stringify(types.map(({ scopedType: _scopedType, ...type }) => type.namespace === type.type ? omit(type, ["namespace"]) : type)));
+      }
+    },
+    "describe-type": {
+      description: "Describe a WHFS type, its members and where it's defined, in a format close to a YAML siteprofile type definition",
+      arguments: [{ name: "<type>", description: "WHFS type (scoped type, namespace or id)", type: whfsTypeOption }],
+      main: ({ opts, args }) => {
+        const description = describeContentType(args.type);
+        if (opts.json)
+          console.log(JSON.stringify(description, null, 2));
+        else
+          process.stdout.write(YAML.stringify(description));
       }
     },
     "get-preview-link": {
