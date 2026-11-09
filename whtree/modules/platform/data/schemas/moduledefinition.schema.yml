@@ -78,6 +78,9 @@ properties:
   reports:
     description: Reports
     $ref: "#/$defs/Reports"
+  realms:
+    description: Realms (protection spaces with their own users, OAuth scopes and MCP server)
+    $ref: "#/$defs/Realms"
 
 
 $defs:
@@ -724,3 +727,24 @@ $defs:
             description: "Mimetype of the data returned by onGenerate"
             enum:
               - application/x-webhare-spreadsheet
+
+  Realms:
+    type: object
+    description: Declare realms. A realm is a protection space with a WRD schema providing its users and an optional MCP server
+    additionalProperties: false
+    patternProperties:
+      "^[a-z_][-a-z0-9_]*$": # Realm name
+        type: object
+        additionalProperties: false
+        properties:
+          wrdSchema:
+            type: string
+            description: "WRD schema providing the users of this realm. Unqualified names refer to this module. Defaults to the primary user management schema"
+          mcpServer:
+            type: object
+            description: "Offer an MCP server for this realm at /.wh/mcp/<module>/<realm>"
+            additionalProperties: false
+            properties:
+              title:
+                type: string
+                description: "Human readable title of the MCP server"
