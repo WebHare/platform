@@ -4,7 +4,7 @@ declare module "@webhare/wrd" {
 
 import { WRDLegacySchema, WRDSchemaType, type WRDSchemaTypeOf, type AnyWRDSchema } from "./schema";
 import { WRDWritableSchema, type WRDWritableType } from "./writableschema";
-export { AuthenticationSettings } from "./authsettings";
+export { AuthenticationSettings, type ExportedAuthenticationSettings } from "./authsettings";
 export { isValidWRDTag } from "./wrdsupport";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { broadcastOnCommit, db } from "@webhare/whdb";

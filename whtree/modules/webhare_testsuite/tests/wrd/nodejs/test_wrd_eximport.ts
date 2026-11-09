@@ -1,4 +1,4 @@
-import { importIntoWRDSchema, wrd, type WRDSchemaLike } from "@webhare/wrd";
+import { AuthenticationSettings, importIntoWRDSchema, wrd, type WRDSchemaLike } from "@webhare/wrd";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
@@ -50,6 +50,16 @@ async function testExport() { //  tests
     testImage: goldfishImg,
     testEnumarray: ["enumarray1" as const, "enumarray2" as const],
     wrdauthAccountStatus: { status: "active" } as const,
+    whuserPassword: AuthenticationSettings.fromPasswordHash("PLAIN:secret"),
+    testPassword: AuthenticationSettings.import({
+      version: 1,
+      passwords: [{ hash: "PLAIN:old", validFrom: "2024-01-01T00:00:00.000Z" }, { hash: "PLAIN:new", validFrom: "2024-06-01T00:00:00.000Z" }],
+      totp: {
+        url: "otpauth://totp/test?secret=JBSWY3DPEHPK3PXP",
+        backupCodes: [{ code: "USED0001", used: "2024-07-01T00:00:00.000Z" }, { code: "FREE0002", used: null }],
+        locked: null
+      }
+    }),
     testlink: whconstant_whfsid_webharebackend,
     linkie: new IntExtLink(whconstant_whfsid_webharebackend, { append: "#suburl" }),
     richie: await buildRTD([
@@ -105,6 +115,30 @@ async function testExport() { //  tests
     linkie: { internalLink: "site::WebHare backend/", append: "#suburl" },
     wrdType: "wrdPerson"
   }, await wrdschema.getFields("wrdPerson", testPersonId, ["wrdId", "wrdGuid", "whuserUnit", "testSingleDomain", "testMultipleDomain", "testArray", "testlink", "linkie", "wrdType"], { export: true }));
+
+  test.eq({
+    whuserPassword: { version: 1, passwords: [{ hash: "PLAIN:secret", validFrom: null }], totp: null },
+    testPassword: {
+      version: 1,
+      passwords: [{ hash: "PLAIN:old", validFrom: "2024-01-01T00:00:00.000Z" }, { hash: "PLAIN:new", validFrom: "2024-06-01T00:00:00.000Z" }],
+      totp: {
+        url: "otpauth://totp/test?secret=JBSWY3DPEHPK3PXP",
+        backupCodes: [{ code: "USED0001", used: "2024-07-01T00:00:00.000Z" }, { code: "FREE0002", used: null }],
+        locked: null
+      }
+    }
+  }, await wrdschema.getFields("wrdPerson", testPersonId, ["whuserPassword", "testPassword"], { export: true }));
+
+  { //updating with an exported value should work, a non-AuthenticationSettings value should be rejected with a clear error
+    const exportedPwd = await wrdschema.getFields("wrdPerson", testPersonId, "testPassword", { export: true });
+    test.assert(exportedPwd);
+    await wrdschema.update("wrdPerson", testPersonId, { testPassword: { ...exportedPwd, passwords: [{ hash: "PLAIN:changed", validFrom: null }] } as any });
+    test.eq(true, await (await wrdschema.getFields("wrdPerson", testPersonId, "testPassword"))?.verifyPassword("changed"));
+    await wrdschema.update("wrdPerson", testPersonId, { testPassword: exportedPwd as any });
+    test.eq(true, await (await wrdschema.getFields("wrdPerson", testPersonId, "testPassword"))?.verifyPassword("new"));
+
+    await test.throws(/Unsupported authentication settings version/, () => wrdschema.update("wrdPerson", testPersonId, { testPassword: {} as any }));
+  }
 
   test.eq({
     testFile: {
