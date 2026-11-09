@@ -81,6 +81,9 @@ properties:
   realms:
     description: Realms (protection spaces with their own users, OAuth scopes and MCP server)
     $ref: "#/$defs/Realms"
+  mcpTools:
+    description: MCP tools offered by the MCP servers of realms
+    $ref: "#/$defs/McpTools"
 
 
 $defs:
@@ -748,3 +751,48 @@ $defs:
               title:
                 type: string
                 description: "Human readable title of the MCP server"
+
+  McpTools:
+    type: object
+    description: Declare MCP tools and the realms whose MCP server offers them
+    additionalProperties: false
+    patternProperties:
+      "^[a-z_][-a-z0-9_]*$": # Tool name as seen by MCP clients
+        type: object
+        additionalProperties: false
+        required: [addToRealms, onCall]
+        properties:
+          addToRealms:
+            type: array
+            description: "Realms whose MCP server offers this tool. Unqualified names refer to realms of this module"
+            items:
+              type: string
+          title:
+            type: string
+            description: "Human readable title of the tool"
+          description:
+            type: string
+            description: "Description of what the tool does, used by the client (and its model) to decide when to call it"
+          annotations:
+            type: object
+            description: "Hints about the tool's behavior for MCP clients"
+            additionalProperties: false
+            properties:
+              readOnlyHint:
+                type: boolean
+                description: "The tool doesn't modify anything"
+              destructiveHint:
+                type: boolean
+                description: "The tool may perform destructive updates (only meaningful if not read only)"
+              idempotentHint:
+                type: boolean
+                description: "Calling the tool repeatedly with the same arguments has no additional effect"
+              openWorldHint:
+                type: boolean
+                description: "The tool interacts with external entities outside WebHare"
+          inputSchema:
+            type: object
+            description: "JSON Schema for the tool's arguments. Must have type 'object'. Defaults to a schema accepting no arguments"
+          onCall:
+            type: string
+            description: "Function implementing the tool. Must satisfy MCPToolHandler"

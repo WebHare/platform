@@ -2,15 +2,16 @@
    Every realm with an mcpServer in its moduledefinition gets an MCP server. Authentication uses OAuth2 access tokens
    issued by the identity provider of the realm's WRD schema (MCP authorization spec, RFC 9728)
 
-   This is currently a minimal stub: it handles initialization, ping and an empty tool list */
+   Tools are contributed to a realm's MCP server by mcpTools in any module's moduledefinition.yml */
 
 import { createJSONResponse, createWebResponse, HTTPErrorCode, HTTPSuccessCode, type WebHareRouter, type WebRequest, type WebResponse } from "@webhare/router";
-import { backendConfig } from "@webhare/services";
+import { backendConfig, importJSFunction, logError } from "@webhare/services";
 import { IdentityProvider } from "@webhare/auth/src/identity";
 import { getPrimaryUserSchemaTag } from "@webhare/auth/src/testusers";
 import { wrd, type WRDSchemaLike } from "@webhare/wrd";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
-import type { RealmDescriptor } from "@mod-system/js/internal/generation/gen_extract_realms";
+import type { MCPToolDescriptor, RealmDescriptor } from "@mod-system/js/internal/generation/gen_extract_realms";
+import type { MCPToolContext, MCPToolHandler, MCPToolResult } from "@webhare/mcp-server";
 import { getOpenIDIssuer } from "../auth/openid";
 
 /** Protocol versions we support, latest first */
@@ -32,6 +33,7 @@ const JSONRPCErrors = {
   ParseError: -32700,
   InvalidRequest: -32600,
   MethodNotFound: -32601,
+  InvalidParams: -32602,
 } as const;
 
 /** An MCP server as offered at a specific URL */
@@ -110,6 +112,30 @@ function requireAuthentication(server: MCPServerInstance, error?: string): WebRe
   });
 }
 
+/** Describe a tool for tools/list */
+function describeTool(tool: MCPToolDescriptor) {
+  return {
+    name: tool.toolName,
+    ...tool.title ? { title: tool.title } : {},
+    ...tool.description ? { description: tool.description } : {},
+    inputSchema: tool.inputSchema,
+    ...Object.keys(tool.annotations).length ? { annotations: tool.annotations } : {}
+  };
+}
+
+/** Invoke a tool. An exception is logged and reported to the client as a tool error (rather than a protocol error) without
+    its message: exception messages may reveal internal details (paths, queries, data) the caller shouldn't see.
+    TODO validate the arguments against the tool's inputSchema */
+async function callTool(tool: MCPToolDescriptor, args: Record<string, unknown>, context: MCPToolContext): Promise<MCPToolResult> {
+  try {
+    const handler = await importJSFunction<MCPToolHandler<Record<string, unknown>>>(tool.onCall);
+    return await handler(args, context);
+  } catch (e) {
+    logError(e as Error, { info: { mcpTool: tool.name, realm: context.realm } });
+    return { content: [{ type: "text", text: `Tool '${tool.toolName}' failed with an internal error` }], isError: true };
+  }
+}
+
 async function handleMCPRequest(context: MCPContext, message: JSONRPCMessage): Promise<WebResponse> {
   if (message.id === undefined) //A notification (eg notifications/initialized) or a response to a server request. We don't act on any yet
     return createWebResponse("", { status: HTTPSuccessCode.Accepted });
@@ -132,7 +158,22 @@ async function handleMCPRequest(context: MCPContext, message: JSONRPCMessage): P
     case "ping":
       return jsonRPCResult(message.id, {});
     case "tools/list":
-      return jsonRPCResult(message.id, { tools: [] });
+      return jsonRPCResult(message.id, { tools: context.server.realm.mcpServer.tools.map(describeTool) });
+    case "tools/call": {
+      const tool = context.server.realm.mcpServer.tools.find(t => t.toolName === message.params?.name);
+      if (!tool)
+        return jsonRPCError(message.id, JSONRPCErrors.InvalidParams, `Unknown tool: ${message.params?.name}`);
+      const args = message.params?.arguments ?? {};
+      if (!args || typeof args !== "object" || Array.isArray(args))
+        return jsonRPCError(message.id, JSONRPCErrors.InvalidParams, `Tool arguments must be an object`);
+
+      return jsonRPCResult(message.id, await callTool(tool, args as Record<string, unknown>, {
+        realm: context.server.realm.name,
+        wrdSchema: context.server.wrdSchemaTag,
+        user: context.user,
+        scopes: context.scopes
+      }));
+    }
     default:
       return jsonRPCError(message.id, JSONRPCErrors.MethodNotFound, `Method not found: ${message.method}`, HTTPErrorCode.NotFound);
   }

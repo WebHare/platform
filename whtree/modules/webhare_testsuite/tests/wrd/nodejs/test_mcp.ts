@@ -1,5 +1,7 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { createFirstPartyToken } from "@webhare/auth";
+import { createMCPClient, type MCPHTTPError, type MCPProtocolError, type MCPToolOutput } from "@webhare/mcp";
+import type { whoami } from "@mod-webhare_testsuite/js/mcp-tools";
 import { broadcast, toResourcePath } from "@webhare/services";
 import { runInWork } from "@webhare/whdb";
 import { getSchemaSettings, updateSchemaSettings, wrd, type WRDSchemaLike } from "@webhare/wrd";
@@ -88,58 +90,96 @@ async function testDynamicRegistration() {
 async function testMCPEndpoint() {
   const { mcpUrl, protectedResourceUrl } = await getMCPURLs();
   const testSchema = wrd<WRDSchemaLike["webhare_testsuite:oidcschema"]>("webhare_testsuite:testschema");
-  const callMCP = (body: unknown, token?: string, url = mcpUrl) => fetch(url, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "accept": "application/json, text/event-stream",
-      ...token ? { "authorization": "Bearer " + token } : {}
-    },
-    body: JSON.stringify(body)
-  });
 
   //Unknown realms have no MCP server
-  test.eq(404, (await callMCP({ jsonrpc: "2.0", id: 1, method: "ping" }, undefined, mcpUrl.replace("/testrealm", "/nosuchrealm"))).status);
+  test.eq(404, (await test.throws(/HTTP status 404/, createMCPClient(mcpUrl.replace("/testrealm", "/nosuchrealm")).ping()) as MCPHTTPError).status);
 
   ////////////////////////////////////////////////////////////////
   // STORY: Unauthenticated requests are pointed to the protected resource metadata
-  const unauthenticated = await callMCP({ jsonrpc: "2.0", id: 1, method: "ping" });
-  test.eq(401, unauthenticated.status);
+  const unauthenticated = await test.throws(/HTTP status 401/, createMCPClient(mcpUrl).ping()) as MCPHTTPError;
   test.eq(`Bearer resource_metadata="${protectedResourceUrl}"`, unauthenticated.headers.get("www-authenticate"));
 
-  const badToken = await callMCP({ jsonrpc: "2.0", id: 1, method: "ping" }, "not-a-token");
-  test.eq(401, badToken.status);
+  const badToken = await test.throws(/HTTP status 401/, createMCPClient(mcpUrl, { bearerToken: "not-a-token" }).ping()) as MCPHTTPError;
   test.eq(/^Bearer resource_metadata=".*", error="invalid_token"/, badToken.headers.get("www-authenticate"));
 
   ////////////////////////////////////////////////////////////////
   // STORY: Talk to the MCP server with a valid token
   const { accessToken } = await createFirstPartyToken(testSchema, "api", test.getUser("sysop").wrdId);
+  const client = createMCPClient(mcpUrl, { bearerToken: accessToken, clientInfo: { name: "test_mcp", version: "1.0" } });
 
-  const initResponse = await callMCP({
-    jsonrpc: "2.0", id: 1, method: "initialize", params: {
-      protocolVersion: "2025-06-18",
-      capabilities: {},
-      clientInfo: { name: "test_mcp", version: "1.0" }
-    }
-  }, accessToken);
-  test.eq(200, initResponse.status);
   test.eqPartial({
-    jsonrpc: "2.0", id: 1, result: {
-      protocolVersion: "2025-06-18",
-      serverInfo: { name: "webhare_testsuite:testrealm", title: "ACME customer portal" }
-    }
-  }, await initResponse.json());
+    protocolVersion: "2025-06-18",
+    serverInfo: { name: "webhare_testsuite:testrealm", title: "ACME customer portal" }
+  }, await client.initialize());
+  await client.ping();
 
-  test.eq(202, (await callMCP({ jsonrpc: "2.0", method: "notifications/initialized" }, accessToken)).status);
-  test.eq({ jsonrpc: "2.0", id: 2, result: {} }, await (await callMCP({ jsonrpc: "2.0", id: 2, method: "ping" }, accessToken)).json());
-  test.eq({ jsonrpc: "2.0", id: 3, result: { tools: [] } }, await (await callMCP({ jsonrpc: "2.0", id: 3, method: "tools/list" }, accessToken)).json());
-  test.eqPartial({ jsonrpc: "2.0", id: 4, error: { code: -32601 } }, await (await callMCP({ jsonrpc: "2.0", id: 4, method: "no/such/method" }, accessToken)).json());
+  ////////////////////////////////////////////////////////////////
+  // STORY: The tools contributed to the realm are listed and can be called
+  /* Other installed modules may add tools to testrealm too (addToRealms works across modules), so only verify ours are
+     listed as declared, in declaration order */
+  const ourToolNames = ["whoami", "fail"];
+  test.eq([
+    {
+      name: "whoami",
+      title: "Who am I",
+      description: "Returns the user you're signed in as, and the realm and WRD schema that authenticated you",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      annotations: { readOnlyHint: true }
+    }, {
+      name: "fail",
+      description: "Always fails with an internal error. Used to test error handling",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false }
+    }
+  ], (await client.listTools()).filter(tool => ourToolNames.includes(tool.name)));
+
+  //whoami reads the user from the realm's schema (testschema, configured as an unqualified name) using the schema's account settings
+  const sysop = test.getUser("sysop");
+  const whoamiResult = await client.callTool<MCPToolOutput<typeof whoami>>("whoami", {});
+  test.eqPartial({
+    structuredContent: {
+      realm: "webhare_testsuite:testrealm",
+      wrdSchema: "webhare_testsuite:testschema",
+      accountType: "wrdPerson",
+      entityId: sysop.wrdId,
+      login: sysop.login,
+      email: sysop.login
+    }
+  }, whoamiResult);
+  test.eq(undefined, whoamiResult.isError);
+  test.eq("text", whoamiResult.content[0].type);
+  test.eqPartial({ entityId: sysop.wrdId }, JSON.parse(whoamiResult.content[0].text));
+
+  //An exception in a tool is a tool error, but doesn't reveal the exception's message
+  const failResult = await client.callTool("fail", {});
+  test.eq({ content: [{ type: "text", text: "Tool 'fail' failed with an internal error" }], isError: true }, failResult);
+  test.assert(!JSON.stringify(failResult).includes("secret"));
+
+  //Unknown tools and invalid arguments are protocol errors
+  test.eq(-32602, (await test.throws(/error -32602/, client.callTool("nosuchtool")) as MCPProtocolError).code);
+  test.eq(-32602, (await test.throws(/error -32602/, client.request("tools/call", { name: "whoami", arguments: ["x"] })) as MCPProtocolError).code);
+  test.eq(-32601, (await test.throws(/error -32601/, client.request("no/such/method")) as MCPProtocolError).code);
+
+  //We don't offer a server-to-client SSE stream
   test.eq(405, (await fetch(mcpUrl, { headers: { authorization: "Bearer " + accessToken } })).status);
+}
+
+/** Print what's needed to connect a real MCP client to the testrealm, as early as possible so it's visible even if a later
+    test fails. testDynamicRegistration enables dynamic registration, which clients need to connect (it stays enabled
+    after the test, until the next test resets the schema) */
+async function printConnectionInfo() {
+  const { mcpUrl } = await getMCPURLs();
+  const sysop = test.getUser("sysop");
+  console.log(`MCP server:      ${mcpUrl}`);
+  console.log(`Sign in as:      ${sysop.login}`);
+  console.log(`Password:        ${sysop.password}`);
+  console.log(`Add to Claude:   claude mcp add --transport http webhare-testrealm ${mcpUrl}`);
+  console.log(`(Clients can register once testDynamicRegistration has enabled dynamic registration)`);
 }
 
 test.runTests([
   setupMCP,
+  printConnectionInfo,
   testProtectedResourceMetadata,
   testDynamicRegistration,
-  testMCPEndpoint
+  testMCPEndpoint,
 ]);

@@ -134,6 +134,19 @@ realms:
     mcpServer:
       title: ACME customer portal
 
+mcpTools:
+  whoami:
+    addToRealms: [testrealm]
+    title: Who am I
+    description: "Returns the user you're signed in as, and the realm and WRD schema that authenticated you"
+    annotations:
+      readOnlyHint: true
+    onCall: js/mcp-tools.ts#whoami
+  fail:
+    addToRealms: [testrealm]
+    description: "Always fails with an internal error. Used to test error handling"
+    onCall: js/mcp-tools.ts#failTool
+
 pxlEvents:
   aa:
     fields:
