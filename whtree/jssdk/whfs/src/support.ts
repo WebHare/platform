@@ -100,7 +100,7 @@ export function convertToWillPublish(published: number, firsttime: boolean, enab
   const curPrioOrError = getPrioOrErrorFromPublished(published);
   const oncePublished = getOncePublishedFromPublished(published);
 
-  if (!isPublish(curPrioOrError) && !enablePublishIfDisabled)
+  if (!isPublish(published) && !enablePublishIfDisabled)
     return published;
 
   // Never decrease existing priority

@@ -1,4 +1,5 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="data">
+  <test script="test_republish_priority.ts" />
   <test script="test-whfs-base.whscr" />
   <test script="test-whfs-register-ts.ts" />
   <test script="test-whfs-register.whscr" />
