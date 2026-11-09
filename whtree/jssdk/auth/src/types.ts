@@ -30,7 +30,7 @@ export type GrantTypesSupported =
 
 type CodeChallengeMethodsSupported = "S256" | "plain";
 
-type TokenEndpointAuthMethodsSupported =
+export type TokenEndpointAuthMethodsSupported =
   | "client_secret_basic"
   | "client_secret_post"
   | "client_secret_jwt"

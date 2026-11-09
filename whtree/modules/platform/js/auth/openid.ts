@@ -11,7 +11,7 @@ import type { AuthCustomizer, JWTPayload } from "@webhare/auth/src/customizer";
 import { getCookieBasedUser } from "@webhare/auth/src/authfrontend";
 import { runInWork } from "@webhare/whdb";
 import type { AnySchemaType, SchemaTypeDefinition } from "@webhare/wrd/src/types";
-import type { OAuth2EndpointErrorCodes, OIDCEndpointErrorCodes, ResponseModesScopes, ResponseType } from "@webhare/auth/src/types";
+import type { OAuth2EndpointErrorCodes, OIDCEndpointErrorCodes, ResponseModesScopes, ResponseType, TokenEndpointAuthMethodsSupported } from "@webhare/auth/src/types";
 import type { OAuth2PromptFlag } from "@webhare/auth/src/oauth2-client";
 import { litty } from "@webhare/litty";
 import { permissionRequestPage } from "./authpages.litty";
@@ -51,6 +51,12 @@ declare module "@webhare/services" {
 }
 
 const validCodeChallengeMethods = ["plain", "S256"] as const;
+/** Client authentication methods supported by our token endpoint */
+const supportedTokenEndpointAuthMethods: TokenEndpointAuthMethodsSupported[] = ["client_secret_basic", "client_secret_post"];
+/** Client authentication methods we accept in a dynamic registration request. We don't support public clients ("none") yet, but
+    RFC 7591 section 3.2.1 allows us to replace requested metadata, so we register these as confidential clients instead. Clients
+    (such as MCP clients) are expected to use the client_secret and token_endpoint_auth_method from the registration response */
+const requestableTokenEndpointAuthMethods: TokenEndpointAuthMethodsSupported[] = [...supportedTokenEndpointAuthMethods, "none"];
 const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid for 1 hour
 const openIdTokenExpiry = 60 * 60 * 1000; // openid id_token is valid for 1 hour
 
@@ -228,7 +234,7 @@ export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provide
   const prompt: OAuth2PromptFlag = (searchParams.get("prompt") || "") as OAuth2PromptFlag;
 
   //Verify the client and callback URL first. If these are not okay, we're NOT allowed to use the provided callback URL (and thus cannot use createOIDCErrorResponse) as we haven't validated it
-  const client = await provider.wrdschema.query("wrdauthApplication").where("wrdGuid", "=", decompressUUID(clientid)).select(["callbackUrls", "wrdId"]).execute();
+  const client = await provider.wrdschema.query("wrdauthApplication").where("wrdGuid", "=", decompressUUID(clientid)).select(["callbackUrls", "wrdId", "dynamicRegistration"]).execute();
   if (client.length !== 1)
     return createWebResponse(litty`<html><p>No such client: ${clientid}</p></html>`);
 
@@ -265,6 +271,24 @@ export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provide
     if (!validCodeChallengeMethods.includes(code_challenge_method as CodeChallengeMethod))
       return createOIDCErrorResponse(callerInfo, "invalid_request", `Invalid code challenge method '${code_challenge_method}', allowed are 'plain' or 'S256`);
   }
+
+  /* We require PKCE (S256) for all dynamically registered clients:
+     - Clients that registered as public clients (token_endpoint_auth_method "none", eg. MCP clients) still receive a
+       client_secret, as we register them as confidential clients. But these clients are usually native/desktop apps or
+       CLIs that can't keep that secret confidential: it may be stored in plain text or shared by every installation. If we
+       relied on the secret alone, anyone who intercepts an authorization code (eg. another local app listening on the
+       loopback redirect URI, or a leaked redirect URL) and gets hold of the secret could redeem the code. RFC 9700
+       section 2.1.1 requires PKCE for public clients.
+     - For confidential clients (eg. WebHare peer connections) PKCE also protects against authorization code injection,
+       where an attacker gets their own code accepted by the victim's callback and the victim ends up linked to the
+       attacker's account. RFC 9700 section 2.1.1 recommends PKCE for confidential clients too.
+     Anyone can register a dynamic client, so we don't rely on the client telling us what kind of client it is. The token
+     endpoint verifies the code_verifier because the challenge is stored in the idpstate session.
+     WebHare peer connections (platform/js/remote/connect.ts) always send PKCE, there are no older installations using
+     dynamic registration that don't. */
+  if (client[0].dynamicRegistration
+    && (!code_challenge || code_challenge_method !== "S256"))
+    return createOIDCErrorResponse(callerInfo, "invalid_request", `Dynamically registered clients must use PKCE with code_challenge_method 'S256'`);
 
   const openIdServer = await isOpenIDServer(provider.wrdschema as unknown as WRDSchemaType<WRDSchemaLike["wrd:idp"]>);
   if (!openIdServer && response_type.includes("id_token"))
@@ -401,6 +425,24 @@ export async function returnAuthorizeFlow<T extends SchemaTypeDefinition>(provid
     finalRedirectURI.searchParams.set("code", sessionid);
   }
   return createRedirectResponse(finalRedirectURI.toString());
+}
+
+/** Get the token endpoint authentication method we actually grant for a requested method */
+function getGrantedTokenEndpointAuthMethod(requested: unknown): TokenEndpointAuthMethodsSupported {
+  return supportedTokenEndpointAuthMethods.find(method => method === requested) ?? "client_secret_basic";
+}
+
+/** Get the client metadata we actually registered for a dynamic registration request. We only return fields we honour, as
+    RFC 7591 section 3.2.1 says the response describes the registered metadata (so echoing eg. a requested scope or jwks_uri
+    would suggest we accepted it) */
+function getRegisteredClientMetadata(request: Record<string, unknown>, redirectUris: string[]) {
+  return {
+    redirect_uris: redirectUris,
+    ...typeof request.client_name === "string" ? { client_name: request.client_name } : {},
+    grant_types: ["authorization_code"], //we only grant authorization_code, see the registration code
+    response_types: ["code"], //the only response type we accept
+    token_endpoint_auth_method: getGrantedTokenEndpointAuthMethod(request.token_endpoint_auth_method)
+  };
 }
 
 ///Implements the oauth2/openid endpoint
@@ -550,13 +592,8 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
       if (req.method !== "GET")
         return createJSONResponse(405, { error: "Client registration management requires GET or DELETE" }, { headers: { allow: "GET, DELETE" } });
 
-      const registration = application.dynamicRegistration!.request;
       return createJSONResponse(200, {
-        ...registration,
-        redirect_uris: application.callbackUrls.map(callback => callback.url),
-        grant_types: registration.grant_types ?? ["authorization_code"],
-        response_types: registration.response_types ?? ["code"],
-        token_endpoint_auth_method: registration.token_endpoint_auth_method ?? "client_secret_basic",
+        ...getRegisteredClientMetadata(application.dynamicRegistration!.request, application.callbackUrls.map(callback => callback.url)),
         client_id: registrationClientId,
         registration_access_token: registrationAccessToken,
         registration_client_uri: new URL(getOpenIdBase(wrdschema) + "register/" + encodeURIComponent(registrationClientId), req.url).toString()
@@ -586,11 +623,13 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
       return createJSONResponse(400, { error: "invalid_redirect_uri", error_description: "Expected nonempty HTTP(S) redirect_uris without fragments" });
     if ("client_name" in registration && typeof registration.client_name !== "string")
       return createJSONResponse(400, { error: "invalid_client_metadata", error_description: "client_name must be a string" });
-    if ("grant_types" in registration && (!Array.isArray(registration.grant_types) || registration.grant_types.length !== 1 || registration.grant_types[0] !== "authorization_code"))
-      return createJSONResponse(400, { error: "invalid_client_metadata", error_description: "Only authorization_code is supported" });
+    /* Clients (eg. MCP clients) often also request refresh_token. We don't support that (yet) so we only grant authorization_code
+       (RFC 7591 section 3.2.1 allows us to replace requested metadata) and they'll have to go through the authorization flow again */
+    if ("grant_types" in registration && (!Array.isArray(registration.grant_types) || !registration.grant_types.includes("authorization_code")))
+      return createJSONResponse(400, { error: "invalid_client_metadata", error_description: "The authorization_code grant type is required" });
     if ("response_types" in registration && (!Array.isArray(registration.response_types) || registration.response_types.length !== 1 || registration.response_types[0] !== "code"))
       return createJSONResponse(400, { error: "invalid_client_metadata", error_description: "Only the code response type is supported" });
-    if ("token_endpoint_auth_method" in registration && (typeof registration.token_endpoint_auth_method !== "string" || !["client_secret_basic", "client_secret_post"].includes(registration.token_endpoint_auth_method)))
+    if ("token_endpoint_auth_method" in registration && (typeof registration.token_endpoint_auth_method !== "string" || !requestableTokenEndpointAuthMethods.includes(registration.token_endpoint_auth_method as TokenEndpointAuthMethodsSupported)))
       return createJSONResponse(400, { error: "invalid_client_metadata", error_description: "Unsupported token_endpoint_auth_method" });
 
     const callbackUrls = registration.redirect_uris as string[];
@@ -615,10 +654,7 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
     });
 
     return createJSONResponse(201, {
-      ...registration,
-      grant_types: "grant_types" in registration ? registration.grant_types : ["authorization_code"],
-      response_types: "response_types" in registration ? registration.response_types : ["code"],
-      token_endpoint_auth_method: "token_endpoint_auth_method" in registration ? registration.token_endpoint_auth_method : "client_secret_basic",
+      ...getRegisteredClientMetadata(registration as Record<string, unknown>, callbackUrls),
       client_id: client.clientId,
       client_secret: client.clientSecret,
       client_secret_expires_at: 0,

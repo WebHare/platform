@@ -5,7 +5,7 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { defaultWRDAuthLoginSettings } from "@webhare/auth/src/support";
 import { deletePeerRegistrations, getPeerServerToken, registerAtRemoteWebHare } from "@mod-platform/js/remote/connect";
-import { decompressUUID, hashClientSecret } from "@webhare/auth/src/identity";
+import { createCodeVerifier, decompressUUID, hashClientSecret } from "@webhare/auth/src/identity";
 import { deleteDynamicClientRegistration, getDynamicClientRegistration } from "@webhare/auth/src/oauth2-client";
 import { cleanupDynamicClients } from "@webhare/auth/src/maintenance";
 import { createOpenAPIClient } from "@webhare/openapi-client";
@@ -119,12 +119,23 @@ async function testRegisterDynamicClient() {
   // STORY: Start a login flow with the dynamically registered client
 
   const browser = await test.openTestPuppeteer(); //managed by the test framework, don't dispose
+
+  //Dynamically registered clients must use PKCE (S256), even confidential ones
+  test.eqPartial({ error: "invalid_request", error_description: /PKCE/ }, await test.runOpenIDLoginFlow(browser, {
+    metadataUrl: registeredClient.metadataUrl,
+    clientId: registeredClient.clientId,
+    clientSecret: registeredClient.clientSigning.secret,
+    callbackUrl: registration.redirect_uris[0],
+    scope: "platform:sysop"
+  }));
+
   await test.throws(/authorization response from the server is an error/, test.runOpenIDLoginFlow(browser, {
     metadataUrl: registeredClient.metadataUrl,
     clientId: registeredClient.clientId,
     clientSecret: registeredClient.clientSigning?.secret,
     callbackUrl: registration.redirect_uris[0],
     scope: "platform:sysop",
+    pkceCodeVerifier: createCodeVerifier(),
     async handleConsent(page) {
       await page.waitForSelector('button[name="approve"][value="no"]');
       test.eq([/sysop/], await page.$$eval("form ul li", items => items.map(item => item.textContent?.trim())));
@@ -146,6 +157,7 @@ async function testRegisterDynamicClient() {
     clientSecret: registeredClient.clientSigning.secret,
     callbackUrl: registration.redirect_uris[0],
     scope: "platform:sysop",
+    pkceCodeVerifier: createCodeVerifier(),
     async handleConsent(page) {
       await page.waitForSelector('button[name="approve"][value="yes"]');
       test.eq([/sysop/], await page.$$eval("form ul li", items => items.map(item => item.textContent?.trim())));
@@ -176,7 +188,8 @@ async function testRegisterDynamicClient() {
     clientId: registeredClient.clientId,
     clientSecret: registeredClient.clientSigning.secret,
     callbackUrl: registration.redirect_uris[0],
-    scope: "openid platform:sysop"
+    scope: "openid platform:sysop",
+    pkceCodeVerifier: createCodeVerifier()
   }));
 
   ////////////////////////////////////////////////////////////////
@@ -424,9 +437,76 @@ async function testCleanupDynamicClients() {
   test.eq(retainedClientIds.sort((first, second) => first - second), remainingClientIds.sort((first, second) => first - second));
 }
 
+// Public clients (token_endpoint_auth_method "none") are registered as confidential clients instead (RFC 7591 section 3.2.1)
+async function testRegisterPublicClient() {
+  const testsite = await test.getTestSiteJS();
+  const metadata = await (await fetch(testsite.webRoot + ".well-known/oauth-authorization-server")).json() as { registration_endpoint: string };
+  const registerResponse = await fetch(metadata.registration_endpoint, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      redirect_uris: ["http://localhost:3000/cb"],
+      client_name: "Public client",
+      token_endpoint_auth_method: "none",
+      grant_types: ["authorization_code", "refresh_token"], //as requested by MCP clients
+      scope: "openid offline_access", //metadata we don't support shouldn't be echoed back
+      logo_uri: "http://localhost:3000/logo.png"
+    })
+  });
+  test.eq(201, registerResponse.status);
+  const registered = await registerResponse.json() as Record<string, unknown> & { client_id: string; client_secret: string; registration_access_token: string; registration_client_uri: string };
+  test.eqPartial({ redirect_uris: ["http://localhost:3000/cb"], client_name: "Public client", token_endpoint_auth_method: "client_secret_basic", grant_types: ["authorization_code"], response_types: ["code"], client_secret_expires_at: 0 }, registered);
+  test.assert(!("scope" in registered) && !("logo_uri" in registered), "Unsupported metadata should not be echoed back");
+  test.assert(registered.client_id);
+  test.assert(registered.client_secret);
+
+  //The secret we gave out must work
+  const testSchema = wrd<WRDSchemaLike["webhare_testsuite:oidcschema"]>("webhare_testsuite:testschema");
+  const application = await testSchema.query("wrdauthApplication")
+    .where("wrdGuid", "=", decompressUUID(registered.client_id))
+    .select(["clientSecrets", "dynamicRegistration"])
+    .executeRequireExactlyOne();
+  test.eq([hashClientSecret(registered.client_secret)], application.clientSecrets.map(secret => secret.secretHash));
+  test.eqPartial({ request: { token_endpoint_auth_method: "none" } }, application.dynamicRegistration); //we keep the original request
+
+  //Reading back the registration reports the method we actually granted
+  const readBack = await fetch(registered.registration_client_uri, { headers: { authorization: "Bearer " + registered.registration_access_token } });
+  test.eq(200, readBack.status);
+  const readBackMetadata = await readBack.json() as Record<string, unknown>;
+  test.eqPartial({ client_name: "Public client", token_endpoint_auth_method: "client_secret_basic", grant_types: ["authorization_code"] }, readBackMetadata);
+  test.assert(!("scope" in readBackMetadata) && !("logo_uri" in readBackMetadata), "Unsupported metadata should not be echoed back");
+
+  //Public clients must use PKCE (S256) too, they probably can't keep the client_secret confidential
+  const browser = await test.openTestPuppeteer(); //managed by the test framework, don't dispose
+  test.eqPartial({ error: "invalid_request", error_description: /PKCE/ }, await test.runOpenIDLoginFlow(browser, {
+    metadataUrl: testsite.webRoot + ".well-known/oauth-authorization-server",
+    clientId: registered.client_id,
+    clientSecret: registered.client_secret,
+    callbackUrl: "http://localhost:3000/cb",
+    scope: "platform:sysop"
+  }));
+
+  await deleteDynamicClientRegistration(registered.registration_client_uri, registered.registration_access_token);
+
+  //Unsupported methods are still rejected
+  const unsupported = await fetch(metadata.registration_endpoint, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ redirect_uris: ["http://localhost:3000/cb"], token_endpoint_auth_method: "private_key_jwt" })
+  });
+  test.eq(400, unsupported.status);
+  const noAuthCode = await fetch(metadata.registration_endpoint, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ redirect_uris: ["http://localhost:3000/cb"], grant_types: ["client_credentials"] })
+  });
+  test.eq(400, noAuthCode.status);
+}
+
 test.runTests([
   setupDynamicRegistration,
   testRegisterDynamicClient,
+  testRegisterPublicClient,
   testRegisterAtRemoteWebHare,
   testPeerServerToken,
   disableDynamicRegistration,
