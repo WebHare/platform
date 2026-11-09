@@ -33,11 +33,17 @@ function showDataLayerUpdates() {
  *   timeout Time before any eventCallback is forcibly called (default 200ms)
 */
 export function pushToDataLayer(vars: DataLayerEntry, options?: { timeout?: number }) {
-  if (vars.eventCallback) { //we'll wrap the callback into a promise to ensure it's only invoked once
-    const savecallback = vars.eventCallback;
-    let newcallback: () => void;
-    void (new Promise<void>(resolve => newcallback = resolve)).then(() => savecallback());
-    setTimeout(() => newcallback, options?.timeout || 200);
+  if (vars.eventCallback) {
+    //we'll wrap the callback into a promise to ensure it's only invoked once
+    const saveCallback = vars.eventCallback;
+
+    //build a promise to invoke the callback, but only once (promises can resolve only once)
+    let newCallback: () => void;
+    void (new Promise<void>(resolve => newCallback = resolve)).then(() => saveCallback());
+
+    //resolve that new promise after either timeout or datalayer signaling completion
+    setTimeout(() => newCallback(), options?.timeout || 200);
+    vars = { ...vars, eventCallback: newCallback! };
   }
 
   globalThis.dataLayer?.push(vars);
