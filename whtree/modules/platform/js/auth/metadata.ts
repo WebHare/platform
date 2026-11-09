@@ -7,15 +7,33 @@ import type { IdTokenSigningAlgValuesSupported, OpenIdConfiguration } from "@web
 import { lookupURL, openFileOrFolder } from "@webhare/whfs";
 import { getOpenIDIssuer } from "./openid";
 
-/* TODO RFC 8414 expects the metadata of an issuer with a path component (ie an identity provider site that isn't hosted
-   at the root of its host) at /.well-known/oauth-authorization-server/<path>, which a site webrule can't serve. These
-   sites currently only offer the OpenID Connect style /<path>/.well-known/ metadata URLs */
+const oauthWellKnownPath = "/.well-known/oauth-authorization-server";
 
-async function buildMetadata(req: WebRequest, type: "oauth" | "openid"): Promise<WebResponse> {
-  const target = await lookupURL(new URL(req.url));
+/* Metadata is offered at two kinds of locations:
+   - "suffix": the well-known path appended to the issuer, ie /<path>/.well-known/<name>. This is the OpenID Connect
+     Discovery location, and for an issuer without a path also the RFC 8414 location. Served by site webrules.
+   - "inserted": the well-known path inserted between the host and the issuer's path, ie /.well-known/<name>/<path>.
+     RFC 8414 section 3.1 expects the metadata of an issuer with a path component (ie an identity provider site that
+     isn't hosted at the root of its host) there. Served by an allroots webrule as it's outside the site */
+type MetadataLocation = "suffix" | "inserted";
+
+async function buildMetadata(req: WebRequest, type: "oauth" | "openid", location: MetadataLocation = "suffix"): Promise<WebResponse> {
+  const requestedUrl = new URL(req.url);
+  requestedUrl.search = "";
+
+  /* For the inserted form, the path after the well-known path is the issuer's path. Look up the site from there.
+     The path is empty for an issuer at the root (/.well-known/oauth-authorization-server/). Concatenate with the origin
+     instead of resolving it relative to it, so a path like '//' can't be interpreted as a protocol-relative URL */
+  const issuerLocation = location === "inserted"
+    ? new URL(requestedUrl.origin + requestedUrl.pathname.substring(oauthWellKnownPath.length).replace(/\/+$/, "") + "/")
+    : requestedUrl;
+  const target = await lookupURL(issuerLocation);
   const targetObj = target.file || target.folder;
-  if (!targetObj)
+  if (!targetObj) {
+    if (location === "inserted")
+      return createJSONResponse(HTTPErrorCode.NotFound, { error: `No site found at ${issuerLocation.toString()}` });
     throw new Error(`Unable to trace request back to a target`);
+  }
 
   const tester = await getApplyTesterForObject(await openFileOrFolder(targetObj));
   const wrdSchemaTag = (await tester.getWRDAuth())?.wrdSchema;
@@ -34,9 +52,9 @@ async function buildMetadata(req: WebRequest, type: "oauth" | "openid"): Promise
 
   /* The issuer must match the location the metadata was retrieved from (RFC 8414 section 3.3, OpenID Connect Discovery
      section 4.3), so we refuse to serve metadata through an alias hostname or other URL than the identity provider site's webroot */
-  const requestedUrl = new URL(req.url);
-  requestedUrl.search = "";
-  const expectedUrl = issuer + requestedUrl.pathname.substring(requestedUrl.pathname.lastIndexOf("/.well-known/"));
+  const expectedUrl = location === "inserted"
+    ? new URL(issuer).origin + oauthWellKnownPath + new URL(issuer).pathname
+    : issuer + requestedUrl.pathname.substring(requestedUrl.pathname.lastIndexOf("/.well-known/"));
   if (requestedUrl.toString() !== expectedUrl)
     return createWebResponse(`This metadata is only available at ${expectedUrl}\n\n`
       + `The issuer of WRD schema '${wrdSchemaTag}' is ${issuer} (derived from the webroot of the site with the platform:identityprovider webfeature). `
@@ -95,6 +113,12 @@ export async function oauthAuthorizationServerRouter(req: WebRequest): Promise<W
   return await buildMetadata(req, "oauth");
 }
 
+/** Implements /.well-known/oauth-authorization-server/<path> (RFC 8414 section 3.1) for identity provider sites hosted at a path */
+export async function oauthAuthorizationServerInsertedRouter(req: WebRequest): Promise<WebResponse> {
+  return await buildMetadata(req, "oauth", "inserted");
+}
+
 // validate signatures
 wellKnownRouter satisfies WebHareRouter;
 oauthAuthorizationServerRouter satisfies WebHareRouter;
+oauthAuthorizationServerInsertedRouter satisfies WebHareRouter;

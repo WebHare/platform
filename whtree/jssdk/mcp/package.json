@@ -1,0 +1,16 @@
+{
+  "name": "@webhare/mcp",
+  "type": "module",
+  "version": "",
+  "description": "Client for MCP (Model Context Protocol) servers, such as the MCP servers WebHare offers for WRD schemas",
+  "main": "src/mcp.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/mcp.ts"
+    ]
+  },
+  "private": true
+}
