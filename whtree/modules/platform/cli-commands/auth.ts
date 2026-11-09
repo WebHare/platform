@@ -1,7 +1,7 @@
 // @webhare/cli: Control WebHare users and rights
 
 import jwt from "jsonwebtoken";
-import { type AnyWRDSchema, type WRDSchemaLike, type WRDSchemaType, getSchemaSettings, isValidWRDTag, wrd } from '@webhare/wrd';
+import { type AnyWRDSchema, type WRDSchemaLike, type WRDSchemaType, getSchemaSettings, isValidWRDTag, updateSchemaSettings, wrd } from '@webhare/wrd';
 import YAML from 'yaml';
 import { loadlib } from '@webhare/harescript/src/contextvm';
 import type { HSVMObject } from '@webhare/harescript/src/harescript';
@@ -9,7 +9,7 @@ import { importJSObject } from '@webhare/services';
 import { beginWork, commitWork } from '@webhare/whdb';
 import { compressUUID, createFirstPartyToken, decodeJWT, IdentityProvider, type AuthTokenOptions } from "@webhare/auth/src/identity";
 import { pick } from '@webhare/std';
-import { CLIRuntimeError, runCli } from "@webhare/cli";
+import { CLIRuntimeError, enumOption, runCli } from "@webhare/cli";
 import { registerOAuthApplication, enableOpenIDServer, getOpenIDIssuer, getOpenIDMetadataURL, type AuthCustomizer, getDefaultOAuth2RedirectURL } from '@webhare/auth';
 import { getAuthServerMetadataURL } from '@mod-platform/js/auth/openid';
 import { prepAuthForURL } from '@webhare/auth/src/support';
@@ -24,9 +24,10 @@ async function getUserApiSchemaName(opts: { schema?: string }): Promise<string> 
 }
 
 async function describeIdp(schema: WRDSchemaType<WRDSchemaLike["wrd:idp"]>) {
-  const settings = await getSchemaSettings(schema, ["signingKeys", "loginSettings"]);
+  const settings = await getSchemaSettings(schema, ["signingKeys", "loginSettings", "dynamicRegistration"]);
   return {
     openIdServer: settings.loginSettings?.openIdServer === true,
+    dynamicRegistration: settings.dynamicRegistration?.enabled === true,
     issuer: await getOpenIDIssuer(schema.tag),
     keys: pick(settings.signingKeys, ["availableSince", "keyId"]),
     metadataUrl: await getOpenIDMetadataURL(schema.tag),
@@ -83,6 +84,33 @@ runCli({
           console.log("OAuth2 Metadata: " + (idp.authServerMetadataUrl || "not available"));
           console.log("OpenID Provider: " + (idp.openIdServer ? "enabled" : "disabled"));
           console.log("OpenID Metadata: " + (idp.metadataUrl || "not available"));
+          console.log("Dynamic registration: " + (idp.dynamicRegistration ? "enabled" : "disabled"));
+        }
+      }
+    },
+    setup: {
+      shortDescription: "Configure authentication settings",
+      description: "Configure the authentication settings of a schema. Dynamic client registration (RFC 7591) is required by MCP clients",
+      options: {
+        "dynamic-registrations": { description: "Allow clients to register themselves (true or false)", type: enumOption(["true", "false"]) }
+      },
+      main: async ({ opts }) => {
+        const wrdSchema = await getUserApiSchemaName(opts);
+        const schema = wrd<WRDSchemaLike["wrd:idp"]>(wrdSchema);
+        if (!opts.dynamicRegistrations)
+          throw new CLIRuntimeError("Nothing to configure, specify eg. --dynamic-registrations=true", { showHelp: true });
+
+        await beginWork();
+        await updateSchemaSettings(schema, { dynamicRegistration: { enabled: opts.dynamicRegistrations === "true" } });
+        await commitWork();
+
+        const idp = await describeIdp(schema);
+        if (opts.json) {
+          console.log(JSON.stringify({ wrdschema: wrdSchema, ...idp }));
+        } else {
+          console.log(`Dynamic registration for schema ${wrdSchema}: ${idp.dynamicRegistration ? "enabled" : "disabled"}`);
+          if (idp.dynamicRegistration && !idp.issuer)
+            console.log("Warning: no site with the platform:identityprovider webfeature hosts this schema yet, so clients can't find the registration endpoint");
         }
       }
     },
