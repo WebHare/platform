@@ -1,6 +1,6 @@
 // @webhare/cli: Manage WRD
 
-import { WRDSchema, describeEntity, listSchemas, type WRDEntityMatch } from '@webhare/wrd';
+import { wrd, describeEntity, listSchemas, type AnySchemaType, type WRDEntityMatch, type WRDSchemaType } from '@webhare/wrd';
 import { regExpFromWildcards, throwError } from '@webhare/std';
 import { decodeHSON } from '@webhare/hscompat';
 import { beginWork, runInWork } from '@webhare/whdb';
@@ -11,7 +11,7 @@ import YAML from 'yaml';
 import { commonFlags, commonOptions, readArgFile } from '@mod-platform/js/cli/cli-tools';
 import { exportFileAsFetch } from '@webhare/services/src/descriptor';
 
-async function exportEntity(entitySchema: WRDSchema, entityType: string, entityMatch: WRDEntityMatch<WRDSchema, string>, opts: { json: boolean; resources: string }, field?: string) {
+async function exportEntity(entitySchema: WRDSchemaType<AnySchemaType>, entityType: string, entityMatch: WRDEntityMatch<WRDSchemaType<AnySchemaType>, string>, opts: { json: boolean; resources: string }, field?: string) {
   const attrs = await entitySchema.getType(entityType).listAttributes();
   const entity = await entitySchema.getFields(entityType, entityMatch, field ?? attrs.map(_ => _.tag), {
     export: true,
@@ -21,7 +21,7 @@ async function exportEntity(entitySchema: WRDSchema, entityType: string, entityM
   console.log(opts.json ? JSON.stringify(entity, null, 2) : YAML.stringify(entity));
 }
 
-async function updateEntity(entitySchema: WRDSchema, entityType: string, entityMatch: WRDEntityMatch<WRDSchema, string>, source: string, opts: { json: boolean; dryRun: boolean }) {
+async function updateEntity(entitySchema: WRDSchemaType<AnySchemaType>, entityType: string, entityMatch: WRDEntityMatch<WRDSchemaType<AnySchemaType>, string>, source: string, opts: { json: boolean; dryRun: boolean }) {
   const entityId = await entitySchema.getFields(entityType, entityMatch, "wrdId");
   const importData: Record<string, unknown> = YAML.parse(await (await readArgFile(source)).text());
   delete importData.wrdId;
@@ -97,7 +97,7 @@ runCli({
       main: async ({ opts, args }) => {
         const entityId = args.id;
         const entityInfo = await describeEntity(entityId) ?? throwError(`Entity #${entityId} not found`);
-        await exportEntity(new WRDSchema(entityInfo.schema), entityInfo.type, entityId, opts, args.field);
+        await exportEntity(wrd<AnySchemaType>(entityInfo.schema), entityInfo.type, entityId, opts, args.field);
       }
     },
     "get-setting": {
@@ -108,7 +108,7 @@ runCli({
         { name: "[field]", description: "Single settings field to export" }
       ],
       main: async ({ opts, args }) => {
-        await exportEntity(new WRDSchema(args.schema), "wrdSettings", { wrdTag: "WRD_SETTINGS" }, opts, args.field);
+        await exportEntity(wrd<AnySchemaType>(args.schema), "wrdSettings", { wrdTag: "WRD_SETTINGS" }, opts, args.field);
       }
     },
     "create-entity": {
@@ -122,7 +122,7 @@ runCli({
         { name: "<source>", description: "Data to import - path to a file or '-' for stdin" }
       ],
       main: async ({ opts, args }) => {
-        const wrdschema = new WRDSchema(args.schema);
+        const wrdschema = wrd<AnySchemaType>(args.schema);
         const importData: Record<string, unknown> = YAML.parse(await (await readArgFile(args.source)).text());
 
         const attrs = await wrdschema.getType(args.type).listAttributes();
@@ -152,7 +152,7 @@ runCli({
       main: async ({ opts, args }) => {
         const entityId = args.id;
         const entityInfo = await describeEntity(entityId) ?? throwError(`Entity #${entityId} not found`);
-        await updateEntity(new WRDSchema(entityInfo.schema), entityInfo.type, entityId, args.source, opts);
+        await updateEntity(wrd<AnySchemaType>(entityInfo.schema), entityInfo.type, entityId, args.source, opts);
       }
     },
     "update-setting": {
@@ -165,7 +165,7 @@ runCli({
         { name: "<source>", description: "Data to import - path to a file or '-' for stdin" }
       ],
       main: async ({ opts, args }) => {
-        await updateEntity(new WRDSchema(args.schema), "wrdSettings", { wrdTag: "WRD_SETTINGS" }, args.source, opts);
+        await updateEntity(wrd<AnySchemaType>(args.schema), "wrdSettings", { wrdTag: "WRD_SETTINGS" }, args.source, opts);
       }
     },
     "search": {
@@ -177,7 +177,7 @@ runCli({
         { name: "<value>", description: "Value to search for" }
       ],
       main: async ({ args }) => {
-        const searchSchema = new WRDSchema(args.schema);
+        const searchSchema = wrd<AnySchemaType>(args.schema);
         console.log(JSON.stringify(await searchSchema.search(args.type, args.field, args.value)));
       }
     },
@@ -194,7 +194,7 @@ runCli({
         const { id, field, value } = args;
         const entityid = id;
         const entityinfo = await describeEntity(entityid) ?? throwError(`Entity #${entityid} not found`);
-        const wrdschema = new WRDSchema(entityinfo.schema);
+        const wrdschema = wrd<AnySchemaType>(entityinfo.schema);
         // const type = await wrdschema.describeType(entityinfo.type) ?? throwError("Type not found");
         const attr = await wrdschema.getType(entityinfo.type).describeAttribute(field) ?? throwError(`Attribute '${field}' not found`);
 
