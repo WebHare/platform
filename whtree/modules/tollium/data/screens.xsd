@@ -2484,7 +2484,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="resource" type="sc:AbsResource">
       <xs:annotation>
         <xs:documentation>
-          Specifies an image from a module (format module ':' icon-dir '/' icon-name ).
+          The SVG file to show, as an absolute resource path (eg. 'mod::mymodule/web/img/image.svg'). Only SVG files are supported.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
