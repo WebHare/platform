@@ -54,14 +54,14 @@ export async function updateEntity(req: TypedRestRequest<AuthorizedWRDAPIUser, "
 }
 
 export async function queryType(req: TypedRestRequest<AuthorizedWRDAPIUser, "post /wrd/{schema}/type/{type}/query">): Promise<OpenAPIResponse> {
-  //We sort/paginate by wrdId but that is not supposed to be a future promise - whatever works for pagination!
+  /* We paginate by wrdId but that is not supposed to be a future promise - whatever works for pagination!
+     Keyset pagination: the nextToken holds the last returned wrdId, and every page selects the next pageSize+1 ids
+     above it (a limited WRD query orders by id). This keeps every page a single bounded query instead of re-reading
+     and slicing the full result set for every page */
   const schema = new WRDSchema(req.params.schema);
   let query = schema.query(req.params.type).select("wrdId");
   for (const filter of req.body.filters || [])
     query = query.where(filter.field, filter.matchType as AllowedFilterConditions, filter.value);
-
-  const resultIds = await query.execute();
-  resultIds.sort((a, b) => a - b); //sort by wrdId
 
   const usePageSize = req.body.pageSize ? Math.min(req.body.pageSize, maxPageSize) : maxPageSize;
   if (usePageSize < 1)
@@ -72,9 +72,11 @@ export async function queryType(req: TypedRestRequest<AuthorizedWRDAPIUser, "pos
     if (!prevToken)
       return req.createErrorResponse(HTTPErrorCode.BadRequest, { error: "Invalid nextToken" });
 
-    resultIds.splice(0, resultIds.findIndex(id => id > prevToken.lastId));
+    query = query.where("wrdId", ">", prevToken.lastId);
   }
 
+  //Fetch one extra id to find out whether there's another page
+  const resultIds = await query.limit(usePageSize + 1).execute();
   const haveMoreReults = resultIds.length > usePageSize;
   if (haveMoreReults)
     resultIds.splice(usePageSize);
