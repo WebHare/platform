@@ -229,6 +229,10 @@ export async function mcpProtectedResourceRouter(req: WebRequest): Promise<WebRe
     resource: server.resource,
     authorization_servers: [server.issuer],
     bearer_methods_supported: ["header"],
+    /* We don't have scopes for MCP servers (yet). Advertise that explicitly: without scopes_supported, clients such as
+       mcp-remote fall back to requesting 'openid email profile', which the identity provider rejects if the schema isn't an
+       OpenID Connect provider. An empty list tells them to omit the scope (MCP authorization, scope selection strategy) */
+    scopes_supported: [],
     ...server.realm.mcpServer.title ? { resource_name: server.realm.mcpServer.title } : {}
   });
 }

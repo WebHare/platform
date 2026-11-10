@@ -37,6 +37,7 @@ async function testProtectedResourceMetadata() {
     resource: mcpUrl,
     authorization_servers: [issuer],
     bearer_methods_supported: ["header"],
+    scopes_supported: [],
     resource_name: "ACME customer portal"
   }, await metadataResponse.json());
 
