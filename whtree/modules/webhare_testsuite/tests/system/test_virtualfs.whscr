@@ -309,6 +309,77 @@ MACRO PublisherTestsAsMarge()
   testfw->CommitWork();
 
   PublisherTests("marge", testdir->whfspath, Substring(testdir->whfspath, Length("/webhare-tests")));
+
+  //Marge only has fs_browse on the test root, so she may read but not modify anything there (outside the testsite)
+  testfw->BeginWork();
+  OBJECT readonlyfile := testfw->GetWHFSTestRoot()->CreateFile([ name := "readonly.txt", data := StringToBlob("Read only") ]);
+  testfw->CommitWork();
+
+  OBJECT vfs := OpenVirtualFS();
+  STRING readonlybase := "/publisher" || Substring(testfw->GetWHFSTestRoot()->whfspath, Length("/webhare-tests"));
+  STRING writablebase := "/publisher" || Substring(testdir->whfspath, Length("/webhare-tests"));
+
+  RECORD pathinfo := vfs->GetPathInfo(readonlybase || "readonly.txt");
+  TestEq(TRUE, pathinfo.read);
+  TestEq(FALSE, pathinfo.write);
+  TestEq(FALSE, SELECT AS BOOLEAN write FROM vfs->GetDirectoryListing(readonlybase) WHERE name = "readonly.txt");
+  TestEq("Read only", BlobToString(vfs->GetFile(readonlybase || "readonly.txt")));
+
+  TestThrowsLike("No write access", PTR vfs->PutFile(readonlybase || "new.txt", StringToBlob("Not allowed"), FALSE));
+  TestThrowsLike("No write access", PTR vfs->PutFile(readonlybase || "readonly.txt", StringToBlob("Not allowed"), TRUE));
+  TestThrowsLike("No write access", PTR vfs->MakeDir(readonlybase || "newfolder"));
+  TestThrowsLike("No write access", PTR vfs->SetMetadata(readonlybase || "readonly.txt", [ modificationdate := MakeDate(2010,6,15) ]));
+  TestThrowsLike("No write access", PTR vfs->DeletePath(readonlybase || "readonly.txt"));
+  TestThrowsLike("No write access at source", PTR vfs->Move(readonlybase || "readonly.txt", writablebase || "moved.txt", FALSE));
+  TestThrowsLike("No write access at source", PTR vfs->Move(readonlybase || "readonly.txt", readonlybase || "renamed.txt", FALSE));
+
+  //Copying out of a read-only folder is fine, copying or moving into one is not
+  vfs->Copy(readonlybase || "readonly.txt", writablebase || "copied.txt", FALSE);
+  TestThrowsLike("No write access at destination", PTR vfs->Copy(writablebase || "copied.txt", readonlybase || "copied.txt", FALSE));
+  TestThrowsLike("No write access at destination", PTR vfs->Move(writablebase || "copied.txt", readonlybase || "copied.txt", FALSE));
+  vfs->DeletePath(writablebase || "copied.txt");
+
+  //Nothing should have changed
+  readonlyfile := OpenWHFSObject(readonlyfile->id);
+  TestEq(TRUE, ObjectExists(readonlyfile));
+  TestEq("readonly.txt", readonlyfile->name);
+  TestEq(testfw->GetWHFSTestRoot()->id, readonlyfile->parent);
+  TestEq("Read only", BlobToString(readonlyfile->data));
+  TestEq(FALSE, ObjectExists(testfw->GetWHFSTestRoot()->OpenByName("new.txt")));
+  TestEq(FALSE, ObjectExists(testfw->GetWHFSTestRoot()->OpenByName("newfolder")));
+  TestEq(FALSE, ObjectExists(testfw->GetWHFSTestRoot()->OpenByName("copied.txt")));
+  TestEq(FALSE, ObjectExists(testdir->OpenByName("copied.txt")));
+
+  //Fullaccess on just the file allows editing it, but deleting/renaming/moving it requires fullaccess on its parent
+  testfw->BeginWork();
+  OBJECT editablefile := testfw->GetWHFSTestRoot()->CreateFile([ name := "editable.txt", data := StringToBlob("Editable") ]);
+  testfw->GetUserObject("marge")->UpdateGrant("grant", "system:fs_fullaccess", editablefile->id, testfw->GetUserObject("marge"), [ allowselfassignment := TRUE ]);
+  testfw->CommitWork();
+
+  TestEq(TRUE, vfs->GetPathInfo(readonlybase || "editable.txt").write);
+  vfs->PutFile(readonlybase || "editable.txt", StringToBlob("Edited"), TRUE);
+  vfs->SetMetadata(readonlybase || "editable.txt", [ modificationdate := MakeDate(2010,6,15) ]);
+  TestThrowsLike("No write access", PTR vfs->DeletePath(readonlybase || "editable.txt"));
+  TestThrowsLike("No write access at source", PTR vfs->Move(readonlybase || "editable.txt", readonlybase || "renamed.txt", FALSE));
+  TestThrowsLike("No write access at source", PTR vfs->Move(readonlybase || "editable.txt", writablebase || "moved.txt", FALSE));
+  //Replacing it through copy/move is deleting it too
+  vfs->PutFile(writablebase || "replacement.txt", StringToBlob("Replacement"), FALSE);
+  TestThrowsLike("No write access at destination", PTR vfs->Copy(writablebase || "replacement.txt", readonlybase || "editable.txt", TRUE));
+  TestThrowsLike("No write access at destination", PTR vfs->Move(writablebase || "replacement.txt", readonlybase || "editable.txt", TRUE));
+  vfs->DeletePath(writablebase || "replacement.txt");
+
+  editablefile := OpenWHFSObject(editablefile->id);
+  TestEq(TRUE, ObjectExists(editablefile));
+  TestEq("editable.txt", editablefile->name);
+  TestEq(testfw->GetWHFSTestRoot()->id, editablefile->parent);
+  TestEq("Edited", BlobToString(editablefile->data));
+  TestEq(MakeDate(2010,6,15), editablefile->modificationdate);
+  TestEq(FALSE, ObjectExists(testdir->OpenByName("moved.txt")));
+
+  testfw->BeginWork();
+  readonlyfile->DeleteSelf();
+  editablefile->DeleteSelf();
+  testfw->CommitWork();
 }
 
 MACRO DataTests()
@@ -533,6 +604,27 @@ MACRO TestMargeThroughWebdav()
   webdavserver->DeleteResource("/webdav/" || subtestpath || '/test.txt');
   dirlisting := webdavserver->ListDirectory("/webdav/" ||subtestpath);
   TestEq(FALSE, RecordExists(SELECT FROM dirlisting WHERE name='test.txt'));
+
+  //Marge only has browse rights on the parent of the testsite, so writes there should be refused
+  testfw->BeginWork();
+  OBJECT readonlyfile := testfw->GetWHFSTestRoot()->CreateFile([ name := "readonly.txt", data := StringToBlob("Read only") ]);
+  testfw->CommitWork();
+
+  STRING readonlypath := "/webdav/publisher/webhare_testsuite.testfolder";
+  TestEq(TRUE, RecordExists(SELECT FROM webdavserver->ListDirectory(readonlypath) WHERE name = "readonly.txt"));
+  TestEq("Read only", BlobToString(webdavserver->Get(readonlypath || "/readonly.txt")));
+  TestThrowsLike("Failed to put*", PTR webdavserver->Put(readonlypath || "/test3.txt", testdata, TRUE));
+  TestEq(403, webdavserver->webbrowser->GetHTTPStatusCode());
+  TestThrowsLike("Failed to create*", PTR webdavserver->CreateCollection(readonlypath || "/newfolder"));
+  TestThrowsLike("Failed to put*", PTR webdavserver->Put(readonlypath || "/readonly.txt", testdata, TRUE));
+  TestThrowsLike("Failed to delete*", PTR webdavserver->DeleteResource(readonlypath || "/readonly.txt"));
+  TestEq(FALSE, ObjectExists(testfw->GetWHFSTestRoot()->OpenByName("test3.txt")));
+  TestEq(FALSE, ObjectExists(testfw->GetWHFSTestRoot()->OpenByName("newfolder")));
+  TestEq("Read only", BlobToString(OpenWHFSObject(readonlyfile->id)->data));
+
+  testfw->BeginWork();
+  readonlyfile->DeleteSelf();
+  testfw->CommitWork();
 }
 
 MACRO TestBlockedAccessThroughWebdav()
