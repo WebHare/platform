@@ -3,6 +3,7 @@
   <sitesettings>
     <webruleset xmlns="http://www.webhare.net/xmlns/system/moduledefinition" priority="after">
       <webrule path="/.well-known/openid-configuration" match="exact" router="/js/auth/metadata.ts#wellKnownRouter" />
+      <webrule path="/.well-known/oauth-authorization-server" match="exact" router="/js/auth/metadata.ts#oauthAuthorizationServerRouter" />
     </webruleset>
   </sitesettings>
 

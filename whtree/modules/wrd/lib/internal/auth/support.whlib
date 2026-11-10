@@ -23,6 +23,8 @@ LOADLIB "mod::system/lib/internal/cluster/logging.whlib";
     @cell(integer) round_long_logins_to Round long logins to this time of the day (milliseconds)
     @cell(string) round_long_logins_t_z Round long logins in this timezone
     @cell(integer64) round_min_duration Minimum duration of sessions when rounding (milliseconds)
+    @cell(integer64) api_token_duration Duration of OAuth2 access tokens (milliseconds)
+    @cell(boolean) open_id_server Act as an OpenID Connect provider
 */
 PUBLIC CONSTANT RECORD wrdauth_defaultconfiguration :=
   [ expire_login :=             86400 * 1000i64 // 1 day
@@ -31,6 +33,8 @@ PUBLIC CONSTANT RECORD wrdauth_defaultconfiguration :=
   , round_long_logins_to :=     4 * 3600 * 1000    // 4 am (set to -1 to disable rounding)
   , round_long_logins_t_z :=    "Europe/Amsterdam" // default timezone for rounding
   , round_min_duration :=       3 * 3600 * 1000i64 // sessions last at least 3 hours
+  , api_token_duration :=       7 * 86400 * 1000i64 // OAuth2 access tokens last 7 days (keep in sync with defaultAccessTokenExpiry in @webhare/auth/src/support.ts)
+  , open_id_server :=           FALSE // act as an OpenID Connect provider
   ];
 
 /** @param entityid Id entity to get the authobject from

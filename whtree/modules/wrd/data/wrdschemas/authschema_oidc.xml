@@ -24,6 +24,7 @@
     <attributes>
       <free tag="wrd_title" required="true" unique="true" />
       <boolean tag="is_idp" description="If set, this client is an identity provider" />
+      <boolean tag="is_peer" description="If set, this client is a WebHare peer" />
       <integer tag="wrd_ordering" />  <!-- TODO make this object a domain and then use the builtin wrd_ordering -->
       <free tag="metadata_url" />
       <free tag="client_id" />
@@ -32,6 +33,8 @@
         <free tag="param" />
         <free tag="value" />
       </array>
+      <free tag="registration_access_token" description="Dynamic registration management token" unsafetocopy="true" />
+      <free tag="registration_client_uri" description="Dynamic registration management URL" />
       <datetime tag="secret_expiration" description="When is the secret known to expire (allows us to give warnings)" />
       <free tag="additional_scopes" />
       <free tag="login_field" />  <!-- eg 'email' or 'sub'.  todo should default to 'sub' but transitionally support email/employeeid/sub -->

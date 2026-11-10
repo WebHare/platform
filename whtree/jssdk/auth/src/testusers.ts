@@ -192,7 +192,7 @@ export async function createTestUser(options?: CreateTestUserOptions): Promise<T
   const roles = options?.roles || [];
 
   //Close the user when a normal first party login would expire
-  const expires = await new IdentityProvider(wrdSchema).getExpiration(Temporal.Now.instant()) ?? throwError("Login expiration not set");
+  const expires = await new IdentityProvider(wrdSchema).getExpiration("id", Temporal.Now.instant()) ?? throwError("Login expiration not set");
 
   /* Hold the usermgmt mutex (the same one userApi.Create* takes) for the whole transaction so concurrent
      creations don't pick the same unit or username. We don't use the locking userApi.Create* here ourselves */

@@ -37,6 +37,8 @@ PUBLIC STATIC OBJECTTYPE PeerServers EXTEND TolliumScreenBase
 
   MACRO DoConnect()
   {
+    //Capture the selection first: OpenWebHarePeer may need to (re)authorize, and storing the new token updates the peer entity, which can reload the list and clear its selection
+    INTEGER peerid := ^peers->value[0];
     OBJECT peer := OpenWebHarePeer(this, ^peers->selection.serverurl, [ scopes := this->options.scopes
                                                                       , validuntil := AddTimeToDate(15*60*1000, GetCurrentDatetime())
                                                                       ]);
@@ -44,7 +46,7 @@ PUBLIC STATIC OBJECTTYPE PeerServers EXTEND TolliumScreenBase
     {
       this->result := peer;
       this->tolliumresult := "ok";
-      this->contexts->user->SetRegistryKey("system.webharepreers.lastserver", ^peers->value[0]);
+      this->contexts->user->SetRegistryKey("system.webharepreers.lastserver", peerid);
     }
   }
 >;
@@ -65,6 +67,11 @@ PUBLIC STATIC OBJECTTYPE AddPeer EXTEND TolliumScreenBase <
     }
 
     RECORD resp := GetWebHareRequestTokenURL(this, ^peer->value, [ scopes := this->options.scopes ]);
+    IF(resp.peerid != 0) {
+      urlreceiver->Cancel();
+      this->__SetScreenResult(resp.peerid);
+      RETURN;
+    }
     urlreceiver->SendUrl(resp.requesturl);
 
     resp.tokenpromise->Then(PTR this->HandleTokenPromiseResult, PTR this->HandleTokenPromiseError);
@@ -97,6 +104,11 @@ PUBLIC STATIC OBJECTTYPE ReauthServer EXTEND TolliumScreenBase <
   }
   MACRO DoAuthServer(OBJECT urlreceiver) {
     RECORD resp := GetWebHareRequestTokenURL(this, ^url->value, [ scopes := this->options.scopes ]);
+    IF(resp.peerid != 0) {
+      urlreceiver->Cancel();
+      this->tolliumresult := "ok";
+      RETURN;
+    }
     urlreceiver->SendUrl(resp.requesturl);
     resp.tokenpromise->Then(PTR this->HandleTokenPromiseResult, PTR this->HandleTokenPromiseError);
   }

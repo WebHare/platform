@@ -897,6 +897,9 @@
       <text tid="addressvalidation">Address validation</text>
       <text tid="default_sender_mail">Default sender email</text>
       <text tid="default_sender_name">Default sender name</text>
+      <text tid="dynamic_registration">Dynamic client registrations</text>
+      <text tid="open_id_server">OpenID Connect provider</text>
+      <text tid="oauth">OAuth</text>
       <text tid="payments">Payments</text>
       <text tid="protect">Protect this schema against imports and deletes</text>
       <text tid="schema">Schema</text>
@@ -1040,7 +1043,23 @@
         <text tid="title">Key name</text>
         <text tid="title-placeholder">Eg: production, dev, green…</text>
       </textgroup>
+      <textgroup gid="oauth2initiations">   <!-- tolliumapps.auth.oauth2initiations -->
+        <text tid="clientscope">Client scope</text>
+        <text tid="created">Started</text>
+        <text tid="error">Error</text>
+        <text tid="errordescription">Error description</text>
+        <text tid="localuser">Local user</text>
+        <text tid="remoteuser">Remote user</text>
+        <text tid="scopes">Requested scopes</text>
+        <text tid="status">Status</text>
+        <text tid="status-all">All</text>
+        <text tid="status-completed">Completed</text>
+        <text tid="status-failed">Failed</text>
+        <text tid="status-pending">Pending</text>
+        <text tid="title">Recent OAuth2 authorizations</text>
+      </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.auth.settings -->
+        <text tid="api_token_duration">OAuth2 access tokens expire after</text>
         <text tid="authtexts-intro">Overwrite the standard authentication page texts</text>
         <text tid="completeaccount-intro-desc"><html:i>The update reason will be added automatically</html:i></text>
         <text tid="defaults">Default text:</text>

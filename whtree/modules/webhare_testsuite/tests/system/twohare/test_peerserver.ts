@@ -46,7 +46,7 @@ async function connectToPeer() {
   const secondHare = await newPagePromise ?? throwError("Failed to get new page");
   await runWebHareLoginFlow(secondHare, { rawUser: "twoharetest@beta.webhare.net", password: "secret" });
   const pageClosedPromise = new Promise(resolve => secondHare.once('close', resolve));
-  await secondHare.locator('::-p-aria(Yes)').click(); //opens the second webhare in a new tab
+  await secondHare.locator('::-p-aria(Approve)').click(); //opens the second webhare in a new tab
   console.log('wait for tab to close');
   await pageClosedPromise; //second tab should autoclose
 

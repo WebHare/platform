@@ -44,8 +44,8 @@ export interface AuthEventData {
 export { createFirstPartyToken, listTokens, deleteToken, getToken, updateToken, prepareFrontendLogin } from "./identity";
 export type { FirstPartyToken } from "./identity";
 
-export { getOpenIDMetadataURL } from "@mod-platform/js/auth/openid";
-export { registerOAuthApplication, initializeIssuer } from "./oauth2";
+export { getOpenIDMetadataURL, getOpenIDIssuer } from "@mod-platform/js/auth/openid";
+export { registerOAuthApplication, enableOpenIDServer, initializeIssuer } from "./oauth2";
 export type { RelyingPartyConfig as ClientConfig, RelyingProviderInit as ServiceProviderInit } from "./oauth2";
 
 export { getDefaultOAuth2RedirectURL, createOAuth2Client, handleOAuth2AuthorizeLanding, fetchUserInfo } from "./oauth2-client";

@@ -2,17 +2,20 @@ import * as crypto from "node:crypto";
 import { type WebHareRouter, type WebRequest, type WebResponse, createContentPageRequest, createJSONResponse, createRedirectResponse, createWebResponse } from "@webhare/router";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 //TOOD make this a public export somewhere? but should it include wrdOrg and wrdPerson though
-import { wrd, type WRDSchema, type WRDSchemaLike, type WRDSchemaType } from "@webhare/wrd";
+import { getSchemaSettings, wrd, type WRDSchema, type WRDSchemaLike, type WRDSchemaType } from "@webhare/wrd";
 import { listSites, openFileOrFolder, openFolder, openSite } from "@webhare/whfs";
 import { decompressUUID, hashClientSecret, IdentityProvider, listTokens, type AuthTokenOptions } from "@webhare/auth/src/identity";
-import { closeServerSession, createServerSession, encryptForThisServer, getServerSession, importJSObject, updateServerSession } from "@webhare/services";
-import type { AuthCustomizer, JWTPayload } from "@webhare/auth";
+import { closeServerSession, createServerSession, encryptForThisServer, getServerSession, importJSObject, logDebug, updateServerSession } from "@webhare/services";
+import { registerOAuthApplication } from "@webhare/auth/src/oauth2";
+import type { AuthCustomizer, JWTPayload } from "@webhare/auth/src/customizer";
 import { getCookieBasedUser } from "@webhare/auth/src/authfrontend";
 import { runInWork } from "@webhare/whdb";
 import type { AnySchemaType, SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import type { OAuth2EndpointErrorCodes, OIDCEndpointErrorCodes, ResponseModesScopes, ResponseType } from "@webhare/auth/src/types";
 import type { OAuth2PromptFlag } from "@webhare/auth/src/oauth2-client";
 import { litty } from "@webhare/litty";
+import { permissionRequestPage } from "./authpages.litty";
+import { debugFlags } from "@webhare/env";
 
 type OIDCCallerInfo = {
   state: string | null;
@@ -54,6 +57,8 @@ const openIdTokenExpiry = 60 * 60 * 1000; // openid id_token is valid for 1 hour
 const builtinScopes = ["openid", "profile", "email"];
 //TODO don't hardcode these, site/wrdauth config should explain them. different schemas do their own thing
 const supportedAccessScopes = {
+  "platform:sysop": "Allows full administrative access",
+  "platform:wrd.export": "Allows exporting WRD data",
   "testfw": "Testframework scope"
 };
 
@@ -118,7 +123,37 @@ async function findLoginPageForSchema(schema: string) {
 
     loginPage = joinURL(site.webRoot, targeted[2]);
   }
-  return { loginPage, metadataUrl: candidates[0].webRoot + ".well-known/openid-configuration", wrdauth: candidates[0].wrdauth, site: candidates[0].id };
+  return {
+    loginPage,
+    issuer: getIssuerForWebRoot(candidates[0].webRoot),
+    metadataUrl: candidates[0].webRoot + ".well-known/openid-configuration",
+    authServerMetadataUrl: candidates[0].webRoot + ".well-known/oauth-authorization-server",
+    wrdauth: candidates[0].wrdauth,
+    site: candidates[0].id
+  };
+}
+
+/** Derive the OAuth2/OpenID issuer from the webroot of the identity provider site. RFC 8414 and OpenID Connect Discovery
+ * require the issuer to match the location of the metadata, so this is not configurable */
+export function getIssuerForWebRoot(webRoot: string) {
+  return webRoot.endsWith("/") ? webRoot.slice(0, -1) : webRoot;
+}
+
+/** Get the OpenID/OAuth2 issuer for a WRD schema
+ * @param schema - WRD schema tag
+ * @returns The issuer, or null if no (single) site hosts an identity provider for this schema
+ */
+export async function getOpenIDIssuer(schema: string): Promise<string | null> {
+  try {
+    return (await findLoginPageForSchema(schema)).issuer;
+  } catch (ignore) {
+    return null;
+  }
+}
+
+/** Check whether a schema has been enabled as an OpenID Connect provider (loginSettings.openIdServer) */
+export async function isOpenIDServer(wrdschema: WRDSchemaType<WRDSchemaLike["wrd:idp"]>) {
+  return (await getSchemaSettings(wrdschema, ["loginSettings"])).loginSettings?.openIdServer === true;
 }
 
 function getOpenIdBase(wrdschema: WRDSchemaType<WRDSchemaLike["wrd:idp"]>) {
@@ -177,6 +212,9 @@ function createOIDCErrorResponse(callerInfo: OIDCCallerInfo, errorCode: OAuth2En
 
 /** Start an oauth2/openid authorization flow */
 export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provider: IdentityProvider<T>, url: string, loginPage: string, curuser: { user: number; claims: JWTPayload } | null, customizer?: AuthCustomizer): Promise<WebResponse> {
+  if (debugFlags.openid)
+    logDebug("platform:openid-server", { step: "startAuthorizeFlow", url });
+
   const searchParams = new URL(url).searchParams;
   const clientid = searchParams.get("client_id") || '';
   const scopes = (searchParams.get("scope")?.split(" ") || []);
@@ -228,7 +266,12 @@ export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provide
       return createOIDCErrorResponse(callerInfo, "invalid_request", `Invalid code challenge method '${code_challenge_method}', allowed are 'plain' or 'S256`);
   }
 
-  const invalidScopes = scopes.filter(scope => !builtinScopes.includes(scope) && !Object.keys(supportedAccessScopes).includes(scope));
+  const openIdServer = await isOpenIDServer(provider.wrdschema as unknown as WRDSchemaType<WRDSchemaLike["wrd:idp"]>);
+  if (!openIdServer && response_type.includes("id_token"))
+    return createOIDCErrorResponse(callerInfo, "unsupported_response_type", `This server is not an OpenID Connect provider and cannot return an id_token`);
+
+  const allowedScopes = [...(openIdServer ? builtinScopes : []), ...Object.keys(supportedAccessScopes)];
+  const invalidScopes = scopes.filter(scope => !allowedScopes.includes(scope));
   if (invalidScopes.length > 0)
     return createOIDCErrorResponse(callerInfo, "invalid_scope", `Invalid scope requested: ${invalidScopes.join(", ")}`);
 
@@ -260,6 +303,9 @@ export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provide
   const loginToken = encryptForThisServer("wrd:authplugin.logincontroltoken", loginControl); //TODO merge into the idpstate session? but HS won't understand it without further changes
   const target = new URL(loginPage);
   target.searchParams.set("wrdauth_logincontrol", loginToken);
+
+  if (debugFlags.openid)
+    logDebug("platform:openid-server", { step: "startAuthorizeFlow-done", target: target.toString(), loginControl, returnInfo });
 
   return createRedirectResponse(target.toString());
 }
@@ -303,7 +349,7 @@ export async function returnAuthorizeFlow<T extends SchemaTypeDefinition>(provid
         currentTokens.add(scope);
 
     for (const scope of protectedScopes)
-      if (!currentTokens.has(scope))
+      if (!currentTokens.has(scope) || returnInfo.prompt === "consent") //prompt=consent asks for approval even if the scope was granted before
         checkScopes.push(scope);
   }
 
@@ -315,16 +361,7 @@ export async function returnAuthorizeFlow<T extends SchemaTypeDefinition>(provid
       const permissionrequest = await createContentPageRequest(await openFileOrFolder(site), { webRequest: req }); //TODO pass the webRequest too?
       //TODO pass a true FormsAPI body. or delegate this fully to HareScript
       //TODO Make it clear which client is asking. And if it's a dynamic client, make it especially clear that we can't verify the identity of the app
-      return await permissionrequest.buildWebPage(litty`
-        <form method="post" action="${req.url}" enctype="application/x-www-form-urlencoded">
-          <p>Do you approve the application to access the following on your behalf?</p>
-          <ul>
-            ${checkScopes.map(scope => litty`<li>${scope} - ${supportedAccessScopes[scope]}</li>`)}
-          </ul>
-          <button name="approve" value="no" type="submit">Deny</button>
-          <button name="approve" value="yes" type="submit">Approve</button>
-        </form>
-      `);
+      return await permissionrequest.buildWebPage(permissionRequestPage({ url: req.url, checkScopes, supportedAccessScopes }));
     } else {
       const formData = await req.formData();
       const approve = formData.get("approve") === "yes";
@@ -334,7 +371,12 @@ export async function returnAuthorizeFlow<T extends SchemaTypeDefinition>(provid
   }
 
   //Update session with user info
-  await runInWork(() => updateServerSession("wrd:openid.idpstate", sessionid, { ...returnInfo, user }));
+  await runInWork(async () => {
+    await updateServerSession("wrd:openid.idpstate", sessionid, { ...returnInfo, user });
+    const application = await provider.wrdschema.getFields("wrdauthApplication", returnInfo.clientid, ["dynamicStatus"]);
+    if (application.dynamicStatus === "created")
+      await provider.wrdschema.update("wrdauthApplication", returnInfo.clientid, { dynamicStatus: "active" });
+  });
 
   if (returnInfo.response_mode === "form_post") {
     return createRedirectResponse({
@@ -419,10 +461,17 @@ export async function retrieveTokens<T extends SchemaTypeDefinition>(provider: I
       return { error: "Wrong code_verifier" };
   }
 
+  //Only look up the issuer if we need it, plain OAuth2 doesn't
+  const issuer = returnInfo.scopes.includes("openid") ? options?.issuer ?? await getOpenIDIssuer(provider.wrdschema.tag) : undefined;
+  if (returnInfo.scopes.includes("openid") && !issuer)
+    return { error: "Unable to determine the OpenID issuer" };
+
   const tokens = await provider.createTokens("oidc", returnInfo.user, returnInfo.clientid, sessionid, returnInfo.nonce, {
+    issuer: issuer ?? undefined,
     scopes: returnInfo.scopes,
     customizer: options?.customizer,
-    expires: options?.expires || openIdTokenExpiry
+    expires: options?.expires, //if not set, createTokens falls back to loginSettings.apiTokenDuration and eventually defaultAccessTokenExpiry
+    idTokenExpires: openIdTokenExpiry
   });
 
   return {
@@ -437,13 +486,28 @@ export async function retrieveTokens<T extends SchemaTypeDefinition>(provider: I
 }
 
 
+/** Get the OpenID Connect Discovery metadata URL for a schema
+ * @returns The metadata URL, or null if no (single) site hosts an identity provider for this schema or the schema is not an OpenID Connect provider
+ */
 export async function getOpenIDMetadataURL(schema: string) {
+  if (!await isOpenIDServer(wrd<WRDSchemaLike["wrd:idp"]>(schema)))
+    return null;
+  return (await getAuthServerMetadataURLs(schema))?.metadataUrl ?? null;
+}
+
+/** Get the OAuth2 Authorization Server Metadata (RFC 8414) URL for a schema
+ * @returns The metadata URL, or null if no (single) site hosts an identity provider for this schema
+ */
+export async function getAuthServerMetadataURL(schema: string) {
+  return (await getAuthServerMetadataURLs(schema))?.authServerMetadataUrl ?? null;
+}
+
+async function getAuthServerMetadataURLs(schema: string) {
   try {
-    const loginInfo = await findLoginPageForSchema(schema);
-    return loginInfo.metadataUrl;
+    return await findLoginPageForSchema(schema);
   } catch (ignore) {
+    return null;
   }
-  return null;
 }
 
 export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
@@ -458,11 +522,119 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
   if (!await wrdschema.exists() || !await wrdschema.hasType("wrdauthApplication"))
     return createJSONResponse(404, { error: "Provider not configured" });
 
+  if (endpoint[3] === 'register') {
+    const registrationClientId = pathname.match(/\/register\/([^/]+)\/?$/)?.[1];
+    if (registrationClientId) {
+      const registrationAccessToken = req.headers.get("Authorization")?.match(/^Bearer +(.+)$/i)?.[1];
+      const unauthorized = () => createJSONResponse(401, { error: "invalid_token" }, { headers: { "www-authenticate": "Bearer" } });
+      if (!registrationAccessToken)
+        return unauthorized();
+
+      if (!/^[A-Za-z0-9_-]{22}$/.test(registrationClientId))
+        return unauthorized();
+
+      const applications = await wrdschema.query("wrdauthApplication")
+        .where("wrdGuid", "=", decompressUUID(registrationClientId))
+        .select(["wrdId", "dynamicRegistration", "dynamicStatus", "callbackUrls"])
+        .execute();
+      const application = applications[0];
+      const tokenHash = application?.dynamicRegistration?.registrationAccessTokenHash;
+      const suppliedTokenHash = hashClientSecret(registrationAccessToken);
+      if (!application?.dynamicStatus || !tokenHash || tokenHash.length !== suppliedTokenHash.length
+        || !crypto.timingSafeEqual(Buffer.from(tokenHash), Buffer.from(suppliedTokenHash)))
+        return unauthorized();
+      if (req.method === "DELETE") { //RFC 7592 section 2.3: deprovision the client
+        await runInWork(() => wrdschema.delete("wrdauthApplication", application.wrdId));
+        return createWebResponse("", { status: 204, headers: { "cache-control": "no-store", pragma: "no-cache" } });
+      }
+      if (req.method !== "GET")
+        return createJSONResponse(405, { error: "Client registration management requires GET or DELETE" }, { headers: { allow: "GET, DELETE" } });
+
+      const registration = application.dynamicRegistration!.request;
+      return createJSONResponse(200, {
+        ...registration,
+        redirect_uris: application.callbackUrls.map(callback => callback.url),
+        grant_types: registration.grant_types ?? ["authorization_code"],
+        response_types: registration.response_types ?? ["code"],
+        token_endpoint_auth_method: registration.token_endpoint_auth_method ?? "client_secret_basic",
+        client_id: registrationClientId,
+        registration_access_token: registrationAccessToken,
+        registration_client_uri: new URL(getOpenIdBase(wrdschema) + "register/" + encodeURIComponent(registrationClientId), req.url).toString()
+      }, { headers: { "cache-control": "no-store", pragma: "no-cache" } });
+    }
+
+    // Clients may retain the endpoint after it disappears from discovery.
+    const settings = await getSchemaSettings(wrdschema, ["dynamicRegistration"]);
+    if (settings.dynamicRegistration?.enabled !== true)
+      return createJSONResponse(403, { error: "Dynamic registration is disabled" });
+    if (req.method !== "POST")
+      return createJSONResponse(405, { error: "Registration requires POST" }, { headers: { allow: "POST" } });
+    if (req.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json")
+      return createJSONResponse(415, { error: "Registration requires application/json" });
+
+    let registration: unknown;
+    try {
+      registration = await req.json();
+    } catch {
+      return createJSONResponse(400, { error: "invalid_client_metadata", error_description: "Invalid JSON" });
+    }
+    if (!registration || typeof registration !== "object" || Array.isArray(registration))
+      return createJSONResponse(400, { error: "invalid_client_metadata", error_description: "Expected a JSON object" });
+    if (!("redirect_uris" in registration) || !Array.isArray(registration.redirect_uris) || !registration.redirect_uris.length
+      || !registration.redirect_uris.every((url: unknown) => typeof url === "string" && URL.canParse(url)
+        && ["http:", "https:"].includes(new URL(url).protocol) && !new URL(url).hash))
+      return createJSONResponse(400, { error: "invalid_redirect_uri", error_description: "Expected nonempty HTTP(S) redirect_uris without fragments" });
+    if ("client_name" in registration && typeof registration.client_name !== "string")
+      return createJSONResponse(400, { error: "invalid_client_metadata", error_description: "client_name must be a string" });
+    if ("grant_types" in registration && (!Array.isArray(registration.grant_types) || registration.grant_types.length !== 1 || registration.grant_types[0] !== "authorization_code"))
+      return createJSONResponse(400, { error: "invalid_client_metadata", error_description: "Only authorization_code is supported" });
+    if ("response_types" in registration && (!Array.isArray(registration.response_types) || registration.response_types.length !== 1 || registration.response_types[0] !== "code"))
+      return createJSONResponse(400, { error: "invalid_client_metadata", error_description: "Only the code response type is supported" });
+    if ("token_endpoint_auth_method" in registration && (typeof registration.token_endpoint_auth_method !== "string" || !["client_secret_basic", "client_secret_post"].includes(registration.token_endpoint_auth_method)))
+      return createJSONResponse(400, { error: "invalid_client_metadata", error_description: "Unsupported token_endpoint_auth_method" });
+
+    const callbackUrls = registration.redirect_uris as string[];
+    const clientName = "client_name" in registration ? registration.client_name as string : "Dynamic client";
+    const registrationAccessToken = crypto.randomBytes(32).toString("base64url");
+    const client = await runInWork(async () => {
+      const relyingParty = await registerOAuthApplication(wrdschema, {
+        // WRD titles must be unique, but submitted client names need not be.
+        title: `${clientName} (${crypto.randomUUID()})`,
+        callbackUrls
+      });
+      // Preserve the submitted metadata with the server-provided client IP.
+      await wrdschema.update("wrdauthApplication", relyingParty.wrdId, {
+        dynamicStatus: "created",
+        dynamicRegistration: {
+          request: registration as Record<string, unknown>,
+          clientIp: req.clientIp,
+          registrationAccessTokenHash: hashClientSecret(registrationAccessToken)
+        }
+      });
+      return relyingParty;
+    });
+
+    return createJSONResponse(201, {
+      ...registration,
+      grant_types: "grant_types" in registration ? registration.grant_types : ["authorization_code"],
+      response_types: "response_types" in registration ? registration.response_types : ["code"],
+      token_endpoint_auth_method: "token_endpoint_auth_method" in registration ? registration.token_endpoint_auth_method : "client_secret_basic",
+      client_id: client.clientId,
+      client_secret: client.clientSecret,
+      client_secret_expires_at: 0,
+      registration_access_token: registrationAccessToken,
+      registration_client_uri: new URL(getOpenIdBase(wrdschema) + "register/" + encodeURIComponent(client.clientId), req.url).toString()
+    }, { headers: { "cache-control": "no-store", pragma: "no-cache" } });
+  }
+
   //Determine the login page for this schema.
   //FIXME this really needs caching and optimization
   const login = await findLoginPageForSchema(wrdschemaTag);
 
   const customizer = login.wrdauth.customizer ? await importJSObject(login.wrdauth.customizer) as AuthCustomizer : undefined;
+  if (["userinfo", "jwks"].includes(endpoint[3]) && !await isOpenIDServer(wrdschema)) //these are only used by OpenID Connect
+    return createJSONResponse(404, { error: `Schema '${wrdschemaTag}' is not an OpenID Connect provider` });
+
   if (endpoint[3] === 'userinfo') {
     const authorization = req.headers.get("Authorization")?.match(/^bearer +(.+)$/i);
     if (!authorization || !authorization[1])
@@ -498,7 +670,7 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
   if (endpoint[3] === 'token') {
     const body = await req.text();
     const form = new URLSearchParams(body);
-    const response = await retrieveTokens(provider, form, req.headers, { customizer });
+    const response = await retrieveTokens(provider, form, req.headers, { customizer, issuer: login.issuer });
     if (response.error !== null)
       return createJSONResponse(400, { error: response.error });
     else {

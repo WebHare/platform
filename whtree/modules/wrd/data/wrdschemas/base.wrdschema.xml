@@ -6,6 +6,11 @@
              stage="afterEntities"
              updatefunction="mod::wrd/lib/internal/metadata/migrations.whlib#MigrateSettings" />
 
+  <migration tag="platform:openid_issuer"
+             at="update"
+             stage="beforeTypes"
+             updatefunction="mod::platform/lib/internal/migrations.whlib#MigrateOpenIDIssuer" />
+
   <object tag="wrd_relation" title="Relation" />
 
   <object tag="wrd_person" haspersonaldata="true" parent="wrd_relation" title="Person" />
@@ -33,7 +38,7 @@
       <free tag="password_validation_checks" description="Global checks" />
       <json tag="login_settings"
             description="Login configuration (see wrdauth_defaultconfiguration)"
-            typedeclaration="@webhare/auth/src/support#WRDAuthLoginSettings" />
+            typedeclaration="@webhare/auth/src/support.ts#WRDAuthLoginSettings" />
       <free tag="password_totp_issuer" description="The issuer to use in TOTP urls" />
       <array tag="authpages_texts" description="Overwritten texts for authpages">
         <enum tag="language" allowedvalues="en nl" />
@@ -57,7 +62,9 @@
               gid="tolliumapps.auth.settings.authtexts" />
         <richdocument tag="text" />
       </array>
-      <free tag="issuer" description="JWT issuer" unsafetocopy="true" />  <!-- attempting to sync an existing issuer will only generate confusing tokens. it's better to maintain this per server -->
+      <json tag="dynamic_registration" unsafetocopy="true"
+            description="Dynamic registration configuration"
+            typedeclaration="@webhare/auth/src/support.ts#WRDDynamicRegistrationSettings" />
       <array tag="signing_keys" description="JWT keys" unsafetocopy="true">
         <!-- mark as unsafe... syncing keys should be an explicit action -->
         <datetime tag="available_since" required="true" />
