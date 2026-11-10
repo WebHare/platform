@@ -2,7 +2,7 @@
 
 /* Scan a WebHare module for constructs that can be modernized. Read-only: it never changes files.
 
-   wh devkit:scan-technical-debt [--json] [--no-lint] <module>
+   wh devkit:show-technical-debt [--json] [--no-lint] <module>
 
    Deprecated APIs are found with the module's typed ESLint setup (as used by `wh checkmodule`) plus the
    @typescript-eslint/no-deprecated rule, so every `@deprecated` JSDoc tag in the platform is covered without
