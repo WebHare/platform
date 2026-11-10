@@ -559,11 +559,14 @@ export async function startPeerTokenRequestHS(remoteHost: string, userEntity: nu
   userSchema: string;
   baseUrl: string;
   scopes: string[];
-}): Promise<{ requestUrl: string; requestId: string }> {
+  prompt: OAuth2PromptFlag;
+}): Promise<{ peerid: number; requestUrl: string; requestId: string }> {
   const requestId = generateRandomId();
   const userSchema = wrd<WRDSchemaLike["system:usermgmt"]>(options.userSchema);
 
   const result = await getPeerServerToken(remoteHost, { userSchema, userEntity, baseUrl: options.baseUrl, scopes: options.scopes });
+  if (result.status === "ok")
+    return { peerid: result.token.peerId, requestUrl: "", requestId: "" };
   if (result.status !== "interactionRequired")
     throw new Error(result.status === "error" ? result.message : "Unexpected token result");
 
@@ -572,5 +575,5 @@ export async function startPeerTokenRequestHS(remoteHost: string, userEntity: nu
       ? { requestId, peerId: outcome.token.peerId, error: "" }
       : { requestId, peerId: 0, error: outcome.message || "Failed to obtain a token" }),
     error => broadcast("platform:internal.peer_token_response", { requestId, peerId: 0, error: (error as Error).message || "Failed to obtain a token" }));
-  return { requestUrl: result.requestUrl, requestId };
+  return { peerid: 0, requestUrl: result.requestUrl, requestId };
 }

@@ -1,13 +1,11 @@
 <?wh
 
-LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/userrights.whlib";
-LOADLIB "mod::system/lib/internal/webharepeers/remoteserverapi.whlib";
 
 PUBLIC CONSTANT RECORD ARRAY cliconnect_syntax :=
     [ [ name := "reset", type := "switch" ]
@@ -45,26 +43,4 @@ PUBLIC OBJECT FUNCTION GetCLIUser(RECORD cmdargs)
   }
 
   RETURN userapi->GetUserByGUID(ReadRegistryKey("devkit.webhareuser"));
-}
-
-PUBLIC RECORD FUNCTION OpenCLIPeer(OBJECT user, STRING destserver, RECORD cmdargs)
-{
-  RECORD peer := OpenUserWebHarePeer(user, destserver, [ scopes := ["system:sysop"]
-                                                               , validuntil := AddTimeToDate(15*60*1000, GetCurrentDatetime())
-                                                               ]);
-  IF(peer.status != "ok" OR cmdargs.reset)
-  {
-    RECORD tokenrequest := GetHeadlessWebHareRequestTokenURL(user->entity, destserver);
-    OpenURL(tokenrequest.requesturl);
-    waitForPromise(tokenrequest.tokenpromise);
-
-    peer := OpenUserWebHarePeer(user, destserver, [ scopes := ["system:sysop"]
-                                                  , validuntil := AddTimeToDate(15*60*1000, GetCurrentDatetime())
-                                                  ]);
-  }
-
-  IF(peer.status != "ok")
-    TerminateScriptWithError(`Unable to connect to peer: ${peer.status}`);
-
-  RETURN peer;
 }

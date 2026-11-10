@@ -2,10 +2,12 @@
 // syntax: <destserver> <module...>
 // short: Push module to specified server
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/webharepeers/remoteserverapi.whlib";
 
 LOADLIB "mod::devkit/lib/internal/deploy/moduleimexport.whlib";
 LOADLIB "mod::devkit/lib/internal/deploy/cli-connect.whlib";
@@ -38,14 +40,17 @@ MACRO Main()
 
   IF(args.debug)
     Print(`Working as: ${user->login}\n`);
-  RECORD peer := OpenCLIPeer(user, args.destserver, args);
+
+  RECORD connectinfo := OpenUserWebHarePeer(user, args.destserver, [ scopes := [ "platform:sysop" ], validuntil := AddTimeToDate(2*60*60*1000, GetCurrentDateTime()) ]);
+  IF (connectinfo.status != "ok")
+    TerminateScriptWithError(`Not connected to peer '${args.destserver}', please connect in the 'Modules and Configuration' application (${connectinfo.status})`);
 
   STRING ARRAY updated,failed;
   STRING ARRAY pushmodules := args.modules;
   IF("@outdated" IN pushmodules)
   {
     INTEGER outdatedpos := SearchElement(pushmodules,"@outdated");
-    RECORD ARRAY modules := peer.peer->InvokeAdminService("ListInstalledModules");
+    RECORD ARRAY modules := connectinfo.peer->InvokeAdminService("ListInstalledModules");
     STRING ARRAY outdatedmodules;
     FOREVERY(RECORD remotemod FROM modules)
     {
@@ -105,7 +110,7 @@ MACRO Main()
   //dumpvalue(modules);
   FOREVERY(STRING modulename FROM pushmodules)
   {
-    OBJECT pusher := NEW ModulePusher(modulename, peer.peer);
+    OBJECT pusher := NEW ModulePusher(modulename, connectinfo.peer);
 
     RECORD ARRAY issues := pusher->GatherPrePushIssues();
     IF(Length(issues) = 0)

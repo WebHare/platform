@@ -67,6 +67,11 @@ PUBLIC STATIC OBJECTTYPE AddPeer EXTEND TolliumScreenBase <
     }
 
     RECORD resp := GetWebHareRequestTokenURL(this, ^peer->value, [ scopes := this->options.scopes ]);
+    IF(resp.peerid != 0) {
+      urlreceiver->Cancel();
+      this->__SetScreenResult(resp.peerid);
+      RETURN;
+    }
     urlreceiver->SendUrl(resp.requesturl);
 
     resp.tokenpromise->Then(PTR this->HandleTokenPromiseResult, PTR this->HandleTokenPromiseError);
@@ -99,6 +104,11 @@ PUBLIC STATIC OBJECTTYPE ReauthServer EXTEND TolliumScreenBase <
   }
   MACRO DoAuthServer(OBJECT urlreceiver) {
     RECORD resp := GetWebHareRequestTokenURL(this, ^url->value, [ scopes := this->options.scopes ]);
+    IF(resp.peerid != 0) {
+      urlreceiver->Cancel();
+      this->tolliumresult := "ok";
+      RETURN;
+    }
     urlreceiver->SendUrl(resp.requesturl);
     resp.tokenpromise->Then(PTR this->HandleTokenPromiseResult, PTR this->HandleTokenPromiseError);
   }

@@ -177,18 +177,20 @@ RECORD FUNCTION GetWHRequestTokenURL(STRING baseurl, OBJECT userentity, STRING u
 
   RECORD request := CallJS([ camelcase := TRUE ], "mod::platform/js/remote/connect.ts#startPeerTokenRequestHS", url, userentity->id,
                           [ user_schema := userentity->wrdtype->wrdschema->tag, base_url := baseurl, scopes := options.scopes ]);
+  IF(request.peerid != 0) {
+    RETURN [ requesturl := ""
+           , tokenpromise := ""
+           , peerid := request.peerid
+           ];
+  }
 
   RECORD defer := CreateDeferredPromise();
   NEW PeerTokenRequest(defer.resolve, defer.reject, request.request_id);
 
   RETURN [ requesturl := request.request_url
          , tokenpromise := defer.promise
+         , peerid := 0
          ];
-}
-
-PUBLIC RECORD FUNCTION GetHeadlessWebHareRequestTokenURL(OBJECT userentity, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD) {
-  STRING baseurl := GetPrimaryWebHareInterfaceURL();
-  RETURN GetWHRequestTokenURL(baseurl, userentity, url, options);
 }
 
 PUBLIC RECORD FUNCTION GetWebHareRequestTokenURL(OBJECT screen, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD) {
