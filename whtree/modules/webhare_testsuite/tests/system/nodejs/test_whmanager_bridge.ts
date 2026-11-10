@@ -123,6 +123,11 @@ async function testBridge() {
     const port2 = bridge.createPort(portName, { global: true });
     await port2.close({ wait: true });
     test.assert(!(await bridge.getPortList()).find(p => p.name === portName));
+
+    // close without wait, should eventually close port on whmanager
+    const port3 = bridge.createPort(portName, { global: true });
+    port3.close({ wait: false });
+    await test.wait(async () => !(await bridge.getPortList()).find(p => p.name === portName));
   }
 
   bridge.log("system:debug", { text: "js bridge final message" });
