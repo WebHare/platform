@@ -55,9 +55,6 @@ function getLanguageFile(moduleName: string, langCode: string): CompiledLanguage
       langFileCache[langkey] = compiled;
     }
   }
-  if (!compiled && (dtapStage !== "production" || debugFlags.gtd)) {
-    console.warn(`No language texts found for module '${moduleName}' and language '${langCode}'`);
-  }
   return compiled;
 }
 
