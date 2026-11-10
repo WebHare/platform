@@ -81,6 +81,9 @@ export class ObjSVGImage extends ActionableComponent<SVGAttributes> {
     const svgDoc = new DOMParser().parseFromString(svgSrc, "text/xml");
     if (svgDoc.documentElement.namespaceURI !== "http://www.w3.org/2000/svg" || svgDoc.documentElement.localName !== "svg")
       return;
+    // If not set otherwise, make the SVG element a block element
+    if (!svgDoc.documentElement.style.display)
+      svgDoc.documentElement.style.display = "block";
     try {
       return document.importNode(svgDoc.documentElement, true);
     } catch (_) { }
