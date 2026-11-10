@@ -51,7 +51,7 @@ export async function listOAuth2Initiations(): Promise<OAuth2Initiation[]> {
     status: s.data?.error ? "failed" as const : s.data?.tokeninfo ? "completed" as const : "pending" as const,
     error: s.data?.error || null,
     clientScope: s.data?.client_scope || "",
-    authorizeUrl: s.data?.oauthconfig?.authorizeurl || "",
+    authorizeURL: s.data?.oauthconfig?.authorizeurl || "",
     scopes: s.data?.scopes || [],
     wrdSchema: s.data?.wrd_schema || "",
     remoteUser: getRemoteUser(s.data?.tokeninfo?.id_token),
