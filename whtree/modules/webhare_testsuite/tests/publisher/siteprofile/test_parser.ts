@@ -638,9 +638,8 @@ apply:
             emptyTextTid: webhare_testsuite:override.empty
       `));
 
-  //Bare tids are neither absolute nor relative
-  await test.throws(/Invalid tid 'common.none'/, parseSP(`---
-gid: root
+  //Tids starting with a letter or underscore are relative to the module, and don't need a gid
+  const moduleTidResult = await parseSP(`---
 types:
   sub.test_type:
     members:
@@ -648,11 +647,14 @@ types:
         type: string
         component:
           textedit:
-            emptyTextTid: common.none
-      `));
+            emptyTextTid: common.aspectratio
+            hintTid: _internal.hint
+      `);
+  test.eq([], moduleTidResult.messages.filter(m => m.type === "error"));
+  test.eqPartial([{ members: [{ component: { yamlprops: { empty_text_tid: "webhare_testsuite:common.aspectratio", hint_tid: "webhare_testsuite:_internal.hint" } } }] }], moduleTidResult.contenttypes);
 
-  //Relative tids require a gid
-  await test.throws(/without a gid/, parseSP(`---
+  //Tids starting with a '.' are relative to the gid, so they require one
+  const noGidResult = await parseSP(`---
 types:
   sub.test_type:
     members:
@@ -661,7 +663,22 @@ types:
         component:
           textedit:
             emptyTextTid: .none
-      `));
+      `);
+  test.eq([{ type: "error", message: /without a gid/ }], noGidResult.messages.map(m => ({ type: m.type, message: m.message })));
+
+  //Anything else is invalid
+  const invalidTidResult = await parseSP(`---
+gid: root
+types:
+  sub.test_type:
+    members:
+      tidField:
+        type: string
+        component:
+          textedit:
+            emptyTextTid: -none
+      `);
+  test.eq([{ type: "error", message: /Invalid tid '-none'/ }], invalidTidResult.messages.map(m => ({ type: m.type, message: m.message })));
 
   await test.throws(/cannot be combined with 'title'/, parseSP(`---
 gid: root
