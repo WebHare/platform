@@ -299,6 +299,15 @@ async function testNewAPI() {
   test.assert(await schema.getType("wrdPerson").describeAttribute("testDummy"));
   await schema.getType("wrdPerson").deleteAttribute("testDummy");
   test.assert(!await schema.getType("wrdPerson").describeAttribute("testDummy"));
+
+  // Renaming an attribute takes a JS (camelCase) tag
+  await schema.getType("wrdPerson").createAttribute("testRenameMe", { attributeType: "string" });
+  await test.throws(/Invalid attribute tag/, schema.getType("wrdPerson").updateAttribute("testRenameMe", { tag: "bad tag" }));
+  await schema.getType("wrdPerson").updateAttribute("testRenameMe", { tag: "testRenamedAttr" });
+  test.assert(!await schema.getType("wrdPerson").describeAttribute("testRenameMe"));
+  test.eqPartial({ tag: "testRenamedAttr" }, await schema.getType("wrdPerson").describeAttribute("testRenamedAttr"));
+  test.eqPartial({ tag: "testRenamedAttr" }, await wrd(testSchemaTag).getType("wrdPerson").describeAttribute("testRenamedAttr"));
+  await schema.getType("wrdPerson").deleteAttribute("testRenamedAttr");
   test.eq(true, await schema.exists());
   test.eq(true, await schema.hasType("wrdPerson"));
   test.eq(false, await schema.hasType("WRDPERSON"));
@@ -1134,6 +1143,18 @@ async function testMetaData() {
   await test.throws(/tag.*is not unique/, wrdschema.createType("newType", { metaType: "object" }));
 
   test.eqPartial({ metaType: "object" }, (await wrdschema.listTypes()).find(type => type.tag === "newType"));
+
+  // Renaming a type takes a JS (camelCase) tag
+  await test.throws(/Invalid type tag/, newType.updateMetadata({ tag: "bad tag" }));
+  await newType.updateMetadata({ tag: "renamedType", title: "Renamed type", keepHistoryDays: 5 });
+  test.eq(false, await sharedschema.hasType("newType"));
+  test.eq(true, await sharedschema.hasType("renamedType"), "Shared schema objects should see type renames immediately");
+  test.eqPartial({ tag: "renamedType", title: "Renamed type", keepHistoryDays: 5 }, await sharedschema.describeType("renamedType"));
+
+  // Setting a parent type by tag
+  const childType = await wrdschema.createType("childType", { metaType: "object" });
+  await childType.updateMetadata({ parent: "renamedType" });
+  test.eqPartial({ parent: "renamedType" }, await sharedschema.describeType("childType"));
 
   await whdb.rollbackWork();
 }

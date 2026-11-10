@@ -85,7 +85,20 @@ export class WRDWritableType<S extends SchemaTypeDefinition, T extends keyof S &
     if (newmetadata.tag !== undefined && !isValidWRDTypeTag(newmetadata.tag))
       throw new Error(`Invalid type tag ${JSON.stringify(newmetadata.tag)}`);
 
-    await (await this._getType()).updateMetadata(newmetadata);
+    //Translate to the HareScript UpdateMetadata fields
+    const { tag, parent, left, right, ...rest } = newmetadata as Partial<WRDLinkTypeMetadata>;
+    const hsupdate: Record<string, unknown> = { ...rest };
+    if (tag !== undefined)
+      hsupdate.tag = tagToHS(tag);
+    if (parent !== undefined)
+      hsupdate.parenttype = parent ? await this.schema.__toWRDTypeId(parent) : 0;
+    if (left !== undefined)
+      hsupdate.linkfrom = await this.schema.__toWRDTypeId(left);
+    if (right !== undefined)
+      hsupdate.linkto = await this.schema.__toWRDTypeId(right);
+
+    await (await this._getType()).updateMetadata(hsupdate);
+    await this.schema.__reloadAfterMetadataChange();
   }
 
   async createAttribute(tag: string, configuration: WRDAttributeCreateConfiguration) {
@@ -108,11 +121,11 @@ export class WRDWritableType<S extends SchemaTypeDefinition, T extends keyof S &
   }
 
   async updateAttribute(tag: string, configuration: Partial<WRDAttributeConfiguration>) {
-    if (configuration.tag !== undefined && !isValidWRDAttributeTag(tag))
-      throw new Error(`Invalid attribute tag ${JSON.stringify(tag)}`);
+    if (configuration.tag !== undefined && !isValidWRDAttributeTag(configuration.tag))
+      throw new Error(`Invalid attribute tag ${JSON.stringify(configuration.tag)}`);
 
     const typeobj = await this._getType();
-    await typeobj.UpdateAttribute(tagToHS(tag), configuration);
+    await typeobj.UpdateAttribute(tagToHS(tag), configuration.tag !== undefined ? { ...configuration, tag: tagToHS(configuration.tag) } : configuration);
     await this.schema.__reloadAfterMetadataChange();
   }
 
