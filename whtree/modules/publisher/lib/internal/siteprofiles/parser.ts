@@ -277,16 +277,16 @@ function isAbsoluteTid(tid: string): boolean {
 /** Rewrite 'tid' and '...Tid' properties (at any depth) in YAML component props to fully qualified tids.
  * 'tid' is the tid counterpart of 'title', 'xyzTid' the counterpart of 'xyz'. HareScript resolves them before invoking SetYamlProps
 */
-function resolveYamlTids(gid: ResourceParserContext, value: unknown): unknown {
+function resolveYamlTids(context: SiteProfileParserContext, gid: ResourceParserContext, value: unknown): unknown {
   if (Array.isArray(value))
-    return value.map(item => resolveYamlTids(gid, item));
+    return value.map(item => resolveYamlTids(context, gid, item));
   if (!value || typeof value !== "object")
     return value;
 
   const result: Record<string, unknown> = {};
   for (const [key, propvalue] of Object.entries(value)) {
     if (key !== "tid" && !/^[a-z][a-zA-Z0-9]*Tid$/.test(key)) {
-      result[key] = resolveYamlTids(gid, propvalue);
+      result[key] = resolveYamlTids(context, gid, propvalue);
       continue;
     }
 
@@ -299,12 +299,18 @@ function resolveYamlTids(gid: ResourceParserContext, value: unknown): unknown {
 
     if (isAbsoluteTid(propvalue)) {
       result[key] = gid.resolveTid({ tid: propvalue });
-    } else if (propvalue.startsWith(".")) {
-      if (!gid.gid)
-        throw new Error(`Cannot resolve relative tid '${propvalue}' for component property '${key}' without a gid`);
+    } else if (/^[a-z_]/i.test(propvalue)) { //relative to the module, eg 'common.aspectratio'
+      result[key] = gid.resolveTid({ tid: `${gid.module}:${propvalue}` });
+    } else if (propvalue.startsWith(".") && gid.gid) { //relative to the current gid
       result[key] = gid.resolveTid({ tid: propvalue });
     } else {
-      throw new Error(`Invalid tid '${propvalue}' for component property '${key}' - a tid must be absolute ('~...', 'module:...' or ':literal text') or relative to the current gid ('.xyz')`);
+      context.addMessage({
+        type: "error",
+        message: propvalue.startsWith(".")
+          ? `Cannot resolve relative tid '${propvalue}' for component property '${key}' without a gid`
+          : `Invalid tid '${propvalue}' for component property '${key}' - a tid must be absolute ('~...', 'module:...' or ':literal text'), relative to the module ('xyz.abc') or relative to the current gid ('.xyz')`
+      }, { node: value });
+      result[key] = `:${propvalue}`;
     }
   }
   return result;
@@ -314,14 +320,14 @@ function resolveYamlTids(gid: ResourceParserContext, value: unknown): unknown {
  * @param holder - The object containing the component, line or lines property
  * @param gid - If set, rewrite tid properties to fully qualified tids using this context. Not needed if they have already been resolved
  */
-export function parseYamlComponent(holder: YamlCompnentHolder, gid?: ResourceParserContext): YamlComponentDefinition | null {
+export function parseYamlComponent(holder: YamlCompnentHolder, context?: SiteProfileParserContext, gid?: ResourceParserContext): YamlComponentDefinition | null {
   if ((holder.line ? 1 : 0) + (holder.lines ? 1 : 0) + (holder.component ? 1 : 0) > 1)
     throw new Error(`Component may contain only one of line, lines or component`);
 
   if (holder.line)
-    return parseYamlComponent({ lines: [{ line: holder.line }] }, gid);
+    return parseYamlComponent({ lines: [{ line: holder.line }] }, context, gid);
   if (holder.lines)
-    return parseYamlComponent({ component: { __yamlholder: { lines: holder.lines } } }, gid);
+    return parseYamlComponent({ component: { __yamlholder: { lines: holder.lines } } }, context, gid);
   if (!holder.component)
     return null;
 
@@ -337,7 +343,7 @@ export function parseYamlComponent(holder: YamlCompnentHolder, gid?: ResourcePar
   const ns = nameparts.length === 1 ? "http://www.webhare.net/xmlns/tollium/screens" : nameparts[0];
   const component = nameparts.length === 1 ? nameparts[0] : nameparts[1];
 
-  const props = gid ? resolveYamlTids(gid, compentries[0][1]) : compentries[0][1];
+  const props = context && gid ? resolveYamlTids(context, gid, compentries[0][1]) : compentries[0][1];
   return { ns, component, yamlprops: toSnakeCase(props as object) as Record<string, unknown> };
 }
 
@@ -369,7 +375,7 @@ function parseMembers(context: SiteProfileParserContext, gid: ResourceParserCont
     if (type.constraints || member.constraints)
       addmember.constraints = mergeConstraints(type.constraints || null, member.constraints || null)!;
 
-    const comp = parseYamlComponent(member, memberGid);
+    const comp = parseYamlComponent(member, context, memberGid);
     if (comp)
       addmember.component = comp;
 
@@ -647,11 +653,11 @@ function parseEditProps(context: SiteProfileParserContext, gid: ResourceParserCo
           override.constraints = updates.constraints;
         if (updates.layout)
           override.layout = updates.layout;
-        const comp = parseYamlComponent(updates, gid);
+        const comp = parseYamlComponent(updates, context, gid);
         if (comp)
           override.component = comp;
         if (updates.props)
-          override.props = toSnakeCase(resolveYamlTids(gid, updates.props) as typeof updates.props);
+          override.props = toSnakeCase(resolveYamlTids(context, gid, updates.props) as typeof updates.props);
         if (updates.title)
           override.title = ":" + updates.title; //TODO resolveTid(typeGid, { name: toHSSnakeCase(type), title: settings.title, tid: settings.tid }),
         rule.override.push([name, override]);
@@ -985,6 +991,11 @@ class ResourceParserContext {
     this.resourceName = resourceName;
     this.onTid = onTid;
     this.gid = gid;
+  }
+
+  /** Module containing the resource (forResource ensures it's set) */
+  get module(): string {
+    return parseResourcePath(this.resourceName)!.module!;
   }
 
   /** Initialize context based on resource name */
