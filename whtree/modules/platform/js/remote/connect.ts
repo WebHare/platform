@@ -562,8 +562,8 @@ export async function startPeerTokenRequestHS(remoteHost: string, userEntity: nu
 }): Promise<{ requestUrl: string; requestId: string }> {
   const requestId = generateRandomId();
   const userSchema = wrd<WRDSchemaLike["system:usermgmt"]>(options.userSchema);
-  //The HareScript UI always wants an URL to send the user to, so don't reuse stored tokens but have the user (re)approve
-  const result = await getPeerServerToken(remoteHost, { userSchema, userEntity, baseUrl: options.baseUrl, scopes: options.scopes, prompt: "consent" });
+
+  const result = await getPeerServerToken(remoteHost, { userSchema, userEntity, baseUrl: options.baseUrl, scopes: options.scopes });
   if (result.status !== "interactionRequired")
     throw new Error(result.status === "error" ? result.message : "Unexpected token result");
 
