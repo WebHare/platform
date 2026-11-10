@@ -36,6 +36,7 @@
   <jstest file="testselect.ts" />
   <jstest file="testshortcuts.ts" />
   <jstest file="testslider.ts" />
+  <jstest file="testsvg.ts" />
   <jstest file="testtextarea.ts" />
   <jstest file="testtextedit.ts" />
   <jstest file="testwindow.ts" />

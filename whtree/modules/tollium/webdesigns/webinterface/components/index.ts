@@ -29,6 +29,7 @@ import section from './section/section';
 import slider from './slider/slider';
 import spacer from './spacer/spacer';
 import split from './split/split';
+import { ObjSVGImage } from './svg/svg';
 import table from './table/table';
 import { ObjTabs } from './tabs/tabs';
 import tagedit from './tagedit/tagedit';
@@ -72,6 +73,7 @@ export function getComponents(): Record<string, { new(parentcomp: ToddCompBase, 
     slider,
     spacer,
     split,
+    svg: ObjSVGImage,
     table,
     tabs: ObjTabs,
     tagedit,

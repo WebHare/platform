@@ -1146,6 +1146,7 @@ function fireMouseEvent(eventtype: string, cx: number, cy: number, el: Element, 
   const event = new MouseEvent(eventtype, {
     bubbles: !options.preventBubble,
     cancelable: true,
+    composed: !["mouseenter", "mouseleave"].includes(eventtype), //makes sure the event bubbles out of shadow roots (which is the default for browser mouse events)
     view: (el.ownerDocument ? el.ownerDocument.defaultView : null) || window,
     detail: options.clickcount || 1,
     screenX: cx + 25,
