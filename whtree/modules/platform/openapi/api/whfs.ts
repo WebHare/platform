@@ -19,12 +19,17 @@ class WHFSAPIError extends Error {
   }
 }
 
-export async function resolvePath(req: { params: { path?: string }; authorization: { userId: number } }): Promise<WHFSObject> {
+/** Resolve the path in a request and verify the user's rights on it
+ * @param req - Request containing the path and the authorized user
+ * @param options - Right to require on the resolved object. Defaults to system:fs_browse (read access). Use system:fs_fullaccess for modifications
+ */
+export async function resolvePath(req: { params: { path?: string }; authorization: { userId: number } }, { right = "system:fs_browse" }: { right?: "system:fs_browse" | "system:fs_fullaccess" } = {}): Promise<WHFSObject> {
   const target = await openFileOrFolder(req.params.path || "/", { allowRoot: true, allowMissing: true });
   if (!target)
     throw new WHFSAPIError(`Path not found: ${req.params.path || "/"}`, 404);
-  if (!await getAuthorizationInterface(req.authorization.userId).hasRightOn("system:fs_browse", target.id || "all"))
+  if (!await getAuthorizationInterface(req.authorization.userId).hasRightOn(right, target.id || "all"))
     throw new WHFSAPIError(`Access denied to path: ${req.params.path || "/"}`, 403);
+
   return target;
 }
 
@@ -138,7 +143,7 @@ async function applyInstanceUpdates(obj: WHFSObject, instances: TypedRestRequest
 
 export async function createWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUser, "post /whfs/object">): Promise<OpenAPIResponse> {
   try {
-    const parentFolder = await resolvePath(req);
+    const parentFolder = await resolvePath(req, { right: "system:fs_fullaccess" });
     if (!parentFolder.isFolder) {
       return req.createErrorResponse(400, { error: `Cannot create object inside a file: ${parentFolder.whfsPath}` });
     }
@@ -200,7 +205,7 @@ export async function applyWHFSObjectUpdates(targetObject: WHFSObject, body: Typ
 
 export async function updateWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUser, "patch /whfs/object">): Promise<OpenAPIResponse> {
   try {
-    const targetObject = await resolvePath(req);
+    const targetObject = await resolvePath(req, { right: "system:fs_fullaccess" });
     return await runInWork(async () => {
       await applyWHFSObjectUpdates(targetObject, req.body);
       return req.createJSONResponse(200, {});
