@@ -198,8 +198,55 @@ async function testWRDAPIPagination() {
   test.eq(allResults.length, new Set(allResults.map(r => r.wrdContactEmail)).size, "Expected all results to be unique");
 }
 
+async function testWRDAPIHistoryMode() {
+  const apiurl = (await test.getTestSiteJS()).webRoot + "testsuiteportal/.wh/api/v1/";
+  using directFetch = await getDirectOpenAPIFetch("platform:api", { baseUrl: apiurl });
+  const api = new OpenAPIApiClient(directFetch, { bearerToken: apiSysopToken });
+
+  //Create a current, a temporary, a closed and a future person, all sharing the same last name so we can query just them
+  const lastName = "HistoryModeTest";
+  const pastDate = Temporal.Now.instant().subtract({ hours: 24 }), futureDate = Temporal.Now.instant().add({ hours: 24 });
+  const baseFields = { wrdLastName: lastName, whuserUnit: "TESTFW_TESTUNIT", wrdauthAccountStatus: { status: "active" } } as const;
+  await beginWork();
+  await jsAuthSchema.insert("wrdPerson", { ...baseFields, wrdContactEmail: "history-current@beta.webhare.net" });
+  await jsAuthSchema.insert("wrdPerson", { ...baseFields, wrdContactEmail: "history-temp@beta.webhare.net" }, { temp: true });
+  await jsAuthSchema.insert("wrdPerson", { ...baseFields, wrdContactEmail: "history-closed@beta.webhare.net", wrdClosed: pastDate });
+  await jsAuthSchema.insert("wrdPerson", { ...baseFields, wrdContactEmail: "history-future@beta.webhare.net", wrdCreated: futureDate });
+  await commitWork();
+
+  const queryEmails = async (historyMode?: "now" | "active" | "all" | "unfiltered") => {
+    const result = await api.post("/wrd/{schema}/type/{type}/query", {
+      filters: [{ field: "wrdLastName", matchType: "=", value: lastName }],
+      fields: ["wrdContactEmail"],
+      ...(historyMode ? { historyMode } : {})
+    }, { params: { schema: "webhare_testsuite:testschema", type: "wrdPerson" } });
+    test.assert(result.status === 200, `Expected 200 got ${result.status}`);
+    return (result.body.results as Array<{ wrdContactEmail: string }>).map(r => r.wrdContactEmail).sort();
+  };
+
+  //Without historyMode only entities that are live right now are returned
+  test.eq(["history-current@beta.webhare.net"], await queryEmails());
+  test.eq(["history-current@beta.webhare.net"], await queryEmails("now"));
+  //'active' adds temporary entities
+  test.eq(["history-current@beta.webhare.net", "history-temp@beta.webhare.net"], await queryEmails("active"));
+  //'all' adds closed and future entities, but not temporary ones
+  test.eq(["history-closed@beta.webhare.net", "history-current@beta.webhare.net", "history-future@beta.webhare.net"], await queryEmails("all"));
+  //'unfiltered' returns everything
+  test.eq(["history-closed@beta.webhare.net", "history-current@beta.webhare.net", "history-future@beta.webhare.net", "history-temp@beta.webhare.net"], await queryEmails("unfiltered"));
+
+  //Unknown history modes are rejected
+  const invalidMode = await api.post("/wrd/{schema}/type/{type}/query", {
+    filters: [{ field: "wrdLastName", matchType: "=", value: lastName }],
+    fields: ["wrdContactEmail"],
+    //@ts-expect-error -- not a valid historyMode
+    historyMode: "nosuchmode"
+  }, { params: { schema: "webhare_testsuite:testschema", type: "wrdPerson" } });
+  test.eq(400, invalidMode.status);
+}
+
 test.runTests([
   setup,
   testWRDAPI,
   testWRDAPIPagination,
+  testWRDAPIHistoryMode,
 ]);

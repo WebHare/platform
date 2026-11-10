@@ -553,6 +553,13 @@ components:
           type: array
           items:
             type: string
+        historyMode:
+          type: string
+          enum: [now, active, all, unfiltered]
+          description: |
+            Which entities to consider. Defaults to 'now' (entities that are live right now).
+            'active' adds temporary entities, 'all' returns all non-temporary entities including closed and
+            future ones, 'unfiltered' returns everything
         pageSize:
           type: integer
           minimum: 1

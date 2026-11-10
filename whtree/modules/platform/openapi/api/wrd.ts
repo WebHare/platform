@@ -59,7 +59,8 @@ export async function queryType(req: TypedRestRequest<AuthorizedWRDAPIUser, "pos
      above it (a limited WRD query orders by id). This keeps every page a single bounded query instead of re-reading
      and slicing the full result set for every page */
   const schema = new WRDSchema(req.params.schema);
-  let query = schema.query(req.params.type).select("wrdId");
+  const historyMode = req.body.historyMode ?? "now";
+  let query = schema.query(req.params.type).select("wrdId").historyMode(historyMode);
   for (const filter of req.body.filters || [])
     query = query.where(filter.field, filter.matchType as AllowedFilterConditions, filter.value);
 
@@ -89,6 +90,7 @@ export async function queryType(req: TypedRestRequest<AuthorizedWRDAPIUser, "pos
   const nextToken = haveMoreReults ? encryptForThisServer("platform:wrdapi", { lastId: resultIds[resultIds.length - 1] }) : undefined;
 
   const finalResults = await schema.query(req.params.type).
+    historyMode(historyMode).
     where("wrdId", "in", resultIds).
     select(req.body.fields || []).
     execute({ export: true, exportFile: exportFileAsFetch });
