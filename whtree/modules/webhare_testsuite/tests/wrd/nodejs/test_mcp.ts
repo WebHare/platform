@@ -117,7 +117,7 @@ async function testMCPEndpoint() {
   // STORY: The tools contributed to the realm are listed and can be called
   /* Other installed modules may add tools to testrealm too (addToRealms works across modules), so only verify ours are
      listed as declared, in declaration order */
-  const ourToolNames = ["whoami", "fail"];
+  const ourToolNames = ["whoami", "greet", "fail"];
   test.eq([
     {
       name: "whoami",
@@ -125,6 +125,19 @@ async function testMCPEndpoint() {
       description: "Returns the user you're signed in as, and the realm and WRD schema that authenticated you",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
       annotations: { readOnlyHint: true }
+    }, {
+      name: "greet",
+      title: "Greet",
+      description: "Returns a greeting for the given name. Used to test tool arguments",
+      inputSchema: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Name of the person to greet", minLength: 1, maxLength: 100, pattern: "\\S" }
+        },
+        required: ["name"],
+        additionalProperties: false
+      },
+      annotations: { readOnlyHint: true, idempotentHint: true }
     }, {
       name: "fail",
       description: "Always fails with an internal error. Used to test error handling",
@@ -148,6 +161,29 @@ async function testMCPEndpoint() {
   test.eq(undefined, whoamiResult.isError);
   test.eq("text", whoamiResult.content[0].type);
   test.eqPartial({ entityId: sysop.wrdId }, JSON.parse(whoamiResult.content[0].text));
+
+  //The server validates arguments against the tool's inputSchema. Invalid arguments give a tool error the client's model can act on
+  const callGreet = (args?: Record<string, unknown>) => client.callTool<{ greeting: string }>("greet", args);
+  test.eq({ content: [{ type: "text", text: "Hello, Arnold!" }], structuredContent: { greeting: "Hello, Arnold!" } }, await callGreet({ name: " Arnold " }));
+
+  const invalidCalls: Array<[Record<string, unknown> | undefined, RegExp]> = [
+    [{}, /must have required property 'name'/],
+    [undefined, /must have required property 'name'/], //arguments may be omitted, but that's an empty object to validate
+    [{ name: "" }, /must NOT have fewer than 1 characters/],
+    [{ name: "   " }, /must match pattern/],
+    [{ name: 42 }, /must be string.*\(at "\/name"\)/],
+    [{ name: "x".repeat(101) }, /must NOT have more than 100 characters/],
+    [{ name: "Arnold", extra: true }, /must NOT have additional properties.*additionalProperty="extra"/]
+  ];
+  for (const [args, expectError] of invalidCalls) {
+    const result = await callGreet(args);
+    test.eq(true, result.isError, `Arguments ${JSON.stringify(args)} should be rejected`);
+    test.eq(/^Invalid arguments for tool 'greet': /, result.content[0].text);
+    test.eq(expectError, result.content[0].text);
+  }
+
+  //All errors are reported at once
+  test.eq(/must have required property 'name'.*; .*additionalProperty="extra"/, (await callGreet({ extra: true })).content[0].text);
 
   //An exception in a tool is a tool error, but doesn't reveal the exception's message
   const failResult = await client.callTool("fail", {});

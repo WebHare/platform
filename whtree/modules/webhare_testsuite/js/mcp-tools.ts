@@ -29,3 +29,10 @@ export const whoami = (async (input, context) => {
 export const failTool: MCPToolHandler = async () => {
   throw new Error("Internal detail that must not reach the client: /secret/path");
 };
+
+/** Greet someone by name. The MCP server validates the arguments against the tool's inputSchema before calling us, so we
+    can rely on name being a non-blank string of at most 100 characters */
+export const greet: MCPToolHandler<{ name: string }> = async (input) => {
+  const greeting = `Hello, ${input.name.trim()}!`;
+  return { content: [{ type: "text", text: greeting }], structuredContent: { greeting } };
+};
