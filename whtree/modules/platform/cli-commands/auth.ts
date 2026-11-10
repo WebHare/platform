@@ -94,11 +94,11 @@ runCli({
       main: async ({ opts, args }) => {
         const finalList = (await listOAuth2Initiations()).map(s => ({
           created: s.created,
-          sessionid: s.sessionId,
+          sessionId: s.sessionId,
           status: s.status,
           error: s.error,
           clientScope: s.clientScope,
-          authorizeUrl: s.authorizeUrl,
+          authorizeURL: s.authorizeURL,
           scopes: s.scopes,
           wrdSchema: s.wrdSchema,
           remoteUser: s.remoteUser,

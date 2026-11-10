@@ -269,7 +269,7 @@ export class OAuth2Client {
         clientId: this.clientinfo.clientId,
         metadataUrl: this.clientinfo.metadataUrl,
         authURLOrigin: authurl.origin,
-        rediredctURLOrigin: URL.parse(redirecturl)?.origin,
+        redirectURLOrigin: URL.parse(redirecturl)?.origin,
         returnURLOrigin: URL.parse(finalurl)?.origin
       });
 

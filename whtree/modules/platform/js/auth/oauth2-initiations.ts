@@ -17,7 +17,7 @@ export interface OAuth2Initiation {
   /** Client scope the result is bound to (eg platform:connect-peer) */
   clientScope: string;
   /** Authorization endpoint the user was sent to */
-  authorizeUrl: string;
+  authorizeURL: string;
   /** Scopes requested from the authorization server, if known */
   scopes: string[];
   /** WRD schema of the client's wrdauthServer, if known */
