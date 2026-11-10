@@ -37,7 +37,7 @@ async function testCreateTestUser() {
 
   ////////////////////////////////////////////////////////////////
   // STORY: A test user is created in the test users unit, closing when a login started now would expire
-  const expectExpires = await new IdentityProvider(testSchema).getExpiration(Temporal.Now.instant());
+  const expectExpires = await new IdentityProvider(testSchema).getExpiration("id", Temporal.Now.instant());
   const user1 = await createTestUser({ schema, rights: ["system:sysop"], roles: ["TESTUSERS_ROLE"] });
   test.eq(/^test\d+@beta\.webhare\.net$/, user1.username);
   test.eq(expectExpires!, user1.expires);
