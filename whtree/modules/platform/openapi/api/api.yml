@@ -576,6 +576,10 @@ components:
       properties:
         results:
           type: array
+          description: The matching entities, each containing the requested fields
+          items:
+            type: object
+            additionalProperties: true
         nextToken:
           type: string
           description: A token to retrieve the next page of results. If not present, there are no more results.

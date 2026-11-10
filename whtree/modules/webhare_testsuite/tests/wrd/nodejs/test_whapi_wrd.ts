@@ -73,6 +73,7 @@ async function testWRDAPI() {
     const updateResult = await api.patch("/wrd/{schema}/type/{type}/entity/{entity}", {
       fields: {
         wrdFirstName: "ApiCreated",
+        wrdLastNamePrefix: "van",
       }
     }, {
       params: {
@@ -83,6 +84,30 @@ async function testWRDAPI() {
     });
 
     test.eq(204, updateResult.status);
+
+    //The API uses the modern field names (wrdCreated, wrdLastNamePrefix) rather than the legacy ones (wrdCreationDate, wrdInfix)
+    const modernResult = await api.post("/wrd/{schema}/type/{type}/query", {
+      filters: [{ field: "wrdGuid", matchType: "=", value: createResult.body.wrdGuid }],
+      fields: ["wrdFirstName", "wrdLastNamePrefix", "wrdCreated", "wrdModified", "wrdClosed"]
+    }, { params: { schema: "webhare_testsuite:testschema", type: "wrdPerson" } });
+
+    test.assert(modernResult.status === 200, `Expected 200 got ${modernResult.status}`);
+    test.eq([
+      {
+        wrdFirstName: "ApiCreated",
+        wrdLastNamePrefix: "van",
+        wrdCreated: /^\d{4}-\d{2}-\d{2}T/,
+        wrdModified: /^\d{4}-\d{2}-\d{2}T/,
+        wrdClosed: null
+      }
+    ], modernResult.body.results);
+
+    //Legacy names are rejected
+    const legacyResult = await api.post("/wrd/{schema}/type/{type}/query", {
+      filters: [{ field: "wrdGuid", matchType: "=", value: createResult.body.wrdGuid }],
+      fields: ["wrdInfix"]
+    }, { params: { schema: "webhare_testsuite:testschema", type: "wrdPerson" } });
+    test.assert(legacyResult.status >= 400, `Expected legacy field 'wrdInfix' to be rejected, got ${legacyResult.status}`);
   }
 
   { //list types
