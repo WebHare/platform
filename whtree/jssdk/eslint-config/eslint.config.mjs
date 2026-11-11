@@ -271,7 +271,9 @@ export function buildBaseConfig(options) {
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/only-throw-error": "error",
       // bit of an experiment: testing no-misused-promises
-      "@typescript-eslint/no-misused-promises": "error"
+      "@typescript-eslint/no-misused-promises": "error",
+      "@typescript-eslint/restrict-plus-operands": "warn",
+      "@typescript-eslint/restrict-template-expressions": "warn"
     }
   }, {
     name: "@webhare/eslint-config javascript configuration",

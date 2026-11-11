@@ -107,6 +107,30 @@ async function testBridge() {
     await test.throws(/Could not connect to global port "a:a"/, bridge.connect("a:a", { global: true }).activate());
   }
 
+  // STORY: global IPC port registration test, close while waiting for deregistration
+  {
+    const portName = "webhare_testsuite:ipcportregistrationtest";
+
+    // close with activation
+    const port = bridge.createPort(portName, { global: true });
+    await port.activate();
+    test.assert((await bridge.getPortList()).find(p => p.name === portName));
+
+    await port.close({ wait: true });
+    test.assert(!(await bridge.getPortList()).find(p => p.name === portName));
+
+    // close without activation
+    const port2 = bridge.createPort(portName, { global: true });
+    await port2.close({ wait: true });
+    test.assert(!(await bridge.getPortList()).find(p => p.name === portName));
+
+    // close without wait, should eventually close port on whmanager
+    const port3 = bridge.createPort(portName, { global: true });
+    await port3.activate();
+    port3.close({ wait: false });
+    await test.wait(async () => !(await bridge.getPortList()).find(p => p.name === portName));
+  }
+
   bridge.log("system:debug", { text: "js bridge final message" });
 }
 

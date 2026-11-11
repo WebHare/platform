@@ -14,8 +14,7 @@ RECORD cmdargs := ParseArguments(GetConsoleArguments(),
     , [ name := "module", type := "param", required := TRUE ]
     ]);
 
-IF(NOT RecordExists(cmdargs))
-{
+IF(NOT RecordExists(cmdargs)) {
   Print("Syntax: wh devkit:download [--output path] <module>\n");
   TerminateScriptWithError("Invalid syntax");
 }
@@ -23,5 +22,9 @@ IF(NOT RecordExists(cmdargs))
 STRING target := cmdargs.output ?? "whmodule-" || cmdargs.module || "-" || FormatDatetime("%Y-%m-%d", GetcurrentDatetime()) || ".tar.gz";
 OBJECT archiver := NEW DevModuleArchiver;
 RECORD moduledata := archiver->CreateArchive(cmdargs.module);
-StoreDiskFile(target, moduledata.data, [ overwrite := TRUE ]);
-Print(`Saved module to ${target}\n`);
+IF (cmdargs.output = "-")
+  SendBlobTo(0, moduledata.data);
+ELSE {
+  StoreDiskFile(target, moduledata.data, [ overwrite := TRUE ]);
+  Print(`Saved module to ${target}\n`);
+}

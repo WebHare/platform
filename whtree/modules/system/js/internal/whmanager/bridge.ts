@@ -4,7 +4,7 @@ import { type WHMRequest, WHMRequestOpcode, WHMResponseOpcode, WHMProcessType, t
 import * as hsmarshalling from "./hsmarshalling";
 import { registerAsNonReloadableLibrary, getState as getHMRState } from "../../../../../jssdk/services/src/hmrinternal";
 import { pick, generateRandomId, enumReverseMap } from "@webhare/std";
-import { type IPCPortControlMessage, type IPCEndPointImplControlMessage, IPCEndPointImpl, IPCPortImpl, IPCPortControlMessageType, IPCEndPointImplControlMessageType, type IPCLinkType, getIPCEndPointImplControlMessageTypeName } from "./ipc";
+import { type IPCPortControlMessage, type IPCEndPointImplControlMessage, IPCEndPointImpl, IPCPortImpl, IPCPortControlMessageType, IPCEndPointImplControlMessageType, type IPCLinkType, getIPCEndPointImplControlMessageTypeName, type IPCPortCommandMessage, IPCPortCommandMessageType } from "./ipc";
 import { type TypedMessagePort, createTypedMessageChannel, bufferToArrayBuffer, type AnyTypedMessagePort } from './transport';
 import { RefTracker } from "./refs";
 import * as stacktrace_parser from "stacktrace-parser";
@@ -15,7 +15,7 @@ import * as envbackend from "@webhare/env/src/envbackend";
 import { getCallerLocation } from "../util/stacktrace";
 import { invalidateGeneratedFilesCache, reloadBackendConfig } from "../configuration";
 import { getActiveCodeContexts, getCodeContext } from "@webhare/services/src/codecontexts";
-import { isMainThread, type Transferable as TransferListItem, workerData } from "node:worker_threads";
+import { isMainThread, type Transferable as TransferListItem, workerData, type MessagePort } from "node:worker_threads";
 import { formatLogObject, type LoggableRecord } from "@webhare/services/src/logmessages";
 import { type ConvertLocalServiceInterfaceToClientInterface, initNewLocalServiceProxy, type LocalServiceRequest, type LocalServiceResponse, type ServiceBase } from "@webhare/services/src/ipc/localservice";
 import { getScriptName } from "@webhare/system-tools";
@@ -227,7 +227,7 @@ type ToMainBridgeMessage = {
 } | {
   type: typeof ToMainBridgeMessageType.RegisterPort;
   name: string;
-  port: TypedMessagePort<IPCPortControlMessage, never>;
+  port: TypedMessagePort<IPCPortControlMessage, IPCPortCommandMessage>;
   global: boolean;
 } | {
   type: typeof ToMainBridgeMessageType.ConnectLink;
@@ -331,6 +331,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
   pendinggetprocesslists = new Map<number, (processlist: ProcessList) => void>();
   pendinggetportlists = new Map<number, (portlist: PortList) => void>();
   pendingconnectlocalservice = new Map<number, (error: string) => void>();
+  pendingshutdownport = new Map<number, () => void>();
 
   static getLocalBridgeInitData(localBridge: LocalBridge): LocalBridgeInitData {
     // If this is a worker, use the localHandlerInitData sent to the worker if present
@@ -813,9 +814,11 @@ class LocalBridge extends EventSource<BridgeEvents> {
 
 type PortRegistration = {
   name: string;
-  port: TypedMessagePort<IPCPortControlMessage, never>;
+  port: TypedMessagePort<IPCPortControlMessage, IPCPortCommandMessage>;
+  requestedGlobalRegistration: boolean;
   globalregconnectcounter: number;
   initialregistration: boolean;
+  closeSignal?: MessagePort;
 };
 
 const consoledata: ConsoleLogItem[] = [];
@@ -842,12 +845,12 @@ class MainBridge extends EventSource<BridgeEvents> {
   connectcounter = 0;
   localbridges = new Map<string, LocalBridgeData>;
   _start = Date.now();
-  _ready = Promise.withResolvers<void>();
+  _ready = Promise.withResolvers<void>(); // do not reject!
   _conntimeout?: NodeJS.Timeout;
 
   ports = new Map<string, PortRegistration>;
 
-  portregistermsgid = BigInt(0);
+  msgid = 0n;
   portregisterrequests = new Map<bigint, PortRegistration>;
 
   linkidcounter = 0;
@@ -859,6 +862,7 @@ class MainBridge extends EventSource<BridgeEvents> {
   getportlistrequests = new Map<number, { localBridge: LocalBridgeData; requestid: number }>;
   configurelogrequests = new Map<number, { localBridge: LocalBridgeData; requestid: number }>;
   fenceeventsrequests = new Map<number, { localBridge: LocalBridgeData; requestid: number }>;
+  unregisterportrequests = new Map<bigint, MessagePort>;
 
   systemconfig: Record<string, unknown>;
 
@@ -897,8 +901,9 @@ class MainBridge extends EventSource<BridgeEvents> {
 
     // retry registrations for all global ports
     for (const [, reg] of this.ports) {
-      if (reg.globalregconnectcounter || reg.initialregistration) {
-        const msgid = ++this.portregistermsgid;
+      if (reg.requestedGlobalRegistration || reg.initialregistration) {
+        reg.requestedGlobalRegistration = true;
+        const msgid = ++this.msgid;
         this.sendData({
           opcode: WHMRequestOpcode.RegisterPort,
           portname: reg.name,
@@ -929,6 +934,8 @@ class MainBridge extends EventSource<BridgeEvents> {
     for (const bridge of this.localbridges) {
       this.postLocalBridgeMessage(bridge[1], { type: ToLocalBridgeMessageType.SystemConfig, systemconfig: this.systemconfig, connected: false, have_ts_debugger: this.have_ts_debugger });
     }
+    this.unregisterportrequests.forEach((port) => port.close());
+    this.unregisterportrequests.clear();
   }
 
   gotRef() {
@@ -948,7 +955,12 @@ class MainBridge extends EventSource<BridgeEvents> {
 
   async waitReadyReturnRef() {
     const ref = this.conn.getRef();
-    await this._ready.promise;
+    try {
+      await this._ready.promise;
+    } catch (e) {
+      ref.release();
+      throw e;
+    }
     return ref;
   }
 
@@ -1135,9 +1147,15 @@ class MainBridge extends EventSource<BridgeEvents> {
           });
         }
       } break;
-      case WHMResponseOpcode.AnswerException:
+      case WHMResponseOpcode.AnswerException: {
+        // ignored
+      } break;
       case WHMResponseOpcode.UnregisterPortResult: {
-        // all ignored
+        const reg = this.unregisterportrequests.get(data.replyto);
+        if (reg) {
+          this.unregisterportrequests.delete(data.replyto);
+          reg.close();
+        }
       } break;
       case WHMResponseOpcode.FenceEventsResult: {
         const reg = this.fenceeventsrequests.get(data.requestid);
@@ -1203,55 +1221,79 @@ class MainBridge extends EventSource<BridgeEvents> {
         const reg: PortRegistration = {
           name: message.name,
           port: message.port,
+          requestedGlobalRegistration: false,
           globalregconnectcounter: 0,
           initialregistration: message.global
         };
         this.ports.set(message.name, reg);
         if (message.global) {
-          const ref = await this.waitReadyReturnRef();
-          try {
-            await this.ready();
-            if (!this.connectionactive) {
-              message.port.postMessage({
-                type: IPCPortControlMessageType.RegisterResult,
-                success: false
-              });
-              message.port.close();
-              this.ports.delete(message.name);
-              return;
-            }
-            const msgid = ++this.portregistermsgid;
-            this.sendData({
-              opcode: WHMRequestOpcode.RegisterPort,
-              portname: message.name,
-              linkid: 0,
-              msgid
+          using ref = await this.waitReadyReturnRef();
+          void ref;
+          await this.ready();
+          if (!this.connectionactive) {
+            message.port.postMessage({
+              type: IPCPortControlMessageType.RegisterResult,
+              success: false
             });
-            this.portregisterrequests.set(msgid, reg);
-          } finally {
-            ref.release();
+            message.port.close();
+            this.ports.delete(message.name);
+            return;
           }
+          reg.requestedGlobalRegistration = true;
+          const msgid = ++this.msgid;
+          this.sendData({
+            opcode: WHMRequestOpcode.RegisterPort,
+            portname: message.name,
+            linkid: 0,
+            msgid
+          });
+          this.portregisterrequests.set(msgid, reg);
         } else {
           message.port.postMessage({
             type: IPCPortControlMessageType.RegisterResult,
             success: true
           });
         }
-        message.port.on("close", () => {
+        message.port.on("message", (msg) => {
           if (envbackend.debugFlags.ipc)
-            console.log(`main bridge: ${message.global ? "global" : "local"}  port ${message.name} closed`);
-          if (this.ports.get(message.name) === reg)
-            this.ports.delete(message.name);
-          if (message.global) {
-            this.sendData({
-              opcode: WHMRequestOpcode.UnregisterPort,
-              portname: message.name,
-              linkid: 0,
-              msgid: BigInt(0),
-              need_unregister_response: false
-            });
+            console.log(`main bridge: ${message.global ? "global" : "local"} port ${message.name} received command`, msg);
+          switch (msg.type) {
+            case IPCPortCommandMessageType.NotifyUnregistered: {
+              reg.closeSignal?.close();
+              reg.closeSignal = msg.messagePort;
+            } break;
+            default:
+              msg.type satisfies never;
+              throw new Error(`Unexpected IPC port command message type: ${msg.type}`);
           }
         });
+        message.port.on("close", () => {
+          if (envbackend.debugFlags.ipc)
+            console.log(`main bridge: ${message.global ? "global" : "local"} port ${message.name} closed`);
+          if (this.ports.get(message.name) === reg) {
+            this.ports.delete(message.name);
+            if (message.global) {
+              let msgid = 0n;
+              if (reg.closeSignal && this.connectionactive && reg.requestedGlobalRegistration) {
+                msgid = ++this.msgid;
+                this.unregisterportrequests.set(msgid, reg.closeSignal);
+                reg.closeSignal = undefined;
+              }
+              if (this.connectionactive && reg.requestedGlobalRegistration) {
+                this.sendData({
+                  opcode: WHMRequestOpcode.UnregisterPort,
+                  portname: message.name,
+                  linkid: 0,
+                  msgid,
+                  need_unregister_response: Boolean(msgid),
+                });
+              }
+            }
+          }
+          reg.closeSignal?.close();
+        });
+        // need to unref because .on("message") adds ref
+        message.port.unref();
       } break;
       case ToMainBridgeMessageType.ConnectLink: {
         const reg = this.ports.get(message.name);
