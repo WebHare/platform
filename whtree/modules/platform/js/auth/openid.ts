@@ -508,7 +508,8 @@ export async function retrieveTokens<T extends SchemaTypeDefinition>(provider: I
   /* RFC 8707 section 2.2: the token request may repeat the resource. We only issue tokens for the resource of the
      authorization request, so it must match that one */
   const tokenResources = form.getAll("resource");
-  if (tokenResources.length > 1 || (tokenResources.length === 1 && normalizeResource(tokenResources[0]) !== (returnInfo.resource ?? null)))
+  const tokenResource = tokenResources.length === 1 ? normalizeResource(tokenResources[0]) : null;
+  if (tokenResources.length > 1 || (tokenResources.length === 1 && (!tokenResource || tokenResource !== (returnInfo.resource ?? null))))
     return { error: `Invalid resource, the token request must ask for the resource of the authorization request (${returnInfo.resource ? `'${returnInfo.resource}'` : "none"})` };
 
   //Only look up the issuer if we need it, plain OAuth2 doesn't

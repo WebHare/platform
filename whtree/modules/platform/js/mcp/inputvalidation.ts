@@ -13,7 +13,7 @@ function getAjv(): Ajv2020 {
   if (!ajv) {
     /* Report all errors so the client's model can fix its call in one go. We don't coerce types, apply defaults or remove
        additional properties: a schema with additionalProperties: false should reject extra arguments, not silently drop them */
-    ajv = new Ajv2020({ allErrors: true, allowMatchingProperties: true });
+    ajv = new Ajv2020({ allErrors: true, allowMatchingProperties: true, addUsedSchema: false });
     addFormats(ajv);
   }
   return ajv;
@@ -25,6 +25,8 @@ function getValidator(schema: Record<string, unknown>): ValidateFunction {
   const key = JSON.stringify(schema);
   let validator = validators.get(key);
   if (!validator) {
+    if (schema.$async === true)
+      throw new Error("Async input schemas are not supported");
     validator = getAjv().compile(schema);
     validators.set(key, validator);
   }
