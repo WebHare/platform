@@ -7,7 +7,7 @@ import type { SchemaObject } from "ajv/dist/2020";
 import * as TJS from "typescript-json-schema";
 import { dumpActiveIPCMessagePorts } from '@mod-system/js/internal/whmanager/transport';
 import '@mod-system/js/internal/whmanager/bridge'; // for whmanager registration and automatic error reporting
-import { dirname } from "node:path";
+import { dirname, resolve as resolvePath } from "node:path";
 import { getTSPolyfills } from "@mod-system/js/internal/generation/gen_typescript";
 import type { Thing, WithContext } from "schema-dts";
 import { elements } from "@mod-system/js/internal/generation/xmlhelpers";
@@ -68,6 +68,8 @@ export async function prepTSHost(tsConfigFile: string, options?: { setFiles?: st
 
   //Construct a compilation list, don't touch the arrays we received
   const rootNames = [...(options?.setFiles || fileNames)];
+  //Explicit roots include module augmentations needed even when checking selected source files.
+  rootNames.push(...(config.files ?? []).map((file: string) => resolvePath(dirname(tsConfigFile), file)));
   rootNames.push(...getTSPolyfills()); //ensure any polyfills activated by whnode-preload are visible to the compilers
 
   const host = ts.createIncrementalCompilerHost(tsOptions);
