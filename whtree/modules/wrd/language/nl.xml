@@ -28,6 +28,9 @@
         <text tid="getentities">Ophalen entiteiten voor type '<param p="1"/>'</text>
       </textgroup>
     </textgroup>
+    <textgroup gid="editsource">   <!-- browser.editsource -->
+      <text tid="title">Bron bewerken</text>
+    </textgroup>
     <textgroup gid="main">   <!-- browser.main -->
       <text tid="creationdate">Aanmaakdatum</text>
       <text tid="currententity">Huidige entiteit</text>
@@ -71,6 +74,7 @@
         <text tid="editlink">Koppeling bewerken</text>
         <text tid="editlog">Log bewerken</text>
         <text tid="editregistry">Bewerk entiteitregister</text>
+        <text tid="editsource">Bron bewerken</text>
         <text tid="exitapplication">Sluit applicatie</text>
         <text tid="exportdotstructure">Exporteer schemastructuur als DOT</text>
         <text tid="exportschema">Exporteer huidige schema</text>

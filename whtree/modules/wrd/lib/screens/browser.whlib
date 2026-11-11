@@ -2,6 +2,7 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 
 LOADLIB "mod::platform/lib/dialogs.whlib";
@@ -900,6 +901,39 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoEditRegistry() {
     this->RunScreen("mod::system/tolliumapps/dashboard/registry.xml#userregistry", [ entity := this->current_type->GetEntity(^results_frees->value[0]) ]);
+  }
+
+  MACRO DoEditSource()
+  {
+    IF(NOT this->frame->flags.right_readwrite)
+      RETURN;
+
+    IF(this->LoadScreen(".editsource", [ entityid := ^results_frees->value[0] ])->RunModal() = "ok")
+    {
+      this->RefreshEntity();
+      this->RefreshDataViewer();
+    }
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE EditSource EXTEND TolliumScreenBase
+<
+  INTEGER entityid;
+
+  MACRO Init(RECORD data)
+  {
+    this->entityid := data.entityid;
+    RECORD result := CallJS("@mod-wrd/js/internal/entitysource.ts#exportEntitySource", this->entityid);
+    ^code->value := result.yaml;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    RECORD result := CallJS("@mod-wrd/js/internal/entitysource.ts#importEntitySource", this->entityid, ^code->value);
+    OBJECT work := this->BeginUnvalidatedFeedback();
+    IF(result.error != "")
+      work->AddError(result.error);
+    RETURN work->Finish();
   }
 >;
 
