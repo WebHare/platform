@@ -6,6 +6,7 @@ export {
   getTidLanguage,
   setTidLanguage,
   getTid,
+  hasTid,
   getTidForLanguage,
   getHTMLTid,
   getHTMLTidForLanguage,
