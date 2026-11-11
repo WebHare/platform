@@ -1,5 +1,5 @@
 import { getDefaultOAuth2RedirectURL } from "@webhare/auth";
-import { IdentityProvider } from "@webhare/auth/src/identity";
+import { createCodeVerifier, IdentityProvider } from "@webhare/auth/src/identity";
 import { createOAuth2Client, deleteDynamicClientRegistration, getDynamicClientRegistration, handleOAuth2AuthorizeLanding, registerDynamicClient, type OAuth2PromptFlag } from "@webhare/auth/src/oauth2-client";
 import { getAuthSettings } from "@webhare/auth/src/support";
 import { setOAuth2InitiationLocalUser } from "@mod-platform/js/auth/oauth2-initiations";
@@ -480,6 +480,7 @@ async function getOAuth2PeerServerTokenURL(remoteHost: string, userSchema: WRDSc
     clientScope,
     prompt: options.prompt,
     addScopes: scopes,
+    codeVerifier: createCodeVerifier() //required by WebHare servers for dynamically registered clients (protects against authorization code injection)
   });
   if (authLink.type !== "redirect") //we only understand redirects here
     throw new Error("Failed to create OAuth2 auth link for remote host");
