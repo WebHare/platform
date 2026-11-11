@@ -807,6 +807,37 @@ MACRO TestModTimes()
   DeleteDiskDirectory(tempdir);
 }
 
+MACRO TestNulInPaths()
+{
+  // The OS would truncate paths at a NUL byte, so eg "file.dat\x00.svg" would open "file.dat". The file APIs must refuse those
+  STRING tempdir := GenerateTemporaryPathname();
+  CreateDiskDirectoryRecursive(tempdir, TRUE);
+  STRING testfilepath := MergePath(tempdir, "file.dat");
+  StoreDiskFile(testfilepath, StringToBlob("file.dat"));
+
+  STRING nulpath := testfilepath || "\x00.svg";
+  TestThrowsLike("*NUL*", PTR GetDiskResource(nulpath));
+  TestThrowsLike("*NUL*", PTR GetDiskResource(nulpath, [ allowmissing := TRUE ]));
+  TestThrowsLike("*NUL*", PTR OpenDiskFile(nulpath, FALSE));
+  TestThrowsLike("*NUL*", PTR CreateDiskFile(nulpath, FALSE, FALSE));
+  TestThrowsLike("*NUL*", PTR GetDiskFileProperties(nulpath));
+  TestThrowsLike("*NUL*", PTR ReadDiskDirectory(tempdir || "\x00/x", "*"));
+  TestThrowsLike("*NUL*", PTR ReadDiskDirectory(tempdir, "file.dat\x00.svg"));
+  TestThrowsLike("*NUL*", PTR SetFileModificationDate(nulpath, GetCurrentDatetime()));
+  TestThrowsLike("*NUL*", PTR MoveDiskPath(nulpath, MergePath(tempdir, "moved.dat")));
+  TestThrowsLike("*NUL*", PTR MoveDiskPath(testfilepath, MergePath(tempdir, "moved.dat") || "\x00.svg"));
+  TestThrowsLike("*NUL*", PTR CreateDiskDirectory(MergePath(tempdir, "sub") || "\x00x", TRUE));
+  TestThrowsLike("*NUL*", PTR GenerateTemporaryPathnameFromBasepath(MergePath(tempdir, "tmp") || "\x00x"));
+  TestThrowsLike("*NUL*", PTR DeleteDiskFile(nulpath));
+  TestThrowsLike("*NUL*", PTR DeleteDiskDirectory(tempdir || "\x00x"));
+
+  // Nothing should have happened to the file
+  TestEQ("file.dat", BlobToString(GetDiskResource(testfilepath)));
+
+  DeleteDiskFile(testfilepath);
+  DeleteDiskDirectory(tempdir);
+}
+
 MACRO TestBlobStream()
 {
   INTEGER s := CreateStream();
@@ -843,4 +874,5 @@ ArchiveEncodingTest();
 ScanBlobTest();
 TestRelativePath();
 TestModTimes();
+TestNulInPaths();
 TestBlobStream();

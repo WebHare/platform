@@ -831,6 +831,23 @@ void OSContext::CloseHandles()
         filelist.clear();
 }
 
+/** Get a string argument that will be passed to the OS as a C string (eg a file path or process argument)
+    HareScript strings may contain NUL bytes, but the OS would only see the part before the first NUL. That would allow
+    callers to bypass checks done on the full string, eg. an extension appended to a path. So we refuse such strings
+    @param vm Virtual machine
+    @param var Variable to read
+    @param str Receives the string
+    @return False if the string contains a NUL byte. A HareScript exception has then been thrown and the caller should return */
+static bool GetOSStringArg(VirtualMachine *vm, HSVM_VariableId var, std::string *str)
+{
+        *str = HSVM_StringGetSTD(*vm, var);
+        if (str->find('\0') == std::string::npos)
+            return true;
+
+        HSVM_ThrowException(*vm, "Paths and process arguments cannot contain NUL bytes");
+        return false;
+}
+
 #ifndef __EMSCRIPTEN__
 
 void HS_CreateProcess(VarId id_set, VirtualMachine *vm)
@@ -871,7 +888,11 @@ void HS_SetProcessEnvironment(VirtualMachine *vm)
                         return;
                 }
 
-                env.insert(std::make_pair(HSVM_StringGetSTD(*vm, name), HSVM_StringGetSTD(*vm, value)));
+                std::string envname, envvalue;
+                if (!GetOSStringArg(vm, name, &envname) || !GetOSStringArg(vm, value, &envvalue))
+                    return;
+
+                env.insert(std::make_pair(envname, envvalue));
         }
 
         SystemContext context(vm->GetContextKeeper());
@@ -882,17 +903,24 @@ void HS_RunProcess(VarId id_set, VirtualMachine *vm)
 {
         SystemContext context(vm->GetContextKeeper());
 
+        HSVM_BooleanSet(*vm, id_set, false);
+
         std::vector<std::string> arguments(HSVM_ArrayLength(*vm, HSVM_Arg(2)));
         for (unsigned i=0; i<arguments.size();++i)
-            arguments[i] = HSVM_StringGetSTD(*vm, HSVM_ArrayGetRef(*vm, HSVM_Arg(2),i));
+            if (!GetOSStringArg(vm, HSVM_ArrayGetRef(*vm, HSVM_Arg(2),i), &arguments[i]))
+                return;
+
+        std::string processname, cwd;
+        if (!GetOSStringArg(vm, HSVM_Arg(1), &processname) || !GetOSStringArg(vm, HSVM_Arg(3), &cwd))
+            return;
 
         bool share_stdin = HSVM_BooleanGet(*vm, HSVM_Arg(4));
         bool share_stdout = HSVM_BooleanGet(*vm, HSVM_Arg(5));
         bool share_stderr = HSVM_BooleanGet(*vm, HSVM_Arg(6));
         bool success = context->os.RunProcess(HSVM_IntegerGet(*vm, HSVM_Arg(0)),
-                                              HSVM_StringGetSTD(*vm, HSVM_Arg(1)),
+                                              processname,
                                               arguments,
-                                              HSVM_StringGetSTD(*vm, HSVM_Arg(3)),
+                                              cwd,
                                               share_stdin,
                                               share_stdout,
                                               share_stderr);
@@ -986,7 +1014,11 @@ void HS_GenerateTemporaryPathname(VarId id_set, VirtualMachine *vm)
 
 void HS_GenerateTemporaryPathnameFromBasepath(VarId id_set, VirtualMachine *vm)
 {
-        std::string arg = HSVM_StringGetSTD(*vm, HSVM_Arg(0));
+        HSVM_SetDefault(*vm, id_set, HSVM_VAR_String);
+        std::string arg;
+        if (!GetOSStringArg(vm, HSVM_Arg(0), &arg))
+            return;
+
         std::string pathname = Blex::CreateTempName(arg);
         HSVM_StringSetSTD(*vm, id_set, pathname);
 }
@@ -1179,7 +1211,9 @@ void HS_IsSafeFilePath(VarId id_set, VirtualMachine *vm)
 void HS_GetHSResource(VarId id_set, VirtualMachine *vm)
 {
         HSVM_SetDefault(*vm, id_set, HSVM_VAR_Record);
-        std::string path = HSVM_StringGetSTD(*vm, HSVM_Arg(0));
+        std::string path;
+        if (!GetOSStringArg(vm, HSVM_Arg(0), &path))
+            return;
 
         HSVM_VariableId resblob = HSVM_RecordCreate(*vm, id_set, HSVM_GetColumnId(*vm, "DATA"));
 
@@ -1205,8 +1239,13 @@ void HS_OpenDiskFile(VarId id_set, VirtualMachine *vm)
 {
         Baselibs::SystemContext context(vm->GetContextKeeper());
 
+        HSVM_IntegerSet(*vm, id_set, 0);
+        std::string path;
+        if (!GetOSStringArg(vm, HSVM_Arg(0), &path))
+            return;
+
         int32_t fileid = context->os.OpenDiskFile(*vm,
-                                              HSVM_StringGetSTD(*vm, HSVM_Arg(0)),
+                                              path,
                                               HSVM_BooleanGet(*vm, HSVM_Arg(1)),
                                               HSVM_BooleanGet(*vm, HSVM_Arg(2)),
                                               HSVM_BooleanGet(*vm, HSVM_Arg(3)),
@@ -1223,45 +1262,73 @@ void HS_DeleteDiskFile(VarId id_set, VirtualMachine *vm)
 {
         Baselibs::SystemContext context(vm->GetContextKeeper());
 
-        std::string path = HSVM_StringGetSTD(*vm, HSVM_Arg(0));
-        bool success=true;
+        HSVM_BooleanSet(*vm, id_set, false);
+        std::string path;
+        if (!GetOSStringArg(vm, HSVM_Arg(0), &path))
+            return;
 
-        if (success)
-        {
-                //ADDME Eliminate filesystem references?
-                success = Blex::RemoveFile(path);
-        }
-        HSVM_BooleanSet(*vm,id_set,success);
+        //ADDME Eliminate filesystem references?
+        HSVM_BooleanSet(*vm, id_set, Blex::RemoveFile(path));
 }
 void HS_ReadSoftLink(VarId id_set, VirtualMachine *vm)
 {
-        HSVM_StringSetSTD(*vm, id_set, Blex::ReadSoftLink(HSVM_StringGetSTD(*vm, HSVM_Arg(0))));
+        HSVM_SetDefault(*vm, id_set, HSVM_VAR_String);
+        std::string path;
+        if (!GetOSStringArg(vm, HSVM_Arg(0), &path))
+            return;
+
+        HSVM_StringSetSTD(*vm, id_set, Blex::ReadSoftLink(path));
 }
 void HS_CreateSoftLink(VarId id_set, VirtualMachine *vm)
 {
-        HSVM_BooleanSet(*vm, id_set, Blex::CreateNewSoftLink(HSVM_StringGetSTD(*vm, HSVM_Arg(0)), HSVM_StringGetSTD(*vm, HSVM_Arg(1))));
+        HSVM_BooleanSet(*vm, id_set, false);
+        std::string target, link;
+        if (!GetOSStringArg(vm, HSVM_Arg(0), &target) || !GetOSStringArg(vm, HSVM_Arg(1), &link))
+            return;
+
+        HSVM_BooleanSet(*vm, id_set, Blex::CreateNewSoftLink(target, link));
 }
 void HS_CreateHardLink(VarId id_set, VirtualMachine *vm)
 {
-        HSVM_BooleanSet(*vm, id_set, Blex::CreateNewHardLink(HSVM_StringGetSTD(*vm, HSVM_Arg(0)), HSVM_StringGetSTD(*vm, HSVM_Arg(1))));
+        HSVM_BooleanSet(*vm, id_set, false);
+        std::string target, link;
+        if (!GetOSStringArg(vm, HSVM_Arg(0), &target) || !GetOSStringArg(vm, HSVM_Arg(1), &link))
+            return;
+
+        HSVM_BooleanSet(*vm, id_set, Blex::CreateNewHardLink(target, link));
 }
 void HS_DeleteDiskDirectory(VarId id_set, VirtualMachine *vm)
 {
         Baselibs::SystemContext context(vm->GetContextKeeper());
 
-        HSVM_BooleanSet(*vm, id_set, context->os.DeleteDiskDirectory(HSVM_StringGetSTD(*vm, HSVM_Arg(0)),false));
+        HSVM_BooleanSet(*vm, id_set, false);
+        std::string path;
+        if (!GetOSStringArg(vm, HSVM_Arg(0), &path))
+            return;
+
+        HSVM_BooleanSet(*vm, id_set, context->os.DeleteDiskDirectory(path, false));
 }
 void HS_DeleteDiskDirectoryRecursive(VarId id_set, VirtualMachine *vm)
 {
         Baselibs::SystemContext context(vm->GetContextKeeper());
 
-        HSVM_BooleanSet(*vm, id_set, context->os.DeleteDiskDirectory(HSVM_StringGetSTD(*vm, HSVM_Arg(0)),true));
+        HSVM_BooleanSet(*vm, id_set, false);
+        std::string path;
+        if (!GetOSStringArg(vm, HSVM_Arg(0), &path))
+            return;
+
+        HSVM_BooleanSet(*vm, id_set, context->os.DeleteDiskDirectory(path, true));
 }
 void HS_GetRealPath(VarId id_set, VirtualMachine *vm)
 {
         Baselibs::SystemContext context(vm->GetContextKeeper());
 
-        HSVM_StringSetSTD(*vm, id_set, context->os.GetRealPath(HSVM_StringGetSTD(*vm, HSVM_Arg(0))));
+        HSVM_SetDefault(*vm, id_set, HSVM_VAR_String);
+        std::string path;
+        if (!GetOSStringArg(vm, HSVM_Arg(0), &path))
+            return;
+
+        HSVM_StringSetSTD(*vm, id_set, context->os.GetRealPath(path));
 }
 void HS_SetConsoleExitValue(VirtualMachine *vm)
 {
@@ -1368,7 +1435,9 @@ void PathStatusToVar(HSVM *vm, HSVM_VariableId varid, Blex::PathStatus const &st
 void HS_GetDiskFileProperties(VarId id_set, VirtualMachine *vm)
 {
         HSVM_SetDefault(*vm, id_set, HSVM_VAR_Record);
-        std::string path = HSVM_StringGetSTD(*vm, HSVM_Arg(0));
+        std::string path;
+        if (!GetOSStringArg(vm, HSVM_Arg(0), &path))
+            return;
         if(!Blex::PathIsAbsolute(path))
               return;
 
@@ -1382,14 +1451,16 @@ void HS_GetDiskFileProperties(VarId id_set, VirtualMachine *vm)
 void HS_ReadDiskDirectory(VarId id_set, VirtualMachine *vm)
 {
         HSVM_SetDefault(*vm, id_set, HSVM_VAR_RecordArray);
-        std::string path = HSVM_StringGetSTD(*vm, HSVM_Arg(0));
+        std::string path, mask;
+        if (!GetOSStringArg(vm, HSVM_Arg(0), &path) || !GetOSStringArg(vm, HSVM_Arg(1), &mask))
+            return;
         if(!Blex::PathIsAbsolute(path))
               return;
 
         HSVM_ColumnId nameid = HSVM_GetColumnId(*vm, "NAME");
         HSVM_ColumnId pathid = HSVM_GetColumnId(*vm, "PATH");
 
-        for (Blex::Directory dirdata(path, HSVM_StringGetSTD(*vm, HSVM_Arg(1))); dirdata;++dirdata)
+        for (Blex::Directory dirdata(path, mask); dirdata;++dirdata)
         {
                 HSVM_VariableId newrec = HSVM_ArrayAppend(*vm, id_set);
                 HSVM_StringSetSTD(*vm, HSVM_RecordCreate(*vm, newrec, nameid), dirdata.CurrentFile());
@@ -1400,18 +1471,28 @@ void HS_ReadDiskDirectory(VarId id_set, VirtualMachine *vm)
 
 void HS_CreateDiskDirectory(VarId id_set, VirtualMachine *vm)
 {
+        HSVM_BooleanSet(*vm, id_set, false);
+        std::string path;
+        if (!GetOSStringArg(vm, HSVM_Arg(0), &path))
+            return;
+
         bool success =
                 Blex::CreateDir(
-                        vm->GetStackMachine().GetString(HSVM_Arg(0)).stl_str(),
+                        path,
                         vm->GetStackMachine().GetBoolean(HSVM_Arg(1)));
 
         HSVM_BooleanSet(*vm, id_set, success);
 }
 void HS_CreateDiskDirectoryRecursive(VarId id_set, VirtualMachine *vm)
 {
+        HSVM_BooleanSet(*vm, id_set, false);
+        std::string path;
+        if (!GetOSStringArg(vm, HSVM_Arg(0), &path))
+            return;
+
         bool success =
                 Blex::CreateDirRecursive(
-                        vm->GetStackMachine().GetString(HSVM_Arg(0)).stl_str(),
+                        path,
                         vm->GetStackMachine().GetBoolean(HSVM_Arg(1)));
 
         HSVM_BooleanSet(*vm, id_set, success);
@@ -1419,25 +1500,35 @@ void HS_CreateDiskDirectoryRecursive(VarId id_set, VirtualMachine *vm)
 
 void HS_MoveDiskFile(VarId id_set, VirtualMachine *vm)
 {
-        bool success =
-                Blex::MovePath(
-                        vm->GetStackMachine().GetString(HSVM_Arg(0)).stl_str(),
-                        vm->GetStackMachine().GetString(HSVM_Arg(1)).stl_str());
+        HSVM_BooleanSet(*vm, id_set, false);
+        std::string oldpath, newpath;
+        if (!GetOSStringArg(vm, HSVM_Arg(0), &oldpath) || !GetOSStringArg(vm, HSVM_Arg(1), &newpath))
+            return;
 
-        HSVM_BooleanSet(*vm, id_set, success);
+        HSVM_BooleanSet(*vm, id_set, Blex::MovePath(oldpath, newpath));
 }
 
 void HS_SetUnixPermissions(VarId id_set, VirtualMachine *vm)
 {
-        bool success = Blex::SetUNIXPermissions(HSVM_StringGetSTD(*vm, HSVM_Arg(0)),
+        HSVM_BooleanSet(*vm, id_set, false);
+        std::string path;
+        if (!GetOSStringArg(vm, HSVM_Arg(0), &path))
+            return;
+
+        bool success = Blex::SetUNIXPermissions(path,
                                                 (Blex::FilePermissions::AccessFlags)HSVM_IntegerGet(*vm, HSVM_Arg(1)));
         HSVM_BooleanSet(*vm, id_set, success);
 }
 void HS_SetFileModificationDate(VarId id_set, VirtualMachine *vm)
 {
+        HSVM_BooleanSet(*vm, id_set, false);
+        std::string path;
+        if (!GetOSStringArg(vm, HSVM_Arg(0), &path))
+            return;
+
         int high, low;
         HSVM_DateTimeGet(*vm, HSVM_Arg(1), &high, &low);
-        bool success = Blex::SetFileModificationDate(HSVM_StringGetSTD(*vm, HSVM_Arg(0)), Blex::DateTime(high,low));
+        bool success = Blex::SetFileModificationDate(path, Blex::DateTime(high,low));
         HSVM_BooleanSet(*vm, id_set, success);
 }
 
