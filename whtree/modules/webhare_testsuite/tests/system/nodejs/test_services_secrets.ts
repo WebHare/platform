@@ -160,6 +160,12 @@ async function testRetiredSecrets() {
     test.eq(false, await hsSecrets.ValidateSignatureForThisServer(scope, "text", sigRetired));
     test.eq(true, await hsSecrets.ValidateSignatureForThisServer(scope, "text", getSignatureForThisServer(scope, "text")));
 
+    //Legacy (Blowfish) encryption uses the cookie secret. Only HareScript supports it
+    const legacyAlgorithm = "SHA-1,BLOWFISH+CBC,8";
+    const tokLegacy = await loadlib("wh::crypto.whlib").EncryptAndSignData("legacy", legacyAlgorithm, retiredCookie + scope) as string;
+    await test.throws(/Value decryption failed/, () => hsServices.DecryptForThisServer(scope, tokLegacy, { algorithm: legacyAlgorithm }));
+    test.eq("legacy", await hsServices.DecryptForThisServer(scope, tokLegacy, { algorithm: legacyAlgorithm, acceptretired: true }));
+
     //The notice throttling is shared by all VMs in the process (a native webserver request gets a fresh VM), so another VM shouldn't log the accepted use again
     {
       await using otherVM = await createVM();
@@ -179,6 +185,7 @@ async function testRetiredSecrets() {
       test.assert(notices.some(_ => _.engine === engine && _.secretid === "test-disabled" && _.event === "platform:retired-secret-rejected" && _.reason === "disabled" && _.type === "error"), `${engine}: disabled compromised secret should log an error`);
       test.assert(notices.some(_ => _.engine === engine && _.secretid === "test-cookie" && _.event === "platform:retired-secret-rejected" && _.reason === "scope"), `${engine}: signature with retired secret`);
     }
+    test.assert(notices.some(_ => _.engine === "harescript" && _.secretid === "test-cookie" && _.event === "platform:retired-secret-accepted"), "harescript: legacy decryption with retired cookie secret");
   } finally {
     await setRetiredSecrets(original);
   }
