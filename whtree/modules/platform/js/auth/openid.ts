@@ -1,5 +1,5 @@
 import * as crypto from "node:crypto";
-import { type WebHareRouter, type WebRequest, type WebResponse, createContentPageRequest, createJSONResponse, createRedirectResponse, createWebResponse } from "@webhare/router";
+import { type WebHareRouter, type WebRequest, type WebResponse, createContentPageRequest, createJSONResponse, createRedirectResponse, createWebResponse, HTTPErrorCode } from "@webhare/router";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 //TOOD make this a public export somewhere? but should it include wrdOrg and wrdPerson though
 import { getSchemaSettings, wrd, type WRDSchema, type WRDSchemaLike, type WRDSchemaType } from "@webhare/wrd";
@@ -421,6 +421,14 @@ export async function returnAuthorizeFlow<T extends SchemaTypeDefinition>(provid
         unverifiedClient: Boolean(dynamicStatus)
       }));
     } else {
+      /* Only accept answers posted by our own permission page. Otherwise another site could start a flow of its own and make
+         a logged in user's browser post approve=yes for it, which would grant the attacker's client access as that user.
+         Browsers send an Origin header with cross-origin POSTs, so this also stops sibling (same-site) origins, which
+         SameSite cookies wouldn't */
+      const postedFrom = req.getOriginURL(""); //null if the browser sent an origin we can't use, eg "Origin: null"
+      if (!postedFrom || URL.parse(postedFrom)?.origin !== new URL(req.url).origin)
+        return createJSONResponse(HTTPErrorCode.Forbidden, { error: "The permission request must be answered from its own page" });
+
       const formData = await req.formData();
       const approve = formData.get("approve") === "yes";
       if (!approve)

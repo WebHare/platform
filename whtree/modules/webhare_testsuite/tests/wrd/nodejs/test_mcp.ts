@@ -290,12 +290,17 @@ async function testAuthorizeWithResource() {
   /** Log in as sysop and return to the authorization flow, either just returning (GET) or answering the permission request (POST)
       @returns The response of returnAuthorizeFlow */
   const testSite = await test.getTestSiteJS();
-  const returnAfterLogin = async (loginRedirect: URL, approve?: "yes" | "no") => {
+  const returnAfterLogin = async (loginRedirect: URL, approve?: "yes" | "no", postedFrom?: Record<string, string>) => {
     test.eq(loginUrl, loginRedirect.origin + loginRedirect.pathname);
     const loginControl = decryptForThisServer("wrd:authplugin.logincontroltoken", loginRedirect.searchParams.get("wrdauth_logincontrol")!);
     const returnUrl = new URL(loginControl.returnto, loginUrl).toString();
+    //Like a browser, the permission page's form posts with its own origin unless postedFrom overrides the Origin/Referer headers
     const request = approve
-      ? new IncomingWebRequest(returnUrl, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new TextEncoder().encode(`approve=${approve}`).buffer as ArrayBuffer })
+      ? new IncomingWebRequest(returnUrl, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded", ...(postedFrom ?? { origin: new URL(returnUrl).origin }) },
+        body: new TextEncoder().encode(`approve=${approve}`).buffer as ArrayBuffer
+      })
       : new IncomingWebRequest(returnUrl);
     return await returnAuthorizeFlow(provider, request, test.getUser("sysop").wrdId, testSite.id);
   };
@@ -323,6 +328,14 @@ async function testAuthorizeWithResource() {
   //prompt=none can't ask for approval, so it fails even for a logged in user
   const noPrompt = await returnAfterLogin(await startFlow([mcpUrl], { prompt: "none" }));
   test.eq("interaction_required", new URL(noPrompt.headers.get("location")!).searchParams.get("error"));
+
+  /* An approval posted from another origin is refused, and doesn't affect the flow: otherwise another site could make a logged
+     in user's browser approve a flow the attacker started */
+  const forgedHeaders: Array<Record<string, string>> = [{ origin: "https://attacker.example.net" }, { referer: "https://attacker.example.net/page.html" }, { origin: "null" }, { referer: "not a url" }];
+  for (const postedFrom of forgedHeaders) {
+    const forged = await returnAfterLogin(loginRedirect, "yes", postedFrom);
+    test.eq(403, forged.status, `Expected an approval posted with ${JSON.stringify(postedFrom)} to be refused`);
+  }
 
   //Approving returns to the client with a code
   const endFlow = await returnAfterLogin(loginRedirect, "yes");

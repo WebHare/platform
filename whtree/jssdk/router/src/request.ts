@@ -49,14 +49,19 @@ export function getOriginURL(req: SupportedRequestSubset, pathname: string): str
   if (pathname.match(/^[a-zA-Z-0-9]*:/) || pathname.startsWith("//"))
     return null; //looks like a full url, not good
 
-  let origin = req.headers.get("origin");
-  if (!origin) {
-    const referrer = req.headers.get("referer");
-    if (referrer)
-      origin = new URL(referrer).origin;
-  }
-  if (!origin) //still not found
+  //Origin or Referer headers we can't parse (eg 'Origin: null', sent for opaque origins) mean we can't determine the origin
+  let origin: string | null = null;
+  const originHeader = req.headers.get("origin");
+  const referrer = req.headers.get("referer");
+  if (originHeader)
+    origin = URL.parse(originHeader)?.origin ?? null;
+  else if (referrer)
+    origin = URL.parse(referrer)?.origin ?? null;
+  else //neither header, so not sent cross-origin by a browser
     origin = new URL(req.url).origin;
+
+  if (!origin || origin === "null") //'null' is the origin of eg file: and data: URLs
+    return null;
 
   return origin + (pathname.startsWith('/') ? '' : '/') + pathname;
 }
@@ -120,6 +125,9 @@ export interface WebRequest extends SupportedRequestSubset {
   */
   getDebugSettings(): { flags: DebugFlags };
 
+  /** Calculate origin of a request using unforgable headers (Origin or Referer)
+      @param pathname - Local path as specified by app. Browsers should pass `location.pathname`. The URL may or may not start with a slash but may not be a full url. Leave empty to get just a URL to the root
+      @returns The pathname rebased to the actual origin URL or null if we couldn't safely determine it */
   getOriginURL(pathname: string): string | null;
 
   encodeForTransfer(): { value: WebRequestTransferData; transferList: TransferListItem[] };
