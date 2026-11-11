@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- too much any's needed for generic types */
-import { db, nextVal, type Updateable } from "@webhare/whdb";
+import { db, nextVal } from "@webhare/whdb";
 import { type AnySchemaType, type AllowedFilterConditions, type RecordOutputMap, type SchemaTypeDefinition, recordizeOutputMap, type WRDInsertable, type WRDUpdatable, type CombineSchemas, type OutputMap, type RecordizeOutputMap, type RecordizeEnrichOutputMap, type MapRecordOutputMap, type AttrRef, type EnrichOutputMap, type CombineRecordOutputMaps, combineRecordOutputMaps, WRDAttributeTypes, type MapEnrichRecordOutputMap, type MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable, type WhereFields, type WhereConditions, type WhereValueOptions, type WRDMetaType, WRDMetaTypes, WRDBaseAttributeTypes } from "./types";
 export type { SchemaTypeDefinition } from "./types";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { ensureScopedResource, setScopedResource } from "@webhare/services/src/codecontexts";
-import { tagToHS, tagToJS, checkValidWRDTag, type WRDAttributeConfiguration, isValidWRDSchemaTag, isValidWRDAttributeTag, isValidWRDTypeTag } from "./wrdsupport";
+import { tagToHS, tagToJS, checkValidWRDTag, type WRDAttributeConfiguration, isValidWRDSchemaTag } from "./wrdsupport";
 import { getSchemaData, schemaExists, type SchemaData } from "./db";
 import { getDefaultJoinRecord, runSimpleWRDQuery } from "./queries";
 import { generateRandomId, isTemporalInstant, isTruthy, omit, pick, stringify, throwError } from "@webhare/std";
@@ -16,6 +16,7 @@ import { nameToCamelCase } from "@webhare/std/src/types";
 import { wrdFinishHandler } from "./finishhandler";
 import type { ExportOptions } from "@webhare/services/src/descriptor";
 import type { WRDEntityMatch } from "./wrd";
+import type { WRDWritableSchema } from "./writableschema";
 
 const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible by friend WRDType
 
@@ -27,7 +28,7 @@ interface SyncOptions {
   unmatched?: WRDCloseMode | "keep";
 }
 
-interface SchemaUpdates {
+export interface SchemaUpdates {
   accountType?: string | null;
 }
 
@@ -60,7 +61,7 @@ interface WRDAttachmentTypeMetadata extends WRDTypeMetadataBase {
   left: string;
 }
 
-interface WRDLinkTypeMetadata extends WRDTypeMetadataBase {
+export interface WRDLinkTypeMetadata extends WRDTypeMetadataBase {
   metaType: "link";
   left: string;
   right: string;
@@ -72,7 +73,7 @@ interface WRDDomainTypeMetadata extends WRDTypeMetadataBase {
 
 export type WRDTypeMetadata = WRDObjectTypeMetadata | WRDAttachmentTypeMetadata | WRDLinkTypeMetadata | WRDDomainTypeMetadata;
 
-type WRDAttributeCreateConfiguration = Pick<WRDAttributeConfiguration, 'attributeType'> & Partial<Omit<WRDAttributeConfiguration, 'attributeType'>>;
+export type WRDAttributeCreateConfiguration = Pick<WRDAttributeConfiguration, 'attributeType'> & Partial<Omit<WRDAttributeConfiguration, 'attributeType'>>;
 
 // TODO not actually a CoVM anymore but this still points to some loadlibs we need to cleanup for WRD efficiency
 type CoVMSchemaCache = {
@@ -216,25 +217,32 @@ class SchemaUpdateListener {
       const match = event.name.match(/^wrd:(schema)\.(\d+)\.(change)/);
       if (!match)
         return;
-      const invalidation: Invalidation = { type: "schema", id: parseInt(match[2]) };
-      // Send the invalidation to the invalidation collectors
-      for (const collector of this.collectors)
-        collector.invalidations.push(invalidation);
-
-      // Call the invalidation callback for all relevant schemas
-      for (const [schemaWeakPtr, schemaData] of this.schemaDataMap) {
-        const schema = schemaWeakPtr.deref();
-        if (!schema) {
-          // Schema was already garbage collected, remove it from the this.schemaDataMap
-          this.schemaDataMap.delete(schemaWeakPtr);
-        } else if (isSchemaDataInvalidatedBy(schemaData, invalidation)) {
-          // invalidate the schemadata, remove from the schemaDataMap
-          this.schemaWeakMap.get(schema)?.invalidationCallback();
-          this.schemaWeakMap.delete(schema);
-          this.schemaDataMap.delete(schemaWeakPtr);
-        }
-      }
+      this.invalidate({ type: "schema", id: parseInt(match[2]) });
     });
+  }
+
+  /** Process an invalidation
+   * @param invalidation - Invalidation to process
+   * @param except - Schema object to skip (but still notify collectors)
+   */
+  invalidate(invalidation: Invalidation, except?: WRDSchemaType<any>) {
+    // Send the invalidation to the invalidation collectors
+    for (const collector of this.collectors)
+      collector.invalidations.push(invalidation);
+
+    // Call the invalidation callback for all relevant schemas
+    for (const [schemaWeakPtr, schemaData] of this.schemaDataMap) {
+      const schema = schemaWeakPtr.deref();
+      if (!schema) {
+        // Schema was already garbage collected, remove it from the this.schemaDataMap
+        this.schemaDataMap.delete(schemaWeakPtr);
+      } else if (schema !== except && isSchemaDataInvalidatedBy(schemaData, invalidation)) {
+        // invalidate the schemadata, remove from the schemaDataMap
+        this.schemaWeakMap.get(schema)?.invalidationCallback();
+        this.schemaWeakMap.delete(schema);
+        this.schemaDataMap.delete(schemaWeakPtr);
+      }
+    }
   }
 
   /** Register the cached data for a schema */
@@ -277,9 +285,9 @@ let schemaUpdateListener: SchemaUpdateListener | null = null;
 type CallbackValue<T> = T | (() => T) | (() => Promise<T>);
 type UpsertOptions<T extends object, Other extends object> = object extends T ? [{ ifNew?: CallbackValue<T> } & Other] | [] : [{ ifNew: CallbackValue<T> } & Other];
 
-export type WRDSchemaTypeOf<T extends WRDSchemaType<any>> = T extends WRDSchemaType<infer S> ? S : never;
+export type WRDSchemaTypeOf<T extends AnyWRDSchema> = T extends WRDSchemaType<infer S> ? S : never;
 
-export type AnyWRDSchema = WRDSchemaType<any> | WRDLegacySchema<any>;
+export type AnyWRDSchema = WRDSchemaType<any> | WRDLegacySchema<any> | WRDWritableSchema<any>;
 
 export class WRDSchemaType<S extends SchemaTypeDefinition = AnySchemaType> {
   readonly tag: string;
@@ -328,6 +336,16 @@ export class WRDSchemaType<S extends SchemaTypeDefinition = AnySchemaType> {
     return data;
   }
 
+  /** Reload our schema data after a metadata change, and immediately invalidate the cached data of other schema objects
+   * in this process referring to the same schema (they would otherwise only be invalidated after commit)
+   */
+  /*private*/ async __reloadAfterMetadataChange(): Promise<void> {
+    const schemaId = await this.getId();
+    schemaUpdateListener ??= new SchemaUpdateListener();
+    schemaUpdateListener.invalidate({ type: "schema", id: schemaId }, this);
+    await this.__ensureSchemaData({ refresh: true });
+  }
+
   /*private*/ async __toWRDTypeId(tag: string | undefined): Promise<number> {
     if (!tag)
       return 0;
@@ -339,44 +357,6 @@ export class WRDSchemaType<S extends SchemaTypeDefinition = AnySchemaType> {
     return type.id;
   }
 
-
-  async createType(tag: string, config: Partial<WRDTypeMetadata> & Pick<WRDTypeMetadata, "metaType">): Promise<WRDType<S, string>> {
-    if (!isValidWRDTypeTag(tag))
-      throw new Error(`Invalid type tag ${JSON.stringify(tag)}`);
-
-    const hstag = tagToHS(tag);
-    const schemaobj = await this.getWRDSchema();
-    const left = await this.__toWRDTypeId((config as WRDLinkTypeMetadata)?.left);
-    const right = await this.__toWRDTypeId((config as WRDLinkTypeMetadata)?.right);
-    const parent = config.parent ? await this.__toWRDTypeId(config.parent) : null;
-
-    if (config.id) //TODO I want to Omit<... "id"|"tag"> but then it won't accept left/right etc anymore...
-      throw new Error("Cannot specify an id when creating a new type");
-    if (config.tag) //TODO I want to Omit<... "id"|"tag"> but then it won't accept left/right etc anymore...
-      throw new Error("Cannot specify tag in the configuration object when creating a new type");
-
-    const createrequest = {
-      title: "",
-      description: "",
-      tag: hstag,
-      requiretype_left: left,
-      requiretype_right: right,
-      metatype: WRDMetaTypes.indexOf(config.metaType) + 1,
-      parenttype: parent || 0,
-      //TODO parenttype, abstract, hasperonaldata defaulting to TRUE for WRD_PERSON (but shouldn't the base schema do that?)
-      deleteclosedafter: config.deleteClosedAfter || 0,
-      keephistorydays: config.keepHistoryDays || 0,
-      haspersonaldata: config.hasPersonalData || false
-    };
-
-    await schemaobj.__DoCreateType(createrequest);
-    const type = this.getType(tag);
-
-    //TODO schedule broadcast post commit to flush other listeners
-    await this.__ensureSchemaData({ refresh: true });
-
-    return type;
-  }
 
   /** Describe a wrdType
    * @param tagOrId - Either the string tag or the type number to describe
@@ -453,7 +433,7 @@ export class WRDSchemaType<S extends SchemaTypeDefinition = AnySchemaType> {
     }));
   }
 
-  private async getWRDSchema(): Promise<HSVMObject> {
+  /*private*/ async __getWRDSchema(): Promise<HSVMObject> {
     return this.getWRDSchemaCache().schemaobj;
   }
 
@@ -628,26 +608,6 @@ export class WRDSchemaType<S extends SchemaTypeDefinition = AnySchemaType> {
     return Array.from(retval).sort();
   }
 
-  async updateSchema(updates: SchemaUpdates) {
-    let dbUpdate: Updateable<PlatformDB["wrd.schemas"]> | undefined;
-    if (updates.accountType) {
-      const typeid = (await this.describeType(updates.accountType))?.id;
-      dbUpdate = { ...dbUpdate, accounttype: typeid };
-    } else if (updates.accountType === null) {
-      dbUpdate = { ...dbUpdate, accounttype: null };
-    }
-
-    if (dbUpdate) {
-      const updated = await db<PlatformDB>().
-        updateTable("wrd.schemas").
-        set(dbUpdate).
-        where("name", "=", this.tag).
-        returning("id").
-        executeTakeFirstOrThrow();
-
-      wrdFinishHandler().schemaMetadataChanged(updated.id);
-    }
-  }
 }
 
 export class WRDLegacySchema<S extends SchemaTypeDefinition = AnySchemaType> extends WRDSchemaType<S> {
@@ -727,13 +687,6 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
       isUnique: attrRec.isunique,
       allowedValues: attrRec.allowedvalues ? attrRec.allowedvalues.split("\t") : [],
     }));
-  }
-
-  async updateMetadata(newmetadata: Partial<Omit<WRDTypeMetadata, "id" | "metaType">>) {
-    if (newmetadata.tag !== undefined && !isValidWRDTypeTag(newmetadata.tag))
-      throw new Error(`Invalid type tag ${JSON.stringify(newmetadata.tag)}`);
-
-    await (await this._getType()).updateMetadata(newmetadata);
   }
 
   async createEntity(value: WRDInsertable<S[T]>, options?: { temp?: boolean; importMode?: boolean }): Promise<number> {
@@ -996,40 +949,6 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
       isUnique: attrRec.isunique,
       allowedValues: attrRec.allowedvalues ? attrRec.allowedvalues.split("\t") : [],
     };
-  }
-
-  async createAttribute(tag: string, configuration: WRDAttributeCreateConfiguration) {
-    if (!isValidWRDAttributeTag(tag, { allowMultiLevel: true }))
-      throw new Error(`Invalid attribute tag ${JSON.stringify(tag)}`);
-
-    const typeobj = await this._getType();
-    const typetag = configuration.attributeType;
-
-    const configclone: Omit<Partial<WRDAttributeConfiguration>, 'domain'> & { domain?: string | number | null } = configuration;
-    delete configclone.attributeType;
-
-    if (configuration.domain)
-      configclone.domain = await this.schema.__toWRDTypeId(configuration.domain);
-
-    await typeobj.CreateAttribute(tagToHS(tag), typetag, configclone);
-
-    //TODO schedule broadcast post commit to flush other listeners
-    await this.schema.__ensureSchemaData({ refresh: true });
-  }
-
-  async updateAttribute(tag: string, configuration: Partial<WRDAttributeConfiguration>) {
-    if (configuration.tag !== undefined && !isValidWRDAttributeTag(tag))
-      throw new Error(`Invalid attribute tag ${JSON.stringify(tag)}`);
-
-    const typeobj = await this._getType();
-    await typeobj.UpdateAttribute(tagToHS(tag), configuration);
-    await this.schema.__ensureSchemaData({ refresh: true });
-  }
-
-  async deleteAttribute(tag: string) {
-    const typeobj = await this._getType();
-    await typeobj.DeleteAttribute(tagToHS(tag));
-    await this.schema.__ensureSchemaData({ refresh: true });
   }
 
   async getEventMasks(): Promise<string[]> {

@@ -1,8 +1,8 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
-import { createWRDTestSchema, getLegacyExtendedWRDSchema, getLegacyWRDSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
+import { createWRDTestSchema, getLegacyExtendedWRDSchema, getLegacyWRDSchema, getMetaWritableWRDSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import type { WRDAttributeTypeId, SelectionResultRow, IsRequired, WRDAttr, Combine, WRDTypeBaseSettings, WRDBaseAttributeTypeId } from "@webhare/wrd/src/types";
-import { WRDSchema, describeEntity, listSchemas, getSchemaSettings, updateSchemaSettings, type WRDInsertable, type WRDUpdatable } from "@webhare/wrd";
+import { WRDSchema, wrd, describeEntity, listSchemas, getSchemaSettings, updateSchemaSettings, type WRDInsertable, type WRDUpdatable } from "@webhare/wrd";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
 import { type WRD_TestschemaSchemaType, type System_Usermgmt_WRDAuthdomainSamlIdp, wrdTestschemaSchema, type Platform_BasewrdschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { buildRTD, ResourceDescriptor, toResourcePath, IntExtLink, type Instance } from "@webhare/services";
@@ -236,13 +236,14 @@ type Extensions = {
 
 async function testNewAPI() {
   const schema = new WRDSchema<Combine<[WRD_TestschemaSchemaType, CustomExtensions, Extensions]>>(testSchemaTag);
+  const metaschema = wrd<"*">(testSchemaTag, { writeMetadata: true });
 
   test.eqPartial([{ tag: "wrd:testschema", userManagement: false }], (await listSchemas()).filter(_ => _.tag === testSchemaTag));
 
   await whdb.beginWork();
-  await schema.getType("wrdPerson").createAttribute("testDummy", { attributeType: "string" });
+  await metaschema.getType("wrdPerson").createAttribute("testDummy", { attributeType: "string" });
   test.assert(await schema.getType("wrdPerson").describeAttribute("testDummy"));
-  await schema.getType("wrdPerson").deleteAttribute("testDummy");
+  await metaschema.getType("wrdPerson").deleteAttribute("testDummy");
   test.assert(!await schema.getType("wrdPerson").describeAttribute("testDummy"));
   test.eq(true, await schema.exists());
   test.eq(true, await schema.hasType("wrdPerson"));
@@ -250,7 +251,7 @@ async function testNewAPI() {
   test.eq(false, await schema.hasType("WRD_PERSON"));
   test.eq(false, await schema.hasType("noSuchType"));
 
-  await schema.getType("wrdPerson").createAttribute("testJsonRequired", { attributeType: "json", title: "JSON attribute", isRequired: true });
+  await metaschema.getType("wrdPerson").createAttribute("testJsonRequired", { attributeType: "json", title: "JSON attribute", isRequired: true });
 
   //Verify WRD type helpers
   ({ wrdTitle: "Root unit", wrdTag: "TAG" }) satisfies WRDInsertable<WRD_TestschemaSchemaType["whuserUnit"]>;
@@ -922,8 +923,8 @@ async function testNewAPI() {
     await test.throws(/Invalid value.*wrong-enum-value/, () => schema.query("wrdPerson").select("wrdId").where("testEnumarray", "=", ["wrong-enum-value"]).execute());
 
     //update allowedvalues
-    await (schema.getType("wrdPerson")).updateAttribute("testEnum", { allowedValues: ["enum1", "enum2", '*-????-?????'] });
-    await (schema.getType("wrdPerson")).updateAttribute("testEnumarray", { allowedValues: ["enumarray1", "enumarray2", '*-????-?????'] });
+    await (metaschema.getType("wrdPerson")).updateAttribute("testEnum", { allowedValues: ["enum1", "enum2", '*-????-?????'] });
+    await (metaschema.getType("wrdPerson")).updateAttribute("testEnumarray", { allowedValues: ["enumarray1", "enumarray2", '*-????-?????'] });
 
     // @ts-expect-error -- TS cannot know about the type change (TODO this would be a good place to give an example on how to rebuild the schema type to match the new reality - we'd need a helper to build the Enum allowedValues?)
     await schema.update("wrdPerson", newperson, { testEnum: "wrong-enum-value", testEnumarray: ["enumarray2", "wrong-enum-value"] });
@@ -1007,9 +1008,10 @@ async function testBaseTypes() {
 async function testMetaData() {
   await whdb.beginWork();
   const wrdschema = new WRDSchema(testSchemaTag);
-  const newType = await wrdschema.createType("newType", { metaType: "object" });
+  const metaschema = wrd(testSchemaTag, { writeMetadata: true });
+  const newType = await metaschema.createType("newType", { metaType: "object" });
   test.eq("newType", newType.tag);
-  await test.throws(/tag.*is not unique/, wrdschema.createType("newType", { metaType: "object" }));
+  await test.throws(/tag.*is not unique/, metaschema.createType("newType", { metaType: "object" }));
 
   test.eqPartial({ metaType: "object" }, (await wrdschema.listTypes()).find(type => type.tag === "newType"));
 
@@ -1582,8 +1584,9 @@ async function testImportMode() {
   };
 
   const wrdschema = await getLegacyWRDSchema<MySchema>();
-  await wrdschema.createType("testImportModeDom", { metaType: "domain" });
-  const link = await wrdschema.createType("testImportModeLink", { metaType: "link", left: "testImportModeDom", right: "testImportModeDom" } satisfies Partial<WRDTypeMetadata>);
+  const metaschema = await getMetaWritableWRDSchema<MySchema>();
+  await metaschema.createType("testImportModeDom", { metaType: "domain" });
+  const link = await metaschema.createType("testImportModeLink", { metaType: "link", left: "testImportModeDom", right: "testImportModeDom" } satisfies Partial<WRDTypeMetadata>);
   await link.createAttribute("enum", { attributeType: "enum", allowedValues: ["a", "b"], isRequired: true });
   await link.createAttribute("enumArray", { attributeType: "enumArray", allowedValues: ["a", "b"], isRequired: true });
   await link.createAttribute("statusRecord", { attributeType: "deprecatedStatusRecord", allowedValues: ["a", "b"], isRequired: true });

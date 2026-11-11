@@ -1,6 +1,6 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
-import { createWRDTestSchema, getExtendedWRDSchema, getWRDSchema, testSchemaTag, type CustomExtensions, type CustomExtensionsModern } from "@mod-webhare_testsuite/js/wrd/testhelpers";
+import { createWRDTestSchema, getExtendedWRDSchema, getMetaWritableWRDSchema, testSchemaTag, type CustomExtensions, type CustomExtensionsModern } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import type { WRDAttributeTypeId, SelectionResultRow, IsRequired, WRDAttr, Combine, WRDTypeBaseSettingsModern, WRDBaseAttributeTypeId } from "@webhare/wrd/src/types";
 import { describeEntity, listSchemas, openSchemaById, getSchemaSettings, updateSchemaSettings, type WRDInsertable, type WRDSchemaTypeOf, type WRDUpdatable, type WRDInsertType, type WRDUpdateType, wrd, type WRDSchemaLike, type AnySchemaType } from "@webhare/wrd";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
@@ -279,7 +279,7 @@ async function testNewAPI() {
     await work.rollback();
   }
 
-  const schema = wrd<Combine<[WRDSchemaLike["wrd:testschema"], CustomExtensionsModern, Extensions]>>(testSchemaTag);
+  const schema = wrd<Combine<[WRDSchemaLike["wrd:testschema"], CustomExtensionsModern, Extensions]>>(testSchemaTag, { writeMetadata: true });
   // FIXME: make this work:
   // wrd<Combine<["wrd:testschema", CustomExtensionsModern, Extensions]>>(testSchemaTag) satisfies typeof schema;
 
@@ -299,6 +299,15 @@ async function testNewAPI() {
   test.assert(await schema.getType("wrdPerson").describeAttribute("testDummy"));
   await schema.getType("wrdPerson").deleteAttribute("testDummy");
   test.assert(!await schema.getType("wrdPerson").describeAttribute("testDummy"));
+
+  // Renaming an attribute takes a JS (camelCase) tag
+  await schema.getType("wrdPerson").createAttribute("testRenameMe", { attributeType: "string" });
+  await test.throws(/Invalid attribute tag/, schema.getType("wrdPerson").updateAttribute("testRenameMe", { tag: "bad tag" }));
+  await schema.getType("wrdPerson").updateAttribute("testRenameMe", { tag: "testRenamedAttr" });
+  test.assert(!await schema.getType("wrdPerson").describeAttribute("testRenameMe"));
+  test.eqPartial({ tag: "testRenamedAttr" }, await schema.getType("wrdPerson").describeAttribute("testRenamedAttr"));
+  test.eqPartial({ tag: "testRenamedAttr" }, await wrd(testSchemaTag).getType("wrdPerson").describeAttribute("testRenamedAttr"));
+  await schema.getType("wrdPerson").deleteAttribute("testRenamedAttr");
   test.eq(true, await schema.exists());
   test.eq(true, await schema.hasType("wrdPerson"));
   test.eq(false, await schema.hasType("WRDPERSON"));
@@ -1118,12 +1127,34 @@ async function testBaseTypes() {
 
 async function testMetaData() {
   await whdb.beginWork();
-  const wrdschema = wrd(testSchemaTag);
+  const sharedschema = wrd(testSchemaTag);
+  test.assert(sharedschema === wrd(testSchemaTag), "wrd() should return a shared schema object");
+  //@ts-expect-error -- metadata APIs are only available when opened with writeMetadata
+  test.eq(undefined, sharedschema.createType);
+  test.eq(false, await sharedschema.hasType("newType")); //loads the shared schema's cache
+
+  const wrdschema = wrd(testSchemaTag, { writeMetadata: true });
+  test.assert(wrdschema !== wrd(testSchemaTag, { writeMetadata: true }), "Writable schemas should not be shared");
+  test.assert(wrdschema !== sharedschema);
+
   const newType = await wrdschema.createType("newType", { metaType: "object" });
   test.eq("newType", newType.tag);
+  test.eq(true, await sharedschema.hasType("newType"), "Shared schema objects should see metadata changes immediately");
   await test.throws(/tag.*is not unique/, wrdschema.createType("newType", { metaType: "object" }));
 
   test.eqPartial({ metaType: "object" }, (await wrdschema.listTypes()).find(type => type.tag === "newType"));
+
+  // Renaming a type takes a JS (camelCase) tag
+  await test.throws(/Invalid type tag/, newType.updateMetadata({ tag: "bad tag" }));
+  await newType.updateMetadata({ tag: "renamedType", title: "Renamed type", keepHistoryDays: 5 });
+  test.eq(false, await sharedschema.hasType("newType"));
+  test.eq(true, await sharedschema.hasType("renamedType"), "Shared schema objects should see type renames immediately");
+  test.eqPartial({ tag: "renamedType", title: "Renamed type", keepHistoryDays: 5 }, await sharedschema.describeType("renamedType"));
+
+  // Setting a parent type by tag
+  const childType = await wrdschema.createType("childType", { metaType: "object" });
+  await childType.updateMetadata({ parent: "renamedType" });
+  test.eqPartial({ parent: "renamedType" }, await sharedschema.describeType("childType"));
 
   await whdb.rollbackWork();
 }
@@ -1710,7 +1741,7 @@ async function testImportMode() {
     } & WRDTypeBaseSettingsModern;
   };
 
-  const wrdschema = await getWRDSchema<MySchema>();
+  const wrdschema = await getMetaWritableWRDSchema<MySchema>();
   await wrdschema.createType("testImportModeDom", { metaType: "domain" });
   const link = await wrdschema.createType("testImportModeLink", { metaType: "link", left: "testImportModeDom", right: "testImportModeDom" } satisfies Partial<WRDTypeMetadata>);
   await link.createAttribute("enum", { attributeType: "enum", allowedValues: ["a", "b"], isRequired: true });

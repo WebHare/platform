@@ -141,7 +141,66 @@ async function testAuthSettings() {
     test.eq(1, auth.getNumPasswords());
     test.eq(true, auth.hasTOTP());
     test.eq(hsonvalue, auth.toHSON()); //should roundtrip exactly (ensures HS Compatibility)
+
+    //export: HareScript default dates (d"") should become null
+    const exported = auth.export();
+    test.eq({
+      version: 1,
+      passwords: [{ hash: "PLAIN:secret", validFrom: "2021-10-12T10:19:30.779Z" }],
+      totp: {
+        url: "otpauth://totp/beta.webhare.net:arnold%40beta.webhare.net?secret=JBSWY3DPEHPK3PXP&issuer=beta.webhare.net",
+        backupCodes: [{ code: "ABCD1234", used: null }, { code: "DEFG5678", used: null }],
+        locked: null
+      }
+    }, exported);
+
+    //export must survive JSON, and import must restore the exact same settings
+    const reimported = AuthenticationSettings.import(JSON.parse(JSON.stringify(exported)));
+    test.eq(hsonvalue, reimported.toHSON());
+    test.eq(exported, reimported.export());
+    test.eq(true, await reimported.verifyPassword("secret"));
   }
+
+  { //export/import of used backup codes, locks and passwords without validFrom
+    const auth = AuthenticationSettings.import({
+      version: 1,
+      passwords: [{ hash: "PLAIN:old", validFrom: null }, { hash: "PLAIN:new", validFrom: "2024-01-02T03:04:05.678Z" }],
+      totp: {
+        url: "otpauth://totp/test?secret=JBSWY3DPEHPK3PXP",
+        backupCodes: [{ code: "USED0001", used: "2024-02-01T00:00:00.000Z" }, { code: "FREE0002", used: null }],
+        locked: "2024-03-01T12:00:00.000Z"
+      }
+    });
+    test.eq(2, auth.getNumPasswords());
+    test.eq(Temporal.Instant.from("2024-01-02T03:04:05.678Z"), auth.getLastPasswordChange());
+    test.eq(true, auth.hasTOTP());
+    test.eq(true, await auth.verifyPassword("new"));
+
+    //roundtrip through HSON should preserve everything
+    const viaHSON = AuthenticationSettings.fromHSON(auth.toHSON());
+    test.eq(auth.export(), viaHSON.export());
+    test.eq("2024-02-01T00:00:00.000Z", viaHSON.export().totp?.backupCodes[0].used);
+    test.eq("2024-03-01T12:00:00.000Z", viaHSON.export().totp?.locked);
+    test.eq(null, viaHSON.export().passwords[0].validFrom);
+  }
+
+  { //empty settings
+    const empty = AuthenticationSettings.import({ version: 1, passwords: [], totp: null });
+    test.eq({ version: 1, passwords: [], totp: null }, empty.export());
+    test.eq(`hson:{"passwords":ra[],"totp":*,"version":1}`, empty.toHSON());
+    test.eq({ version: 1, passwords: [{ hash: "PLAIN:x", validFrom: null }], totp: null }, AuthenticationSettings.fromPasswordHash("PLAIN:x").export());
+  }
+
+  //invalid imports
+  test.throws(/Expected an object/, () => AuthenticationSettings.import(null as any));
+  test.throws(/Unsupported.*version/, () => AuthenticationSettings.import({} as any));
+  test.throws(/Unsupported.*version/, () => AuthenticationSettings.import({ version: 2, passwords: [], totp: null } as any));
+  test.throws(/'passwords' must be an array/, () => AuthenticationSettings.import({ version: 1, passwords: "PLAIN:x", totp: null } as any));
+  test.throws(/missing hash/, () => AuthenticationSettings.import({ version: 1, passwords: [{ validFrom: null }], totp: null } as any));
+  test.throws(/Invalid date.*validFrom/, () => AuthenticationSettings.import({ version: 1, passwords: [{ hash: "PLAIN:x", validFrom: "yesterday" }], totp: null }));
+  test.throws(/Invalid date.*validFrom/, () => AuthenticationSettings.import({ version: 1, passwords: [{ hash: "PLAIN:x", validFrom: "2024-01-02T03:04:05" }], totp: null })); //no timezone, ambiguous
+  test.throws(/must have a url/, () => AuthenticationSettings.import({ version: 1, passwords: [], totp: { backupCodes: [], locked: null } } as any));
+  test.throws(/missing code/, () => AuthenticationSettings.import({ version: 1, passwords: [], totp: { url: "otpauth://x", backupCodes: [{ used: null }], locked: null } } as any));
 }
 
 
@@ -834,7 +893,7 @@ async function testAuthStatus() {
 
   //Deactivate user. should block login
   await whdb.runInWork(async () => {
-    await oidcAuthSchema.getType("wrdPerson").updateAttribute("wrdauthAccountStatus", { isRequired: false });
+    await wrd("webhare_testsuite:testschema", { writeMetadata: true }).getType("wrdPerson").updateAttribute("wrdauthAccountStatus", { isRequired: false });
     //@ts-expect-error TS doesn't know we dropped isRequired
     await oidcAuthSchema.update("wrdPerson", testuser, { wrdauthAccountStatus: null });
   });
@@ -848,7 +907,7 @@ async function testAuthStatus() {
        <import definitionfile="mod::webhare_testsuite/tests/wrd/nodejs/data/usermgmt_oidc.wrdschema.xml" />
       </schemadefinition>`
   });
-  await oidcAuthSchema.getType("wrdPerson").deleteAttribute("wrdauthAccountStatus");
+  await wrd("webhare_testsuite:testschema", { writeMetadata: true }).getType("wrdPerson").deleteAttribute("wrdauthAccountStatus");
   await whdb.commitWork();
 
   //Now we can login again even without an active wrdauthAccountStatus

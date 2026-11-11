@@ -14,7 +14,7 @@ import { decodeWRDGuid, encodeWRDGuid, isValidWRDTag } from "./wrdsupport";
 import { db, uploadBlob } from "@webhare/whdb";
 import { WebHareBlob, type RichTextDocument, IntExtLink, type Instance, buildRTD, type ResourceSource, isResourceDescriptor } from "@webhare/services";
 import { wrdSettingId } from "@webhare/services/src/symbols";
-import { AuthenticationSettings } from "./authsettings";
+import { AuthenticationSettings, type ExportedAuthenticationSettings } from "./authsettings";
 import type { ValueQueryChecker } from "./checker";
 import { getInstanceFromWHFS, getRTDFromWHFS, storeInstanceInWHFS, storeRTDinWHFS } from "./wrd-whfs";
 import { isPromise } from "node:util/types";
@@ -2299,11 +2299,22 @@ class WRDDBMoneyValue extends WRDAttributeValueBase<Money | string, Money, Money
   }
 }
 
+/** Validate that a value is an AuthenticationSettings object (and not eg. an unconverted export) */
+function validateAuthenticationSettings(value: AuthenticationSettings | null, checker: ValueQueryChecker, attrPath: string, tag: string): AuthenticationSettings | null {
+  if (value !== null && !(value instanceof AuthenticationSettings))
+    throw new Error(`Value for attribute ${checker.typeTag}.${attrPath}${tag} must be an AuthenticationSettings object`);
+  return value;
+}
+
+function importAuthenticationSettings(value: AuthenticationSettings | ExportedAuthenticationSettings | null): AuthenticationSettings | null {
+  return !value || value instanceof AuthenticationSettings ? value : AuthenticationSettings.import(value);
+}
+
 class WRDDBPasswordValue extends WRDAttributeUncomparableValueBase<
   AuthenticationSettings | null,
   AuthenticationSettings | null,
   AuthenticationSettings | null,
-  AuthenticationSettings | null> {
+  ExportedAuthenticationSettings | null> {
   getDefaultValue(): null {
     return null;
   }
@@ -2316,9 +2327,16 @@ class WRDDBPasswordValue extends WRDAttributeUncomparableValueBase<
     return AuthenticationSettings.fromPasswordHash(entity_settings[settings_start].rawdata);
   }
 
-  validateInput(value: AuthenticationSettings | null): AuthenticationSettings | null {
-    /* always valid */
-    return value;
+  validateInput(value: AuthenticationSettings | null, checker: ValueQueryChecker, attrPath: string): AuthenticationSettings | null {
+    return validateAuthenticationSettings(value, checker, attrPath, this.attr.tag);
+  }
+
+  importValue(value: AuthenticationSettings | ExportedAuthenticationSettings | null): AuthenticationSettings | null {
+    return importAuthenticationSettings(value);
+  }
+
+  exportValue(value: AuthenticationSettings | null): ExportedAuthenticationSettings | null {
+    return value?.export() ?? null;
   }
 
   encodeValue(value: AuthenticationSettings | null): AwaitableEncodedValue {
@@ -2372,7 +2390,7 @@ class WRDDBAuthenticationSettingsValue extends WRDAttributeUncomparableValueBase
   AuthenticationSettings | null,
   AuthenticationSettings | null,
   AuthenticationSettings | null,
-  AuthenticationSettings | null
+  ExportedAuthenticationSettings | null
 > {
   getDefaultValue(): null {
     return null;
@@ -2387,9 +2405,16 @@ class WRDDBAuthenticationSettingsValue extends WRDAttributeUncomparableValueBase
     return data.startsWith("hson:") ? AuthenticationSettings.fromHSON(data) : AuthenticationSettings.fromPasswordHash(data);
   }
 
-  validateInput(value: AuthenticationSettings | null): AuthenticationSettings | null {
-    /* always valid */
-    return value;
+  validateInput(value: AuthenticationSettings | null, checker: ValueQueryChecker, attrPath: string): AuthenticationSettings | null {
+    return validateAuthenticationSettings(value, checker, attrPath, this.attr.tag);
+  }
+
+  importValue(value: AuthenticationSettings | ExportedAuthenticationSettings | null): AuthenticationSettings | null {
+    return importAuthenticationSettings(value);
+  }
+
+  exportValue(value: AuthenticationSettings | null): ExportedAuthenticationSettings | null {
+    return value?.export() ?? null;
   }
 
   encodeValue(value: AuthenticationSettings | null): AwaitableEncodedValue {

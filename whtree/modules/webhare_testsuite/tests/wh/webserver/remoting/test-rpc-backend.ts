@@ -18,7 +18,7 @@ const jsAuthSchema = wrd<WRDSchemaLike["platform:basewrdschema"]>("webhare_tests
 
 async function prep() {
   await test.reset({ wrdSchema: "webhare_testsuite:testschema" });
-  await runInWork(() => wrd("webhare_testsuite:testschema").updateSchema({ accountType: "wrdPerson" }));
+  await runInWork(() => wrd("webhare_testsuite:testschema", { writeMetadata: true }).updateSchema({ accountType: "wrdPerson" }));
 }
 
 async function testRPCCaller() {

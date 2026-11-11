@@ -8,7 +8,7 @@ import { wrd } from "@webhare/wrd";
 
 async function testIntegrityChecks() {
   await beginWork();
-  const schema = wrd<"*">(testSchemaTag);//extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>();
+  const schema = wrd<"*">(testSchemaTag, { writeMetadata: true });//extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>();
 
   const parentType = schema.getType("testDomain_1");
   const childType = schema.getType("testDomain1Child");

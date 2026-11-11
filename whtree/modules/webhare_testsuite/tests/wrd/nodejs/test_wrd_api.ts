@@ -1,7 +1,7 @@
-import { wrd, type WRDSchemaType } from "@webhare/wrd";
+import { wrd } from "@webhare/wrd";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
-import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
+import { createWRDTestSchema, getWRDSchema, getMetaWritableWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { CodeContext } from "@webhare/services/src/codecontexts";
 import type { IsRequired, WRDAttributeTypeId, WRDBaseAttributeTypeId, WRDTypeBaseSettings } from "@webhare/wrd/src/types";
 import { throwError } from "@webhare/std";
@@ -331,7 +331,7 @@ async function testRequired() {
     } & WRDTypeBaseSettings;
   };
 
-  const wrdschema = await getWRDSchema() as unknown as WRDSchemaType<MySchema>;
+  const wrdschema = await getMetaWritableWRDSchema<MySchema>();
 
   await whdb.beginWork();
   const newdomtype = await wrdschema.createType("testRequiredDom", { metaType: "domain" });
@@ -349,7 +349,7 @@ async function testRequired() {
 async function testUnique() {
   await whdb.beginWork();
 
-  const wrdschema = await getWRDSchema();
+  const wrdschema = await getMetaWritableWRDSchema();
   const newdomtype = await wrdschema.createType("testUniques", { metaType: "domain" });
   await newdomtype.createAttribute("testFree", { attributeType: "string", isUnique: true });
   await newdomtype.createAttribute("testEmail", { attributeType: "email", isUnique: true });
@@ -487,7 +487,7 @@ async function testReferences2() {
     } & WRDTypeBaseSettings;
   };
 
-  const wrdschema = await getWRDSchema() as unknown as WRDSchemaType<MySchema>;
+  const wrdschema = await getMetaWritableWRDSchema<MySchema>();
   await wrdschema.createType("testReferencesDom1", { metaType: "domain" });
   await wrdschema.createType("testReferencesDom2", { metaType: "domain" });
   await wrdschema.createType("testReferencesLink", { metaType: "link", left: "testReferencesDom1", right: "testReferencesDom2" });
