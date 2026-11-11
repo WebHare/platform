@@ -112,7 +112,7 @@ PUBLIC RECORD FUNCTION GetFormIntegrationAsYaml(OBJECT node) {
   IF(node->HasAttribute("webtoolformhooks"))
     formintegration := CELL[ ...formintegration, page_hooks := node->GetAttribute("webtoolformhooks") ];
 
-  IF(node->HasAttribute("maxstoredayas"))
+  IF(node->HasAttribute("maxstoredays"))
     formintegration := CELL[ ...formintegration, max_store_days := ParseXSInt(node->GetAttribute("maxstoredays")) ];
   IF(node->HasAttribute("defaultstoredays"))
     formintegration := CELL[ ...formintegration, default_store_days := ParseXSInt(node->GetAttribute("defaultstoredays")) ];
