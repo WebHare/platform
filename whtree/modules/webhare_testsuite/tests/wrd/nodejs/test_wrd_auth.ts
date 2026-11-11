@@ -198,6 +198,7 @@ async function testAuthSettings() {
   test.throws(/'passwords' must be an array/, () => AuthenticationSettings.import({ version: 1, passwords: "PLAIN:x", totp: null } as any));
   test.throws(/missing hash/, () => AuthenticationSettings.import({ version: 1, passwords: [{ validFrom: null }], totp: null } as any));
   test.throws(/Invalid date.*validFrom/, () => AuthenticationSettings.import({ version: 1, passwords: [{ hash: "PLAIN:x", validFrom: "yesterday" }], totp: null }));
+  test.throws(/Invalid date.*validFrom/, () => AuthenticationSettings.import({ version: 1, passwords: [{ hash: "PLAIN:x", validFrom: "2024-01-02T03:04:05" }], totp: null })); //no timezone, ambiguous
   test.throws(/must have a url/, () => AuthenticationSettings.import({ version: 1, passwords: [], totp: { backupCodes: [], locked: null } } as any));
   test.throws(/missing code/, () => AuthenticationSettings.import({ version: 1, passwords: [], totp: { url: "otpauth://x", backupCodes: [{ used: null }], locked: null } } as any));
 }

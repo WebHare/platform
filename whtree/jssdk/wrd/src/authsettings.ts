@@ -39,10 +39,16 @@ function exportDate(date: Date | null): string | null {
 function importDate(date: unknown, what: string): Date | null {
   if (date === null || date === undefined || date === "")
     return null;
-  const parsed = date instanceof Date ? date : typeof date === "string" ? new Date(date) : null;
-  if (!parsed || isNaN(parsed.getTime()))
-    throw new Error(`Invalid date for ${what}: ${JSON.stringify(date)}`);
-  return parsed;
+  if (date instanceof Date && !isNaN(date.getTime()))
+    return date;
+  if (typeof date === "string") {
+    try {
+      return new Date(Temporal.Instant.from(date).epochMilliseconds);
+    } catch (e) {
+      throw new Error(`Invalid date for ${what}: ${JSON.stringify(date)}`, { cause: e });
+    }
+  }
+  throw new Error(`Invalid date for ${what}: ${JSON.stringify(date)}`);
 }
 
 export class AuthenticationSettings {
