@@ -402,17 +402,14 @@ runCli({
       description: `Replace the cluster secrets with new ones. The old secrets are kept as retired secrets, which are still accepted by
 scopes that allow it until you disable them. Use 'wh auth list-secrets' to see whether retired secrets are still used.
 
-Without arguments this rotates the cookie, debug and gcm secrets. The cache secret signs image cache URLs in published
-pages and is not rotated unless you name it, as rotating it breaks images until the sites are republished.`,
+Without arguments this rotates all secrets.`,
       flags: {
         "compromised": { description: "The secrets leaked. Disable the retired secrets immediately so they are never accepted" },
         "v,verbose": { description: "Show the configuration being applied" }
       },
       arguments: [{ name: "[secrets...]", description: `Secrets to rotate: ${clusterSecretTypes.join(", ")} or all`, type: enumOption([...clusterSecretTypes, "all"]) }],
       main: async ({ opts, args }) => {
-        const types: ClusterSecretType[] = args.secrets.includes("all") ? [...clusterSecretTypes]
-          : args.secrets.length ? args.secrets as ClusterSecretType[]
-            : ["cookie", "debug", "gcm"];
+        const types: ClusterSecretType[] = args.secrets.length && !args.secrets.includes("all") ? args.secrets as ClusterSecretType[] : [...clusterSecretTypes];
 
         const retired = await rotateClusterSecrets(types, { compromised: opts.compromised, verbose: opts.verbose });
         if (opts.json) {
@@ -432,7 +429,7 @@ pages and is not rotated unless you name it, as rotating it breaks images until 
         if (types.includes("gcm"))
           console.log(`- Republish sites with forms, comments or PWAs, and re-register mail provider webhooks (AWS SNS, SendGrid) whose URLs contain a key`);
         if (types.includes("cache"))
-          console.log(`- Republish all sites, image cache URLs in published pages no longer work`);
+          console.log(`- Republish all sites before disabling the cache secret, published pages refer to images using URLs signed with it`);
         if (types.includes("debug"))
           console.log(`- Existing wh-debugwebserver cookies no longer work`);
       }

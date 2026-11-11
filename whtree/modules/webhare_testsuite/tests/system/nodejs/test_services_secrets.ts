@@ -6,6 +6,8 @@ import { runInWork } from "@webhare/whdb";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { updateWebHareConfigFile } from "@mod-system/js/internal/generation/gen_config";
 import * as crypto from "node:crypto";
+import { getUCPacketHash, getUCSubUrl, type ResourceMetadata } from "@webhare/services/src/descriptor";
+import { analyzeUnifiedURLToken } from "@webhare/services/src/unifiedcache";
 import { deleteRetiredSecret, disableRetiredSecret, enableRetiredSecret, getRetiredSecretUsage, getSecretFingerprint, listClusterSecrets, rotateClusterSecrets } from "@mod-platform/js/auth/secret-rotation";
 
 declare module "@webhare/services" {
@@ -126,6 +128,14 @@ async function testRetiredSecrets() {
   const sigRetired = signWithCookieSecret(retiredCookie, scope, "text");
   const tokMalformed = encryptWithGCMSecret(malformedGCM, scope, "malformed");
 
+  //Image cache URLs are signed with the cache secret. Re-sign a current URL with retired secrets
+  const acceptedCache = crypto.randomBytes(16).toString("base64url");
+  const disabledCache = crypto.randomBytes(16).toString("base64url");
+  const exampleImage = { width: 320, height: 240, mediaType: "image/png", hash: "u4HI1_mWV8E0UWndfoBvwsQr4PxwK7pdZLzYjWSw_0Q", refPoint: null, dbLoc: { source: 1, id: 123, cc: 456 } } as ResourceMetadata;
+  const ucPacket = Buffer.from(getUCSubUrl({ method: "fill", width: 25, height: 25, format: "keep" }, exampleImage, 1, ".png").substring(8), "hex");
+  const ucToken = (secret?: string) => `i${getUCPacketHash(ucPacket, ".png", secret)}${ucPacket.toString("hex")}/image.png`;
+  const analyzeHSToken = async (token: string) => Boolean(await loadlib("mod::system/lib/internal/cache/imgcache.whlib").AnalyzeUnifiedURLToken(token));
+
   //Make sure HareScript has cached the current secrets, so we also test that it picks up the change
   test.eq("fallback", await hsServices.DecryptForThisServer(scope, tokAccepted, { fallback: "fallback", acceptretired: true }));
 
@@ -136,6 +146,8 @@ async function testRetiredSecrets() {
       { id: "test-accepted", type: "gcm", secret: acceptedGCM, retiredAt, compromised: false, disabledSince: null },
       { id: "test-disabled", type: "gcm", secret: disabledGCM, retiredAt, compromised: true, disabledSince: retiredAt },
       { id: "test-cookie", type: "cookie", secret: retiredCookie, retiredAt, compromised: false, disabledSince: null },
+      { id: "test-cache", type: "cache", secret: acceptedCache, retiredAt, compromised: false, disabledSince: null },
+      { id: "test-cachedisabled", type: "cache", secret: disabledCache, retiredAt, compromised: false, disabledSince: retiredAt },
       { id: "test-broken", type: "nosuchtype", secret: "x", retiredAt },
       //Entries whose state can't be trusted must be dropped, not treated as accepted secrets
       { id: "test-baddisabled", type: "gcm", secret: malformedGCM, retiredAt, compromised: false, disabledSince: 12345 },
@@ -143,7 +155,7 @@ async function testRetiredSecrets() {
       { id: "test-badcompromised", type: "gcm", secret: malformedGCM, retiredAt, compromised: "no", disabledSince: null },
       { id: "test-nocompromised", type: "gcm", secret: malformedGCM, retiredAt, disabledSince: null }
     ]));
-    test.eq(["test-accepted", "test-disabled", "test-cookie"], getFullConfigFile().secrets.retired?.map(_ => _.id), "malformed entries should be dropped");
+    test.eq(["test-accepted", "test-disabled", "test-cookie", "test-cache", "test-cachedisabled"], getFullConfigFile().secrets.retired?.map(_ => _.id), "malformed entries should be dropped");
 
     //TypeScript: only accept retired secrets when asked, and never disabled ones
     test.throws(/unable to authenticate|bad decrypt/, () => decryptForThisServer(scope, tokAccepted));
@@ -154,12 +166,23 @@ async function testRetiredSecrets() {
     test.eq(false, validateSignatureForThisServer(scope, "text", sigRetired), "signatures never accept retired secrets");
     test.eq(true, validateSignatureForThisServer(scope, "text", getSignatureForThisServer(scope, "text")));
 
+    //Image cache URLs signed with a retired cache secret are accepted until it's disabled
+    test.assert(analyzeUnifiedURLToken(ucToken()));
+    test.assert(analyzeUnifiedURLToken(ucToken(acceptedCache)));
+    test.eq(null, analyzeUnifiedURLToken(ucToken(disabledCache)));
+    test.eq(null, analyzeUnifiedURLToken(ucToken(crypto.randomBytes(16).toString("base64url"))));
+
     //HareScript should see the change (its cache is invalidated by system:configupdate)
     await test.wait(async () => await hsServices.DecryptForThisServer(scope, tokAccepted, { fallback: "", acceptretired: true }) === "accepted");
     await test.throws(/Value decryption failed/, () => hsServices.DecryptForThisServer(scope, tokAccepted));
     await test.throws(/Value decryption failed/, () => hsServices.DecryptForThisServer(scope, tokDisabled, { acceptretired: true }));
     test.eq(false, await hsSecrets.ValidateSignatureForThisServer(scope, "text", sigRetired));
     test.eq(true, await hsSecrets.ValidateSignatureForThisServer(scope, "text", getSignatureForThisServer(scope, "text")));
+
+    test.assert(await analyzeHSToken(ucToken()));
+    test.assert(await analyzeHSToken(ucToken(acceptedCache)));
+    test.eq(false, await analyzeHSToken(ucToken(disabledCache)));
+    test.eq(false, await analyzeHSToken(ucToken(crypto.randomBytes(16).toString("base64url"))));
 
     //Legacy (Blowfish) encryption uses the cookie secret. Only HareScript supports it
     const legacyAlgorithm = "SHA-1,BLOWFISH+CBC,8";
@@ -177,7 +200,7 @@ async function testRetiredSecrets() {
     type SecretNotice = { event: string; secretid: string; scope: string; engine: string; reason?: string };
     const notices: Array<{ type: string } & SecretNotice> = [];
     for await (const line of readLogLines("system:notice", { start }))
-      if (line.data && typeof line.data === "object" && String((line.data as SecretNotice).event).startsWith("platform:retired-secret-") && (line.data as SecretNotice).scope === scope)
+      if (line.data && typeof line.data === "object" && String((line.data as SecretNotice).event).startsWith("platform:retired-secret-") && [scope, "platform:unifiedcache"].includes((line.data as SecretNotice).scope))
         notices.push({ type: String(line.type), ...line.data as SecretNotice });
 
     for (const engine of ["typescript", "harescript"]) {
@@ -185,6 +208,8 @@ async function testRetiredSecrets() {
       test.assert(notices.some(_ => _.engine === engine && _.secretid === "test-accepted" && _.event === "platform:retired-secret-rejected" && _.reason === "scope" && _.type === "warning"), `${engine}: retired secret rejected by scope`);
       test.assert(notices.some(_ => _.engine === engine && _.secretid === "test-disabled" && _.event === "platform:retired-secret-rejected" && _.reason === "disabled" && _.type === "error"), `${engine}: disabled compromised secret should log an error`);
       test.assert(notices.some(_ => _.engine === engine && _.secretid === "test-cookie" && _.event === "platform:retired-secret-rejected" && _.reason === "scope"), `${engine}: signature with retired secret`);
+      test.assert(notices.some(_ => _.engine === engine && _.secretid === "test-cache" && _.event === "platform:retired-secret-accepted"), `${engine}: image cache URL with retired cache secret`);
+      test.assert(notices.some(_ => _.engine === engine && _.secretid === "test-cachedisabled" && _.event === "platform:retired-secret-rejected" && _.reason === "disabled"), `${engine}: image cache URL with disabled cache secret`);
     }
     test.assert(notices.some(_ => _.engine === "harescript" && _.secretid === "test-cookie" && _.event === "platform:retired-secret-accepted"), "harescript: legacy decryption with retired cookie secret");
   } finally {
