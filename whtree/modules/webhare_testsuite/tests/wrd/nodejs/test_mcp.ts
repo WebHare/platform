@@ -55,7 +55,8 @@ async function testProtectedResourceMetadata() {
   test.eq({
     resource: mcpUrl,
     authorization_servers: [issuer],
-    bearer_methods_supported: ["header"]
+    bearer_methods_supported: ["header"],
+    scopes_supported: []
   }, await metadataResponse.json());
 
   /* The authorization server advertised in the protected resource metadata must offer its metadata. The issuer has a path, so
@@ -256,6 +257,7 @@ async function testAuthorizeWithResource() {
       code_challenge: createCodeChallenge(codeVerifier, "S256"),
       code_challenge_method: "S256"
     });
+    authorizeUrl.searchParams.set("scope", ""); //clients that omit the scope may still send an empty one, which must request no scopes
     for (const resource of resources)
       authorizeUrl.searchParams.append("resource", resource);
 

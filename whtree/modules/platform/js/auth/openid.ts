@@ -249,7 +249,7 @@ export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provide
 
   const searchParams = new URL(url).searchParams;
   const clientid = searchParams.get("client_id") || '';
-  const scopes = (searchParams.get("scope")?.split(" ") || []);
+  const scopes = (searchParams.get("scope")?.split(" ").filter(scope => scope) || []); //an empty scope= requests no scopes
   const redirect_uri = searchParams.get("redirect_uri") || '';
   const state = searchParams.get("state") || null;
   const nonce = searchParams.get("nonce") || null;
