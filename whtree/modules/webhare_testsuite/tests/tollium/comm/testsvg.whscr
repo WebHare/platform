@@ -111,4 +111,34 @@ MACRO TestIconRewrites()
   TestEq("image/png", imgs.images[0].images[0].type); //should be unprocessed
 }
 
-RunTestframework( [ PTR TestIconRewrites ]);
+RECORD FUNCTION RetrieveSingleImage(STRING imgname)
+{
+  RECORD imgs := RPC_RetrieveImages([ [ data := [ imgnames := [ imgname ], color := "", height := 16, width := 16 ] ] ], TRUE);
+  TestEq(1, Length(imgs.images[0].images));
+  RETURN imgs.images[0].images[0];
+}
+
+MACRO TestIconNameValidation()
+{
+  // Country flags
+  TestEq("image/svg+xml", RetrieveSingleImage("wrd:countryflags/nl").type);
+  TestEq("image/svg+xml", RetrieveSingleImage("tollium:countryflags/gb-eng").type);
+  TestThrowsLike("Illegal countryflag*", PTR RetrieveSingleImage("wrd:countryflags/../../../../package.json"));
+  TestThrowsLike("Illegal countryflag*", PTR RetrieveSingleImage("wrd:countryflags/../../../../package.json\x00"));
+  TestThrowsLike("Illegal countryflag*", PTR RetrieveSingleImage("wrd:countryflags/nl\x00"));
+  TestThrowsLike("Illegal countryflag*", PTR RetrieveSingleImage("tollium:countryflags/NL"));
+
+  // Module icons must stay inside the module's web/img folder
+  TestEq(TRUE, RecordExists(RetrieveSingleImage("webhare_testsuite:testicon_3")));
+  TestEq(FALSE, RecordExists(RetrieveSingleImage("webhare_testsuite:../../tests/tollium/data/svgtest")));
+  TestEq(FALSE, RecordExists(RetrieveSingleImage("webhare_testsuite:./testicon_3")));
+  TestEq(FALSE, RecordExists(RetrieveSingleImage("webhare_testsuite:/testicon_3")));
+  TestEq(FALSE, RecordExists(RetrieveSingleImage("webhare_testsuite:testicon_3\x00")));
+  TestEq(FALSE, RecordExists(RetrieveSingleImage("webhare_testsuite:testicon_4.32x32.png\x00")));
+  TestEq(FALSE, RecordExists(RetrieveSingleImage("webhare_testsuite/x:testicon_3")));
+  TestEq(FALSE, RecordExists(RetrieveSingleImage(":testicon_3")));
+}
+
+RunTestframework( [ PTR TestIconRewrites
+                  , PTR TestIconNameValidation
+                  ]);

@@ -2,6 +2,7 @@
 
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::regex.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
@@ -36,6 +37,32 @@ BLOB FUNCTION FixupSVGSize(BLOB svgdata, INTEGER width, INTEGER height)
   RETURN doc->GetDocumentBlob(FALSE);
 }
 
+/* Icon names are used to build disk paths and may come from untrusted sources (eg. the todd RetrieveImages RPC).
+   Reject anything that could escape the module's web/img folder or that the native file APIs would interpret
+   differently (they truncate paths at a NUL byte, which would drop the extension we append) */
+BOOLEAN FUNCTION IsSafeIconName(STRING iconname) {
+  FOR(INTEGER i := 0; i < 32; i := i + 1)
+    IF(SearchSubstring(iconname, ByteToString(i)) >= 0)
+      RETURN FALSE;
+  IF(SearchSubstring(iconname, "\\") >= 0)
+    RETURN FALSE;
+
+  INTEGER colon := SearchSubstring(iconname, ":");
+  IF(colon <= 0 OR NOT NEW RegEx("^[a-z0-9_]+$", "i")->Test(Left(iconname, colon)))
+    RETURN FALSE;
+
+  FOREVERY(STRING part FROM Tokenize(Substring(iconname, colon + 1), "/"))
+    IF(part IN ["", ".", ".."])
+      RETURN FALSE;
+
+  RETURN TRUE;
+}
+
+/// Country codes as used by the flag-icons package (eg "nl", "gb-eng", "arab")
+BOOLEAN FUNCTION IsSafeCountryCode(STRING countrycode) {
+  RETURN NEW RegEx("^[a-z]+(-[a-z]+)?$")->Test(countrycode);
+}
+
 STRING ARRAY FUNCTION GetIconEventMasks(STRING icon)
 {
   INTEGER colon := SearchSubstring(icon,':');
@@ -48,9 +75,9 @@ STRING ARRAY FUNCTION GetIconEventMasks(STRING icon)
 // Get a list image infos for icons with a given name with different sizes
 RECORD ARRAY FUNCTION GetIconTypes(STRING icon, STRING ARRAY colors)
 {
-  INTEGER colon := SearchSubstring(icon,':');
-  IF (colon = -1)
+  IF (NOT IsSafeIconName(icon))
     RETURN DEFAULT RECORD ARRAY;
+  INTEGER colon := SearchSubstring(icon,':');
 
   STRING module := Left(icon,colon);
   icon := Substring(icon,colon+1,Length(icon));
@@ -157,10 +184,10 @@ RECORD ARRAY FUNCTION GetIconTypes(STRING icon, STRING ARRAY colors)
 RECORD FUNCTION GetIconType(STRING findicon, INTEGER width, INTEGER height, STRING color)
 {
   STRING icon := findicon;
+  IF (NOT IsSafeIconName(icon))
+    RETURN DEFAULT RECORD;
 
   INTEGER colon := SearchSubstring(icon,':');
-  IF (colon = -1)
-    RETURN DEFAULT RECORD;
 
   STRING module := Left(icon,colon);
   icon := Substring(icon,colon+1,Length(icon));
@@ -199,6 +226,9 @@ PUBLIC RECORD FUNCTION GetModuleIcon(STRING iconname, INTEGER width, INTEGER hei
   IF (iconname LIKE "wrd:countryflags/*" OR iconname LIKE "tollium:countryflags/*")
   {
     STRING countrycode := Substring(iconname, SearchSubstring(iconname, "/") + 1);
+    IF (NOT IsSafeCountryCode(countrycode))
+      THROW NEW Exception("Illegal countryflag requested");
+
     STRING diskpath := MergePath(__SYSTEM_WHCOREPARAMETERS().installationroot, "node_modules/flag-icons/flags/1x1/" || countrycode || ".svg");
     TRY
     {
