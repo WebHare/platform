@@ -41,6 +41,18 @@ useradd --uid 20003 --user-group --groups whdata postgres
 # Enable epel
 dnf install -y epel-release
 
+# AlmaLinux doesn't set $releasever_minor so EPEL would use its leading 'epel-10' repository, which already targets the
+# next RHEL minor release and may require newer base packages than our AlmaLinux image has (eg. python3-pyOpenSSL needing
+# a newer python3-cryptography, breaking certbot). Pin EPEL to the repository for our minor version instead
+# shellcheck disable=SC1091
+VERSION_ID="$(. /etc/os-release && echo "$VERSION_ID")"
+if [[ ! "$VERSION_ID" =~ ^10\.[0-9]+$ ]]; then
+  echo "Unexpected OS version '$VERSION_ID', cannot pin EPEL to it" >&2
+  exit 1
+fi
+# shellcheck disable=SC2016 # we want to replace the literal ${releasever_minor:+-z} and $releasever
+sed -i -e 's/\${releasever_minor:+-z}/-z/g' -e "s/\\\$releasever\\b/${VERSION_ID}/g" /etc/yum.repos.d/epel.repo
+
 [ -z "$WEBHARE_NODE_MAJOR" ] && echo "Missing WEBHARE_NODE_MAJOR" >&2 && exit 1
 
 # Allow using a nightly build of node, eg:
