@@ -9,6 +9,13 @@ export interface AlgorithmOptions {
   secret?: string;
 }
 
+export interface DecryptOptions extends AlgorithmOptions {
+  ///If true, return null if the data is invalid (instead of throwing an error)
+  nullIfInvalid?: boolean;
+  ///If true, also accept data encrypted with a retired secret that hasn't been disabled yet
+  acceptRetired?: boolean;
+}
+
 function getKeyForScope(scope: string, options?: AlgorithmOptions): Buffer {
   const hash = crypto.createHash("SHA-256");
   if (options?.secret) {
@@ -58,11 +65,13 @@ export function encryptForThisServer<S extends string>(scope: keyof ServerEncryp
     @param text - Data to decrypt
     @param options - Options for decryption
     @param options.nullIfInvalid - If true, return null if the data is invalid (instead of throwing an error)
+    @param options.acceptRetired - If true, also accept data encrypted with a retired secret that hasn't been disabled yet.
+      Only use this for data that may need to remain valid for a long time and is not security sensitive, eg. form targets in published pages.
 */
-export function decryptForThisServer<S extends string>(scope: keyof ServerEncryptionScopes | S, text: string, options: { nullIfInvalid: true } & AlgorithmOptions): (S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown) | null;
-export function decryptForThisServer<S extends string>(scope: keyof ServerEncryptionScopes | S, text: string, options?: { nullIfInvalid?: boolean } & AlgorithmOptions): S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown;
+export function decryptForThisServer<S extends string>(scope: keyof ServerEncryptionScopes | S, text: string, options: { nullIfInvalid: true } & DecryptOptions): (S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown) | null;
+export function decryptForThisServer<S extends string>(scope: keyof ServerEncryptionScopes | S, text: string, options?: DecryptOptions): S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown;
 
-export function decryptForThisServer<S extends string>(scope: keyof ServerEncryptionScopes | S, text: string, options?: { nullIfInvalid?: boolean } & AlgorithmOptions): (S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown) | null {
+export function decryptForThisServer<S extends string>(scope: keyof ServerEncryptionScopes | S, text: string, options?: DecryptOptions): (S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown) | null {
   type RetVal = S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown;
   const [enc, iv, authTag] = text.split(".");
   if (!enc || !iv || !authTag)
