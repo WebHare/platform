@@ -1,6 +1,18 @@
 import * as path from "node:path";
 import { backendConfig } from "./config";
 
+/** Join a subpath to a base directory, refusing any result outside that base directory
+    @param basedir - Base directory, must end with a slash
+    @param subpath - Path to append, which may come from an untrusted source
+    @param resource - Original resource path, for error messages
+*/
+function joinConfined(basedir: string, subpath: string, resource: string): string {
+  const result = path.join(basedir, subpath);
+  if (!result.startsWith(basedir) && result !== basedir.substring(0, basedir.length - 1))
+    throw new Error(`Resource path '${resource}' tries to escape from its base folder`);
+  return result;
+}
+
 export function toFSPath(resource: string, options: { keepUnmatched: true }): string;
 export function toFSPath(resource: string, options: { allowUnmatched: true }): string | null;
 export function toFSPath(resource: string, options?: { allowUnmatched?: boolean; keepUnmatched?: boolean }): string;
@@ -10,11 +22,12 @@ export function toFSPath(resource: string, options?: { allowUnmatched?: boolean;
     @param allowUnmatched - Do not fail if the path cannot be matched to a filesystem path
     @param keepUnmatched - Return the original path if unmatched. Implies allowUnmatched
     @returns Absolute file system path. A succesful return does not imply the path actually exists
-    @throws If the path cannot be mapped to a filesystem path
+    @throws If the path cannot be mapped to a filesystem path, or if it would resolve outside its module, storage or
+            \@webhare/ folder (eg `mod::system/../../etc/passwd`). This also applies when allowUnmatched or keepUnmatched are set
 */
 export function toFSPath(resource: string, { allowUnmatched = false, keepUnmatched = false } = {}) {
   if (resource.startsWith("@webhare/"))
-    return backendConfig.installationRoot + "jssdk/" + resource.substring(9);
+    return joinConfined(backendConfig.installationRoot + "jssdk/", resource.substring(9), resource);
 
   if (resource.startsWith("@mod-"))
     resource = `mod::${resource.substring(5)}`;
@@ -49,7 +62,7 @@ export function toFSPath(resource: string, { allowUnmatched = false, keepUnmatch
     if (nextslash === -1)
       return basedir; //we'll always terminate a path like `mod::system` with a slash
     else
-      return path.join(basedir, restpath.substring(nextslash));
+      return joinConfined(basedir, restpath.substring(nextslash), resource);
   }
 
   if (keepUnmatched)
