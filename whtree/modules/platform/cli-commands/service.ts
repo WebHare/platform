@@ -1,6 +1,7 @@
 // @webhare/cli: Control the WebHare service manager
 
 import { getAllServices, getServiceManagerChildPids, getSpawnSettings } from '@mod-platform/js/bootstrap/servicemanager/gatherservices';
+import { formatTable } from "@mod-platform/js/cli/output";
 import type { ServiceDefinition } from '@mod-platform/js/bootstrap/servicemanager/smtypes';
 import { launchService } from '@mod-platform/js/nodeservices/runner';
 import { getExtractedConfig } from '@mod-system/js/internal/configuration';
@@ -123,7 +124,7 @@ runCli({
       main: async ({ opts, args }) => {
         const smservice = await openBackendService("platform:servicemanager");
         const state = await smservice.getWebHareState();
-        console.table(state.availableServices.toSorted(compareProperties(["name"])));
+        console.log(formatTable(state.availableServices.toSorted(compareProperties(["name"]))));
       }
     },
     "get-environment": {

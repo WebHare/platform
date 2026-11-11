@@ -1,6 +1,7 @@
 // @webhare/cli: Control WebHare users and rights
 
 import jwt from "jsonwebtoken";
+import { formatTable } from "@mod-platform/js/cli/output";
 import { type AnyWRDSchema, type WRDSchemaLike, type WRDSchemaType, getSchemaSettings, isValidWRDTag, updateSchemaSettings, wrd } from '@webhare/wrd';
 import YAML from 'yaml';
 import { loadlib } from '@webhare/harescript/src/contextvm';
@@ -370,7 +371,7 @@ runCli({
         if (opts.json) {
           console.log(JSON.stringify(sps));
         } else {
-          console.table(sps);
+          console.log(formatTable(sps));
         }
       }
     },
@@ -456,14 +457,14 @@ notice log shows whether they're still used. Accepted use is logged at most once
         }
 
         console.log("Current secrets:");
-        console.table(secrets.current);
+        console.log(formatTable(secrets.current));
         if (!retired.length) {
           console.log("No retired secrets");
           return;
         }
 
         console.log("Retired secrets:");
-        console.table(retired.map(secret => ({
+        console.log(formatTable(retired.map(secret => ({
           id: secret.id,
           type: secret.type,
           state: secret.state + (secret.compromised ? ", compromised" : ""),
@@ -472,7 +473,7 @@ notice log shows whether they're still used. Accepted use is logged at most once
           acceptedScopes: secret.usage?.acceptedScopes.join(", ") ?? "",
           rejected: secret.usage?.rejected ?? 0,
           lastRejected: secret.usage?.lastRejected?.toString() ?? ""
-        })));
+        }))));
         console.log("Use is only known for the period still covered by the notice log");
       }
     },

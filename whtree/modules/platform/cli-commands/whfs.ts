@@ -1,8 +1,9 @@
 // @webhare/cli: Manage WebHare file system (WHFS)
 
 import { createWHFSExportZip, describeWHFSType, lookupURL, openFileOrFolder, openSite, storeWHFSExport, type ExportWHFSOptions, type WHFSFile } from '@webhare/whfs';
+import { formatTable } from "@mod-platform/js/cli/output";
 import { CLIRuntimeError, CLISyntaxError, enumOption, floatOption, intOption, runCli, type CLIArgumentType } from "@webhare/cli";
-import { countWHFSTypeUsage, describeContentType, findContentType, getAllContentTypes, getTypeName, listContentTypes, metaTypeCategories, type DescribedWHFSType, type ListedWHFSType } from '@mod-platform/js/cli/whfs-types';
+import { countWHFSTypeUsage, describeContentType, findContentType, getAllContentTypes, getMetaTypeCategory, getSiteProfileMetaType, getTypeName, listContentTypes, metaTypeCategories, type DescribedWHFSType, type ListedWHFSType } from '@mod-platform/js/cli/whfs-types';
 import type { CSPContentType } from '@webhare/whfs/src/siteprofiles';
 import { getBestMatch } from "@webhare/js-api-tools";
 import { storeDiskFile } from "@webhare/system-tools";
@@ -12,6 +13,7 @@ import { selectFSWHFSPath } from '@webhare/whdb/src/functions';
 import { whconstant_whfsid_versions, whconstant_whfsid_whfs_snapshots } from '@mod-system/js/internal/webhareconstants';
 import { applyWHFSObjectUpdates, exportWHSFObject } from '@mod-platform/openapi/api/whfs';
 import YAML from 'yaml';
+import { countInstances, findInstances, FindInstancesError, republishFoundInstances } from '@mod-platform/js/cli/whfs-find';
 import { commonFlags, commonOptions, resolveWHFSPathArgument, resolveWHFSPathArrayArgument } from '@mod-platform/js/cli/cli-tools';
 import { readFileSync } from 'fs';
 import { loadlib } from '@webhare/harescript';
@@ -161,23 +163,40 @@ async function displayUsage(opts: { threshold: number; maxDepth?: number; versio
   iterPrint(null, 0);
 
   if (opts.format === "table")
-    console.table(toPrint);
+    console.log(formatTable(toPrint));
   else
     console.log(JSON.stringify(toPrint, null, 2));
 }
 
+function parseWHFSType(input: string): CSPContentType {
+  const type = findContentType(input);
+  if (type)
+    return type;
+  const bestMatch = getBestMatch(input, getAllContentTypes().map(getTypeName));
+  throw new CLISyntaxError(`No such WHFS type '${input}'${bestMatch ? `, did you mean '${bestMatch}'?` : ""}`);
+}
+
 const whfsTypeOption: CLIArgumentType<CSPContentType> = {
-  parseValue(input: string) {
-    const type = findContentType(input);
-    if (type)
-      return type;
-    const bestMatch = getBestMatch(input, getAllContentTypes().map(getTypeName));
-    throw new CLISyntaxError(`No such WHFS type '${input}'${bestMatch ? `, did you mean '${bestMatch}'?` : ""}`);
-  },
+  parseValue: parseWHFSType,
   autoComplete(startsWith: string): readonly string[] {
     return getAllContentTypes().map(getTypeName).filter(name => name.startsWith(startsWith)).sort();
   },
   description: "WHFS type, by scoped type (eg platform:filetypes.richdocument), namespace or id",
+};
+
+/** A WHFS type, or a mask matching multiple types */
+const whfsTypeOrMaskOption: CLIArgumentType<{ input: string; types: CSPContentType[] }> = {
+  parseValue(input: string) {
+    if (!/[*?]/.test(input))
+      return { input, types: [parseWHFSType(input)] };
+
+    const types = listContentTypes({ masks: [input] }).map(type => findContentType(type.type)!);
+    if (!types.length)
+      throw new CLISyntaxError(`No WHFS types match '${input}'`);
+    return { input, types };
+  },
+  autoComplete: whfsTypeOption.autoComplete,
+  description: "WHFS type, by scoped type (eg platform:filetypes.richdocument), namespace or id, or a mask matching multiple types (eg 'platform:*')",
 };
 
 runCli({
@@ -316,6 +335,99 @@ runCli({
           console.log(JSON.stringify(description, null, 2));
         else
           process.stdout.write(YAML.stringify(description));
+      }
+    },
+    "find-instances": {
+      shortDescription: "Find files and folders using a WHFS type, optionally filtered by its data",
+      description: `Find files and folders using a WHFS type: objects of that type, objects with instance data of that type and objects embedding it (eg. widgets inside rich text). Use --where to filter by the data, eg:
+
+  wh whfs find-instances platform:filetypes.form --where '$.maxsignups > 0' --select maxsignups
+
+The expression receives the instance data as '$' and information about the object (type, id, whfsPath, link, name, isFolder, objectType, siteId, source, embeddedIn) as 'obj'. By default objects in the recycle bin and in the versions and drafts storage are ignored.
+
+The type can also be a mask to look for multiple types at once, optionally limited to some kinds of types using --kind. The expression is then evaluated for each type separately, so use '?.' to access members that not all of these types have.
+
+Use --count to only count the matches, eg:
+
+  wh whfs find-instances --count 'webhare_testsuite:*' --kind widget --start-folder /webhare-tests/
+
+This shows per type the number of files and folders of that type (objects), with instance data of that type (instances), the number of times it's embedded (embedded, eg. a document with three of the same widget counts as 3) and the number of distinct files and folders using it in any of these ways (total).`,
+      flags: {
+        "all": "Also include objects in the recycle bin, versions and drafts",
+        "ids": "Only print the ids of the found objects, one per line",
+        "republish": "Schedule the found objects and any objects referring to them for republishing",
+        "count": "Only count the found objects, per type",
+      },
+      options: {
+        "where": { description: "JavaScript expression the instance must satisfy. '$' contains the instance data, 'obj' the object info" },
+        "select": { description: "Member to show (repeatable), '*' to show all members. With a mask the member needs to exist in only one of the types", multiple: true },
+        "start-folder": { description: "Only find objects inside this folder (path or id, repeatable)", multiple: true },
+        "kind": {
+          description: "Only look for types of this kind (repeatable). 'file' includes pages, uploads and data files, 'instance' types are not a file, folder or widget",
+          type: enumOption(metaTypeCategories),
+          multiple: true
+        },
+        ...commonOptions.resources
+      },
+      arguments: [{ name: "<type>", description: "WHFS type (scoped type, namespace or id), or a mask matching multiple types (eg 'platform:*')", type: whfsTypeOrMaskOption }],
+      main: async ({ opts, args }) => {
+        if (opts.count) {
+          const conflicting = [opts.ids && "--ids", opts.select?.length && "--select", opts.republish && "--republish"].filter(Boolean);
+          if (conflicting.length)
+            throw new CLIRuntimeError(`--count cannot be combined with ${conflicting.join(", ")}`);
+        }
+
+        const types = opts.kind?.length ? args.type.types.filter(type => opts.kind!.includes(getMetaTypeCategory(getSiteProfileMetaType(type)))) : args.type.types;
+        if (!types.length)
+          throw new CLIRuntimeError(`No WHFS types of kind ${opts.kind!.map(kind => `'${kind}'`).join(", ")} match '${args.type.input}'`);
+
+        const startFolders = await resolveWHFSPathArrayArgument(opts.startFolder ?? []);
+        const notAFolder = startFolders.find(folder => !folder.isFolder);
+        if (notAFolder)
+          throw new CLIRuntimeError(`'${notAFolder.whfsPath}' is not a folder`);
+        if (opts.count) {
+          const counts = [];
+          try {
+            for (const type of types)
+              counts.push({
+                type: getTypeName(type),
+                ...await countInstances(type, { where: opts.where, startFolders: startFolders.map(folder => folder.whfsPath), all: opts.all })
+              });
+          } catch (e) {
+            throw e instanceof FindInstancesError ? new CLIRuntimeError(e.message) : e;
+          }
+          counts.sort((lhs, rhs) => rhs.total - lhs.total || lhs.type.localeCompare(rhs.type));
+          if (opts.json)
+            console.log(JSON.stringify(counts, null, 2));
+          else
+            console.log(formatTable(counts));
+          return;
+        }
+
+        let found;
+        try {
+          found = await findInstances(types, {
+            where: opts.where,
+            select: opts.select,
+            startFolders: startFolders.map(folder => folder.whfsPath),
+            all: opts.all,
+            exportOptions: opts.ids ? undefined : opts.resources === "fetch" ? { export: true, exportFile: exportFileAsFetch } : { export: true }
+          });
+        } catch (e) {
+          throw e instanceof FindInstancesError ? new CLIRuntimeError(e.message) : e;
+        }
+
+        if (opts.ids)
+          process.stdout.write([...new Set(found.map(item => item.id))].map(id => `${id}\n`).join(""));
+        else if (opts.json)
+          console.log(JSON.stringify(found, null, 2));
+        else
+          process.stdout.write(found.length ? YAML.stringify(found) : "");
+
+        if (opts.republish) {
+          const scheduled = await republishFoundInstances(found);
+          console.error(`Scheduled ${scheduled.folders} folder(s) and ${scheduled.files} file(s) for republication`);
+        }
       }
     },
     "get-preview-link": {
