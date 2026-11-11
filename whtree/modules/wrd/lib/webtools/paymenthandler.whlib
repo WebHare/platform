@@ -114,13 +114,23 @@ PUBLIC STATIC OBJECTTYPE PaymentHandler EXTEND FormHandlerBase
     RETURN "pending";
   }
 
-  UPDATE PUBLIC RECORD ARRAY FUNCTION GetConfirmationFormSubmitTypes()
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetConfirmationFormSubmitTypesForComp(RECORD comp)
   {
-    RETURN
-        [ [ rowkey := "pending", title := GetTid("publisher:tolliumapps.formedit.formsubmittype-pending") ]
-        , [ rowkey := "confirm", title := GetTid("publisher:tolliumapps.formedit.formsubmittype-confirm") ]
-        , [ rowkey := "cancel", title :=  GetTid("publisher:tolliumapps.formedit.formsubmittype-cancel") ]
-        ];
+    RECORD ARRAY submittypes;
+
+    // 'pending' is only available for components on the 'thankyou' page
+    // Note that if we don't have a comp, we just return everything for formatting and validation purposes
+    IF (NOT RecordExists(comp) OR comp.on_thankyou_page)
+      INSERT [ rowkey := "pending", title := GetTid("publisher:tolliumapps.formedit.formsubmittype-pending") ] INTO submittypes AT END;
+
+    // 'confirm' and 'cancel' are available for components on the 'thankyou' page and for handlers other than the confirmation handler
+    IF (NOT RecordExists(comp) OR comp.on_thankyou_page OR (comp.is_handler AND comp.name != "mailconfirmationhandler"))
+    {
+      INSERT [ rowkey := "confirm", title := GetTid("publisher:tolliumapps.formedit.formsubmittype-confirm") ] INTO submittypes AT END;
+      INSERT [ rowkey := "cancel", title :=  GetTid("publisher:tolliumapps.formedit.formsubmittype-cancel") ] INTO submittypes AT END;
+    }
+
+    RETURN submittypes;
   }
 
   UPDATE PUBLIC MACRO ValidateFormFile(OBJECT work, OBJECT curform, OBJECT contexts)

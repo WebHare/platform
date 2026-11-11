@@ -14,6 +14,7 @@ PUBLIC STATIC OBJECTTYPE EditHandler EXTEND TolliumScreenBase
   //
 
   OBJECT node;
+  PUBLIC PROPERTY __node(node, -);
   BOOLEAN existing;
   RECORD compdef;
   OBJECT compextension;
