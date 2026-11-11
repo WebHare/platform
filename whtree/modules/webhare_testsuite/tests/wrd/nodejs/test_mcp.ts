@@ -331,7 +331,16 @@ async function testAuthorizeWithResource() {
 
   //The token request may repeat the resource, but can't ask for another one
   const tokenRequest = { code, client_id: clientId, client_secret: clientSecret, grant_type: "authorization_code", redirect_uri: mcpClientCallback, code_verifier: codeVerifier };
-  test.eq({ error: /Invalid resource/ }, await retrieveTokens(provider, new URLSearchParams({ ...tokenRequest, resource: mcpUrl + "x" }), new Headers));
+  //Post this one to the token endpoint, to check that the error reaches the client as RFC 8707's invalid_target
+  const issuerUrl = new URL((await getMCPURLs()).issuer);
+  const { token_endpoint } = await (await fetch(issuerUrl.origin + "/.well-known/oauth-authorization-server" + issuerUrl.pathname)).json() as { token_endpoint: string };
+  const wrongResource = await fetch(token_endpoint, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ ...tokenRequest, resource: mcpUrl + "x" })
+  });
+  test.eq(400, wrongResource.status);
+  test.eq({ error: "invalid_target", error_description: /must ask for the resource of the authorization request/ }, await wrongResource.json());
 
   const tokens = await retrieveTokens(provider, new URLSearchParams({ ...tokenRequest, resource: mcpUrl }), new Headers);
   test.assert(tokens.error === null, "Token request failed: " + tokens.error);

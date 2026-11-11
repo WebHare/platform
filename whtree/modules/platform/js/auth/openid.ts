@@ -462,7 +462,12 @@ export async function returnAuthorizeFlow<T extends SchemaTypeDefinition>(provid
 }
 
 ///Implements the oauth2/openid endpoint
-export async function retrieveTokens<T extends SchemaTypeDefinition>(provider: IdentityProvider<T>, form: URLSearchParams, headers: Headers, options?: AuthTokenOptions): Promise<{ error: string } | { error: null; body: TokenResponse }> {
+export async function retrieveTokens<T extends SchemaTypeDefinition>(provider: IdentityProvider<T>, form: URLSearchParams, headers: Headers, options?: AuthTokenOptions): Promise<{
+  /** Error. A standard error code (eg invalid_target) if errorDescription is set, otherwise a description */
+  error: string;
+  /** Human readable explanation of a standard error code */
+  errorDescription?: string;
+} | { error: null; body: TokenResponse }> {
   let headerClientId = '', headerClientSecret = '';
   const authorization = headers.get("Authorization")?.match(/^Basic +(.+)$/i);
   if (authorization) {
@@ -524,7 +529,10 @@ export async function retrieveTokens<T extends SchemaTypeDefinition>(provider: I
   const tokenResources = form.getAll("resource");
   const tokenResource = tokenResources.length === 1 ? normalizeResource(tokenResources[0]) : null;
   if (tokenResources.length > 1 || (tokenResources.length === 1 && (!tokenResource || tokenResource !== (returnInfo.resource ?? null))))
-    return { error: `Invalid resource, the token request must ask for the resource of the authorization request (${returnInfo.resource ? `'${returnInfo.resource}'` : "none"})` };
+    return {
+      error: "invalid_target", //RFC 8707 section 2.2
+      errorDescription: `The token request must ask for the resource of the authorization request (${returnInfo.resource ? `'${returnInfo.resource}'` : "none"})`
+    };
 
   //Only look up the issuer if we need it, plain OAuth2 doesn't
   const issuer = returnInfo.scopes.includes("openid") ? options?.issuer ?? await getOpenIDIssuer(provider.wrdschema.tag) : undefined;
@@ -738,7 +746,7 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
     const form = new URLSearchParams(body);
     const response = await retrieveTokens(provider, form, req.headers, { customizer, issuer: login.issuer });
     if (response.error !== null)
-      return createJSONResponse(400, { error: response.error });
+      return createJSONResponse(400, { error: response.error, ...(response.errorDescription ? { error_description: response.errorDescription } : {}) });
     else {
 
       /* https://datatracker.ietf.org/doc/html/rfc6749#section-5.1
