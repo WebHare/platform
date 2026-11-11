@@ -397,20 +397,34 @@ export async function returnAuthorizeFlow<T extends SchemaTypeDefinition>(provid
         checkScopes.push(scope);
   }
 
-  if (checkScopes.length > 0) { //we need to explicitly ask the user for approval
+  /* A token for a resource (RFC 8707), ie an MCP server, lets the client act as the user there, eg by calling its tools.
+     Always ask the user for that: we don't store earlier approvals yet, and without asking, any client could get such a token
+     for a user who's already logged in just by sending them to the authorize URL */
+  const resource = returnInfo.resource ?? null;
+
+  if (checkScopes.length > 0 || resource) { //we need to explicitly ask the user for approval
     if (returnInfo.prompt === "none") //TODO look at scopes we already granted - if you didn't ask anything new, prompt=none should be fine?
-      return createOIDCErrorResponse(returnInfo, "interaction_required", "Cannot request scopes in prompt=none request");
+      return createOIDCErrorResponse(returnInfo, "interaction_required", resource ? "Cannot request access to a resource in prompt=none request" : "Cannot request scopes in prompt=none request");
 
     if (req.method !== "POST") { //not POST-ing? render the permission page
       const permissionrequest = await createContentPageRequest(await openFileOrFolder(site), { webRequest: req }); //TODO pass the webRequest too?
       //TODO pass a true FormsAPI body. or delegate this fully to HareScript
-      //TODO Make it clear which client is asking. And if it's a dynamic client, make it especially clear that we can't verify the identity of the app
-      return await permissionrequest.buildWebPage(permissionRequestPage({ url: req.url, checkScopes, supportedAccessScopes }));
+      //TODO Make it clear which client is asking (for non-dynamic clients we could show a trusted, admin-configured name)
+      const { dynamicStatus } = await provider.wrdschema.getFields("wrdauthApplication", returnInfo.clientid, ["dynamicStatus"]);
+      return await permissionrequest.buildWebPage(permissionRequestPage({
+        url: req.url,
+        checkScopes,
+        supportedAccessScopes,
+        mcpServerHost: resource ? new URL(resource).host : null, //for now, an MCP server is the only resource we issue tokens for (see getProtectedResources)
+        //We show where the user will be sent back to: unlike the client's self-reported name, that's verified (it must be one of the client's callback URLs)
+        returnHost: new URL(returnInfo.cbUrl).host,
+        unverifiedClient: Boolean(dynamicStatus)
+      }));
     } else {
       const formData = await req.formData();
       const approve = formData.get("approve") === "yes";
       if (!approve)
-        return createOIDCErrorResponse(returnInfo, "interaction_required", "User must grant scopes");
+        return createOIDCErrorResponse(returnInfo, "interaction_required", "User denied the permission request");
     }
   }
 

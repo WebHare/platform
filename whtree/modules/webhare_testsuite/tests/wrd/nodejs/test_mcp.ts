@@ -1,5 +1,5 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
-import { createFirstPartyToken } from "@webhare/auth";
+import { createFirstPartyToken, type JWTPayload } from "@webhare/auth";
 import { createCodeVerifier, IdentityProvider } from "@webhare/auth/src/identity";
 import { createMCPClient, type MCPHTTPError, type MCPProtocolError, type MCPToolOutput } from "@webhare/mcp";
 import type { whoami } from "@mod-webhare_testsuite/js/mcp-tools";
@@ -248,20 +248,21 @@ async function testAuthorizeWithResource() {
   const { clientId, clientSecret } = mcpClient ?? throwError("testDynamicRegistration didn't register a client");
   const codeVerifier = createCodeVerifier();
 
-  const startFlow = async (resources: string[]) => {
+  const startFlow = async (resources: string[], extraParams: Record<string, string> = {}) => {
     const authorizeUrl = updateURL("http://example.net/", {
       client_id: clientId,
       response_type: "code",
       redirect_uri: mcpClientCallback,
       state: "teststate",
       code_challenge: createCodeChallenge(codeVerifier, "S256"),
-      code_challenge_method: "S256"
+      code_challenge_method: "S256",
+      ...extraParams
     });
     authorizeUrl.searchParams.set("scope", ""); //clients that omit the scope may still send an empty one, which must request no scopes
     for (const resource of resources)
       authorizeUrl.searchParams.append("resource", resource);
 
-    const response = await startAuthorizeFlow(provider, authorizeUrl.toString(), loginUrl, null);
+    const response = await startAuthorizeFlow(provider, authorizeUrl.toString(), loginUrl, extraParams.prompt === "none" ? { user: test.getUser("sysop").wrdId, claims: {} as JWTPayload } : null);
     test.eq(HTTPSuccessCode.SeeOther, response.status);
     return new URL(response.headers.get("location") ?? throwError("No location header in startAuthorizeFlow response"));
   };
@@ -273,13 +274,45 @@ async function testAuthorizeWithResource() {
     test.eq("invalid_target", refused.searchParams.get("error"));
   }
 
+  /** Log in as sysop and return to the authorization flow, either just returning (GET) or answering the permission request (POST)
+      @returns The response of returnAuthorizeFlow */
+  const testSite = await test.getTestSiteJS();
+  const returnAfterLogin = async (loginRedirect: URL, approve?: "yes" | "no") => {
+    test.eq(loginUrl, loginRedirect.origin + loginRedirect.pathname);
+    const loginControl = decryptForThisServer("wrd:authplugin.logincontroltoken", loginRedirect.searchParams.get("wrdauth_logincontrol")!);
+    const returnUrl = new URL(loginControl.returnto, loginUrl).toString();
+    const request = approve
+      ? new IncomingWebRequest(returnUrl, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new TextEncoder().encode(`approve=${approve}`).buffer as ArrayBuffer })
+      : new IncomingWebRequest(returnUrl);
+    return await returnAuthorizeFlow(provider, request, test.getUser("sysop").wrdId, testSite.id);
+  };
+
   //Requesting the MCP server sends the user to the login page. Scheme and host are case-insensitive
   const loginRedirect = await startFlow([mcpUrl.replace(/^https?:\/\/[^/]+/, origin => origin.toUpperCase())]);
-  test.eq(loginUrl, loginRedirect.origin + loginRedirect.pathname);
 
-  //Complete the login as sysop and return to the client with a code
-  const loginControl = decryptForThisServer("wrd:authplugin.logincontroltoken", loginRedirect.searchParams.get("wrdauth_logincontrol")!);
-  const endFlow = await returnAuthorizeFlow(provider, new IncomingWebRequest(new URL(loginControl.returnto, loginUrl).toString()), test.getUser("sysop").wrdId, (await test.getTestSiteJS()).id);
+  /* After logging in, the user must approve the request: otherwise any client could get a token for a user who's already logged
+     in, just by sending them to the authorize URL. The page explains that an AI assistant wants to connect to this website, shows
+     where the user returns to (the redirect URI is verified, the client's name isn't), and warns that a dynamically registered
+     client can't be verified */
+  const permissionPage = await returnAfterLogin(loginRedirect);
+  test.eq(HTTPSuccessCode.Ok, permissionPage.status);
+  const permissionHTML = await permissionPage.text();
+  test.eq(/Permission Request/, permissionHTML);
+  test.eq(new RegExp(`An AI assistant or other application at <strong>127\\.0\\.0\\.1:33418</strong> wants to connect to <strong>${new URL(mcpUrl).host.replaceAll(".", "\\.")}</strong> as you`), permissionHTML);
+  test.eq(/its identity can't be verified/, permissionHTML);
+  test.eq(/name="?approve"? value="?yes"?/, permissionHTML); //the HTML is minified, so attributes may be unquoted
+
+  //Denying returns to the client with an error
+  const denied = await returnAfterLogin(await startFlow([mcpUrl]), "no");
+  test.eq(HTTPSuccessCode.SeeOther, denied.status);
+  test.eq("interaction_required", new URL(denied.headers.get("location")!).searchParams.get("error"));
+
+  //prompt=none can't ask for approval, so it fails even for a logged in user
+  const noPrompt = await returnAfterLogin(await startFlow([mcpUrl], { prompt: "none" }));
+  test.eq("interaction_required", new URL(noPrompt.headers.get("location")!).searchParams.get("error"));
+
+  //Approving returns to the client with a code
+  const endFlow = await returnAfterLogin(loginRedirect, "yes");
   test.eq(HTTPSuccessCode.SeeOther, endFlow.status);
   const code = new URL(endFlow.headers.get("location")!).searchParams.get("code") ?? throwError("No code returned");
 
