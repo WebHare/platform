@@ -9,6 +9,7 @@ import { pick, regExpFromWildcards, throwError } from "@webhare/std";
 import { getAjvForSchema, type AjvValidateFunction, type JSONSchemaObject } from "@webhare/test/src/ajv-wrapper";
 import { getAllModuleYAMLs } from "@webhare/services/src/moduledefparser";
 import { validateCompiledSiteProfile } from "./siteprofiles";
+import { validateMCPToolNames } from "./moduledefinition";
 import { buildGeneratorContext } from "@mod-system/js/internal/generation/generator";
 import { elements, getAttr } from "@mod-system/js/internal/generation/xmlhelpers";
 import { getApplicabilityError, getMyApplicabilityInfo, isNodeApplicableToThisWebHare, readApplicableToWebHareNode } from "@mod-system/js/internal/generation/shared";
@@ -204,6 +205,8 @@ export async function runYAMLBasedValidator(result: ValidationState, content: We
 export async function runJSBasedGlobalValidators(mode: "siteprofiles" | "all", modules: string[] | "*"): Promise<ValidationResult> {
   const result = new ValidationState({});
   await validateCompiledSiteProfile(result, modules);
+  if (mode === "all")
+    await validateMCPToolNames(result, modules);
   return result.finalize();
 }
 

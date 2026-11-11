@@ -732,6 +732,8 @@ $defs:
     type: object
     description: "Declare MCP tools and the WRD schemas whose MCP server offers them. A WRD schema offers an MCP server once dynamic client registration is enabled for it"
     additionalProperties: false
+    propertyNames:
+      maxLength: 64 # Clients turning tools into model tool definitions (eg the Anthropic and OpenAI APIs) accept at most 64 characters
     patternProperties:
       "^[a-z_][-a-z0-9_]*$": # Tool name as seen by MCP clients
         type: object

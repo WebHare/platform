@@ -115,6 +115,7 @@ moduleFileTypes: #adding new types may require an update to addons/vscode-extens
   - tsType: ModuleDefinition
     schema: data/schemas/moduledefinition.schema.yml
     resourceMask: ^mod::[^/]+/moduledefinition\.yml$
+    contentValidator: js/devsupport/moduledefinition.ts#validateModuleDefinition
   - tsType: ModuleScreens
     schema: data/schemas/modulescreens.schema.yml
     resourceMask: ^mod::[^/]+/modulescreens\.yml$
