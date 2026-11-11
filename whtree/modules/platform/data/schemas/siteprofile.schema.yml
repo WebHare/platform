@@ -973,10 +973,10 @@ $defs:
       mailRtdType:
         description: Default RTD type to use for mails
         type: string
-      defaultStoreeDays:
+      defaultStoreDays:
         description: Default days we store visible results.
         type: integer
-      maxStoreeDays:
+      maxStoreDays:
         description: Maximum days we allow storing visible results
         type: integer
       processDays:
