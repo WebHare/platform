@@ -1,4 +1,4 @@
-// @webhare/cli: Convert a module's *.es files to TypeScript (disabling any linting/checking)
+// @webhare/cli: Convert a module's XML siteprofiles (*.siteprl.xml) to YAML (*.siteprl.yml)
 
 import { CLIRuntimeError, runCli } from "@webhare/cli";
 import { backendConfig, parseResourcePath, resolveResource, toFSPath, WebHareBlob } from "@webhare/services";
