@@ -182,15 +182,75 @@ function cannotFind(tid: string) {
 
   return [`(cannot find text: ${tid})`];
 }
+
+/** Truncate country codes from language identifiers (eg en-GB) until we have actual support for those, so we don't break when en-GB is passed straight from eg. document.documentElement.lang */
+function normalizeLangCode(langcode: string): string {
+  return langcode.match(/^[a-z]{2}-/) ? langcode.substring(0, 2) : langcode;
+}
+
+/** Canonicalize a tid (lowercase, expand ~ and tollium:common.* aliases, spaces to underscores in the text name) and split it into module and lookup key
+ * @returns The parsed tid, or null if the tid has no module name
+ */
+function parseTid(tid: string): { tid: string; module: string; lookup: string } | null {
+  tid = getCanonicalTid(tid.toLowerCase());
+  const modsep = tid.indexOf(':');
+  if (modsep === -1)
+    return null;
+
+  const module = tid.substring(0, modsep);
+  const lookup = tid.substring(modsep + 1).replace(/ /g, "_");
+  return { tid: `${module}:${lookup}`, module, lookup };
+}
+
+/** Find the compiled text for a parsed tid, trying the module's fallback language if the text is missing in the requested language.
+ *  Doesn't warn about missing texts, that's up to the caller.
+ * @returns The text (or null if not found) and the fallback language that was tried (empty if none)
+ */
+function lookupTid(langcode: string, module: string, lookup: string): { text: LanguageText | null; fallbackLanguage: string } {
+  const compiled = getLanguageFile(module, langcode);
+  const match = compiled?.texts.get(lookup);
+  if (match)
+    return { text: match, fallbackLanguage: "" };
+
+  const fallbackLanguage = compiled?.fallbackLanguage || "";
+  const fallbackMatch = fallbackLanguage ? getLanguageFile(module, fallbackLanguage)?.texts.get(lookup) : undefined;
+  return { text: fallbackMatch || null, fallbackLanguage };
+}
+
+/** Test whether a tid resolves to a text, without warning about missing texts.
+ * @param tid - Tid to test. Literal texts (':text' and '<>html') always exist, an empty tid never does
+ * @param options - Options:
+ *   langCode - Language to test (defaults to the current language). The module's fallback language is also tried
+ * @returns True if getTid would return an actual text for this tid
+ */
+export function hasTid(tid: string, options?: { langCode?: string }): boolean {
+  if (tid.startsWith(":") || tid.startsWith("<>"))
+    return true;
+
+  const parsed = parseTid(tid);
+  if (!parsed)
+    return false;
+  if (parsed.tid === "tollium:tilde.locale.datetimestrings")
+    return true;
+
+  const langCode = normalizeLangCode(options?.langCode?.toLowerCase() || getTidLanguage());
+  return lookupTid(langCode, parsed.module, parsed.lookup).text !== null;
+}
+
 function calcTIDForLanguage(langcode: string, tid: string, rawParams: TidParam[], rich: boolean, render: null): string[];
 function calcTIDForLanguage(langcode: string, tid: string, rawParams: TidParam[], rich: boolean, render: GetTidRenderFunc): Array<string | object>;
-
-
 function calcTIDForLanguage(langcode: string, tid: string, rawParams: TidParam[], rich: boolean, render: GetTidRenderFunc | null): Array<string | object> {
-  tid = getCanonicalTid(tid.toLowerCase());
-  if (langcode.match(/^[a-z]{2}-/)) //truncate country codes from language identifiers (eg en-GB) until we have actual support for those, so we don't break when en-GB is passed straight from eg. document.documentElement.lang
-    langcode = langcode.substring(0, 2);
+  langcode = normalizeLangCode(langcode);
 
+  const parsed = parseTid(tid);
+  if (!parsed) {
+    tid = getCanonicalTid(tid.toLowerCase());
+    if (dtapStage !== "production" || debugFlags.gtd)
+      console.warn(`Missing module name in call for tid '${tid}'`);
+    return [`(missing module name in tid: ${tid})`];
+  }
+
+  tid = parsed.tid;
   if (tid === "tollium:tilde.locale.datetimestrings") {
     return [getLanguageDatetimeStrings(langcode)];
   }
@@ -198,37 +258,21 @@ function calcTIDForLanguage(langcode: string, tid: string, rawParams: TidParam[]
   // convert null to "", numbers to strings
   const params = rawParams.map(p => (typeof p === "number" ? p.toString() : (p ?? "")));
 
-  const modsep = tid.indexOf(':');
-  if (modsep === -1) {
-    if (dtapStage !== "production" || debugFlags.gtd)
-      console.warn(`Missing module name in call for tid '${tid}'`);
-    return [`(missing module name in tid: ${tid})`];
-  }
-
-  const module = tid.substring(0, modsep);
-  const lookup = tid.substring(modsep + 1).replace(/ /g, "_");
-  tid = `${module}:${lookup}`;
-
   if (langcode === "debug") {
     const debugtid = `{${[tid, ...params].join("|")}}`;
     return [rich ? encodeString(debugtid, "html") : debugtid];
   }
 
-  const compiled = getLanguageFile(module, langcode);
-  const match = compiled?.texts.get(lookup);
-  if (!match && compiled?.fallbackLanguage) {
-    const fallback = getLanguageFile(module, compiled.fallbackLanguage);
-    const fallbackMatch = fallback?.texts.get(lookup);
-    if (!fallbackMatch && (dtapStage !== "production" || debugFlags.gtd)) {
-      console.warn(`Cannot find text ${tid} for language ${langcode}, also tried fallback language '${compiled.fallbackLanguage}'`);
+  const { text, fallbackLanguage } = lookupTid(langcode, parsed.module, parsed.lookup);
+  if (!text) {
+    if (dtapStage !== "production" || debugFlags.gtd) {
+      console.warn(fallbackLanguage
+        ? `Cannot find text ${tid} for language ${langcode}, also tried fallback language '${fallbackLanguage}'`
+        : `Cannot find text ${tid} for language ${langcode}, no fallback language`);
     }
-    return fallbackMatch ? executeCompiledTidText(fallbackMatch, params, rich, render) : cannotFind(tid);
+    return cannotFind(tid);
   }
-
-  if (!match && (dtapStage !== "production" || debugFlags.gtd)) {
-    console.warn(`Cannot find text ${tid} for language ${langcode}, no fallback language`);
-  }
-  return match ? executeCompiledTidText(match, params, rich, render) : cannotFind(tid);
+  return executeCompiledTidText(text, params, rich, render);
 }
 
 function getCanonicalTid(tid: string) {

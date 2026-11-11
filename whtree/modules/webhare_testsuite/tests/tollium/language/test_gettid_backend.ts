@@ -1,6 +1,6 @@
 import { getState, activateHMR } from "@webhare/services/src/hmrinternal";
 import { registerTexts } from "@webhare/gettid/src/internal";
-import { getHTMLTid, getTIDListForLanguage, getTid, getTidForLanguage, getTidLanguage, setTidLanguage } from "@webhare/gettid";
+import { getHTMLTid, getTIDListForLanguage, getTid, getTidForLanguage, getTidLanguage, hasTid, setTidLanguage } from "@webhare/gettid";
 import { loadlib } from "@webhare/harescript";
 import { backendConfig, loadWittyResource } from "@webhare/services";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
@@ -49,6 +49,24 @@ async function tidCompilerTest() {
   test.eq(["Use ", ["a", { href: "x-test:a&b", children: ["this link"] }], " to choose a new password"], getTid("webhare_testsuite:test.hrefparam2", ["x-test:a&b"], { render: (tag: string, props: object) => [tag, props] }));
   test.eq(["Use ", ["a", { href: "x-test:a b", children: ["this link"] }], " to choose a new password"], getTid("webhare_testsuite:test.hrefparam2", ["x-test:a b"], { render: (tag: string, props: object) => [tag, props] }));
   test.eq(["Use ", ["a", { href: "https://beta.webhare.net/a b%20c", children: ["this link"] }], " to choose a new password"], getTid("webhare_testsuite:test.hrefparam2", ["https://beta.webhare.net/a b%20c"], { render: (tag: string, props: object) => [tag, props] }));
+
+  // hasTid
+  test.eq(false, hasTid(""));
+  test.eq(true, hasTid(":"));
+  test.eq(true, hasTid(":One"));
+  test.eq(true, hasTid("<>A&amp;B"));
+  test.eq(true, hasTid("webhare_testsuite:aaa.limitlanguage_en.one"));
+  test.eq(true, hasTid("Webhare_Testsuite:AAa.Limitlanguage en.One"), "same canonicalization as getTid");
+  test.eq(true, hasTid("webhare_testsuite:aaa.limitlanguage_en.one", { langCode: "en-GB" }));
+  test.eq(false, hasTid("webhare testsuite:aaa.limitlanguage_en.one"));
+  test.eq(false, hasTid("webhare_testsuite:aaa.limitlanguage_nl.isnlonly", { langCode: "en" }));
+  test.eq(true, hasTid("webhare_testsuite:aaa.limitlanguage_nl.isnlonly", { langCode: "nl" }));
+  test.eq(false, hasTid("webhare_testsuite:no.such.text"));
+  test.eq(false, hasTid("no_module_name"));
+  test.eq(false, hasTid("no_such_module:some.text"));
+  test.eq(true, hasTid("~close"));
+  test.eq(true, hasTid("~add", { langCode: "nl" }));
+  test.eq(true, hasTid("~locale.datetimestrings"));
 
   // Builtins
   test.eq(await loadlib("wh::datetime.whlib").getLanguageDatetimeStrings("nl"), getTidForLanguage("nl", "tollium:tilde.locale.datetimestrings"));
@@ -129,8 +147,11 @@ async function fallbackLanguageTest() {
   test.eq("A message", getTid("webhare_testsuite_temp:notifications.messagefromthefuture"));
   test.eq("A text", getTid("webhare_testsuite_temp:testfallback.sub.text"));
   test.eq("Another text", getTid("webhare_testsuite_temp:testfallback.anothertext"));
+  test.eq(true, hasTid("webhare_testsuite_temp:testfallback.sub.text"), "found through the fallback language");
   setTidLanguage("nl");
   test.eq("(cannot find text: webhare_testsuite_temp:notifications.messagefromthefuture)", getTid("webhare_testsuite_temp:notifications.messagefromthefuture"));
+  test.eq(false, hasTid("webhare_testsuite_temp:notifications.messagefromthefuture"));
+  test.eq(true, hasTid("webhare_testsuite_temp:notifications.messagefromthefuture", { langCode: "xxx" }));
   test.eq("Can't find me from NL", getTid("webhare_testsuite_temp:testfallbackdefaultrecursion.text"));
 
   setTidLanguage("XY");
