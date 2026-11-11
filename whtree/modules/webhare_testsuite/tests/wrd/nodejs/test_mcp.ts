@@ -1,7 +1,8 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { createFirstPartyToken } from "@webhare/auth";
 import { createCodeVerifier, IdentityProvider } from "@webhare/auth/src/identity";
-import { createMCPClient, type MCPHTTPError, type MCPProtocolError } from "@webhare/mcp";
+import { createMCPClient, type MCPHTTPError, type MCPProtocolError, type MCPToolOutput } from "@webhare/mcp";
+import type { whoami } from "@mod-webhare_testsuite/js/mcp-tools";
 import { HTTPSuccessCode } from "@webhare/router";
 import { IncomingWebRequest } from "@webhare/router/src/request";
 import { broadcast, decryptForThisServer, toResourcePath } from "@webhare/services";
@@ -151,6 +152,50 @@ async function testMCPEndpoint() {
   }, await client.initialize()); //also sends notifications/initialized, which must be accepted
   await client.ping();
   test.eq(-32601, (await test.throws(/Method not found/, client.request("no/such/method")) as MCPProtocolError).code);
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: The tools added to the schema are listed and can be called
+  /* Other installed modules may add tools to testschema too (addToSchemas works across modules), so only verify ours are
+     listed as declared, in declaration order */
+  const ourToolNames = ["whoami", "fail"];
+  test.eq([
+    {
+      name: "whoami",
+      title: "Who am I",
+      description: "Returns the user you're signed in as, and the WRD schema that authenticated you",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      annotations: { readOnlyHint: true }
+    }, {
+      name: "fail",
+      description: "Always fails with an internal error. Used to test error handling",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false }
+    }
+  ], (await client.listTools()).filter(tool => ourToolNames.includes(tool.name)));
+
+  //whoami reads the user from the server's schema using the schema's account settings
+  const sysop = test.getUser("sysop");
+  const whoamiResult = await client.callTool<MCPToolOutput<typeof whoami>>("whoami", {});
+  test.eqPartial({
+    structuredContent: {
+      wrdSchema: "webhare_testsuite:testschema",
+      accountType: "wrdPerson",
+      entityId: sysop.wrdId,
+      login: sysop.login,
+      email: sysop.login
+    }
+  }, whoamiResult);
+  test.eq(undefined, whoamiResult.isError);
+  test.eq("text", whoamiResult.content[0].type);
+  test.eqPartial({ entityId: sysop.wrdId }, JSON.parse(whoamiResult.content[0].text));
+
+  //An exception in a tool is a tool error, but doesn't reveal the exception's message
+  const failResult = await client.callTool("fail", {});
+  test.eq({ content: [{ type: "text", text: "Tool 'fail' failed with an internal error" }], isError: true }, failResult);
+  test.assert(!JSON.stringify(failResult).includes("secret"));
+
+  //Unknown tools and invalid arguments are protocol errors
+  test.eq(-32602, (await test.throws(/error -32602/, client.callTool("nosuchtool")) as MCPProtocolError).code);
+  test.eq(-32602, (await test.throws(/error -32602/, client.request("tools/call", { name: "whoami", arguments: ["x"] })) as MCPProtocolError).code);
 
   //We don't offer a server-to-client SSE stream, so GET isn't allowed
   test.eq(405, (await fetch(mcpUrl, { headers: { authorization: "Bearer " + accessToken } })).status);

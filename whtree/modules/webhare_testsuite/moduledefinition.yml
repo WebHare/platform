@@ -128,6 +128,19 @@ wrdSchemas:
     abstract: true
     schema: tests/wrd/nodejs/data/usermgmt_oidc.wrdschema.xml
 
+mcpTools:
+  whoami:
+    addToSchemas: [testschema]
+    title: Who am I
+    description: "Returns the user you're signed in as, and the WRD schema that authenticated you"
+    annotations:
+      readOnlyHint: true
+    onCall: js/mcp-tools.ts#whoami
+  fail:
+    addToSchemas: [testschema]
+    description: "Always fails with an internal error. Used to test error handling"
+    onCall: js/mcp-tools.ts#failTool
+
 pxlEvents:
   aa:
     fields:

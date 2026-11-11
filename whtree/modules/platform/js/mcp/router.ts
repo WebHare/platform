@@ -3,12 +3,15 @@
    registering themselves, so that setting is what makes the server usable. Authentication uses OAuth2 access tokens
    issued by the identity provider of the WRD schema (MCP authorization spec, RFC 9728)
 
-   This is currently a minimal stub: it handles initialization, ping and an empty tool list */
+   Tools are added to a schema's MCP server by mcpTools in any module's moduledefinition.yml */
 
 import { createJSONResponse, createWebResponse, HTTPErrorCode, HTTPSuccessCode, type WebHareRouter, type WebRequest, type WebResponse } from "@webhare/router";
-import { backendConfig } from "@webhare/services";
+import { backendConfig, importJSFunction, logError } from "@webhare/services";
 import { IdentityProvider } from "@webhare/auth/src/identity";
 import { getSchemaSettings, wrd, type WRDSchemaLike } from "@webhare/wrd";
+import { getExtractedConfig } from "@mod-system/js/internal/configuration";
+import type { MCPToolDescriptor } from "@mod-system/js/internal/generation/gen_extract_mcp";
+import type { MCPToolContext, MCPToolHandler, MCPToolResult } from "@webhare/mcp";
 import { getMCPServerURL, getOpenIDIssuer } from "../auth/openid";
 
 /** Protocol versions we support, latest first */
@@ -30,6 +33,7 @@ const JSONRPCErrors = {
   ParseError: -32700,
   InvalidRequest: -32600,
   MethodNotFound: -32601,
+  InvalidParams: -32602,
 } as const;
 
 /** An MCP server as offered at a specific URL */
@@ -109,6 +113,39 @@ function requireAuthentication(server: MCPServerInstance, error?: string): WebRe
   });
 }
 
+/** Get the tools offered by the MCP server of a WRD schema. If several modules add a tool with the same name, the first
+    one wins. TODO also offer tools added to schemas that this schema imports, and report name collisions at apply time */
+function getTools(wrdSchemaTag: string): MCPToolDescriptor[] {
+  const tools: MCPToolDescriptor[] = [];
+  for (const tool of getExtractedConfig("mcp").tools)
+    if (tool.addToSchemas.includes(wrdSchemaTag) && !tools.some(t => t.toolName === tool.toolName))
+      tools.push(tool);
+  return tools;
+}
+
+/** Describe a tool for tools/list */
+function describeTool(tool: MCPToolDescriptor) {
+  return {
+    name: tool.toolName,
+    ...tool.title ? { title: tool.title } : {},
+    ...tool.description ? { description: tool.description } : {},
+    inputSchema: tool.inputSchema,
+    ...Object.keys(tool.annotations).length ? { annotations: tool.annotations } : {}
+  };
+}
+
+/** Invoke a tool. An exception is logged and reported to the client as a tool error (rather than a protocol error) without
+    its message: exception messages may reveal internal details (paths, queries, data) the caller shouldn't see */
+async function callTool(tool: MCPToolDescriptor, args: Record<string, unknown>, context: MCPToolContext): Promise<MCPToolResult> {
+  try {
+    const handler = await importJSFunction<MCPToolHandler<Record<string, unknown>>>(tool.onCall);
+    return await handler(args, context);
+  } catch (e) {
+    logError(e as Error, { info: { mcpTool: tool.name, wrdSchema: context.wrdSchema } });
+    return { content: [{ type: "text", text: `Tool '${tool.toolName}' failed with an internal error` }], isError: true };
+  }
+}
+
 async function handleMCPRequest(context: MCPContext, message: JSONRPCMessage): Promise<WebResponse> {
   if (message.id === undefined) //A notification (eg notifications/initialized) or a response to a server request. We don't act on any yet
     return createWebResponse("", { status: HTTPSuccessCode.Accepted });
@@ -130,7 +167,21 @@ async function handleMCPRequest(context: MCPContext, message: JSONRPCMessage): P
     case "ping":
       return jsonRPCResult(message.id, {});
     case "tools/list":
-      return jsonRPCResult(message.id, { tools: [] });
+      return jsonRPCResult(message.id, { tools: getTools(context.server.wrdSchemaTag).map(describeTool) });
+    case "tools/call": {
+      const tool = getTools(context.server.wrdSchemaTag).find(t => t.toolName === message.params?.name);
+      if (!tool)
+        return jsonRPCError(message.id, JSONRPCErrors.InvalidParams, `Unknown tool: ${message.params?.name}`);
+      const args = message.params?.arguments ?? {};
+      if (!args || typeof args !== "object" || Array.isArray(args))
+        return jsonRPCError(message.id, JSONRPCErrors.InvalidParams, `Tool arguments must be an object`);
+
+      return jsonRPCResult(message.id, await callTool(tool, args as Record<string, unknown>, {
+        wrdSchema: context.server.wrdSchemaTag,
+        user: context.user,
+        scopes: context.scopes
+      }));
+    }
     default:
       return jsonRPCError(message.id, JSONRPCErrors.MethodNotFound, `Method not found: ${message.method}`, HTTPErrorCode.NotFound);
   }

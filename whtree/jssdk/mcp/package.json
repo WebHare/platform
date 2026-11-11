@@ -2,7 +2,7 @@
   "name": "@webhare/mcp",
   "type": "module",
   "version": "",
-  "description": "Client for MCP (Model Context Protocol) servers, such as the MCP servers WebHare offers for WRD schemas",
+  "description": "Types for implementing MCP (Model Context Protocol) tools offered by the MCP servers of WRD schemas, and an MCP client",
   "main": "src/mcp.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

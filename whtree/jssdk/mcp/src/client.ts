@@ -1,5 +1,28 @@
+import type { MCPToolResult } from "./mcp";
+
 /** Protocol version requested by MCPClient unless overridden */
 export const defaultProtocolVersion = "2025-06-18";
+
+/** Hints about a tool's behavior, as defined by the MCP ToolAnnotations */
+export type MCPToolAnnotations = {
+  title?: string;
+  readOnlyHint?: boolean;
+  destructiveHint?: boolean;
+  idempotentHint?: boolean;
+  openWorldHint?: boolean;
+};
+
+/** A tool as listed by an MCP server's tools/list */
+export type MCPToolDefinition = {
+  name: string;
+  title?: string;
+  description?: string;
+  /** JSON Schema of the tool's arguments */
+  inputSchema: Record<string, unknown> & { type: "object" };
+  /** JSON Schema of the tool's structuredContent */
+  outputSchema?: Record<string, unknown> & { type: "object" };
+  annotations?: MCPToolAnnotations;
+};
 
 /** Name and version of an MCP client or server */
 export type MCPImplementation = {
@@ -170,6 +193,26 @@ export class MCPClient {
     await this.request("ping");
   }
 
+  /** List the tools offered by the server */
+  async listTools(): Promise<MCPToolDefinition[]> {
+    const tools: MCPToolDefinition[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await this.request<{ tools: MCPToolDefinition[]; nextCursor?: string }>("tools/list", cursor ? { cursor } : undefined);
+      tools.push(...page.tools);
+      cursor = page.nextCursor;
+    } while (cursor);
+    return tools;
+  }
+
+  /** Call a tool. A failing tool returns a result with isError set, it doesn't throw
+   * @typeParam Structured - Expected type of the result's structuredContent
+   * @param name - Name of the tool
+   * @param args - Arguments for the tool
+   */
+  async callTool<Structured extends Record<string, unknown> = Record<string, unknown>>(name: string, args?: Record<string, unknown>): Promise<MCPToolResult<Structured>> {
+    return await this.request<MCPToolResult<Structured>>("tools/call", { name, ...(args !== undefined ? { arguments: args } : {}) });
+  }
 }
 
 /** Create a client for an MCP server using the Streamable HTTP transport
