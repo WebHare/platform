@@ -1327,6 +1327,8 @@ Add the name of the type of data (for example "headerimages") or the purpose it 
                   description="List of IP addresses that bypass access rule login requirements, comma-separated" />
           <node name="keys" />
           <string name="gcmsecret" description="Secret key used for aes-256-gcm 'this server' encryptions" />
+          <string name="retiredsecrets"
+                  description="JSON list of replaced secrets that may still be recognized. Managed by 'wh auth rotate-secrets'" />
           <obsoletenode name="custom" />
         </node>
         <node name="webdav">

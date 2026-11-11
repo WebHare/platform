@@ -7,7 +7,7 @@ import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import { readFile } from "node:fs/promises";
 import type { ConfigFile } from "@webhare/services/src/config";
 
-import { appendSlashWhenMissing, isValidDTAPStage, updateWebHareConfigWithoutDB, type PartialConfigFile } from "./gen_config_nodb";
+import { appendSlashWhenMissing, isValidDTAPStage, parseRetiredSecrets, updateWebHareConfigWithoutDB, type PartialConfigFile } from "./gen_config_nodb";
 import { reloadBackendConfig } from "../configuration";
 import { __createRawConnection } from "@webhare/whdb/src/impl";
 import type { WHDBClientInterface } from "@webhare/whdb/src/connectionbase";
@@ -63,6 +63,18 @@ async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: boolean
       finalconfig.secrets.cache = await rawReadRegistryKey<string>(pgclient, "system.webserver.security.cachesecret") ?? finalconfig.secrets.cache ?? "";
       finalconfig.secrets.debug = await rawReadRegistryKey<string>(pgclient, "system.webserver.security.debugsecret") ?? finalconfig.secrets.debug ?? "";
       finalconfig.secrets.gcm = await rawReadRegistryKey<string>(pgclient, "system.webserver.security.gcmsecret") ?? finalconfig.secrets.gcm ?? "";
+
+      const retiredsecrets = await rawReadRegistryKey<string>(pgclient, "system.webserver.security.retiredsecrets");
+      if (retiredsecrets !== undefined) { //undefined if the registry key doesn't exist yet. then keep the list from the old platform.json
+        let parsed: unknown = [];
+        try {
+          parsed = retiredsecrets ? JSON.parse(retiredsecrets) : [];
+        } catch (e) {
+          console.error("Failed to parse system.webserver.security.retiredsecrets", e);
+          parsed = finalconfig.secrets.retired; //don't lose the retired secrets if the registry key is damaged
+        }
+        finalconfig.secrets.retired = parseRetiredSecrets(parsed);
+      }
       finalconfig.defaultImageFormat = (await rawReadRegistryKey<ConfigFile["defaultImageFormat"]>(pgclient, "platform.cache.defaultimageformat") ?? finalconfig.defaultImageFormat) || "keep";
 
       return finalconfig;
