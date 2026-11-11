@@ -136,6 +136,25 @@ mcpTools:
     annotations:
       readOnlyHint: true
     onCall: js/mcp-tools.ts#whoami
+  greet:
+    addToSchemas: [testschema]
+    title: Greet
+    description: "Returns a greeting for the given name. Used to test tool arguments"
+    annotations:
+      readOnlyHint: true
+      idempotentHint: true
+    inputSchema:
+      type: object
+      properties:
+        name:
+          type: string
+          description: "Name of the person to greet"
+          minLength: 1
+          maxLength: 100
+          pattern: "\\S"
+      required: [name]
+      additionalProperties: false
+    onCall: js/mcp-tools.ts#greet
   fail:
     addToSchemas: [testschema]
     description: "Always fails with an internal error. Used to test error handling"

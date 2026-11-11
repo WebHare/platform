@@ -13,6 +13,7 @@ import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import type { MCPToolDescriptor } from "@mod-system/js/internal/generation/gen_extract_mcp";
 import type { MCPToolContext, MCPToolHandler, MCPToolResult } from "@webhare/mcp";
 import { getMCPServerURL, getOpenIDIssuer } from "../auth/openid";
+import { validateToolInput } from "./inputvalidation";
 
 /** Protocol versions we support, latest first */
 const supportedProtocolVersions = ["2025-11-25", "2025-06-18", "2025-03-26"];
@@ -134,10 +135,17 @@ function describeTool(tool: MCPToolDescriptor) {
   };
 }
 
-/** Invoke a tool. An exception is logged and reported to the client as a tool error (rather than a protocol error) without
-    its message: exception messages may reveal internal details (paths, queries, data) the caller shouldn't see */
+/** Invoke a tool. Arguments that don't match the tool's inputSchema are reported to the client as a tool error (as the MCP
+    spec recommends, so the client's model can correct its call) and the handler isn't called.
+    An exception (including an invalid inputSchema) is logged and reported to the client as a tool error (rather than a
+    protocol error) without its message: exception messages may reveal internal details (paths, queries, data) the caller
+    shouldn't see */
 async function callTool(tool: MCPToolDescriptor, args: Record<string, unknown>, context: MCPToolContext): Promise<MCPToolResult> {
   try {
+    const inputError = validateToolInput(tool.inputSchema, args);
+    if (inputError)
+      return { content: [{ type: "text", text: `Invalid arguments for tool '${tool.toolName}': ${inputError}` }], isError: true };
+
     const handler = await importJSFunction<MCPToolHandler<Record<string, unknown>>>(tool.onCall);
     return await handler(args, context);
   } catch (e) {

@@ -21,9 +21,12 @@ mcpTools:
 
 - `addToSchemas` lists the WRD schemas whose MCP server offers the tool. Unqualified names refer to schemas of the
   declaring module; use `module:schema` for schemas of other modules.
+- `inputSchema` (optional) is a JSON Schema (2020-12) with `type: object` describing the tool's arguments. Without it,
+  the tool accepts no arguments. Arguments are validated against it before the tool is called: invalid arguments are
+  returned to the client as a tool error describing what's wrong, so the handler can rely on its input matching the
+  schema.
 - `annotations` are passed to MCP clients as hints: `readOnlyHint`, `destructiveHint`, `idempotentHint` and
   `openWorldHint`.
-- Tools don't accept arguments yet.
 
 ## Implementing a tool
 

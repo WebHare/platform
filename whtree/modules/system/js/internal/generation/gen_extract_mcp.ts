@@ -22,7 +22,7 @@ export type MCPToolDescriptor = {
   /** Description of what the tool does. Empty if not set */
   description: string;
   annotations: MCPToolAnnotations;
-  /** JSON Schema for the tool's arguments. Tools don't accept arguments yet */
+  /** JSON Schema for the tool's arguments */
   inputSchema: Record<string, unknown>;
   /** Resolved function implementing the tool (eg mod::module/js/mcp.ts#whoami) */
   onCall: string;
@@ -49,7 +49,7 @@ export async function generateMCP(context: GenerateContext): Promise<string> {
         title: tool.title || "",
         description: tool.description || "",
         annotations: tool.annotations || {},
-        inputSchema: { type: "object", properties: {}, additionalProperties: false },
+        inputSchema: tool.inputSchema || { type: "object", properties: {}, additionalProperties: false },
         onCall: resolveResource(mod.resourceBase, tool.onCall)
       });
     }

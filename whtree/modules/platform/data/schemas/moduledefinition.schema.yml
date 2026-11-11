@@ -766,6 +766,9 @@ $defs:
               openWorldHint:
                 type: boolean
                 description: "The tool interacts with external entities outside WebHare"
+          inputSchema:
+            type: object
+            description: "JSON Schema (2020-12) for the tool's arguments. Must have type 'object'. Defaults to a schema accepting no arguments"
           onCall:
             type: string
             description: "Function implementing the tool. Must satisfy MCPToolHandler"

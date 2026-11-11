@@ -34,7 +34,7 @@ export type MCPToolResult<Structured extends Record<string, unknown> = Record<st
 
 /** Signature of an MCP tool's onCall function. Declare handlers using `satisfies MCPToolHandler` rather than as `MCPToolHandler`
     to keep their inferred result type, so clients can use {@link MCPToolOutput} to get the type of their structuredContent
-    @typeParam Input - Arguments the tool accepts. Tools don't accept arguments yet
+    @typeParam Input - Arguments the tool accepts, matching its inputSchema
     @typeParam Structured - Type of the structuredContent the tool returns */
 export type MCPToolHandler<Input extends Record<string, unknown> = Record<string, never>, Structured extends Record<string, unknown> = Record<string, unknown>> = (input: Input, context: MCPToolContext) => Promise<MCPToolResult<Structured>> | MCPToolResult<Structured>;
 
