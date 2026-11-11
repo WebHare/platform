@@ -180,7 +180,8 @@ async function handleMCPRequest(context: MCPContext, message: JSONRPCMessage): P
       const tool = getTools(context.server.wrdSchemaTag).find(t => t.toolName === message.params?.name);
       if (!tool)
         return jsonRPCError(message.id, JSONRPCErrors.InvalidParams, `Unknown tool: ${message.params?.name}`);
-      const args = message.params?.arguments ?? {};
+      //Arguments may be omitted, but an explicit null (or any other non-object) is invalid
+      const args = message.params?.arguments === undefined ? {} : message.params.arguments;
       if (!args || typeof args !== "object" || Array.isArray(args))
         return jsonRPCError(message.id, JSONRPCErrors.InvalidParams, `Tool arguments must be an object`);
 
@@ -223,6 +224,9 @@ export async function mcpRouter(req: WebRequest): Promise<WebResponse> {
   }
   if (!message || typeof message !== "object" || Array.isArray(message) || message.jsonrpc !== "2.0")
     return jsonRPCError(null, JSONRPCErrors.InvalidRequest, "Invalid request");
+  //A message without an id is a notification. If there is an id, MCP requires a string or an integer (unlike JSON-RPC, not null)
+  if (message.id !== undefined && typeof message.id !== "string" && !Number.isInteger(message.id))
+    return jsonRPCError(null, JSONRPCErrors.InvalidRequest, "Invalid request: the id must be a string or an integer");
 
   return await handleMCPRequest({ server, user: tokenInfo.entity, scopes: tokenInfo.scopes }, message);
 }

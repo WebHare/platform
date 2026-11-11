@@ -233,6 +233,19 @@ async function testMCPEndpoint() {
   //Unknown tools and invalid arguments are protocol errors
   test.eq(-32602, (await test.throws(/error -32602/, client.callTool("nosuchtool")) as MCPProtocolError).code);
   test.eq(-32602, (await test.throws(/error -32602/, client.request("tools/call", { name: "whoami", arguments: ["x"] })) as MCPProtocolError).code);
+  //Omitted arguments are an empty object, but an explicit null isn't
+  test.eq(-32602, (await test.throws(/error -32602/, client.request("tools/call", { name: "whoami", arguments: null })) as MCPProtocolError).code);
+
+  //Request ids must be strings or integers. Our client always sends valid ids, so post these ourselves
+  for (const id of [{}, false, null, 1.5]) {
+    const response = await fetch(mcpUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json", "accept": "application/json, text/event-stream", "authorization": "Bearer " + accessToken },
+      body: JSON.stringify({ jsonrpc: "2.0", id, method: "tools/call", params: { name: "whoami" } })
+    });
+    test.eq(400, response.status, `Expected id ${JSON.stringify(id)} to be rejected`);
+    test.eqPartial({ jsonrpc: "2.0", id: null, error: { code: -32600 } }, await response.json());
+  }
 
   //We don't offer a server-to-client SSE stream, so GET isn't allowed
   test.eq(405, (await fetch(mcpUrl, { headers: { authorization: "Bearer " + accessToken } })).status);
