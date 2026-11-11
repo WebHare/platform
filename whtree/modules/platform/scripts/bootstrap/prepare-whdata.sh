@@ -41,6 +41,15 @@ if [ -z "$WEBHARE_DATAROOT" ]; then
   exit 1
 fi
 
+if [ -n "$WEBHARE_IN_DOCKER" ] && [ -n "$WEBHARE_DOCKER_USER" ]; then
+  # We're running WebHare as an unprivileged user. /opt/whdata is owned by root and we can't modify it ourselves, so
+  # let the setuid helper create the directories and files that WebHare needs to write to (and remove obsolete ones)
+  if ! /opt/container/whprivileged prepare-dataroot; then
+    echo "Failed to prepare /opt/whdata"
+    exit 1
+  fi
+fi
+
 CONFIGDIR="$WEBHARE_DATAROOT/config"
 CONFIGJSON="$CONFIGDIR/platform.json"
 if [ -z "$FORCE" ] && [ -h "$WEBHARE_DATAROOT/node_modules/@webhare" ] && [ -f "$CONFIGJSON" ]; then

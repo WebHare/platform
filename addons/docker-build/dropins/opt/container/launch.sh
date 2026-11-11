@@ -11,9 +11,18 @@ eval `/opt/wh/whtree/bin/wh setupmyshell`
 mkdir -p /tmp 2>/dev/null
 chmod 1777 /tmp 2>/dev/null
 
-# Ensure root has /opt/whdata/root/
-mkdir -p /opt/whdata/root
-chown root /opt/whdata/root
+if [ -n "$WEBHARE_DOCKER_USER" ]; then
+  # We're running WebHare as an unprivileged user. /opt/whdata is owned by root and we can't modify it ourselves, so
+  # let the setuid helper create the directories and files that WebHare needs to write to (and remove obsolete ones)
+  if ! /opt/container/whprivileged prepare-dataroot; then
+    echo "Failed to prepare /opt/whdata"
+    exit 1
+  fi
+else
+  # Ensure root has /opt/whdata/root/
+  mkdir -p /opt/whdata/root
+  chown root /opt/whdata/root
+fi
 
 # If no $HOME/.vimrc exists, create it to make vi behave more sane. This is the way we like it
 if [ ! -f /opt/whdata/root/.vimrc ]; then
@@ -21,15 +30,17 @@ if [ ! -f /opt/whdata/root/.vimrc ]; then
   echo 'set nocompatible' >> /opt/whdata/root/.vimrc
 fi
 
-# If the database is referring to /opt/webhare/output, which is a symlink now to /opt/whdata/output, but /opt/whdata/output is missing, WebHare can't fix it
-# probably no longer relevant since we're now mostly converting database outputfolders to be fully relative to /opt/whdata/output/
-mkdir -p /opt/whdata/output /opt/whdata/installedmodules /opt/whdata/storage
-# Create tmp storage dir, webhare-docker-config.xml refers to this
-mkdir -p /opt/whdata/tmp
+if [ -z "$WEBHARE_DOCKER_USER" ]; then # (prepare-dataroot took care of these)
+  # If the database is referring to /opt/webhare/output, which is a symlink now to /opt/whdata/output, but /opt/whdata/output is missing, WebHare can't fix it
+  # probably no longer relevant since we're now mostly converting database outputfolders to be fully relative to /opt/whdata/output/
+  mkdir -p /opt/whdata/output /opt/whdata/installedmodules /opt/whdata/storage
+  # Create tmp storage dir, webhare-docker-config.xml refers to this
+  mkdir -p /opt/whdata/tmp
 
-# Ensure webhare owns /opt/whdata and that it's masked from 'other' users
-chgrp whdata /opt/whdata
-chmod o-rwx /opt/whdata
+  # Ensure webhare owns /opt/whdata and that it's masked from 'other' users
+  chgrp whdata /opt/whdata
+  chmod o-rwx /opt/whdata
+fi
 
 # Mount needed data for restores
 if [ -f /opt/whdata/backupmountconfig ]; then
@@ -57,11 +68,8 @@ if [ -n "$WH_RESTORE_DATABASESOURCE" ]; then
   fi
 fi
 
-# Set the timezone
-ln -sf /usr/share/zoneinfo/Europe/Amsterdam /etc/localtime
-
-# Delete old docker config to avoid confusion
-[ -f /opt/whdata/webhare-config.xml ] && rm /opt/whdata/webhare-config.xml
+# Delete old docker config to avoid confusion (prepare-dataroot does this when running unprivileged)
+[ -z "$WEBHARE_DOCKER_USER" ] && [ -f /opt/whdata/webhare-config.xml ] && rm /opt/whdata/webhare-config.xml
 
 # Set up a RedHat-like .bashrc if not present
 [ -f /opt/whdata/root/.bashrc ] || cat > /opt/whdata/root/.bashrc <<'EOF'

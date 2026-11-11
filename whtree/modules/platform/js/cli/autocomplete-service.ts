@@ -7,6 +7,7 @@ import * as http from "node:http";
 import { runCli } from "@webhare/cli";
 import * as path from "node:path";
 import { isError } from "@webhare/std";
+import { isDataRootLocked } from "@mod-system/js/internal/configuration";
 
 
 function parseFSPath(fsPath: string) {
@@ -127,14 +128,15 @@ async function runServerMode() {
     res.setHeader('Content-Type', 'text/plain');
   });
 
-  const socketPath = backendConfig.dataRoot + "/.cli-autocomplete.sock";
+  // We can't create the socket directly inside a locked dataroot. Keep in sync with the path in bin/wh
+  const socketPath = backendConfig.dataRoot + (isDataRootLocked() ? "/ephemeral/cli-autocomplete.sock" : "/.cli-autocomplete.sock");
   try {
     // unlink the file if it exists
     await fs.unlink(socketPath);
   } catch (e) {
   }
 
-  server.listen(backendConfig.dataRoot + "/.cli-autocomplete.sock");
+  server.listen(socketPath);
 }
 
 runCli({

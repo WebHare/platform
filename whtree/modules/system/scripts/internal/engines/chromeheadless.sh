@@ -6,19 +6,21 @@
 # And add eg `[ devtoolsurl := "http://127.0.0.1:9999/" ]` in the second parameter of GeneratePDF
 #
 
+# Setuid helper for containers running WebHare as an unprivileged user (see ap/utils/whprivileged.cpp)
+WEBHARE_PRIVILEGED=/opt/container/whprivileged
+
+# Make sure our chrome state is completely clean
+RESETPROFILE='if [ -e "$1" ]; then mv -- "$1" "$1.bak" && rm -rf -- "$1.bak"; fi; mkdir -p -- "$1"'
+
 if [ -n "$WEBHARE_IN_DOCKER" ]; then
   PROFILEDIR=/home/chrome/profile
 else
   PROFILEDIR="$HOME/.chrome-headless-profile"
 fi
 
-# Make sure our chrome state is completely clean
-if [ -e "$PROFILEDIR" ]; then
-  mv -- "$PROFILEDIR" "$PROFILEDIR.bak"
-  rm -rf -- "$PROFILEDIR.bak"
-fi
-
-mkdir -p -- "$PROFILEDIR"
+if [ -z "$WEBHARE_IN_DOCKER" ] || [ -z "$WEBHARE_DOCKER_USER" ]; then
+  /bin/bash -c "$RESETPROFILE" -- "$PROFILEDIR"
+fi # else: we can't touch /home/chrome, the profile will be reset as user chrome just before launching chrome
 
 cd "$WEBHARE_DIR"
 
@@ -59,6 +61,12 @@ if [ -n "$WEBHARE_IN_DOCKER" ]; then
   # http://smarden.org/runit/chpst.8.html - part of runit tools
   # start chrome sa safe user. keep it away from stdin just in case.
   export HOME=/home/chrome
+
+  if [ -n "$WEBHARE_DOCKER_USER" ]; then
+    # Reset the profile as user chrome and then start the browser
+    exec "$WEBHARE_PRIVILEGED" run-as chrome /bin/bash -c "$RESETPROFILE"' && shift && exec "$@"' -- "$PROFILEDIR" "$BROWSER" $ARGS "$@" < /dev/null
+  fi
+
   chown -R chrome:chrome -- "$PROFILEDIR"
 
   CHPST=""

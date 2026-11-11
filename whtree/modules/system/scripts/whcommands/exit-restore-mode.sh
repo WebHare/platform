@@ -1,6 +1,8 @@
 #!/bin/bash
 # short: exit restore mode
 
+source "$WEBHARE_DIR/lib/wh-functions.sh"
+
 if [ ! -e "$WEBHARE_DATAROOT/webhare.restoremode" ]; then
   if [ -z "$WEBHARE_ISRESTORED" ]; then
     echo "This WebHare does not appear to run in restore mode"
@@ -10,7 +12,11 @@ if [ ! -e "$WEBHARE_DATAROOT/webhare.restoremode" ]; then
   exit 1
 fi
 
-rm -f "$WEBHARE_DATAROOT/webhare.restoremode"
+if is_unprivileged_container; then
+  "$WEBHARE_PRIVILEGED" clear-restoremode
+else
+  rm -f "$WEBHARE_DATAROOT/webhare.restoremode"
+fi
 if [ -e "$WEBHARE_DATAROOT/webhare.restoremode" ]; then
   echo "Failed to remove restoremode file"
   exit 1

@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+source "${BASH_SOURCE%/*}/../lib/wh-functions.sh"
+
 # To locally test and debug changes to the OpenSearch build and initialization in podman:
 # wh buildcontainer && wh testcontainer --sh --tag=-external -w local consilio
 
@@ -22,8 +24,8 @@ echo "Max open files: $(ulimit -n)"
 OPENSEARCHPORT=$(( $WEBHARE_BASEPORT + 6 ))
 OPENSEARCHROOT="$WEBHARE_DATAROOT/opensearch"
 
-# Rename old data folder
-if [ -d "$WEBHARE_DATAROOT/elasticsearch" ] && [ ! -d "$OPENSEARCHROOT" ]; then
+# Rename old data folder (prepare-opensearch does this for unprivileged containers)
+if ! is_unprivileged_container && [ -d "$WEBHARE_DATAROOT/elasticsearch" ] && [ ! -d "$OPENSEARCHROOT" ]; then
   mv "$WEBHARE_DATAROOT/elasticsearch" "$OPENSEARCHROOT"
 fi
 
@@ -34,10 +36,19 @@ if [ -z "$WEBHARE_OPENSEARCH_BINDHOST" ]; then
 fi
 
 # "Elasticsearch does not remove its temporary directory. You should remove leftover temporary directories while Elasticsearch is not running. It is best to do this automatically, for instance on each reboot."
-rm -rf -- "$OPENSEARCHROOT/tmp"
-mkdir -p -- "$OPENSEARCHROOT/logs" "$OPENSEARCHROOT/data" "$OPENSEARCHROOT/repo" "$OPENSEARCHROOT/tmp"
+PREPAREDIRS='rm -rf -- "$1/tmp" && mkdir -p -- "$1/logs" "$1/data" "$1/repo" "$1/tmp"'
+if is_unprivileged_container; then
+  # The dataroot is owned by root and opensearch/ by opensearch. Create it and set it up as opensearch
+  "$WEBHARE_PRIVILEGED" prepare-opensearch || die "Unable to prepare $OPENSEARCHROOT"
+  "$WEBHARE_PRIVILEGED" run-as opensearch /bin/bash -c "$PREPAREDIRS" -- "$OPENSEARCHROOT"
+else
+  /bin/bash -c "$PREPAREDIRS" -- "$OPENSEARCHROOT"
+fi
+
 if [ -n "$WEBHARE_IN_DOCKER" ]; then
-  chown opensearch:opensearch -- "$OPENSEARCHROOT/logs" "$OPENSEARCHROOT/data" "$OPENSEARCHROOT/repo" "$OPENSEARCHROOT/tmp"
+  if ! is_unprivileged_container; then
+    chown opensearch:opensearch -- "$OPENSEARCHROOT/logs" "$OPENSEARCHROOT/data" "$OPENSEARCHROOT/repo" "$OPENSEARCHROOT/tmp"
+  fi
   # needed for knn search to work
   export LD_LIBRARY_PATH=/opt/opensearch/plugins/opensearch-knn/lib/:$LD_LIBRARY_PATH
 fi
@@ -60,7 +71,10 @@ fi
 export OPENSEARCH_JAVA_OPTS="-Xlog:os+container=off -Xms${INITIALMEMORY}m -Xmx${MAXIMUMMEMORY}m -XX:-AlwaysPreTouch -Xlog:gc*,gc+age=trace,safepoint:file=${OPENSEARCHROOT}/logs/gc.log:utctime,pid,tags:filecount=32,filesize=64m -Djava.io.tmpdir=${OPENSEARCHROOT}/tmp -Djava.security.egd=file:/dev/./urandom -Djava.security.properties=${WEBHARE_DIR}/etc/java.security.override"
 
 CHPST=""
-if [ -n "$WEBHARE_IN_DOCKER" ]; then
+if is_unprivileged_container; then
+  # glibc removes LD_LIBRARY_PATH from the environment of setuid programs, so restore it after switching users
+  CHPST="$WEBHARE_PRIVILEGED run-as opensearch /usr/bin/env LD_LIBRARY_PATH=$LD_LIBRARY_PATH "
+elif [ -n "$WEBHARE_IN_DOCKER" ]; then
   if hash -r chpst 2>/dev/null; then
     CHPST="chpst -u opensearch:opensearch:whdata "
   elif hash -r setpriv 2>/dev/null; then

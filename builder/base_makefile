@@ -498,6 +498,10 @@ parsers_DEPLOYABLES = $(parsers_DEPLOYABLES_WHAP)
 # AP
 AP_DEPLOYABLES_SERVERS = webserver whmanager
 AP_DEPLOYABLES_UTILS = runscript whcompile
+ifneq ($(WEBHARE_PLATFORM),darwin)
+# setuid helper for containers running WebHare as an unprivileged user (uses linux-specific APIs)
+AP_DEPLOYABLES_UTILS += whprivileged
+endif
 ap_DEPLOYABLES_WHAP = \
 	$(AP_libwebhare) \
 	lib/hsm_system_geoip$(DLL_SUFFIX) \
@@ -847,7 +851,17 @@ bin/$(1): ap/utils/$1.native-obj $($(1)_EXTRALINKFILES) $(AP_libwebhare)
 endef
 
 $(foreach mod,$(AP_DEPLOYABLES_SERVERS),$(eval $(call ApServerTarget,$(mod))))
-$(foreach mod,$(AP_DEPLOYABLES_UTILS),$(eval $(call ApUtilTarget,$(mod))))
+$(foreach mod,$(filter-out whprivileged,$(AP_DEPLOYABLES_UTILS)),$(eval $(call ApUtilTarget,$(mod))))
+
+# whprivileged is installed setuid root. glibc ignores $ORIGIN rpaths for setuid binaries, and loading libraries from
+# the WebHare installation would be unsafe anyway (/opt/wh may be writable by the WebHare user in dev containers). So link
+# the blex objects in statically (taking only what we need from an archive) and only depend on system libraries
+blex/libblex_static.a: $(LIBBLEX_NATIVE_SOURCEOBJS)
+	$(HIDE)echo "- Archive $@" && rm -f $@ && $(AR) rcs $@ $^
+
+bin/whprivileged: WHLDFLAGS := -Wl,--as-needed $(WHLDFLAGS)
+bin/whprivileged: ap/utils/whprivileged.native-obj blex/libblex_static.a
+	$(call LinkExecutable,$< blex/libblex_static.a,$@,$(BLEX_BASE_LIBS))
 
 ########################
 #

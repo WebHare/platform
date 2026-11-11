@@ -1,7 +1,7 @@
 /* Generate the JavaScript/TypeScript infrastructure */
 
 import { listDirectory, storeDiskFile } from "@webhare/system-tools";
-import { backendConfig } from "../configuration";
+import { backendConfig, isDataRootLocked } from "../configuration";
 import * as path from "node:path";
 import { mkdir, readlink, rename, rm, symlink } from "node:fs/promises";
 import { whconstant_builtinmodules } from "../webhareconstants";
@@ -193,7 +193,9 @@ export async function updateTypeScriptInfrastructure(options?: { verbose?: boole
 
   async function updateFile(filePath: string, text: string) {
     try {
-      const { skipped } = await storeDiskFile(filePath, text, { overwrite: true, onlyIfChanged: true });
+      // We can't replace files directly inside a locked dataroot, so update those in place
+      const inPlace = isDataRootLocked() && filePath.startsWith(backendConfig.dataRoot) && !filePath.slice(backendConfig.dataRoot.length).includes("/");
+      const { skipped } = await storeDiskFile(filePath, text, { overwrite: true, onlyIfChanged: true, inPlace });
       if (options?.showUnchanged && skipped)
         console.log(`Keeping file ${filePath}`);
       if (options?.verbose && !skipped)

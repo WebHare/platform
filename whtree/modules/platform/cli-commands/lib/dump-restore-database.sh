@@ -73,7 +73,7 @@ fi
 [ ! -d "${PSROOT}/db" ] && echo "No existing database found in ${PSROOT}/db " >&2 && exit 1
 
 cd /
-rm -rf -- "${RECREATE_DIR}" "${DUMP_DIR}"
+$PSRUN rm -rf -- "${RECREATE_DIR}" "${DUMP_DIR}"
 
 if [ -z "$NOMODE" ]; then
   wh debug enable db-readonly
@@ -108,7 +108,7 @@ fi
 logWithTime "Creating new database cluster in ${RECREATE_DIR} using binaries from $NEWBINDIR"
 init_webhare_pg_db "$RECREATE_DIR" "$NEWBINDIR"
 
-[ -f "${PSROOT}/db/server.key" ] && cp -v "${PSROOT}/db/server".* "${RECREATE_DIR}/"
+$PSRUN test -f "${PSROOT}/db/server.key" && $PSRUN cp -v "${PSROOT}/db/server.key" "${PSROOT}/db/server.crt" "${RECREATE_DIR}/"
 
 pushd "${WEBHARE_DIR}/etc/" # this allows PG when running to find the pg_hba-XXX.conf file
 $RUNAS "$NEWBINDIR/postgres" -c "listen_addresses=" -c "unix_socket_directories=$PGHOST" -c "port=$RECREATE_PORT" -c "ssl=off" -D "${RECREATE_DIR}" &
@@ -157,17 +157,17 @@ logWithTime "Restore complete"
 
 if [ -n "$DRYRUN" ]; then
   echo "dry run mode - not switching databases. Cleaning up the dry-run dump"
-  rm -rf -- "${RECREATE_DIR}" "${DUMP_DIR}"
+  $PSRUN rm -rf -- "${RECREATE_DIR}" "${DUMP_DIR}"
   exit 0
 fi
 
 # prepare for in place-move
-mv "${RECREATE_DIR}" "$SWITCHTO_DIR"
+$PSRUN mv "${RECREATE_DIR}" "$SWITCHTO_DIR"
 
 # delete old dump in the background
 TEMPNAME="${DUMP_DIR}.$$"
-mv "${DUMP_DIR}" "$TEMPNAME"
-rm -rf -- "$TEMPNAME" &
+$PSRUN mv "${DUMP_DIR}" "$TEMPNAME"
+$PSRUN rm -rf -- "$TEMPNAME" &
 disown # killing us won't kill the rm
 
 

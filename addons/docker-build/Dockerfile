@@ -115,8 +115,13 @@ RUN --mount=type=bind,source=addons/docker-build/setup-opensearch.sh,target=/set
 
 ADD addons/docker-build/dropins /
 
+# Install the setuid helper for running WebHare as an unprivileged user (see ap/utils/whprivileged.cpp), built by the
+# builder stage. Lives outside /opt/wh as that's mounted from the host
+RUN --mount=type=bind,from=builder,source=/opt/wh/whtree/bin,target=/builder-bin \
+    install -D -o root -g whdata -m 4750 /builder-bin/whprivileged /opt/container/whprivileged
+
 # pghost can't be placed inside /opt/wh, because that is a mounted directory
-ENV WEBHARE_PGHOST=/tmp/
+ENV WEBHARE_PGHOST=/tmp/postgresql/
 
 # Set the run command and an entrypoint that ensures a proper environment even if we go straight to /bin/bash
 ENTRYPOINT [ "/opt/container/entrypoint.sh" ]
@@ -174,6 +179,10 @@ RUN --mount=type=bind,source=whtree,target=/whtree/ \
 # Add built WebHare (ie 'wh make install' from the parallel build)
 RUN --mount=type=bind,from=builder,target=/builder \
    cp -av /builder/opt/wh/whtree/bin /builder/opt/wh/whtree/lib /builder/opt/wh/whtree/etc /opt/wh/whtree/
+
+# Install the setuid helper for running WebHare as an unprivileged user (see ap/utils/whprivileged.cpp). Setuid root,
+# only executable by root and members of whdata. Lives outside /opt/wh so it also works where /opt/wh is mounted
+RUN install -D -o root -g whdata -m 4750 /opt/wh/whtree/bin/whprivileged /opt/container/whprivileged
 
 # Finalize WebHare (eg generate files in /opt/wh/)
 RUN --mount=type=tmpfs,target=/tmp/ \

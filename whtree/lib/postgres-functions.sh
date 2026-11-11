@@ -39,13 +39,17 @@ get_postgres_binaries()   # params: targetvar version
   exit 1
 }
 
-load_postgres_settings()
+# Sets RUNAS (prefix to run PostgreSQL binaries as the postgres user) and PSRUN (prefix for file operations inside
+# $PSROOT, which we can't access directly when running as an unprivileged user in a container)
+init_postgres_runas()
 {
-  # Let's start (and setup?) PostgreSQL!
-  [ -n "$WEBHARE_DBASENAME" ] || die "WEBHARE_DBASENAME name not set"
-  [ -n "$WEBHARE_DATAROOT" ] || die "WEBHARE_DATAROOT name not set"
-
-  if [ -n "$WEBHARE_IN_DOCKER" ] && [ "$(id -u)" == "0" ]; then #don't switch users if we didn't start as root
+  RUNAS=""
+  PSRUN=""
+  if is_unprivileged_container; then
+    # The dataroot is owned by root and postgresql/ by postgres. Let the setuid helper switch to postgres for us
+    RUNAS="$WEBHARE_PRIVILEGED run-as postgres"
+    PSRUN="$RUNAS"
+  elif [ -n "$WEBHARE_IN_DOCKER" ] && [ "$(id -u)" == "0" ]; then #don't switch users if we didn't start as root
     if hash -r chpst 2>/dev/null; then
       RUNAS="chpst -u postgres:whdata"
     elif hash -r setpriv 2>/dev/null; then
@@ -54,13 +58,23 @@ load_postgres_settings()
       die "Error: neither chpst nor setpriv available"
     fi
   fi
+  export RUNAS PSRUN
+}
+
+load_postgres_settings()
+{
+  # Let's start (and setup?) PostgreSQL!
+  [ -n "$WEBHARE_DBASENAME" ] || die "WEBHARE_DBASENAME name not set"
+  [ -n "$WEBHARE_DATAROOT" ] || die "WEBHARE_DATAROOT name not set"
+
+  init_postgres_runas
 
   # We put everything under a postgresql folder, so we can chown that to ourselves in the future
   PSROOT="${WEBHARE_DATAROOT}postgresql"
 
   if [ -z "$WEBHARE_PGBIN" ]; then
     # Read the version of the PostgreSQL database, fall back to version 16 (as specified in webhare-deps.rb) for new databases
-    PGVERSION=$(cat "$PSROOT/db/PG_VERSION" 2>/dev/null || true)
+    PGVERSION=$($PSRUN cat "$PSROOT/db/PG_VERSION" 2>/dev/null || true)
     if [ -z "${PGVERSION}" ]; then
       PGVERSION="$(grep ^postgres_major= "$WEBHARE_DIR/etc/platform.conf" | cut -d= -f2)"
     fi
@@ -109,6 +123,13 @@ HERE
  echo "include '${WEBHARE_DATAROOT}etc/postgresql-custom.conf'"
 }
 
+# Write the postgresql.conf. As a separate step so the custom config file is created by us, not by postgres
+write_postgres_config() {
+  local CONFIG
+  CONFIG="$(generate_config_file)"
+  echo "$CONFIG" | $PSRUN tee -- "$1" > /dev/null
+}
+
 handle_error() {
   local exit_code=$?
   echo "PostgreSQL initialization failed in function $2 at line $1, error code: $exit_code"
@@ -118,9 +139,9 @@ handle_error() {
 }
 
 function ensure_postgres_keys() {
-  if [ ! -f "$1/server.key" ] || [ ! -f "$1/server.crt" ]; then
+  if ! $PSRUN test -f "$1/server.key" || ! $PSRUN test -f "$1/server.crt"; then
     echo "Generating SSL key and certificate files for PostgreSQL..."
-    openssl req -new -x509 -days 365 -nodes -text -out "$1/server.crt" -keyout "$1/server.key" -subj "/CN=my.webhare.dev" -batch -quiet
+    $PSRUN openssl req -new -x509 -days 365 -nodes -text -out "$1/server.crt" -keyout "$1/server.key" -subj "/CN=my.webhare.dev" -batch -quiet
   fi
 }
 
@@ -153,9 +174,9 @@ init_webhare_pg_db_2()
   DATAROOTDIR="$1"
   PGBINDIR="$2"
 
-  mkdir "$DATAROOTDIR/"
+  $PSRUN mkdir "$DATAROOTDIR/"
 
-  if [ -n "$WEBHARE_IN_DOCKER" ]; then
+  if [ -n "$WEBHARE_IN_DOCKER" ] && [ -z "$PSRUN" ]; then # (unprivileged containers already created these as postgres)
     chown postgres "$PSROOT" "$DATAROOTDIR"
   fi
 
@@ -165,7 +186,7 @@ init_webhare_pg_db_2()
   fi
 
   # Set the configuration file
-  generate_config_file > "$DATAROOTDIR/postgresql.conf"
+  write_postgres_config "$DATAROOTDIR/postgresql.conf"
 
   # Launch the database on a separate port so we can configure it without interference
   INSTALL_PORT="$(( PGPORT + 1 ))"

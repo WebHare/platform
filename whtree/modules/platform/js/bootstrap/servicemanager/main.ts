@@ -19,7 +19,7 @@ import { backendConfig, BackendServiceConnection, logError } from "@webhare/serv
 import { deleteRecursive, listDirectory, storeDiskFile } from "@webhare/system-tools/src/fs";
 import * as child_process from "child_process";
 import { generateRandomId, regExpFromWildcards, sleep, stringify, throwError } from "@webhare/std";
-import { getCompileServerOrigin, getFullConfigFile, getRescueOrigin, getVersionFile, getVersionInteger, isInvalidWebHareUpgrade } from "@mod-system/js/internal/configuration";
+import { getCompileServerOrigin, getFullConfigFile, getRescueOrigin, getVersionFile, getVersionInteger, isDataRootLocked, isInvalidWebHareUpgrade } from "@mod-system/js/internal/configuration";
 import { RotatingLogFile } from "../../logging/rotatinglogfile";
 import { runBackendService } from "@webhare/services/src/ipc/backendservicerunner";
 import type { LoggableRecord } from "@webhare/services/src/logmessages";
@@ -495,7 +495,10 @@ class ServiceManager {
 
           if (!this.isSecondaryManager) {
             try {
-              await fs.rm(backendConfig.dataRoot + ".webhare.pid");
+              if (isDataRootLocked()) //we can't remove it, but an empty pidfile also means we're not running
+                await fs.truncate(backendConfig.dataRoot + ".webhare.pid");
+              else
+                await fs.rm(backendConfig.dataRoot + ".webhare.pid");
             } catch (e) {
               console.error("Failed to remove webhare.pid file", e);
             }
@@ -583,7 +586,11 @@ class ServiceManager {
 async function verifyUpgrade() {
   let config: WebHareVersionFile;
   try {
-    config = JSON.parse(await fs.readFile(getVersionFile(), 'utf8')) as WebHareVersionFile;
+    const versionFile = await fs.readFile(getVersionFile(), 'utf8');
+    if (!versionFile)
+      return; //first startup with a dataroot prepared by whprivileged, which creates an empty file
+
+    config = JSON.parse(versionFile) as WebHareVersionFile;
   } catch (e) {
     if (e && typeof e === "object" && "code" in e && e.code === 'ENOENT')
       return; //first and clean startup, normal..
@@ -625,7 +632,7 @@ async function setConfigAndVersion() {
     startdatetime: new Date().toISOString()
   };
 
-  await storeDiskFile(getVersionFile(), stringify(versionInfo, { stable: true, space: 2 }) + '\n', { overwrite: true });
+  await storeDiskFile(getVersionFile(), stringify(versionInfo, { stable: true, space: 2 }) + '\n', { overwrite: true, inPlace: isDataRootLocked() });
 }
 
 class ServiceManagerManager {
@@ -668,7 +675,7 @@ class ServiceManagerManager {
 
       //remove old servicestate files
       await unlinkServicestateFiles();
-      await storeDiskFile(backendConfig.dataRoot + ".webhare.pid", process.pid.toString() + "\n", { overwrite: true });
+      await storeDiskFile(backendConfig.dataRoot + ".webhare.pid", process.pid.toString() + "\n", { overwrite: true, inPlace: isDataRootLocked() });
     }
 
     await mgr.startStage(Stage.Bootup);

@@ -15,6 +15,7 @@ while true; do
     shift
   elif [ "$1" == "--restoreto" ]; then
     shift
+    is_unprivileged_container && die "--restoreto is not supported when running as an unprivileged user in a container"
     RESTORETO="$1"
     shift
   elif [[ $1 =~ ^- ]]; then
@@ -71,7 +72,13 @@ fi
 
 if [ "$RESTORE_DB" == "postgresql" ]; then
   # Remove previous restore
-  rm -rf "$WEBHARE_DATAROOT/postgresql.restore/"
+  if is_unprivileged_container; then
+    # We can't create or remove postgresql.restore/ ourselves but can clear it
+    "$WEBHARE_PRIVILEGED" prepare-restore || die "Unable to prepare $WEBHARE_DATAROOT/postgresql.restore/"
+    find "$WEBHARE_DATAROOT/postgresql.restore/" -mindepth 1 -delete
+  else
+    rm -rf "$WEBHARE_DATAROOT/postgresql.restore/"
+  fi
 
   mkdir -p "$WEBHARE_DATAROOT/postgresql.restore/db/pg_wal/"
   chmod -R 700 "$WEBHARE_DATAROOT/postgresql.restore/db/"
@@ -110,15 +117,20 @@ if [ "$RESTORE_DB" == "postgresql" ]; then
     fi
   fi
 
-  mkdir -p "$RESTORETO" 2>/dev/null
+  if is_unprivileged_container; then
+    # Moves db/ and blob/ into a new postgresql/ and hands the database to postgres
+    "$WEBHARE_PRIVILEGED" finish-restore || die "Unable to move the restored database into place"
+  else
+    mkdir -p "$RESTORETO" 2>/dev/null
 
-  if [ -n "$WEBHARE_IN_DOCKER" ]; then
-    chown postgres:root "$RESTORETO/"
-    chown -R postgres:root "$WEBHARE_DATAROOT/postgresql.restore/"
+    if [ -n "$WEBHARE_IN_DOCKER" ]; then
+      chown postgres:root "$RESTORETO/"
+      chown -R postgres:root "$WEBHARE_DATAROOT/postgresql.restore/"
+    fi
+
+    mv "$WEBHARE_DATAROOT/postgresql.restore/"* "$RESTORETO/"
+    rmdir "$WEBHARE_DATAROOT/postgresql.restore"
   fi
-
-  mv "$WEBHARE_DATAROOT/postgresql.restore/"* "$RESTORETO/"
-  rmdir "$WEBHARE_DATAROOT/postgresql.restore"
 fi
 
 echo ""

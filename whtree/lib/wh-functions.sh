@@ -16,6 +16,16 @@ function logWithTime()
   echo "[$now]" "$@" 1>&2
 }
 
+# Setuid helper for containers running WebHare as an unprivileged user (see ap/utils/whprivileged.cpp)
+WEBHARE_PRIVILEGED=/opt/container/whprivileged
+
+# Are we running as an unprivileged user in a container? The dataroot is then owned by root and we need
+# WEBHARE_PRIVILEGED to manipulate it or to start services as their own users
+is_unprivileged_container()
+{
+  [ -n "$WEBHARE_IN_DOCKER" ] && [ -n "$WEBHARE_DOCKER_USER" ]
+}
+
 testEq()
 {
   if [ "$1" != "$2" ]; then

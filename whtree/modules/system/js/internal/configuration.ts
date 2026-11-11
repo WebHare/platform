@@ -85,6 +85,13 @@ export function getVersionInteger(): number {
   throw new Error(`Version '${backendConfig.whVersion}' is not convertible to a legacy version integer`);
 }
 
+/** Is the dataroot itself owned by root, so we can't create, rename or delete files directly inside it? This is the case in
+    containers running WebHare as an unprivileged user. /opt/container/whprivileged creates the top-level files we need
+    beforehand (see ap/utils/whprivileged.cpp), and we have to update them in place */
+export function isDataRootLocked(): boolean {
+  return Boolean(process.env.WEBHARE_IN_DOCKER && process.env.WEBHARE_DOCKER_USER);
+}
+
 export function getVersionFile() {
   return (backendConfig.dataRoot ?? throwError("dataroot not set")) + "webhare.version";
 }
