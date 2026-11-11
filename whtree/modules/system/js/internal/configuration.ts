@@ -19,6 +19,7 @@ import type { UserRights } from "./generation/gen_extract_userrights";
 import type { ModulePlugins } from "./generation/gen_plugins";
 import type { WHFSExtract } from "./generation/gen_whfs";
 import type { ReportsExtract } from "./generation/gen_extract_reports";
+import type { MCPExtract } from "./generation/gen_extract_mcp";
 import { storeDiskFile, type StoreDiskFileOptions } from "@webhare/system-tools/src/fs";
 
 export type { WebHareBackendConfiguration, WebHareConfigFile };
@@ -154,6 +155,7 @@ export function getExtractedConfig(which: "plugins"): ModulePlugins;
 export function getExtractedConfig(which: "debug"): Debug;
 export function getExtractedConfig(which: "whfs"): WHFSExtract;
 export function getExtractedConfig(which: "reports"): ReportsExtract;
+export function getExtractedConfig(which: "mcp"): MCPExtract;
 
 /** Get JS managed configuration extracts */
 export function getExtractedConfig(which: string) {

@@ -1,6 +1,7 @@
 import { WebHareBlob } from "@webhare/services";
 import * as test from "@webhare/test-backend";
-import { runJSBasedValidator, TrackedYAML } from "@mod-platform/js/devsupport/validation";
+import { runJSBasedGlobalValidators, runJSBasedValidator, TrackedYAML } from "@mod-platform/js/devsupport/validation";
+import { findMCPToolCollisions } from "@mod-platform/js/devsupport/moduledefinition";
 
 async function testTrackedYaml() {
   const res = new TrackedYAML<{
@@ -160,7 +161,59 @@ types:
   }
 }
 
+async function testMCPToolValidation() {
+  { //inputSchemas must be usable JSON Schemas for an object, tool names must fit in what clients accept
+    const res = await runJSBasedValidator(WebHareBlob.from(`
+mcpTools:
+  wrongtype:
+    addToSchemas: [testschema]
+    inputSchema:
+      type: string
+    onCall: js/mcp-tools.ts#greet
+  badkeyword:
+    addToSchemas: [testschema]
+    inputSchema:
+      type: object
+      properties:
+        name: { type: string, minLength: "x" }
+    onCall: js/mcp-tools.ts#greet
+  fine:
+    addToSchemas: [testschema]
+    inputSchema: { type: object, properties: { name: { type: string } } }
+    onCall: js/mcp-tools.ts#greet
+  ${"x".repeat(65)}:
+    addToSchemas: [testschema]
+    onCall: js/mcp-tools.ts#greet
+`), "mod::webhare_testsuite/moduledefinition.yml");
+
+    test.eqPartial([
+      { line: 3, col: 3, message: /must NOT have more than 64 characters/, type: "error" },
+      { line: 3, col: 3, message: /property name must be valid/, type: "error" },
+      { line: 6, col: 7, message: "MCP tool 'wrongtype': The inputSchema must have type 'object'", type: "error" },
+      { line: 11, col: 7, message: /^MCP tool 'badkeyword': Invalid inputSchema: .*minLength must be integer/, type: "error" }
+    ], res.messages);
+  }
+
+  { //tools with the same name added to the same schema by different modules collide, unqualified schemas refer to the declaring module
+    const tool = { onCall: "js/tools.ts#tool" };
+    test.eq([
+      { module: "mod_a", toolName: "search", wrdSchema: "mod_a:customers", otherModules: ["mod_b"] },
+      { module: "mod_b", toolName: "search", wrdSchema: "mod_a:customers", otherModules: ["mod_a"] }
+    ], findMCPToolCollisions([
+      { module: "mod_a", mcpTools: { search: { ...tool, addToSchemas: ["customers", "other"] }, list: { ...tool, addToSchemas: ["customers"] } } },
+      { module: "mod_b", mcpTools: { search: { ...tool, addToSchemas: ["mod_a:customers", "customers"] } } }, //mod_b:customers doesn't collide
+      { module: "mod_c", mcpTools: { list: { ...tool, addToSchemas: ["mod_b:customers"] } } } //mod_a's list is on another schema
+    ]));
+  }
+
+  { //the installed modules don't have collisions
+    const res = await runJSBasedGlobalValidators("all", ["webhare_testsuite", "platform"]);
+    test.eq([], res.messages.filter(msg => msg.message.startsWith("MCP tool")));
+  }
+}
+
 test.runTests([
   testTrackedYaml,
-  testYAMLVAlidations
+  testYAMLVAlidations,
+  testMCPToolValidation
 ]);

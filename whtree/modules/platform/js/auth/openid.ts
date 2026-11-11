@@ -1,5 +1,5 @@
 import * as crypto from "node:crypto";
-import { type WebHareRouter, type WebRequest, type WebResponse, createContentPageRequest, createJSONResponse, createRedirectResponse, createWebResponse } from "@webhare/router";
+import { type WebHareRouter, type WebRequest, type WebResponse, createContentPageRequest, createJSONResponse, createRedirectResponse, createWebResponse, HTTPErrorCode } from "@webhare/router";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 //TOOD make this a public export somewhere? but should it include wrdOrg and wrdPerson though
 import { getSchemaSettings, wrd, type WRDSchema, type WRDSchemaLike, type WRDSchemaType } from "@webhare/wrd";
@@ -33,6 +33,8 @@ declare module "@webhare/services" {
       code_challenge: string | null;
       code_challenge_method: CodeChallengeMethod | null;
       prompt: OAuth2PromptFlag;
+      /** Resource (RFC 8707) the client requested a token for, null if none */
+      resource?: string | null;
       /** User id to set */
       user?: number;
     };
@@ -76,6 +78,36 @@ type TokenResponse = {
   id_token?: string;
   expires_in?: number;
 };
+
+/** Get the URL of a WRD schema's MCP server, which is also its OAuth2 resource identifier (RFC 8707). The MCP server is
+    served at /.wh/mcp/<module>/<schema> on the origin of the schema's identity provider
+    @param schemaTag - WRD schema
+    @param issuer - The schema's issuer, see getOpenIDIssuer */
+export function getMCPServerURL(schemaTag: string, issuer: string): string {
+  return new URL(issuer).origin + "/.wh/mcp/" + schemaTag.replace(":", "/");
+}
+
+/** Get the resources (RFC 8707) a schema's identity provider issues tokens for. For now that's only its MCP server,
+    which exists while dynamic client registration is enabled */
+async function getProtectedResources(schemaTag: string): Promise<string[]> {
+  const { dynamicRegistration } = await getSchemaSettings(wrd<WRDSchemaLike["platform:basewrdschema"]>(schemaTag), ["dynamicRegistration"]);
+  if (dynamicRegistration?.enabled !== true)
+    return [];
+  const issuer = await getOpenIDIssuer(schemaTag);
+  return issuer ? [getMCPServerURL(schemaTag, issuer)] : [];
+}
+
+/** Normalize a resource parameter (RFC 8707 section 2: an absolute URI without a fragment), lowercasing its scheme and host
+    @returns The normalized resource, or null if it isn't a valid resource identifier */
+function normalizeResource(resource: string): string | null {
+  if (resource.includes("#"))
+    return null;
+  try {
+    return new URL(resource).href;
+  } catch {
+    return null;
+  }
+}
 
 /** Joins a path to a URL, eliminating any double slash (similar to NodeJS path.join)
  * @param baseurl - URL to join to
@@ -223,7 +255,7 @@ export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provide
 
   const searchParams = new URL(url).searchParams;
   const clientid = searchParams.get("client_id") || '';
-  const scopes = (searchParams.get("scope")?.split(" ") || []);
+  const scopes = (searchParams.get("scope")?.split(" ").filter(scope => scope) || []); //an empty scope= requests no scopes
   const redirect_uri = searchParams.get("redirect_uri") || '';
   const state = searchParams.get("state") || null;
   const nonce = searchParams.get("nonce") || null;
@@ -232,6 +264,7 @@ export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provide
   const response_type = (searchParams.get("response_type")?.split(' ') || []) as Array<ResponseType>;
   const response_mode = searchParams.get("response_mode") as ResponseModesScopes | null;
   const prompt: OAuth2PromptFlag = (searchParams.get("prompt") || "") as OAuth2PromptFlag;
+  const requestedResources = searchParams.getAll("resource");
 
   //Verify the client and callback URL first. If these are not okay, we're NOT allowed to use the provided callback URL (and thus cannot use createOIDCErrorResponse) as we haven't validated it
   const client = await provider.wrdschema.query("wrdauthApplication").where("wrdGuid", "=", decompressUUID(clientid)).select(["callbackUrls", "wrdId", "dynamicRegistration"]).execute();
@@ -299,6 +332,16 @@ export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provide
   if (invalidScopes.length > 0)
     return createOIDCErrorResponse(callerInfo, "invalid_scope", `Invalid scope requested: ${invalidScopes.join(", ")}`);
 
+  //We issue tokens for at most one resource (RFC 8707). MCP clients request their MCP server
+  let resource: string | null = null;
+  if (requestedResources.length > 1)
+    return createOIDCErrorResponse(callerInfo, "invalid_target", `Only one resource can be requested`);
+  if (requestedResources.length === 1) {
+    resource = normalizeResource(requestedResources[0]);
+    if (!resource || !(await getProtectedResources(provider.wrdschema.tag)).includes(resource))
+      return createOIDCErrorResponse(callerInfo, "invalid_target", `Unknown resource '${requestedResources[0]}'`);
+  }
+
   if (prompt === "none" && !curuser) { //TODO can we also shortcircuit the wrdauth redirects below in case prompt===none but a user IS logged in?
     return createOIDCErrorResponse(callerInfo, "login_required", `Prompt is 'none' but no user is logged in`);
   }
@@ -310,7 +353,8 @@ export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provide
     nonce,
     code_challenge,
     code_challenge_method: code_challenge_method as CodeChallengeMethod,
-    prompt
+    prompt,
+    resource
   }));
 
   //Sets up a WRD Auth request that will return the user after logging in locally to the openid /return/ endpoint in openIdRouter
@@ -368,7 +412,10 @@ export async function returnAuthorizeFlow<T extends SchemaTypeDefinition>(provid
     //TODO should we enforce a user having just one session?
     //TODO optimize query by directly requesting - and only if we need to add scopes. add a better identity.ts API to gather currently allowed scopes
     const currentTokens = new Set<string>;
-    for (const activeRow of (await listTokens(provider.wrdschema, user)).filter(_ => _.type === "api" && _.client === returnInfo.clientid))
+    /* Only earlier approvals for the same resource count: approving access to an MCP server doesn't approve access to the
+       schema's other APIs (a request without a resource), and vice versa */
+    const requestedResource = returnInfo.resource ?? null;
+    for (const activeRow of (await listTokens(provider.wrdschema, user)).filter(_ => _.type === "api" && _.client === returnInfo.clientid && _.resource === requestedResource))
       for (const scope of activeRow.scopes)
         currentTokens.add(scope);
 
@@ -377,20 +424,42 @@ export async function returnAuthorizeFlow<T extends SchemaTypeDefinition>(provid
         checkScopes.push(scope);
   }
 
-  if (checkScopes.length > 0) { //we need to explicitly ask the user for approval
+  /* A token for a resource (RFC 8707), ie an MCP server, lets the client act as the user there, eg by calling its tools.
+     Always ask the user for that: we don't store earlier approvals yet, and without asking, any client could get such a token
+     for a user who's already logged in just by sending them to the authorize URL */
+  const resource = returnInfo.resource ?? null;
+
+  if (checkScopes.length > 0 || resource) { //we need to explicitly ask the user for approval
     if (returnInfo.prompt === "none") //TODO look at scopes we already granted - if you didn't ask anything new, prompt=none should be fine?
-      return createOIDCErrorResponse(returnInfo, "interaction_required", "Cannot request scopes in prompt=none request");
+      return createOIDCErrorResponse(returnInfo, "interaction_required", resource ? "Cannot request access to a resource in prompt=none request" : "Cannot request scopes in prompt=none request");
 
     if (req.method !== "POST") { //not POST-ing? render the permission page
       const permissionrequest = await createContentPageRequest(await openFileOrFolder(site), { webRequest: req }); //TODO pass the webRequest too?
       //TODO pass a true FormsAPI body. or delegate this fully to HareScript
-      //TODO Make it clear which client is asking. And if it's a dynamic client, make it especially clear that we can't verify the identity of the app
-      return await permissionrequest.buildWebPage(permissionRequestPage({ url: req.url, checkScopes, supportedAccessScopes }));
+      //TODO Make it clear which client is asking (for non-dynamic clients we could show a trusted, admin-configured name)
+      const { dynamicStatus } = await provider.wrdschema.getFields("wrdauthApplication", returnInfo.clientid, ["dynamicStatus"]);
+      return await permissionrequest.buildWebPage(permissionRequestPage({
+        url: req.url,
+        checkScopes,
+        supportedAccessScopes,
+        mcpServerHost: resource ? new URL(resource).host : null, //for now, an MCP server is the only resource we issue tokens for (see getProtectedResources)
+        //We show where the user will be sent back to: unlike the client's self-reported name, that's verified (it must be one of the client's callback URLs)
+        returnHost: new URL(returnInfo.cbUrl).host,
+        unverifiedClient: Boolean(dynamicStatus)
+      }));
     } else {
+      /* Only accept answers posted by our own permission page. Otherwise another site could start a flow of its own and make
+         a logged in user's browser post approve=yes for it, which would grant the attacker's client access as that user.
+         Browsers send an Origin header with cross-origin POSTs, so this also stops sibling (same-site) origins, which
+         SameSite cookies wouldn't */
+      const postedFrom = req.getOriginURL(""); //null if the browser sent an origin we can't use, eg "Origin: null"
+      if (!postedFrom || URL.parse(postedFrom)?.origin !== new URL(req.url).origin)
+        return createJSONResponse(HTTPErrorCode.Forbidden, { error: "The permission request must be answered from its own page" });
+
       const formData = await req.formData();
       const approve = formData.get("approve") === "yes";
       if (!approve)
-        return createOIDCErrorResponse(returnInfo, "interaction_required", "User must grant scopes");
+        return createOIDCErrorResponse(returnInfo, "interaction_required", "User denied the permission request");
     }
   }
 
@@ -446,7 +515,12 @@ function getRegisteredClientMetadata(request: Record<string, unknown>, redirectU
 }
 
 ///Implements the oauth2/openid endpoint
-export async function retrieveTokens<T extends SchemaTypeDefinition>(provider: IdentityProvider<T>, form: URLSearchParams, headers: Headers, options?: AuthTokenOptions): Promise<{ error: string } | { error: null; body: TokenResponse }> {
+export async function retrieveTokens<T extends SchemaTypeDefinition>(provider: IdentityProvider<T>, form: URLSearchParams, headers: Headers, options?: AuthTokenOptions): Promise<{
+  /** Error. A standard error code (eg invalid_target) if errorDescription is set, otherwise a description */
+  error: string;
+  /** Human readable explanation of a standard error code */
+  errorDescription?: string;
+} | { error: null; body: TokenResponse }> {
   let headerClientId = '', headerClientSecret = '';
   const authorization = headers.get("Authorization")?.match(/^Basic +(.+)$/i);
   if (authorization) {
@@ -503,6 +577,16 @@ export async function retrieveTokens<T extends SchemaTypeDefinition>(provider: I
       return { error: "Wrong code_verifier" };
   }
 
+  /* RFC 8707 section 2.2: the token request may repeat the resource. We only issue tokens for the resource of the
+     authorization request, so it must match that one */
+  const tokenResources = form.getAll("resource");
+  const tokenResource = tokenResources.length === 1 ? normalizeResource(tokenResources[0]) : null;
+  if (tokenResources.length > 1 || (tokenResources.length === 1 && (!tokenResource || tokenResource !== (returnInfo.resource ?? null))))
+    return {
+      error: "invalid_target", //RFC 8707 section 2.2
+      errorDescription: `The token request must ask for the resource of the authorization request (${returnInfo.resource ? `'${returnInfo.resource}'` : "none"})`
+    };
+
   //Only look up the issuer if we need it, plain OAuth2 doesn't
   const issuer = returnInfo.scopes.includes("openid") ? options?.issuer ?? await getOpenIDIssuer(provider.wrdschema.tag) : undefined;
   if (returnInfo.scopes.includes("openid") && !issuer)
@@ -511,6 +595,7 @@ export async function retrieveTokens<T extends SchemaTypeDefinition>(provider: I
   const tokens = await provider.createTokens("oidc", returnInfo.user, returnInfo.clientid, sessionid, returnInfo.nonce, {
     issuer: issuer ?? undefined,
     scopes: returnInfo.scopes,
+    ...(returnInfo.resource ? { resource: returnInfo.resource } : {}),
     customizer: options?.customizer,
     expires: options?.expires, //if not set, createTokens falls back to loginSettings.apiTokenDuration and eventually defaultAccessTokenExpiry
     idTokenExpires: openIdTokenExpiry
@@ -708,7 +793,7 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
     const form = new URLSearchParams(body);
     const response = await retrieveTokens(provider, form, req.headers, { customizer, issuer: login.issuer });
     if (response.error !== null)
-      return createJSONResponse(400, { error: response.error });
+      return createJSONResponse(400, { error: response.error, ...(response.errorDescription ? { error_description: response.errorDescription } : {}) });
     else {
 
       /* https://datatracker.ietf.org/doc/html/rfc6749#section-5.1

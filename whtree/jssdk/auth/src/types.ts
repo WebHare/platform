@@ -168,6 +168,7 @@ export type OAuth2EndpointErrorCodes =
   | "access_denied"
   | "unsupported_response_type"
   | "invalid_scope"
+  | "invalid_target" //RFC 8707
   | "server_error"
   | "temporarily_unavailable";
 

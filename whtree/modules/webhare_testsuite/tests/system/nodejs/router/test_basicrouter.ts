@@ -36,6 +36,10 @@ async function testRouterAPIs() {
   test.eq('https://www.example.org/suburl', (await newWebRequestFromInfo({ ...baseinfo, headers: { referer: "https://www.example.com/somesite", origin: "https://www.example.org" } })).getOriginURL('suburl'));
   test.eq('https://www.example.org/suburl', (await newWebRequestFromInfo({ ...baseinfo, headers: { referer: "https://www.example.com/somesite", ORIGIN: "https://www.example.org" } })).getOriginURL('/suburl'));
   test.eq(null, (await newWebRequestFromInfo({ ...baseinfo, headers: { referer: "https://www.example.com/somesite", ORIGIN: "https://www.example.org" } })).getOriginURL('https://nu.nl'));
+  //Origins we can't parse or use mean we can't determine the origin (they used to throw or return 'null/...')
+  test.eq(null, (await newWebRequestFromInfo({ ...baseinfo, headers: { origin: "null" } })).getOriginURL('suburl'));
+  test.eq(null, (await newWebRequestFromInfo({ ...baseinfo, headers: { referer: "not a url" } })).getOriginURL('suburl'));
+  test.eq(null, (await newWebRequestFromInfo({ ...baseinfo, headers: { referer: "data:text/html,hello" } })).getOriginURL('suburl'));
 
   //Test getAssetPackIntegrationCode
   test.eq(`<link rel="stylesheet" href="/.wh/ea/ap/platform.tollium/ap.css"><script src="/.wh/ea/ap/platform.tollium/ap.mjs" async type="module"></script>`,

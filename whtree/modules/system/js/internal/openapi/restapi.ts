@@ -1,6 +1,6 @@
 import SwaggerParser from "@apidevtools/swagger-parser";
 import { createJSONResponse, HTTPErrorCode, type WebRequest, type DefaultRestParams, RestRequest, type WebResponse, type HTTPMethod, type RestAuthorizationFunction, type RestImplementationFunction, HTTPSuccessCode, type OpenAPIServiceInitializationContext, type WebHareOpenAPIDocument, type RestDefaultErrorMapperFunction } from "@webhare/router";
-import Ajv2020, { type ValidateFunction, type ErrorObject, type SchemaObject } from "ajv/dist/2020";
+import Ajv2020, { type ValidateFunction, type SchemaObject } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import type { OpenAPIV3 } from "openapi-types";
 import { importJSFunction, resolveResource } from "@webhare/services";
@@ -15,6 +15,7 @@ import { WorkerPool } from "./workerpool";
 import type { OpenAPIValidationMode } from "../generation/gen_extracts";
 import type { OpenAPIHandlerInitializationContext, WebHareOpenApiPathItem } from "@webhare/router/src/openapi";
 import { debugFlags } from "@webhare/env";
+import { formatAjvError } from "../util/ajv";
 
 export type OpenAPIInitHookFunction = (context: OpenAPIServiceInitializationContext) => Promise<void | { signal?: AbortSignal }> | void | { signal?: AbortSignal };
 
@@ -90,22 +91,6 @@ function matchesPath(path: string[], routePath: string[], req: WebRequest): Reco
 
 function createErrorResponse(status: HTTPErrorCode, json: { error: string; status?: never }, options?: { headers?: Record<string, string> }) {
   return createJSONResponse(status, { status, ...json }, options);
-}
-
-function formatAjvError(errors: ErrorObject[]): string {
-  /* The error looks like this:
-  >   {
-        instancePath: '',
-        schemaPath: '#/required',
-        keyword: 'required',
-        params: { missingProperty: 'email' },
-        message: "must have required property 'email'"
-      }
-      so we might be able to use it to generate a more useful error message ?
-  */
-  const error = errors?.[0];
-  const params = Object.entries(error.params).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(", ");
-  return `${error.message ?? "invalid value"}${params ? ` (${params})` : ``}${(error?.instancePath ? ` (at ${JSON.stringify(error?.instancePath)})` : "")}`;
 }
 
 export class LogInfo {
