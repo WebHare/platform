@@ -126,6 +126,7 @@ async function testBridge() {
 
     // close without wait, should eventually close port on whmanager
     const port3 = bridge.createPort(portName, { global: true });
+    await port3.activate();
     port3.close({ wait: false });
     await test.wait(async () => !(await bridge.getPortList()).find(p => p.name === portName));
   }

@@ -1274,7 +1274,7 @@ class MainBridge extends EventSource<BridgeEvents> {
             this.ports.delete(message.name);
             if (message.global) {
               let msgid = 0n;
-              if (reg.closeSignal) {
+              if (reg.closeSignal && this.connectionactive && reg.requestedGlobalRegistration) {
                 msgid = ++this.msgid;
                 this.unregisterportrequests.set(msgid, reg.closeSignal);
                 reg.closeSignal = undefined;
