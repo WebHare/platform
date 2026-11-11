@@ -6,6 +6,8 @@ import type { CSPContentType, CSPDynamicExecution, CSPMember } from "@webhare/wh
 import type { WHFSCloneMode } from "@webhare/whfs/src/contenttypes";
 import { getTid, hasTid } from "@webhare/gettid";
 import { nameToCamelCase, omit, regExpFromWildcards, toCamelCase } from "@webhare/std";
+import { db } from "@webhare/whdb";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
 
 /** WHFS metatypes, using the names used for `metaType` in YAML siteprofiles */
 export type SiteProfileMetaType = "instance" | "folder" | "page" | "upload" | "dataFile" | "blockWidget" | "inlineWidget";
@@ -140,6 +142,51 @@ export function listContentTypes(options: { masks?: string[]; categories?: MetaT
   if (options.members)
     return described.sort((lhs, rhs) => lhs.type.localeCompare(rhs.type));
   return result.sort((lhs, rhs) => lhs.type.localeCompare(rhs.type));
+}
+
+export interface WHFSTypeUsageCount {
+  /** Number of files and folders of this type */
+  objects: number;
+  /** Number of files and folders with an instance (data) of this type */
+  instances: number;
+  /** Number of embedded instances of this type, eg. widgets inside rich text documents or members of type 'instance' */
+  embedded: number;
+}
+
+/** Count how often WHFS types are used
+ * @param typeIds - Ids of the types to count
+ * @returns Usage counts per type id. Every requested id is present in the map
+ */
+export async function countContentTypeUsage(typeIds: number[]): Promise<Map<number, WHFSTypeUsageCount>> {
+  const result = new Map<number, WHFSTypeUsageCount>(typeIds.map(id => [id, { objects: 0, instances: 0, embedded: 0 }]));
+  if (!typeIds.length)
+    return result;
+
+  const [objects, instances, embedded] = await Promise.all([
+    db<PlatformDB>().selectFrom("system.fs_objects")
+      .select(["type as typeId", eb => eb.fn.countAll<number>().as("count")])
+      .where("type", "in", typeIds)
+      .groupBy("type")
+      .execute(),
+    db<PlatformDB>().selectFrom("system.fs_instances")
+      .select(["fs_type as typeId", eb => eb.fn.countAll<number>().as("count")])
+      .where("fs_type", "in", typeIds)
+      .groupBy("fs_type")
+      .execute(),
+    db<PlatformDB>().selectFrom("system.fs_settings")
+      .select(["instancetype as typeId", eb => eb.fn.countAll<number>().as("count")])
+      .where("instancetype", "in", typeIds)
+      .groupBy("instancetype")
+      .execute()
+  ]);
+
+  for (const row of objects)
+    result.get(row.typeId!)!.objects = Number(row.count);
+  for (const row of instances)
+    result.get(row.typeId)!.instances = Number(row.count);
+  for (const row of embedded)
+    result.get(row.typeId!)!.embedded = Number(row.count);
+  return result;
 }
 
 function describeMembers(members: CSPMember[]): Record<string, unknown> {
