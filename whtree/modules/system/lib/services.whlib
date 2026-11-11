@@ -15,6 +15,7 @@ LOADLIB "mod::system/lib/internal/cluster/secrets.whlib" EXPORT EncryptForThisSe
 LOADLIB "mod::system/lib/internal/cluster/logging.whlib" EXPORT OpenWebHareLogStream, LogHarescriptException, ModuleLog;
 LOADLIB "mod::system/lib/internal/cluster/logwriter.whlib";
 LOADLIB "mod::system/lib/internal/cluster/lockmanager.whlib" EXPORT OpenLockManager;
+LOADLIB "mod::system/lib/internal/ratelimit.whlib";
 LOADLIB "mod::system/lib/internal/registry.whlib";
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -247,34 +248,15 @@ PUBLIC RECORD FUNCTION CheckRateLimit(RECORD criterium, INTEGER numhits, RECORD 
                               , exemptdev := FALSE
                               ], options);
 
-  RECORD check := (LookupAdhocCached(criterium) ?? [ value := [ hits := DATETIME[] ]]).value;
-  DATETIME now := GetCurrentDatetime();
-  IF(Length(check.hits) > 0)
+  RECORD result := __CheckRateLimit(criterium, numhits, options.timeperiod);
+  IF(NOT result.accepted AND options.exemptdev AND GetDtapStage() = "development")
   {
-    DATETIME cutoff := AddTimeToDate(-options.timeperiod, now);
-    WHILE(Length(check.hits) > 0 AND check.hits[0] <= cutoff)
-      DELETE FROM check.hits AT 0;
+    IF(IsRequest())
+      AddHTTPHeader("X-WebHare-Limit-Hit", "backoff=" || result.backoff, TRUE); //always add
+
+    RETURN [ accepted := TRUE, backoff := 0 ];
   }
-
-  IF(Length(check.hits) >= numhits)
-  {
-    // backoff: next valid time = check.hits[0] + options.timeperiod, compare to 'now'
-    INTEGER backoff := GetMsecsDifference(now, AddTimeToDate(options.timeperiod, check.hits[0]));
-    IF(options.exemptdev AND GetDtapStage() = "development")
-    {
-      IF(IsRequest())
-        AddHTTPHeader("X-WebHare-Limit-Hit", "backoff=" || backoff, TRUE); //always add
-
-      RETURN [ accepted := TRUE, backoff := 0 ];
-    }
-    RETURN [ accepted := FALSE
-           , backoff := backoff
-           ];
-  }
-
-  INSERT now INTO check.hits AT END;
-  StoreAdhocCached(criterium, [ ttl := options.timeperiod, value := [ hits := check.hits ] ]);
-  RETURN [ accepted := TRUE, backoff := 0 ];
+  RETURN result;
 }
 
 /** @short Implements rate limiting for the current request IP

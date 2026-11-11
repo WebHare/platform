@@ -3,6 +3,7 @@ import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { parseTyped, stringify } from "@webhare/std";
 import { decodeHSON } from "@webhare/hscompat/src/hson";
 import type { ServerEncryptionScopes } from "./services";
+import { tryRetiredSecrets } from "./retiredsecrets";
 
 export interface AlgorithmOptions {
   ///Override the default secret. This allows you to encrypt data that can be decrypted by (other) servers that know this secret
@@ -16,12 +17,17 @@ export interface DecryptOptions extends AlgorithmOptions {
   acceptRetired?: boolean;
 }
 
-function getKeyForScope(scope: string, options?: AlgorithmOptions): Buffer {
+/** Get the key for a scope
+    @param scope - Scope
+    @param options - Algorithm options
+    @param gcmSecret - Cluster GCM secret to use instead of the current one (eg a retired secret)
+*/
+function getKeyForScope(scope: string, options?: AlgorithmOptions, gcmSecret?: string): Buffer {
   const hash = crypto.createHash("SHA-256");
   if (options?.secret) {
     hash.update(options.secret + "\t", 'utf8');
   } else {
-    const key = getFullConfigFile().secrets.gcm;
+    const key = gcmSecret ?? getFullConfigFile().secrets.gcm;
     if (!key)
       throw new Error("No gcm secret configured");
 
@@ -29,6 +35,14 @@ function getKeyForScope(scope: string, options?: AlgorithmOptions): Buffer {
   }
   hash.update(scope, 'utf8');
   return hash.digest();
+}
+
+function decryptWithKey(key: Buffer, enc: string, iv: string, authTag: string): string {
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'));
+  decipher.setAuthTag(Buffer.from(authTag, 'base64url'));
+  let str = decipher.update(enc, 'base64url', 'utf8');
+  str += decipher.final('utf8');
+  return str;
 }
 
 /** Encrypt data with this server's local key
@@ -81,11 +95,16 @@ export function decryptForThisServer<S extends string>(scope: keyof ServerEncryp
       throw new Error("Invalid encrypted data");
 
   try {
-    const key = getKeyForScope(scope, options);
-    const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'));
-    decipher.setAuthTag(Buffer.from(authTag, 'base64url'));
-    let str = decipher.update(enc, 'base64url', 'utf8');
-    str += decipher.final('utf8');
+    let str: string;
+    try {
+      str = decryptWithKey(getKeyForScope(scope, options), enc, iv, authTag);
+    } catch (err) {
+      //Retired secrets only apply to the cluster secret, not to explicitly specified secrets
+      const retired = options?.secret ? null : tryRetiredSecrets("gcm", scope, options?.acceptRetired ?? false, secret => decryptWithKey(getKeyForScope(scope, options, secret), enc, iv, authTag));
+      if (retired === null)
+        throw err;
+      str = retired;
+    }
 
     //HareScript EncryptForThisServer will always generate HSON so its 'default usage' remains 100% HS compatible. (TODO not sure if it useful to give it a 'typed json' option?)
     return str.startsWith("hson:") ? decodeHSON(str) as RetVal : parseTyped(str);
@@ -96,14 +115,22 @@ export function decryptForThisServer<S extends string>(scope: keyof ServerEncryp
   }
 }
 
-//Create a signature for this server
-export function getSignatureForThisServer(scope: string, text: string): string {
+function calculateSignature(cookieSecret: string, scope: string, text: string): string {
   const hasher = crypto.createHash("SHA-256");
-  hasher.update(text + "\t" + scope + "\t" + getFullConfigFile().secrets.cookie);
+  hasher.update(text + "\t" + scope + "\t" + cookieSecret);
   return hasher.digest().toString("base64url");
 }
 
-//Validate a generated signature
+//Create a signature for this server
+export function getSignatureForThisServer(scope: string, text: string): string {
+  return calculateSignature(getFullConfigFile().secrets.cookie, scope, text);
+}
+
+//Validate a generated signature. Signatures made with a retired secret are never accepted, but are logged
 export function validateSignatureForThisServer(scope: string, text: string, signature: string): boolean {
-  return getSignatureForThisServer(scope, text) === signature;
+  if (getSignatureForThisServer(scope, text) === signature)
+    return true;
+
+  tryRetiredSecrets("cookie", scope, false, secret => calculateSignature(secret, scope, text) === signature ? true : null);
+  return false;
 }

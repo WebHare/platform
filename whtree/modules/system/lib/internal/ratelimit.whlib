@@ -1,0 +1,37 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::datetime.whlib";
+
+/** @short Count a hit against a rate limit
+    @long This is CheckRateLimit without its development server exemption, for libraries that mod::system/lib/services.whlib
+          itself depends on. The hits are stored in the adhoc cache, so they're shared by all VMs in the process
+    @param criterium A record describing this rate limit (hashed to generate a unique key), eg an ip address and/or service name
+    @param numhits Number of hits to accept in the time period
+    @param timeperiod Time period to which the limit applies in ms
+    @return Limit check result
+    @cell(boolean) return.accepted If TRUE, accept this request, rate limit not hit
+    @cell(integer) return.backoff If >0, recommended backoff time before requests will be accepted again (in ms) */
+PUBLIC RECORD FUNCTION __CheckRateLimit(RECORD criterium, INTEGER numhits, INTEGER timeperiod)
+{
+  RECORD check := (LookupAdhocCached(criterium) ?? [ value := [ hits := DATETIME[] ]]).value;
+  DATETIME now := GetCurrentDatetime();
+  IF(Length(check.hits) > 0)
+  {
+    DATETIME cutoff := AddTimeToDate(-timeperiod, now);
+    WHILE(Length(check.hits) > 0 AND check.hits[0] <= cutoff)
+      DELETE FROM check.hits AT 0;
+  }
+
+  IF(Length(check.hits) >= numhits)
+  {
+    // backoff: next valid time = check.hits[0] + timeperiod, compare to 'now'
+    RETURN [ accepted := FALSE
+           , backoff := GetMsecsDifference(now, AddTimeToDate(timeperiod, check.hits[0]))
+           ];
+  }
+
+  INSERT now INTO check.hits AT END;
+  StoreAdhocCached(criterium, [ ttl := timeperiod, value := [ hits := check.hits ] ]);
+  RETURN [ accepted := TRUE, backoff := 0 ];
+}

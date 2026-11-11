@@ -1,7 +1,11 @@
-import { loadlib } from "@webhare/harescript";
-import { decryptForThisServer, encryptForThisServer } from "@webhare/services";
+import { createVM, loadlib } from "@webhare/harescript";
+import { decryptForThisServer, encryptForThisServer, getSignatureForThisServer, readLogLines, readRegistryKey, validateSignatureForThisServer, writeRegistryKey } from "@webhare/services";
 import { Money } from "@webhare/std";
 import * as test from "@webhare/test";
+import { runInWork } from "@webhare/whdb";
+import { getFullConfigFile } from "@mod-system/js/internal/configuration";
+import { updateWebHareConfigFile } from "@mod-system/js/internal/generation/gen_config";
+import * as crypto from "node:crypto";
 
 declare module "@webhare/services" {
   interface ServerEncryptionScopes {
@@ -88,5 +92,92 @@ async function testCryptForServer() {
   test.eq("Hello, world!", decryptForThisServer("webhare_testsuite:string", roundtripCK, { secret: customSecret }));
 }
 
+/** Encrypt like encryptForThisServer, but with a specific cluster GCM secret */
+function encryptWithGCMSecret(gcmSecret: string, scope: string, data: string) {
+  const key = crypto.createHash("SHA-256").update(gcmSecret, "base64url").update(scope, "utf8").digest();
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+  const enc = cipher.update(JSON.stringify(data), "utf8", "base64url") + cipher.final("base64url");
+  return `${enc}.${iv.toString("base64url")}.${cipher.getAuthTag().toString("base64url")}`;
+}
+
+function signWithCookieSecret(cookieSecret: string, scope: string, text: string) {
+  return crypto.createHash("SHA-256").update(text + "\t" + scope + "\t" + cookieSecret).digest().toString("base64url");
+}
+
+async function setRetiredSecrets(value: string) {
+  await runInWork(() => writeRegistryKey("system:webserver.security.retiredsecrets", value));
+  await updateWebHareConfigFile();
+}
+
+async function testRetiredSecrets() {
+  const hsServices = loadlib("mod::system/lib/services.whlib");
+  const hsSecrets = loadlib("mod::system/lib/internal/cluster/secrets.whlib");
+  const scope = "webhare_testsuite:retired";
+  const start = new Date;
+
+  const acceptedGCM = crypto.randomBytes(32).toString("base64url");
+  const disabledGCM = crypto.randomBytes(32).toString("base64url");
+  const retiredCookie = crypto.randomBytes(32).toString("base64url");
+  const tokAccepted = encryptWithGCMSecret(acceptedGCM, scope, "accepted");
+  const tokDisabled = encryptWithGCMSecret(disabledGCM, scope, "disabled");
+  const sigRetired = signWithCookieSecret(retiredCookie, scope, "text");
+
+  //Make sure HareScript has cached the current secrets, so we also test that it picks up the change
+  test.eq("fallback", await hsServices.DecryptForThisServer(scope, tokAccepted, { fallback: "fallback", acceptretired: true }));
+
+  const original = await readRegistryKey("system:webserver.security.retiredsecrets");
+  try {
+    const retiredAt = new Date().toISOString();
+    await setRetiredSecrets(JSON.stringify([
+      { id: "test-accepted", type: "gcm", secret: acceptedGCM, retiredAt, compromised: false, disabledSince: null },
+      { id: "test-disabled", type: "gcm", secret: disabledGCM, retiredAt, compromised: true, disabledSince: retiredAt },
+      { id: "test-cookie", type: "cookie", secret: retiredCookie, retiredAt, compromised: false, disabledSince: null },
+      { id: "test-broken", type: "nosuchtype", secret: "x", retiredAt }
+    ]));
+    test.eq(["test-accepted", "test-disabled", "test-cookie"], getFullConfigFile().secrets.retired?.map(_ => _.id), "malformed entries should be dropped");
+
+    //TypeScript: only accept retired secrets when asked, and never disabled ones
+    test.throws(/unable to authenticate|bad decrypt/, () => decryptForThisServer(scope, tokAccepted));
+    test.eq("accepted", decryptForThisServer(scope, tokAccepted, { acceptRetired: true }));
+    test.throws(/unable to authenticate|bad decrypt/, () => decryptForThisServer(scope, tokDisabled, { acceptRetired: true }));
+    test.eq(null, decryptForThisServer(scope, tokDisabled, { acceptRetired: true, nullIfInvalid: true }));
+    test.eq(false, validateSignatureForThisServer(scope, "text", sigRetired), "signatures never accept retired secrets");
+    test.eq(true, validateSignatureForThisServer(scope, "text", getSignatureForThisServer(scope, "text")));
+
+    //HareScript should see the change (its cache is invalidated by system:configupdate)
+    await test.wait(async () => await hsServices.DecryptForThisServer(scope, tokAccepted, { fallback: "", acceptretired: true }) === "accepted");
+    await test.throws(/Value decryption failed/, () => hsServices.DecryptForThisServer(scope, tokAccepted));
+    await test.throws(/Value decryption failed/, () => hsServices.DecryptForThisServer(scope, tokDisabled, { acceptretired: true }));
+    test.eq(false, await hsSecrets.ValidateSignatureForThisServer(scope, "text", sigRetired));
+    test.eq(true, await hsSecrets.ValidateSignatureForThisServer(scope, "text", getSignatureForThisServer(scope, "text")));
+
+    //The notice throttling is shared by all VMs in the process (a native webserver request gets a fresh VM), so another VM shouldn't log the accepted use again
+    {
+      await using otherVM = await createVM();
+      test.eq("accepted", await otherVM.loadlib("mod::system/lib/services.whlib").DecryptForThisServer(scope, tokAccepted, { acceptretired: true }));
+    }
+
+    //Every use should be in the notice log
+    type SecretNotice = { event: string; secretid: string; scope: string; engine: string; reason?: string };
+    const notices: Array<{ type: string } & SecretNotice> = [];
+    for await (const line of readLogLines("system:notice", { start }))
+      if (line.data && typeof line.data === "object" && String((line.data as SecretNotice).event).startsWith("platform:retired-secret-") && (line.data as SecretNotice).scope === scope)
+        notices.push({ type: String(line.type), ...line.data as SecretNotice });
+
+    for (const engine of ["typescript", "harescript"]) {
+      test.eq([{ type: "info" }], notices.filter(_ => _.engine === engine && _.secretid === "test-accepted" && _.event === "platform:retired-secret-accepted").map(_ => ({ type: _.type })), `${engine}: accepted use should be logged once (it's throttled)`);
+      test.assert(notices.some(_ => _.engine === engine && _.secretid === "test-accepted" && _.event === "platform:retired-secret-rejected" && _.reason === "scope" && _.type === "warning"), `${engine}: retired secret rejected by scope`);
+      test.assert(notices.some(_ => _.engine === engine && _.secretid === "test-disabled" && _.event === "platform:retired-secret-rejected" && _.reason === "disabled" && _.type === "error"), `${engine}: disabled compromised secret should log an error`);
+      test.assert(notices.some(_ => _.engine === engine && _.secretid === "test-cookie" && _.event === "platform:retired-secret-rejected" && _.reason === "scope"), `${engine}: signature with retired secret`);
+    }
+  } finally {
+    await setRetiredSecrets(original);
+  }
+}
+
 test.runTests(
-  [testCryptForServer]);
+  [
+    testCryptForServer,
+    testRetiredSecrets
+  ]);
