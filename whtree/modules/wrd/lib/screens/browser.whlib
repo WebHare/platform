@@ -929,8 +929,8 @@ PUBLIC STATIC OBJECTTYPE EditSource EXTEND TolliumScreenBase
 
   BOOLEAN FUNCTION Submit()
   {
-    OBJECT work := this->BeginUnvalidatedWork();
     RECORD result := CallJS("@mod-wrd/js/internal/entitysource.ts#importEntitySource", this->entityid, ^code->value);
+    OBJECT work := this->BeginUnvalidatedFeedback();
     IF(result.error != "")
       work->AddError(result.error);
     RETURN work->Finish();
