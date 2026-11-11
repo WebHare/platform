@@ -26,7 +26,7 @@ export interface AuthEventData {
     error?: string;
   };
   "platform:logout": { tokenHash: string; tokenId: number };
-  "platform:apikey": { tokenHash: string; tokenId: number; scopes?: string[] };
+  "platform:apikey": { tokenHash: string; tokenId: number; scopes?: string[]; resource?: string };
   "platform:accountstatus": { oldStatus?: WRDAuthAccountStatus | null; newStatus: WRDAuthAccountStatus | null };
   "platform:insufficient-security": { failedChecks: PasswordCheck[]; badPasswordTime: Temporal.Instant | null };
   "platform:resetpassword": void;

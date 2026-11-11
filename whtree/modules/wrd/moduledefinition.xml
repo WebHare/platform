@@ -308,6 +308,10 @@
       <d:varchar name="scopes" maxlength="1024">
         <d:documentation>Space separated list of scopes in this token</d:documentation>
       </d:varchar>
+      <d:varchar name="resource" maxlength="1024">
+        <d:documentation>Resource (RFC 8707) this token is restricted to, ie its audience, eg the URL of an MCP server. Empty if
+          the token can be used with any API of the schema that accepts tokens without a resource</d:documentation>
+      </d:varchar>
       <d:varchar name="title" maxlength="256">
         <d:documentation>Token title</d:documentation>
       </d:varchar>
@@ -317,6 +321,7 @@
       <d:bytea name="hash" maxlength="32" nullable="0" unique="true">
         <d:documentation>Hash for this token</d:documentation>
       </d:bytea>
+      <d:obsoletecolumn name="audience" /> <!-- existed in some earlier WH5.9/6.0 servers, never properly obsoleted -->
     </d:table>
 
     <d:table name="pendingpayments" parentlinkcolumn="providerattr" primarykey="id">

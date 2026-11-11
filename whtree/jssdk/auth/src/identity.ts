@@ -41,6 +41,9 @@ export interface AuthTokenOptions {
   prefix?: string;
   /** Scopes associated with the API token */
   scopes?: string[];
+  /** Resource (RFC 8707) to restrict the access token to, eg the URL of an MCP server. The token is set up with this
+      resource as its audience, and verifyAccessToken only accepts it when called with the same `resource` */
+  resource?: string;
   /** Title, for the key owner to recognize the specific key */
   title?: string;
   /** Metadata to add */
@@ -556,9 +559,11 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     }
 
     /* We always generate access tokens for OpenID requests (skippable when client only requests an id_token)
-     For our convenience we use JWT for access tokens but we don't strictly have to. We do not set an audience as we're always the audience, and we do not really care
-     about the signature yet - our wrd.tokens table is leading (and we want to be able to show active sessions anyway) */
-    const atPayload = preparePayload(subjectValue, relativeTo, validUntil, { scopes });
+     For our convenience we use JWT for access tokens but we don't strictly have to. We only set an audience if the token is restricted to a
+     resource, otherwise we're the audience. We do not really care about the signature yet - our wrd.tokens table is leading (and we want to
+     be able to show active sessions anyway), so verifyAccessToken checks the resource stored there */
+    const resource = options?.resource || "";
+    const atPayload = preparePayload(subjectValue, relativeTo, validUntil, { scopes, ...(resource ? { audiences: [resource] } : {}) });
     const prefix = options?.prefix ?? (type !== "id" ? "secret-token:" : ""); //if undefined/null, we fall back to the default
     if (options?.claims)
       Object.assign(atPayload, options.claims);
@@ -582,6 +587,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
         entity: subject,
         client: client,
         scopes: scopes?.join(" "),
+        resource,
         hash,
         metadata: metadata,
         title: options?.title ?? ""
@@ -602,6 +608,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
             tokenHash: hash.toString("base64url"),
             tokenId: insertres[0].id,
             ...(scopes.length ? { scopes } : null),
+            ...(resource ? { resource } : null),
           }
         });
       }
@@ -694,7 +701,14 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
    * @param token - The token to verify
    * @param options - Optional parameters for token verification
   */
-  async verifyAccessToken(type: "id" | "api", token: string, options?: { ignoreAccountStatus?: boolean; requireScopes?: string[] }): Promise<VerifyAccessTokenResult | { error: string }> {
+  async verifyAccessToken(type: "id" | "api", token: string, options?: {
+    ignoreAccountStatus?: boolean;
+    requireScopes?: string[];
+    /** Resource (RFC 8707) the token is being used for, eg the URL of an MCP server. Tokens restricted to a resource are
+        only accepted for that resource, and only if it's passed here. Tokens without a resource are only accepted if no
+        resource is passed */
+    resource?: string;
+  }): Promise<VerifyAccessTokenResult | { error: string }> {
     const hashed = hashSHA256(token);
     //Only accept tokens owned by an entity in our own schema. Tokens of entities that no longer exist at all are also rejected
     const matchToken = await db<PlatformDB>().
@@ -705,7 +719,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       where("wrd.tokens.hash", "=", hashed).
       where("wrd.tokens.type", "=", type).
       where("wrd.schemas.name", "=", this.wrdschema.tag).
-      select(["wrd.tokens.entity", "wrd.tokens.client", "wrd.tokens.expirationdate", "wrd.tokens.scopes", "wrd.tokens.type", "wrd.tokens.id"]).
+      select(["wrd.tokens.entity", "wrd.tokens.client", "wrd.tokens.expirationdate", "wrd.tokens.scopes", "wrd.tokens.type", "wrd.tokens.id", "wrd.tokens.resource"]).
       executeTakeFirst();
 
     if (!matchToken)
@@ -713,6 +727,10 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
     if ((matchToken.expirationdate.getTime() > defaultDateTime.getTime() && matchToken.expirationdate < new Date))
       return { error: `Token expired at ${matchToken.expirationdate.toISOString()}` };
+
+    //A token restricted to a resource must not work elsewhere, and a token for the whole schema must not work for a resource that requires its own
+    if (matchToken.resource !== (options?.resource || ""))
+      return { error: matchToken.resource ? `Token is restricted to resource '${matchToken.resource}'` : `Token is not valid for resource '${options?.resource}'` };
 
     const authsettings = await this.getAuthSettings(false);
     let accountStatus: WRDAuthAccountStatus | null = null;

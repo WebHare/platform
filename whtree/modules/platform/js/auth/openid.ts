@@ -33,6 +33,8 @@ declare module "@webhare/services" {
       code_challenge: string | null;
       code_challenge_method: CodeChallengeMethod | null;
       prompt: OAuth2PromptFlag;
+      /** Resource (RFC 8707) the client requested a token for, null if none */
+      resource?: string | null;
       /** User id to set */
       user?: number;
     };
@@ -70,6 +72,36 @@ type TokenResponse = {
   id_token?: string;
   expires_in?: number;
 };
+
+/** Get the URL of a WRD schema's MCP server, which is also its OAuth2 resource identifier (RFC 8707). The MCP server is
+    served at /.wh/mcp/<module>/<schema> on the origin of the schema's identity provider
+    @param schemaTag - WRD schema
+    @param issuer - The schema's issuer, see getOpenIDIssuer */
+export function getMCPServerURL(schemaTag: string, issuer: string): string {
+  return new URL(issuer).origin + "/.wh/mcp/" + schemaTag.replace(":", "/");
+}
+
+/** Get the resources (RFC 8707) a schema's identity provider issues tokens for. For now that's only its MCP server,
+    which exists while dynamic client registration is enabled */
+async function getProtectedResources(schemaTag: string): Promise<string[]> {
+  const { dynamicRegistration } = await getSchemaSettings(wrd<WRDSchemaLike["platform:basewrdschema"]>(schemaTag), ["dynamicRegistration"]);
+  if (dynamicRegistration?.enabled !== true)
+    return [];
+  const issuer = await getOpenIDIssuer(schemaTag);
+  return issuer ? [getMCPServerURL(schemaTag, issuer)] : [];
+}
+
+/** Normalize a resource parameter (RFC 8707 section 2: an absolute URI without a fragment), lowercasing its scheme and host
+    @returns The normalized resource, or null if it isn't a valid resource identifier */
+function normalizeResource(resource: string): string | null {
+  if (resource.includes("#"))
+    return null;
+  try {
+    return new URL(resource).href;
+  } catch {
+    return null;
+  }
+}
 
 /** Joins a path to a URL, eliminating any double slash (similar to NodeJS path.join)
  * @param baseurl - URL to join to
@@ -226,6 +258,7 @@ export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provide
   const response_type = (searchParams.get("response_type")?.split(' ') || []) as Array<ResponseType>;
   const response_mode = searchParams.get("response_mode") as ResponseModesScopes | null;
   const prompt: OAuth2PromptFlag = (searchParams.get("prompt") || "") as OAuth2PromptFlag;
+  const requestedResources = searchParams.getAll("resource");
 
   //Verify the client and callback URL first. If these are not okay, we're NOT allowed to use the provided callback URL (and thus cannot use createOIDCErrorResponse) as we haven't validated it
   const client = await provider.wrdschema.query("wrdauthApplication").where("wrdGuid", "=", decompressUUID(clientid)).select(["callbackUrls", "wrdId"]).execute();
@@ -275,6 +308,16 @@ export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provide
   if (invalidScopes.length > 0)
     return createOIDCErrorResponse(callerInfo, "invalid_scope", `Invalid scope requested: ${invalidScopes.join(", ")}`);
 
+  //We issue tokens for at most one resource (RFC 8707). MCP clients request their MCP server
+  let resource: string | null = null;
+  if (requestedResources.length > 1)
+    return createOIDCErrorResponse(callerInfo, "invalid_target", `Only one resource can be requested`);
+  if (requestedResources.length === 1) {
+    resource = normalizeResource(requestedResources[0]);
+    if (!resource || !(await getProtectedResources(provider.wrdschema.tag)).includes(resource))
+      return createOIDCErrorResponse(callerInfo, "invalid_target", `Unknown resource '${requestedResources[0]}'`);
+  }
+
   if (prompt === "none" && !curuser) { //TODO can we also shortcircuit the wrdauth redirects below in case prompt===none but a user IS logged in?
     return createOIDCErrorResponse(callerInfo, "login_required", `Prompt is 'none' but no user is logged in`);
   }
@@ -286,7 +329,8 @@ export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provide
     nonce,
     code_challenge,
     code_challenge_method: code_challenge_method as CodeChallengeMethod,
-    prompt
+    prompt,
+    resource
   }));
 
   //Sets up a WRD Auth request that will return the user after logging in locally to the openid /return/ endpoint in openIdRouter
@@ -461,6 +505,12 @@ export async function retrieveTokens<T extends SchemaTypeDefinition>(provider: I
       return { error: "Wrong code_verifier" };
   }
 
+  /* RFC 8707 section 2.2: the token request may repeat the resource. We only issue tokens for the resource of the
+     authorization request, so it must match that one */
+  const tokenResources = form.getAll("resource");
+  if (tokenResources.length > 1 || (tokenResources.length === 1 && normalizeResource(tokenResources[0]) !== (returnInfo.resource ?? null)))
+    return { error: `Invalid resource, the token request must ask for the resource of the authorization request (${returnInfo.resource ? `'${returnInfo.resource}'` : "none"})` };
+
   //Only look up the issuer if we need it, plain OAuth2 doesn't
   const issuer = returnInfo.scopes.includes("openid") ? options?.issuer ?? await getOpenIDIssuer(provider.wrdschema.tag) : undefined;
   if (returnInfo.scopes.includes("openid") && !issuer)
@@ -469,6 +519,7 @@ export async function retrieveTokens<T extends SchemaTypeDefinition>(provider: I
   const tokens = await provider.createTokens("oidc", returnInfo.user, returnInfo.clientid, sessionid, returnInfo.nonce, {
     issuer: issuer ?? undefined,
     scopes: returnInfo.scopes,
+    ...(returnInfo.resource ? { resource: returnInfo.resource } : {}),
     customizer: options?.customizer,
     expires: options?.expires, //if not set, createTokens falls back to loginSettings.apiTokenDuration and eventually defaultAccessTokenExpiry
     idTokenExpires: openIdTokenExpiry

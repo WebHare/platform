@@ -1,9 +1,18 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { createFirstPartyToken } from "@webhare/auth";
+import { createCodeVerifier, IdentityProvider } from "@webhare/auth/src/identity";
 import { createMCPClient, type MCPHTTPError, type MCPProtocolError } from "@webhare/mcp";
-import { broadcast, toResourcePath } from "@webhare/services";
+import { HTTPSuccessCode } from "@webhare/router";
+import { IncomingWebRequest } from "@webhare/router/src/request";
+import { broadcast, decryptForThisServer, toResourcePath } from "@webhare/services";
+import { throwError, updateURL } from "@webhare/std";
 import { runInWork } from "@webhare/whdb";
 import { getSchemaSettings, updateSchemaSettings, wrd, type WRDSchemaLike } from "@webhare/wrd";
+import { createCodeChallenge, retrieveTokens, returnAuthorizeFlow, startAuthorizeFlow } from "@mod-platform/js/auth/openid";
+
+const mcpClientCallback = "http://127.0.0.1:33418/callback";
+/** The client registered by testDynamicRegistration */
+let mcpClient: { clientId: string; clientSecret: string } | undefined;
 
 async function setupMCP() {
   await test.resetWTS({
@@ -93,10 +102,12 @@ async function testDynamicRegistration() {
   const registration = await fetch(registrationEndpoint, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ client_name: "test_mcp", redirect_uris: ["http://127.0.0.1:33418/callback"] })
+    body: JSON.stringify({ client_name: "test_mcp", redirect_uris: [mcpClientCallback] })
   });
   test.eq(201, registration.status);
-  test.eqPartial({ client_name: "test_mcp", redirect_uris: ["http://127.0.0.1:33418/callback"] }, await registration.json());
+  const registered = await registration.json() as { client_id: string; client_secret: string; client_name: string; redirect_uris: string[] };
+  test.eqPartial({ client_name: "test_mcp", redirect_uris: [mcpClientCallback] }, registered);
+  mcpClient = { clientId: registered.client_id, clientSecret: registered.client_secret };
 }
 
 async function testMCPEndpoint() {
@@ -115,8 +126,23 @@ async function testMCPEndpoint() {
   test.eq(/^Bearer resource_metadata=".*", error="invalid_token"/, badToken.headers.get("www-authenticate"));
 
   ////////////////////////////////////////////////////////////////
+  // STORY: Only tokens issued for the MCP server are accepted (RFC 8707), not tokens for other APIs of the schema
+  const schemaToken = await createFirstPartyToken(testSchema, "api", test.getUser("sysop").wrdId);
+  const schemaTokenError = await test.throws(/HTTP status 401/, createMCPClient(mcpUrl, { bearerToken: schemaToken.accessToken }).ping()) as MCPHTTPError;
+  test.eq(/error="invalid_token", error_description="Token is not valid for resource/, schemaTokenError.headers.get("www-authenticate"));
+
+  const otherResourceToken = await createFirstPartyToken(testSchema, "api", test.getUser("sysop").wrdId, { resource: mcpUrl + "x" });
+  await test.throws(/HTTP status 401/, createMCPClient(mcpUrl, { bearerToken: otherResourceToken.accessToken }).ping());
+
+  ////////////////////////////////////////////////////////////////
   // STORY: Talk to the MCP server with a valid token
-  const { accessToken } = await createFirstPartyToken(testSchema, "api", test.getUser("sysop").wrdId);
+  const { accessToken } = await createFirstPartyToken(testSchema, "api", test.getUser("sysop").wrdId, { resource: mcpUrl });
+
+  //A token restricted to the MCP server can't be used for the schema's other APIs
+  const provider = new IdentityProvider(testSchema);
+  test.eq({ error: `Token is restricted to resource '${mcpUrl}'` }, await provider.verifyAccessToken("api", accessToken));
+  test.eqPartial({ entity: test.getUser("sysop").wrdId }, await provider.verifyAccessToken("api", accessToken, { resource: mcpUrl }));
+
   const client = createMCPClient(mcpUrl, { bearerToken: accessToken, clientInfo: { name: "test_mcp", version: "1.0" } });
 
   test.eqPartial({
@@ -130,10 +156,67 @@ async function testMCPEndpoint() {
   test.eq(405, (await fetch(mcpUrl, { headers: { authorization: "Bearer " + accessToken } })).status);
 }
 
+/** Run an authorization code flow like an MCP client does: requesting a token for the MCP server with the resource
+    parameter (RFC 8707). Runs the authorize and token endpoints directly, without a browser login */
+async function testAuthorizeWithResource() {
+  const { mcpUrl } = await getMCPURLs();
+  const testSchema = wrd<WRDSchemaLike["webhare_testsuite:oidcschema"]>("webhare_testsuite:testschema");
+  const provider = new IdentityProvider(testSchema);
+  const loginUrl = "https://www.example.net/login/";
+  const { clientId, clientSecret } = mcpClient ?? throwError("testDynamicRegistration didn't register a client");
+  const codeVerifier = createCodeVerifier();
+
+  const startFlow = async (resources: string[]) => {
+    const authorizeUrl = updateURL("http://example.net/", {
+      client_id: clientId,
+      response_type: "code",
+      redirect_uri: mcpClientCallback,
+      state: "teststate",
+      code_challenge: createCodeChallenge(codeVerifier, "S256"),
+      code_challenge_method: "S256"
+    });
+    for (const resource of resources)
+      authorizeUrl.searchParams.append("resource", resource);
+
+    const response = await startAuthorizeFlow(provider, authorizeUrl.toString(), loginUrl, null);
+    test.eq(HTTPSuccessCode.SeeOther, response.status);
+    return new URL(response.headers.get("location") ?? throwError("No location header in startAuthorizeFlow response"));
+  };
+
+  //Unknown resources, and more than one resource, are refused with invalid_target before the user logs in
+  for (const resources of [[mcpUrl + "x"], ["https://www.example.net/"], [mcpUrl + "#fragment"], [mcpUrl, mcpUrl]]) {
+    const refused = await startFlow(resources);
+    test.eq(mcpClientCallback, refused.origin + refused.pathname, `Expected an error for resources ${JSON.stringify(resources)}`);
+    test.eq("invalid_target", refused.searchParams.get("error"));
+  }
+
+  //Requesting the MCP server sends the user to the login page. Scheme and host are case-insensitive
+  const loginRedirect = await startFlow([mcpUrl.replace(/^https?:\/\/[^/]+/, origin => origin.toUpperCase())]);
+  test.eq(loginUrl, loginRedirect.origin + loginRedirect.pathname);
+
+  //Complete the login as sysop and return to the client with a code
+  const loginControl = decryptForThisServer("wrd:authplugin.logincontroltoken", loginRedirect.searchParams.get("wrdauth_logincontrol")!);
+  const endFlow = await returnAuthorizeFlow(provider, new IncomingWebRequest(new URL(loginControl.returnto, loginUrl).toString()), test.getUser("sysop").wrdId, (await test.getTestSiteJS()).id);
+  test.eq(HTTPSuccessCode.SeeOther, endFlow.status);
+  const code = new URL(endFlow.headers.get("location")!).searchParams.get("code") ?? throwError("No code returned");
+
+  //The token request may repeat the resource, but can't ask for another one
+  const tokenRequest = { code, client_id: clientId, client_secret: clientSecret, grant_type: "authorization_code", redirect_uri: mcpClientCallback, code_verifier: codeVerifier };
+  test.eq({ error: /Invalid resource/ }, await retrieveTokens(provider, new URLSearchParams({ ...tokenRequest, resource: mcpUrl + "x" }), new Headers));
+
+  const tokens = await retrieveTokens(provider, new URLSearchParams({ ...tokenRequest, resource: mcpUrl }), new Headers);
+  test.assert(tokens.error === null, "Token request failed: " + tokens.error);
+
+  //The token works on the MCP server, but not for the schema's other APIs
+  test.eqPartial({ serverInfo: { name: "webhare_testsuite:testschema" } }, await createMCPClient(mcpUrl, { bearerToken: tokens.body.access_token }).initialize());
+  test.eq({ error: `Token is restricted to resource '${mcpUrl}'` }, await provider.verifyAccessToken("api", tokens.body.access_token));
+}
+
 test.runTests([
   setupMCP,
   testDynamicRegistration, //enables dynamic registration, which the MCP server requires
   printConnectionInfo,
   testProtectedResourceMetadata,
-  testMCPEndpoint
+  testMCPEndpoint,
+  testAuthorizeWithResource
 ]);

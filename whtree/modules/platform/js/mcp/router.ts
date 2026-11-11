@@ -9,7 +9,7 @@ import { createJSONResponse, createWebResponse, HTTPErrorCode, HTTPSuccessCode, 
 import { backendConfig } from "@webhare/services";
 import { IdentityProvider } from "@webhare/auth/src/identity";
 import { getSchemaSettings, wrd, type WRDSchemaLike } from "@webhare/wrd";
-import { getOpenIDIssuer } from "../auth/openid";
+import { getMCPServerURL, getOpenIDIssuer } from "../auth/openid";
 
 /** Protocol versions we support, latest first */
 const supportedProtocolVersions = ["2025-11-25", "2025-06-18", "2025-03-26"];
@@ -38,7 +38,7 @@ type MCPServerInstance = {
   wrdSchemaTag: string;
   /** OAuth2 issuer (authorization server) for the WRD schema */
   issuer: string;
-  /** URL of the MCP endpoint, which is also the OAuth2 resource identifier */
+  /** URL of the MCP endpoint, which is also the OAuth2 resource identifier (RFC 8707) and the audience of its tokens */
   resource: string;
   /** URL of the RFC 9728 protected resource metadata for this endpoint */
   resourceMetadata: string;
@@ -93,7 +93,7 @@ async function lookupMCPServer(origin: string, mcpPath: string): Promise<MCPServ
   return {
     wrdSchemaTag,
     issuer,
-    resource: origin + mcpPath,
+    resource: getMCPServerURL(wrdSchemaTag, issuer), //equals origin + mcpPath, as we checked the origin above
     resourceMetadata: origin + protectedResourcePrefix + mcpPath
   };
 }
@@ -148,7 +148,8 @@ export async function mcpRouter(req: WebRequest): Promise<WebResponse> {
     return requireAuthentication(server);
 
   const authSchema = wrd<WRDSchemaLike["platform:basewrdschema"]>(server.wrdSchemaTag);
-  const tokenInfo = await new IdentityProvider(authSchema).verifyAccessToken("api", accessToken);
+  //Only accept tokens issued for this MCP server (RFC 8707), not tokens for other APIs of the schema
+  const tokenInfo = await new IdentityProvider(authSchema).verifyAccessToken("api", accessToken, { resource: server.resource });
   if ("error" in tokenInfo)
     return requireAuthentication(server, tokenInfo.error);
 
