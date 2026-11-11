@@ -1576,6 +1576,11 @@
         <xs:documentation>Maximum days we allow to keep results for processing (minimal: 1)</xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="allowmaxsignups" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>Allow closing webtool forms after a maximum number of registrations (default true). If false, the option is hidden and any configured maximum is ignored</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
     <xs:attribute name="autocompleteusername">
       <xs:annotation>
         <xs:documentation>Enables the username autocomplete and sets it title. Set to '*' to use the default title</xs:documentation>

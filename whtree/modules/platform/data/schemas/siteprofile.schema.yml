@@ -977,6 +977,9 @@ $defs:
       processDays:
         description: "Maximum days we allow to keep results for processing (minimal: 1)"
         type: integer
+      allowMaxSignups:
+        description: Allow closing webtool forms after a maximum number of registrations (default true). If false, the option is hidden and any configured maximum is ignored
+        type: boolean
       autoCompleteUserName:
         description: Enable username autocomplete and set its title. Set to '*' to use the default title
         type: string

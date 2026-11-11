@@ -65,8 +65,39 @@ ASYNC MACRO TestMaxSignupForm() {
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+ASYNC MACRO TestMaxSignupsDisabled() {
+  //The siteprofile sets allowmaxsignups="false" for this form, so its maximum should be ignored and the option hidden
+  BuildWebtoolForm([ maxsignups := 1
+                   , emailfieldname := "email"
+                   , filename := "form-nomaxsignups"
+                   ]);
+
+  OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form-nomaxsignups");
+  TestEq(TRUE, testfw->browser->GotoWebPage(formfile->url));
+
+  OBJECT tester := OpenFormsapiFormTester(testfw->browser);
+  TestEq(RECORD[], tester->SubmitForm(CELL[ email := "signup1@beta.webhare.net" ]).errors);
+  TestEq(RECORD[], tester->SubmitForm(CELL[ email := "signup2@beta.webhare.net" ]).errors);
+  TestEq(2, formfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/formstats").numresults);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(formfile->url));
+  TestEq(TRUE, ObjectExists(testfw->browser->QS("form")));
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ formfile->whfspath ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Form settings", [menuitem:=TRUE]));
+  TestEq("available", TT("availability")->value);
+  TestEq(["available", "unavailable"], SELECT AS STRING ARRAY rowkey FROM TT("availability")->options);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  //The stored maximum is kept, so re-enabling the option restores it
+  TestEq(1, formfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool").maxsignups);
+}
+
 RunTestframework([ PTR BuildForm
                  , PTR TestMaxSignupForm
+                 , PTR TestMaxSignupsDisabled
                  ],[ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                   ]
                  ]);
