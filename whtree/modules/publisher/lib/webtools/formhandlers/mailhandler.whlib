@@ -111,13 +111,25 @@ PUBLIC STATIC OBJECTTYPE MailConfirmationHandler EXTEND MailHandler
     this->handlertype := "confirmation";
   }
 
-  UPDATE PUBLIC RECORD ARRAY FUNCTION GetConfirmationFormSubmitTypes()
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetConfirmationFormSubmitTypesForComp(RECORD comp)
   {
-    RETURN
-        [ [ rowkey := "pending", title := GetTid("publisher:tolliumapps.formedit.formsubmittype-pending") ]
-        , [ rowkey := "confirm", title := GetTid("publisher:tolliumapps.formedit.formsubmittype-confirm") ]
-        , [ rowkey := "duplicate", title := GetTid("publisher:tolliumapps.formedit.formsubmittype-duplicate") ]
-        ];
+    RECORD ARRAY submittypes;
+
+    // 'pending' is only available for components on the 'thankyou' page
+    // Note that if we don't have a comp, we just return everything for formatting and validation purposes
+    IF (NOT RecordExists(comp) OR comp.on_thankyou_page)
+      INSERT [ rowkey := "pending", title := GetTid("publisher:tolliumapps.formedit.formsubmittype-pending") ] INTO submittypes AT END;
+
+    // 'confirm' and 'duplicate' are available for components on the 'thankyou' page and for handlers other than the confirmation handler
+    IF (NOT RecordExists(comp) OR comp.on_thankyou_page OR (comp.is_handler AND comp.name != "mailconfirmationhandler"))
+    {
+      INSERT [ rowkey := "confirm", title := GetTid("publisher:tolliumapps.formedit.formsubmittype-confirm") ] INTO submittypes AT END;
+      // 'duplicate' is available if the handler checks for duplicate email adresses
+      IF (this->settings.onduplicate = "reject")
+        INSERT [ rowkey := "duplicate", title := GetTid("publisher:tolliumapps.formedit.formsubmittype-duplicate") ] INTO submittypes AT END;
+    }
+
+    RETURN submittypes;
   }
 
   UPDATE PUBLIC STRING FUNCTION DetermineNewSubmissionStatus(RECORD result, OBJECT formresults)
