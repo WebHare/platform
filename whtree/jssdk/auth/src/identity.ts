@@ -696,11 +696,16 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
   */
   async verifyAccessToken(type: "id" | "api", token: string, options?: { ignoreAccountStatus?: boolean; requireScopes?: string[] }): Promise<VerifyAccessTokenResult | { error: string }> {
     const hashed = hashSHA256(token);
+    //Only accept tokens owned by an entity in our own schema. Tokens of entities that no longer exist at all are also rejected
     const matchToken = await db<PlatformDB>().
       selectFrom("wrd.tokens").
-      where("hash", "=", hashed).
-      where("type", "=", type).
-      select(["entity", "client", "expirationdate", "scopes", "type", "id"]).
+      innerJoin("wrd.entities", "wrd.entities.id", "wrd.tokens.entity").
+      innerJoin("wrd.types", "wrd.types.id", "wrd.entities.type").
+      innerJoin("wrd.schemas", "wrd.schemas.id", "wrd.types.wrd_schema").
+      where("wrd.tokens.hash", "=", hashed).
+      where("wrd.tokens.type", "=", type).
+      where("wrd.schemas.name", "=", this.wrdschema.tag).
+      select(["wrd.tokens.entity", "wrd.tokens.client", "wrd.tokens.expirationdate", "wrd.tokens.scopes", "wrd.tokens.type", "wrd.tokens.id"]).
       executeTakeFirst();
 
     if (!matchToken)

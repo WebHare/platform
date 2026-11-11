@@ -1,7 +1,7 @@
 import * as whdb from "@webhare/whdb";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { createFirstPartyToken, type LookupUsernameParameters, type OpenIdRequestParameters, type AuthCustomizer, type JWTPayload, type ReportedUserInfo, type ClientConfig, registerOAuthApplication, enableOpenIDServer, prepareFrontendLogin, writeAuthAuditEvent, getAuditEvents, type AuthEventData } from "@webhare/auth";
-import { AuthenticationSettings, createSchema, describeEntity, extendSchema, getSchemaSettings, updateSchemaSettings, wrd, type WRDSchemaLike } from "@webhare/wrd";
+import { AuthenticationSettings, createSchema, deleteSchema, describeEntity, extendSchema, getSchemaSettings, listSchemas, updateSchemaSettings, wrd, type WRDSchemaLike } from "@webhare/wrd";
 import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, decodeJWT, createCodeVerifier, type FrontendAuthResult, type FrontendLoginRequest } from "@webhare/auth/src/identity";
 import { createCodeChallenge, retrieveTokens, returnAuthorizeFlow, startAuthorizeFlow, type CodeChallengeMethod } from "@mod-platform/js/auth/openid.ts";
 import { addDuration, convertWaitPeriodToDate, generateRandomId, isLikeRandomId, parseTyped, throwError, updateURL } from "@webhare/std";
@@ -247,7 +247,7 @@ async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: Ident
     test.eqPartial({ error: "Token is invalid" }, await provider.verifyAccessToken("id", tokens.body.id_token));
   test.eqPartial({ entity: user, scopes: scopes, client: clientWrdId, accountStatus: { status: "active" } }, await provider.verifyAccessToken("api", tokens.body.access_token));
   // Wrong schema
-  test.eqPartial({ error: /Token owner #\d+ does not exist anymore/ }, await new IdentityProvider(wrd("system:usermgmt")).verifyAccessToken("api", tokens.body.access_token));
+  test.eqPartial({ error: "Token is invalid" }, await new IdentityProvider(wrd("system:usermgmt")).verifyAccessToken("api", tokens.body.access_token));
 
   if (tokens.body.id_token) {
     const verifyresult = await provider.validateToken(tokens.body.id_token);
@@ -883,6 +883,22 @@ async function testApiTokens() {
   test.assert(apiTokenLifetime > 7 * 86400_000 - 60_000 && apiTokenLifetime <= 7 * 86400_000, `Expected ~7 days API token expiry, got ${apiTokenLifetime / 3600_000} hours`);
 
   const provider = new IdentityProvider(oidcAuthSchema);
+  test.eqPartial({ entity: testUnit }, await provider.verifyAccessToken("api", testUnitKey.accessToken));
+
+  // STORY: a token issued by one schema must not be accepted by an IdentityProvider for another schema
+  // (a schema without auth settings skips the owner check entirely, so the schema check must be done on lookup)
+  const otherSchemaTag = "webhare_testsuite:noauthschema";
+  await whdb.beginWork();
+  for (const schema of (await listSchemas()).filter(s => s.tag === otherSchemaTag))
+    await deleteSchema(schema.id);
+  await createSchema(otherSchemaTag, { initialize: false });
+  await whdb.commitWork();
+
+  const otherProvider = new IdentityProvider(wrd<"*">(otherSchemaTag));
+  test.eq(null, await otherProvider.getAuthSettings(false), "This test requires a schema without auth settings");
+  test.eq({ error: "Token is invalid" }, await otherProvider.verifyAccessToken("api", testUnitKey.accessToken));
+  test.eq({ error: "Token is invalid" }, await new IdentityProvider(wrd("system:usermgmt")).verifyAccessToken("api", testUnitKey.accessToken));
+  //and the token still works for the issuing schema
   test.eqPartial({ entity: testUnit }, await provider.verifyAccessToken("api", testUnitKey.accessToken));
 }
 
