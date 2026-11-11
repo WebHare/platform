@@ -4,7 +4,7 @@ import { createFirstPartyToken, getToken, listTokens } from "@webhare/auth";
 import type { AuthTokenOptions, FirstPartyToken, ListedToken } from "@webhare/auth/src/identity";
 import { pick, throwError, typedFromEntries } from "@webhare/std";
 import { runInWork } from "@webhare/whdb";
-import { listSchemas, WRDSchema } from "@webhare/wrd";
+import { listSchemas, wrd, type AnySchemaType } from "@webhare/wrd";
 import type { AllowedFilterConditions } from "@webhare/wrd/src/types";
 import { exportFileAsFetch } from "@webhare/services/src/descriptor";
 import { decryptForThisServer, encryptForThisServer } from "@webhare/services";
@@ -33,7 +33,7 @@ export async function getSchemas(req: TypedRestRequest<AuthorizedWRDAPIUser, "ge
 }
 
 export async function createEntity(req: TypedRestRequest<AuthorizedWRDAPIUser, "post /wrd/{schema}/type/{type}/entity">): Promise<OpenAPIResponse> {
-  const schema = new WRDSchema(req.params.schema);
+  const schema = wrd<AnySchemaType>(req.params.schema);
 
   return await runInWork(async () => {
     if (!req.body.fields.wrdGuid)
@@ -45,7 +45,7 @@ export async function createEntity(req: TypedRestRequest<AuthorizedWRDAPIUser, "
 }
 
 export async function updateEntity(req: TypedRestRequest<AuthorizedWRDAPIUser, "patch /wrd/{schema}/type/{type}/entity/{entity}">): Promise<OpenAPIResponse> {
-  const schema = new WRDSchema(req.params.schema);
+  const schema = wrd<AnySchemaType>(req.params.schema);
 
   return await runInWork(async () => {
     await schema.update(req.params.type, { wrdGuid: req.params.entity }, req.body.fields);
@@ -54,14 +54,15 @@ export async function updateEntity(req: TypedRestRequest<AuthorizedWRDAPIUser, "
 }
 
 export async function queryType(req: TypedRestRequest<AuthorizedWRDAPIUser, "post /wrd/{schema}/type/{type}/query">): Promise<OpenAPIResponse> {
-  //We sort/paginate by wrdId but that is not supposed to be a future promise - whatever works for pagination!
-  const schema = new WRDSchema(req.params.schema);
-  let query = schema.query(req.params.type).select("wrdId");
+  /* We paginate by wrdId but that is not supposed to be a future promise - whatever works for pagination!
+     Keyset pagination: the nextToken holds the last returned wrdId, and every page selects the next pageSize+1 ids
+     above it (a limited WRD query orders by id). This keeps every page a single bounded query instead of re-reading
+     and slicing the full result set for every page */
+  const schema = wrd<AnySchemaType>(req.params.schema);
+  const historyMode = req.body.historyMode ?? "now";
+  let query = schema.query(req.params.type).select("wrdId").historyMode(historyMode);
   for (const filter of req.body.filters || [])
     query = query.where(filter.field, filter.matchType as AllowedFilterConditions, filter.value);
-
-  const resultIds = await query.execute();
-  resultIds.sort((a, b) => a - b); //sort by wrdId
 
   const usePageSize = req.body.pageSize ? Math.min(req.body.pageSize, maxPageSize) : maxPageSize;
   if (usePageSize < 1)
@@ -72,9 +73,11 @@ export async function queryType(req: TypedRestRequest<AuthorizedWRDAPIUser, "pos
     if (!prevToken)
       return req.createErrorResponse(HTTPErrorCode.BadRequest, { error: "Invalid nextToken" });
 
-    resultIds.splice(0, resultIds.findIndex(id => id > prevToken.lastId));
+    query = query.where("wrdId", ">", prevToken.lastId);
   }
 
+  //Fetch one extra id to find out whether there's another page
+  const resultIds = await query.limit(usePageSize + 1).execute();
   const haveMoreReults = resultIds.length > usePageSize;
   if (haveMoreReults)
     resultIds.splice(usePageSize);
@@ -87,6 +90,7 @@ export async function queryType(req: TypedRestRequest<AuthorizedWRDAPIUser, "pos
   const nextToken = haveMoreReults ? encryptForThisServer("platform:wrdapi", { lastId: resultIds[resultIds.length - 1] }) : undefined;
 
   const finalResults = await schema.query(req.params.type).
+    historyMode(historyMode).
     where("wrdId", "in", resultIds).
     select(req.body.fields || []).
     execute({ export: true, exportFile: exportFileAsFetch });
@@ -98,7 +102,7 @@ export async function queryType(req: TypedRestRequest<AuthorizedWRDAPIUser, "pos
 }
 
 export async function listTypes(req: TypedRestRequest<AuthorizedWRDAPIUser, "get /wrd/{schema}/type">): Promise<OpenAPIResponse> {
-  const types = await new WRDSchema(req.params.schema).listTypes();
+  const types = await wrd<AnySchemaType>(req.params.schema).listTypes();
   return req.createJSONResponse(HTTPSuccessCode.Ok, typedFromEntries(types.map(type =>
     [
       type.tag,
@@ -116,7 +120,7 @@ function mapTokenInfo(token: ListedToken) {
 }
 
 export async function listApiTokens(req: TypedRestRequest<AuthorizedWRDAPIUser, "get /wrd/{schema}/type/{type}/entity/{entity}/apitoken">): Promise<OpenAPIResponse> {
-  const schema = new WRDSchema(req.params.schema);
+  const schema = wrd<AnySchemaType>(req.params.schema);
   const target = await schema.find(req.params.type, { wrdGuid: req.params.entity });
   if (!target)
     return req.createErrorResponse(HTTPErrorCode.NotFound, { error: "Entity not found" });
@@ -126,7 +130,7 @@ export async function listApiTokens(req: TypedRestRequest<AuthorizedWRDAPIUser, 
 }
 
 export async function createApiToken(req: TypedRestRequest<AuthorizedWRDAPIUser, "post /wrd/{schema}/type/{type}/entity/{entity}/apitoken">): Promise<OpenAPIResponse> {
-  const schema = new WRDSchema(req.params.schema);
+  const schema = wrd<AnySchemaType>(req.params.schema);
   const target = await schema.find(req.params.type, { wrdGuid: req.params.entity });
   if (!target)
     return req.createErrorResponse(HTTPErrorCode.NotFound, { error: "Entity not found" });

@@ -250,9 +250,14 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
     }
   }
 
-  // If there are no afterchecks, we can limit the number of returned items in the entity select query
-  if (!afterchecks.length && limit)
-    selectquery = selectquery.limit(limit);
+  if (limit) {
+    // Order by id when limiting so a limited query returns a deterministic subset (the entities with the lowest ids).
+    // Callers can rely on this to page through results using `.where("wrdId", ">", lastId).limit(...)`
+    selectquery = selectquery.orderBy("wrd.entities.id");
+    // If there are no afterchecks, we can limit the number of returned items in the entity select query
+    if (!afterchecks.length)
+      selectquery = selectquery.limit(limit);
+  }
 
   // Execute the query if there could be results
   const entities = await selectquery.execute();

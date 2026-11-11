@@ -553,6 +553,13 @@ components:
           type: array
           items:
             type: string
+        historyMode:
+          type: string
+          enum: [now, active, all, unfiltered]
+          description: |
+            Which entities to consider. Defaults to 'now' (entities that are live right now).
+            'active' adds temporary entities, 'all' returns all non-temporary entities including closed and
+            future ones, 'unfiltered' returns everything
         pageSize:
           type: integer
           minimum: 1
@@ -569,6 +576,10 @@ components:
       properties:
         results:
           type: array
+          description: The matching entities, each containing the requested fields
+          items:
+            type: object
+            additionalProperties: true
         nextToken:
           type: string
           description: A token to retrieve the next page of results. If not present, there are no more results.
