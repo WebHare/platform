@@ -271,7 +271,7 @@ async function testAuthorizeWithResource() {
       code_challenge_method: "S256",
       ...extraParams
     });
-    authorizeUrl.searchParams.set("scope", ""); //clients that omit the scope may still send an empty one, which must request no scopes
+    authorizeUrl.searchParams.set("scope", extraParams.scope ?? ""); //clients that omit the scope may still send an empty one, which must request no scopes
     for (const resource of resources)
       authorizeUrl.searchParams.append("resource", resource);
 
@@ -361,6 +361,19 @@ async function testAuthorizeWithResource() {
   //The token works on the MCP server, but not for the schema's other APIs
   test.eqPartial({ serverInfo: { name: "webhare_testsuite:testschema" } }, await createMCPClient(mcpUrl, { bearerToken: tokens.body.access_token }).initialize());
   test.eq({ error: `Token is restricted to resource '${mcpUrl}'` }, await provider.verifyAccessToken("api", tokens.body.access_token));
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Approving a scope for the MCP server doesn't approve it for the schema's other APIs
+  const mcpScopeFlow = await returnAfterLogin(await startFlow([mcpUrl], { scope: "testfw" }), "yes");
+  const mcpScopeCode = new URL(mcpScopeFlow.headers.get("location")!).searchParams.get("code") ?? throwError("No code returned");
+  const mcpScopeTokens = await retrieveTokens(provider, new URLSearchParams({ ...tokenRequest, code: mcpScopeCode }), new Headers);
+  test.assert(mcpScopeTokens.error === null, "Token request failed: " + mcpScopeTokens.error);
+  test.eqPartial({ scopes: ["testfw"] }, await provider.verifyAccessToken("api", mcpScopeTokens.body.access_token, { resource: mcpUrl }));
+
+  //Asking for the same scope without a resource still needs approval, so prompt=none fails and otherwise the user is asked
+  const noResourceNoPrompt = await returnAfterLogin(await startFlow([], { scope: "testfw", prompt: "none" }));
+  test.eq("interaction_required", new URL(noResourceNoPrompt.headers.get("location")!).searchParams.get("error"));
+  test.eq(HTTPSuccessCode.Ok, (await returnAfterLogin(await startFlow([], { scope: "testfw" }))).status);
 }
 
 test.runTests([

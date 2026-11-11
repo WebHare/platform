@@ -388,7 +388,10 @@ export async function returnAuthorizeFlow<T extends SchemaTypeDefinition>(provid
     //TODO should we enforce a user having just one session?
     //TODO optimize query by directly requesting - and only if we need to add scopes. add a better identity.ts API to gather currently allowed scopes
     const currentTokens = new Set<string>;
-    for (const activeRow of (await listTokens(provider.wrdschema, user)).filter(_ => _.type === "api" && _.client === returnInfo.clientid))
+    /* Only earlier approvals for the same resource count: approving access to an MCP server doesn't approve access to the
+       schema's other APIs (a request without a resource), and vice versa */
+    const requestedResource = returnInfo.resource ?? null;
+    for (const activeRow of (await listTokens(provider.wrdschema, user)).filter(_ => _.type === "api" && _.client === returnInfo.clientid && _.resource === requestedResource))
       for (const scope of activeRow.scopes)
         currentTokens.add(scope);
 

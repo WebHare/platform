@@ -81,6 +81,8 @@ export type ListedToken = {
   scopes: string[];
   /** Client to which the token was provided */
   client: number | null;
+  /** Resource (RFC 8707) the token is restricted to, eg the URL of an MCP server. Null if it can be used with any API of the schema */
+  resource: string | null;
 };
 
 export type SetAuthCookies = {
@@ -1076,7 +1078,7 @@ async function getDBTokens<S extends SchemaTypeDefinition>(wrdSchema: WRDSchemaT
       fullJoin("wrd.entities", "wrd.entities.id", "wrd.tokens.entity").
       fullJoin("wrd.types", "wrd.types.id", "wrd.entities.type").
       fullJoin("wrd.schemas", "wrd.schemas.id", "wrd.types.wrd_schema").
-      select(["wrd.schemas.name", "wrd.tokens.id", "wrd.tokens.type", "wrd.tokens.creationdate", "wrd.tokens.expirationdate", "wrd.tokens.scopes", "wrd.tokens.metadata", "wrd.tokens.title", "wrd.tokens.client"]).
+      select(["wrd.schemas.name", "wrd.tokens.id", "wrd.tokens.type", "wrd.tokens.creationdate", "wrd.tokens.expirationdate", "wrd.tokens.scopes", "wrd.tokens.metadata", "wrd.tokens.title", "wrd.tokens.client", "wrd.tokens.resource"]).
       execute();
 
   if (tokens.length && tokens[0]?.name !== wrdSchema.tag)
@@ -1092,7 +1094,8 @@ async function getDBTokens<S extends SchemaTypeDefinition>(wrdSchema: WRDSchemaT
     expires: token.expirationdate!.getTime() === defaultDateTime.getTime() ? null : token.expirationdate?.toTemporalInstant() ?? null,
     scopes: token.scopes ? token.scopes.split(" ") : [],
     title: token.title || '',
-    client: token.client
+    client: token.client,
+    resource: token.resource || null
   })).toSorted(compareProperties(["created", "id"]));
 }
 
