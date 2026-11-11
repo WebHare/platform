@@ -34,13 +34,19 @@ export function parseRetiredSecrets(input: unknown): RetiredSecret[] {
       || typeof retiredAt !== "string")
       continue;
 
+    /* Drop entries whose state we can't trust instead of guessing: treating eg. a numeric disabledSince as 'not disabled'
+       would make a disabled secret acceptable again, and a non-boolean compromised would lose the error level notices */
+    if (typeof compromised !== "boolean"
+      || (disabledSince !== null && (typeof disabledSince !== "string" || !disabledSince)))
+      continue;
+
     retired.push({
       id,
       type: type as ClusterSecretType,
       secret,
       retiredAt,
-      compromised: compromised === true,
-      disabledSince: typeof disabledSince === "string" && disabledSince ? disabledSince : null
+      compromised,
+      disabledSince
     });
   }
   return retired;

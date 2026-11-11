@@ -119,9 +119,11 @@ async function testRetiredSecrets() {
   const acceptedGCM = crypto.randomBytes(32).toString("base64url");
   const disabledGCM = crypto.randomBytes(32).toString("base64url");
   const retiredCookie = crypto.randomBytes(32).toString("base64url");
+  const malformedGCM = crypto.randomBytes(32).toString("base64url");
   const tokAccepted = encryptWithGCMSecret(acceptedGCM, scope, "accepted");
   const tokDisabled = encryptWithGCMSecret(disabledGCM, scope, "disabled");
   const sigRetired = signWithCookieSecret(retiredCookie, scope, "text");
+  const tokMalformed = encryptWithGCMSecret(malformedGCM, scope, "malformed");
 
   //Make sure HareScript has cached the current secrets, so we also test that it picks up the change
   test.eq("fallback", await hsServices.DecryptForThisServer(scope, tokAccepted, { fallback: "fallback", acceptretired: true }));
@@ -133,7 +135,12 @@ async function testRetiredSecrets() {
       { id: "test-accepted", type: "gcm", secret: acceptedGCM, retiredAt, compromised: false, disabledSince: null },
       { id: "test-disabled", type: "gcm", secret: disabledGCM, retiredAt, compromised: true, disabledSince: retiredAt },
       { id: "test-cookie", type: "cookie", secret: retiredCookie, retiredAt, compromised: false, disabledSince: null },
-      { id: "test-broken", type: "nosuchtype", secret: "x", retiredAt }
+      { id: "test-broken", type: "nosuchtype", secret: "x", retiredAt },
+      //Entries whose state can't be trusted must be dropped, not treated as accepted secrets
+      { id: "test-baddisabled", type: "gcm", secret: malformedGCM, retiredAt, compromised: false, disabledSince: 12345 },
+      { id: "test-emptydisabled", type: "gcm", secret: malformedGCM, retiredAt, compromised: false, disabledSince: "" },
+      { id: "test-badcompromised", type: "gcm", secret: malformedGCM, retiredAt, compromised: "no", disabledSince: null },
+      { id: "test-nocompromised", type: "gcm", secret: malformedGCM, retiredAt, disabledSince: null }
     ]));
     test.eq(["test-accepted", "test-disabled", "test-cookie"], getFullConfigFile().secrets.retired?.map(_ => _.id), "malformed entries should be dropped");
 
@@ -142,6 +149,7 @@ async function testRetiredSecrets() {
     test.eq("accepted", decryptForThisServer(scope, tokAccepted, { acceptRetired: true }));
     test.throws(/unable to authenticate|bad decrypt/, () => decryptForThisServer(scope, tokDisabled, { acceptRetired: true }));
     test.eq(null, decryptForThisServer(scope, tokDisabled, { acceptRetired: true, nullIfInvalid: true }));
+    test.eq(null, decryptForThisServer(scope, tokMalformed, { acceptRetired: true, nullIfInvalid: true }), "secrets from malformed entries should never be accepted");
     test.eq(false, validateSignatureForThisServer(scope, "text", sigRetired), "signatures never accept retired secrets");
     test.eq(true, validateSignatureForThisServer(scope, "text", getSignatureForThisServer(scope, "text")));
 
