@@ -110,6 +110,25 @@ async function testPaths() {
   test.throws(/Cannot match filesystem path/, () => services.toResourcePath("/etc"));
   test.eq(null, services.toResourcePath("/etc", { allowUnmatched: true }));
 
+  //toFSPath may never escape the module, storage or @webhare/ folder
+  test.eq(services.backendConfig.module.system.root + "lib", services.toFSPath("mod::system/lib/../lib"));
+  test.eq(services.backendConfig.module.system.root.slice(0, -1), services.toFSPath("mod::system/lib/.."));
+  for (const escape of [
+    "mod::system/..",
+    "mod::system/../platform/moduledefinition.yml",
+    "mod::system/lib/../../../../../../../../etc/passwd",
+    "mod::system//../../etc/passwd",
+    "@mod-system/../../etc/passwd",
+    "storage::system/../platform/xyz",
+    "storage::system/../../config/platform.json",
+    "@webhare/../modules/system/lib/database.whlib",
+    "@webhare/services/../../../etc/passwd"
+  ]) {
+    test.throws(/tries to escape/, () => services.toFSPath(escape), `toFSPath should refuse ${escape}`);
+    test.throws(/tries to escape/, () => services.toFSPath(escape, { allowUnmatched: true }), `toFSPath should refuse ${escape} with allowUnmatched`);
+    test.throws(/tries to escape/, () => services.toFSPath(escape, { keepUnmatched: true }), `toFSPath should refuse ${escape} with keepUnmatched`);
+  }
+
   test.throws(/^Unsupported resource path/, () => services.toFSPath("site::repository/"));
   test.eq(null, services.toFSPath("site::repository/", { allowUnmatched: true }));
 }
