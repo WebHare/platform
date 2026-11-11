@@ -14,6 +14,17 @@ import { registerOAuthApplication, enableOpenIDServer, getOpenIDIssuer, getOpenI
 import { getAuthServerMetadataURL } from '@mod-platform/js/auth/openid';
 import { prepAuthForURL } from '@webhare/auth/src/support';
 import { listOAuth2Initiations } from '@mod-platform/js/auth/oauth2-initiations';
+import { clusterSecretTypes, deleteRetiredSecret, disableRetiredSecret, enableRetiredSecret, getRetiredSecretUsage, listClusterSecrets, rotateClusterSecrets } from '@mod-platform/js/auth/secret-rotation';
+import type { ClusterSecretType } from '@webhare/services/src/config';
+
+/** Report expected failures (eg an unknown id) without a stack trace */
+async function asCLIError<T>(cb: () => Promise<T>): Promise<T> {
+  try {
+    return await cb();
+  } catch (e) {
+    throw new CLIRuntimeError((e as Error).message);
+  }
+}
 
 async function getUserApiSchemaName(opts: { schema?: string }): Promise<string> {
   if (opts?.schema)
@@ -383,6 +394,121 @@ runCli({
         await beginWork();
         await user.updateGrant('grant', args.right, 0, user, { allowselfassignment: true });
         await commitWork();
+      }
+    },
+
+    "rotate-secrets": {
+      shortDescription: "Replace the cluster secrets",
+      description: `Replace the cluster secrets with new ones. The old secrets are kept as retired secrets, which are still accepted by
+scopes that allow it until you disable them. Use 'wh auth list-secrets' to see whether retired secrets are still used.
+
+Without arguments this rotates the cookie, debug and gcm secrets. The cache secret signs image cache URLs in published
+pages and is not rotated unless you name it, as rotating it breaks images until the sites are republished.`,
+      flags: {
+        "compromised": { description: "The secrets leaked. Disable the retired secrets immediately so they are never accepted" },
+        "v,verbose": { description: "Show the configuration being applied" }
+      },
+      arguments: [{ name: "[secrets...]", description: `Secrets to rotate: ${clusterSecretTypes.join(", ")} or all`, type: enumOption([...clusterSecretTypes, "all"]) }],
+      main: async ({ opts, args }) => {
+        const types: ClusterSecretType[] = args.secrets.includes("all") ? [...clusterSecretTypes]
+          : args.secrets.length ? args.secrets as ClusterSecretType[]
+            : ["cookie", "debug", "gcm"];
+
+        const retired = await rotateClusterSecrets(types, { compromised: opts.compromised, verbose: opts.verbose });
+        if (opts.json) {
+          console.log(JSON.stringify({ rotated: types, retired }));
+          return;
+        }
+
+        console.log(`Rotated: ${types.join(", ")}`);
+        for (const secret of retired)
+          console.log(`Retired ${secret.type} secret ${secret.id}${secret.disabledSince ? " (disabled)" : ""}`);
+
+        console.log(`\nNext steps:`);
+        if (opts.compromised)
+          console.log(`- The retired secrets are disabled. Tokens created with them are rejected and logged to the notice log`);
+        else
+          console.log(`- Use 'wh auth list-secrets' to see whether the retired secrets are still used, then disable and delete them`);
+        if (types.includes("gcm"))
+          console.log(`- Republish sites with forms, comments or PWAs, and re-register mail provider webhooks (AWS SNS, SendGrid) whose URLs contain a key`);
+        if (types.includes("cache"))
+          console.log(`- Republish all sites, image cache URLs in published pages no longer work`);
+        if (types.includes("debug"))
+          console.log(`- Existing wh-debugwebserver cookies no longer work`);
+      }
+    },
+
+    "list-secrets": {
+      shortDescription: "List cluster secrets and their use",
+      description: `List the current and retired cluster secrets (by fingerprint, never the secrets themselves). For retired secrets, the
+notice log shows whether they're still used. Accepted use is logged at most once per 10 minutes per process.`,
+      main: async ({ opts }) => {
+        const secrets = await listClusterSecrets();
+        //Only read the notice log from the oldest retirement on
+        const oldest = secrets.retired.map(_ => new Date(_.retiredAt)).filter(_ => !isNaN(_.getTime())).sort((a, b) => a.getTime() - b.getTime())[0];
+        const usage = oldest ? await getRetiredSecretUsage({ start: oldest }) : new Map();
+        const retired = secrets.retired.map(secret => ({
+          ...secret,
+          state: secret.disabledSince ? "disabled" : "accepted",
+          usage: usage.get(secret.id) ?? null
+        }));
+
+        if (opts.json) {
+          console.log(JSON.stringify({ current: secrets.current, retired }));
+          return;
+        }
+
+        console.log("Current secrets:");
+        console.table(secrets.current);
+        if (!retired.length) {
+          console.log("No retired secrets");
+          return;
+        }
+
+        console.log("Retired secrets:");
+        console.table(retired.map(secret => ({
+          id: secret.id,
+          type: secret.type,
+          state: secret.state + (secret.compromised ? ", compromised" : ""),
+          retiredAt: secret.retiredAt,
+          lastAccepted: secret.usage?.lastAccepted?.toString() ?? "",
+          acceptedScopes: secret.usage?.acceptedScopes.join(", ") ?? "",
+          rejected: secret.usage?.rejected ?? 0,
+          lastRejected: secret.usage?.lastRejected?.toString() ?? ""
+        })));
+        console.log("Use is only known for the period still covered by the notice log");
+      }
+    },
+
+    "disable-retired-secret": {
+      shortDescription: "Stop accepting a retired secret",
+      description: "Stop accepting a retired secret. Tokens using it are rejected, and logged so you can see what still uses it",
+      arguments: [{ name: "<id>", description: "Retired secret id, see 'wh auth list-secrets'" }],
+      main: async ({ args }) => {
+        await asCLIError(() => disableRetiredSecret(args.id));
+        console.log(`Disabled retired secret ${args.id}`);
+      }
+    },
+
+    "enable-retired-secret": {
+      shortDescription: "Accept a disabled retired secret again",
+      arguments: [{ name: "<id>", description: "Retired secret id, see 'wh auth list-secrets'" }],
+      main: async ({ args }) => {
+        await asCLIError(() => enableRetiredSecret(args.id));
+        console.log(`Enabled retired secret ${args.id}`);
+      }
+    },
+
+    "delete-retired-secret": {
+      shortDescription: "Forget a retired secret",
+      description: "Delete a retired secret, after which tokens using it aren't recognized or logged anymore. The secret must be disabled first",
+      flags: {
+        "force": { description: "Also delete the secret if it's still accepted" }
+      },
+      arguments: [{ name: "<id>", description: "Retired secret id, see 'wh auth list-secrets'" }],
+      main: async ({ opts, args }) => {
+        await asCLIError(() => deleteRetiredSecret(args.id, { force: opts.force }));
+        console.log(`Deleted retired secret ${args.id}`);
       }
     }
   }

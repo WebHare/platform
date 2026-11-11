@@ -1,11 +1,12 @@
 import { createVM, loadlib } from "@webhare/harescript";
-import { decryptForThisServer, encryptForThisServer, getSignatureForThisServer, readLogLines, readRegistryKey, validateSignatureForThisServer, writeRegistryKey } from "@webhare/services";
+import { applyConfiguration, decryptForThisServer, encryptForThisServer, getSignatureForThisServer, readLogLines, readRegistryKey, validateSignatureForThisServer, writeRegistryKey } from "@webhare/services";
 import { Money } from "@webhare/std";
 import * as test from "@webhare/test";
 import { runInWork } from "@webhare/whdb";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { updateWebHareConfigFile } from "@mod-system/js/internal/generation/gen_config";
 import * as crypto from "node:crypto";
+import { deleteRetiredSecret, disableRetiredSecret, enableRetiredSecret, getRetiredSecretUsage, getSecretFingerprint, listClusterSecrets, rotateClusterSecrets } from "@mod-platform/js/auth/secret-rotation";
 
 declare module "@webhare/services" {
   interface ServerEncryptionScopes {
@@ -191,8 +192,82 @@ async function testRetiredSecrets() {
   }
 }
 
+async function testSecretRotation() {
+  const scope = "webhare_testsuite:rotation";
+  const start = new Date;
+  const keys = ["system:webserver.security.cachesecret", "system:webserver.security.cookiesecret", "system:webserver.security.debugsecret", "system:webserver.security.gcmsecret", "system:webserver.security.retiredsecrets"] as const;
+  const original = new Map<string, string>();
+  for (const key of keys)
+    original.set(key, await readRegistryKey(key));
+
+  const findRetired = async (id: string) => (await listClusterSecrets()).retired.find(_ => _.id === id);
+  const waitForRetiredState = (id: string, disabled: boolean) => test.wait(() => getFullConfigFile().secrets.retired?.some(_ => _.id === id && Boolean(_.disabledSince) === disabled) ?? false);
+
+  try {
+    const oldGCM = getFullConfigFile().secrets.gcm;
+    const oldCache = getFullConfigFile().secrets.cache;
+    const tokOld = encryptForThisServer(scope, "before rotation");
+    const sigOld = getSignatureForThisServer(scope, "text");
+
+    //Rotate gcm and cookie. The other secrets should stay as they are
+    const retired = await rotateClusterSecrets(["gcm", "cookie"]);
+    test.eq(["gcm", "cookie"], retired.map(_ => _.type));
+    const gcmId = retired[0].id;
+    test.eq(getSecretFingerprint("gcm", oldGCM), gcmId);
+    test.eq(null, retired[0].disabledSince);
+    test.assert(!("secret" in retired[0]), "never return the secret itself");
+
+    await test.wait(() => getFullConfigFile().secrets.gcm !== oldGCM);
+    test.eq(oldCache, getFullConfigFile().secrets.cache);
+
+    //Old tokens only work for scopes that accept retired secrets, old signatures don't work at all
+    test.throws(/unable to authenticate|bad decrypt/, () => decryptForThisServer(scope, tokOld));
+    test.eq("before rotation", decryptForThisServer(scope, tokOld, { acceptRetired: true }));
+    test.eq(false, validateSignatureForThisServer(scope, "text", sigOld));
+    //New tokens work
+    test.eq("after rotation", decryptForThisServer(scope, encryptForThisServer(scope, "after rotation")));
+
+    const list = await listClusterSecrets();
+    test.eq(getSecretFingerprint("gcm", getFullConfigFile().secrets.gcm), list.current.find(_ => _.type === "gcm")?.id);
+    test.assert(!JSON.stringify(list).includes(oldGCM), "list should never reveal secrets");
+
+    //Disable, enable, delete
+    await test.throws(/still accepted/, () => deleteRetiredSecret(gcmId));
+    await disableRetiredSecret(gcmId);
+    await waitForRetiredState(gcmId, true);
+    test.throws(/unable to authenticate|bad decrypt/, () => decryptForThisServer(scope, tokOld, { acceptRetired: true }));
+
+    await enableRetiredSecret(gcmId);
+    await waitForRetiredState(gcmId, false);
+    test.eq("before rotation", decryptForThisServer(scope, tokOld, { acceptRetired: true }));
+
+    await disableRetiredSecret(gcmId);
+    await deleteRetiredSecret(gcmId);
+    test.eq(undefined, await findRetired(gcmId));
+    await test.throws(/No retired secret/, () => disableRetiredSecret(gcmId));
+
+    //Compromised secrets are disabled immediately and can't be enabled again
+    const [debugRetired] = await rotateClusterSecrets(["debug"], { compromised: true });
+    test.eq({ type: "debug", compromised: true }, { type: debugRetired.type, compromised: debugRetired.compromised });
+    test.assert(debugRetired.disabledSince);
+    await test.throws(/compromised/, () => enableRetiredSecret(debugRetired.id));
+
+    //The usage report should have seen the accepted and rejected tokens
+    const usage = (await getRetiredSecretUsage({ start })).get(gcmId);
+    test.eq([scope], usage?.acceptedScopes);
+    test.assert(usage && usage.rejected > 0 && usage.rejectedScopes.includes(scope));
+  } finally {
+    await runInWork(async () => {
+      for (const [key, value] of original)
+        await writeRegistryKey(key as typeof keys[number], value);
+    });
+    await applyConfiguration({ subsystems: ["config.base", "webserver"], source: "test_services_secrets" });
+  }
+}
+
 test.runTests(
   [
     testCryptForServer,
-    testRetiredSecrets
+    testRetiredSecrets,
+    testSecretRotation
   ]);
