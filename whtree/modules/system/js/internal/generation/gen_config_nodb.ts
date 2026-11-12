@@ -6,7 +6,7 @@ import { omit, pick, throwError } from "@webhare/std";
 import type { RecursivePartial } from "@webhare/js-api-tools";
 import type { DTAPStage } from "@webhare/env/src/concepts";
 import { DOMParser } from "@xmldom/xmldom";
-import type { BackendConfiguration, ConfigFile, ModuleData, ModuleMap } from "@webhare/services/src/config";
+import type { BackendConfiguration, ClusterSecretType, ConfigFile, ModuleData, ModuleMap, RetiredSecret } from "@webhare/services/src/config";
 import { isValidModuleName } from "@webhare/services/src/naming";
 import { join } from "node:path";
 
@@ -16,6 +16,40 @@ export function appendSlashWhenMissing(path: string) {
 
 export function isValidDTAPStage(dtapstage: string): dtapstage is DTAPStage {
   return ["production", "acceptance", "test", "development"].includes(dtapstage);
+}
+
+/** Parse a list of retired secrets (from the registry or an older platform.json), dropping malformed entries */
+export function parseRetiredSecrets(input: unknown): RetiredSecret[] {
+  if (!Array.isArray(input))
+    return [];
+
+  const retired: RetiredSecret[] = [];
+  for (const entry of input) {
+    if (!entry || typeof entry !== "object")
+      continue;
+    const { id, type, secret, retiredAt, compromised, disabledSince } = entry as Record<string, unknown>;
+    if (typeof id !== "string" || !id
+      || typeof type !== "string" || !["cache", "cookie", "debug", "gcm"].includes(type)
+      || typeof secret !== "string" || !secret
+      || typeof retiredAt !== "string")
+      continue;
+
+    /* Drop entries whose state we can't trust instead of guessing: treating eg. a numeric disabledSince as 'not disabled'
+       would make a disabled secret acceptable again, and a non-boolean compromised would lose the error level notices */
+    if (typeof compromised !== "boolean"
+      || (disabledSince !== null && (typeof disabledSince !== "string" || !disabledSince)))
+      continue;
+
+    retired.push({
+      id,
+      type: type as ClusterSecretType,
+      secret,
+      retiredAt,
+      compromised,
+      disabledSince
+    });
+  }
+  return retired;
 }
 
 type NoDBConfig = Pick<ConfigFile, "modulescandirs"> & { public: Pick<BackendConfiguration, "dataRoot" | "installationRoot" | "module" | "dataroot" | "installationroot" | "whVersion"> & Partial<Pick<BackendConfiguration, "dtapstage">> };
@@ -119,6 +153,7 @@ export function updateWebHareConfigWithoutDB(oldconfig: PartialConfigFile): Conf
       cookie: String(oldconfig?.secrets?.cookie || ''),
       debug: String(oldconfig?.secrets?.debug || ''),
       gcm: String(oldconfig?.secrets?.gcm || ''),
+      retired: parseRetiredSecrets(oldconfig?.secrets?.retired),
     },
     defaultImageFormat: oldconfig?.defaultImageFormat || "keep",
     ...pick(oldconfig, ["debugsettings", "socketDir"]),

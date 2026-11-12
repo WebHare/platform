@@ -7,6 +7,7 @@ import { selectFSWHFSPath } from "@webhare/whdb/src/functions";
 import { decodeScanData, getUCPacketHash, getUnifiedCC, unpackImageResizeMethod, type ResizeMethod, type ResourceMetadata } from "@webhare/services/src/descriptor";
 import { isRecycleBinWHFSPath } from "@webhare/whfs/src/support";
 import type { WebHareBlob } from "./webhareblob";
+import { tryRetiredSecrets } from "./retiredsecrets";
 
 /* UC URL structure
 
@@ -98,8 +99,11 @@ export function analyzeUnifiedURLToken(token: string): AnalyzedToken | null {
     return null;
 
   const tohash = Buffer.from(data.datatoken, 'hex').subarray(4);
-  const expectedhash = getUCPacketHash(tohash, data.extension);
-  if (expectedhash !== data.datatoken.substring(0, 8))
+  const hash = data.datatoken.substring(0, 8);
+  /* URLs signed with a retired cache secret are accepted until it's disabled: they only prove we once generated the URL
+     and give no access to anything, but published pages keep using them until they're republished */
+  if (getUCPacketHash(tohash, data.extension) !== hash
+    && !tryRetiredSecrets("cache", "platform:unifiedcache", true, secret => getUCPacketHash(tohash, data.extension, secret) === hash || null))
     return null;
 
   const item = decodeUnifiedData(tohash);
