@@ -1,20 +1,73 @@
 import * as path from "node:path";
 import { backendConfig } from "./config";
 
-export function toFSPath(resource: string, options: { keepUnmatched: true }): string;
-export function toFSPath(resource: string, options: { allowUnmatched: true }): string | null;
-export function toFSPath(resource: string, options?: { allowUnmatched?: boolean; keepUnmatched?: boolean }): string;
+export type ToFSPathOptions = {
+  /** Do not fail if the path cannot be matched to a filesystem path */
+  allowUnmatched?: boolean;
+  /** Return the original path if unmatched. Implies allowUnmatched */
+  keepUnmatched?: boolean;
+  /** Resource path (eg `mod::mymodule/data/`) that the resolved path must stay inside. If set, '.' and '..'
+      segments are permitted in the resource path, as long as the result does not escape this root nor the
+      module/storage folder it was resolved against. The root itself may not contain '.' or '..' segments. */
+  root?: string;
+};
+
+export function toFSPath(resource: string, options: ToFSPathOptions & { keepUnmatched: true }): string;
+export function toFSPath(resource: string, options: ToFSPathOptions & { allowUnmatched: true }): string | null;
+export function toFSPath(resource: string, options?: ToFSPathOptions): string;
 
 /** Resolve a resource path to a filesystem path
     @param resource - Path to resolve
-    @param allowUnmatched - Do not fail if the path cannot be matched to a filesystem path
-    @param keepUnmatched - Return the original path if unmatched. Implies allowUnmatched
+    @param options - Options, see {@link ToFSPathOptions}
     @returns Absolute file system path. A succesful return does not imply the path actually exists
-    @throws If the path cannot be mapped to a filesystem path
+    @throws If the path cannot be mapped to a filesystem path, if it contains '.' or '..' segments (and no root is set),
+            or if it escapes the specified root or its module/storage folder
 */
-export function toFSPath(resource: string, { allowUnmatched = false, keepUnmatched = false } = {}) {
+export function toFSPath(resource: string, { allowUnmatched = false, keepUnmatched = false, root }: ToFSPathOptions = {}) {
+  //Validate dot segments before resolving, so unmatched resource paths (eg `mod::missing/../x`) are rejected too.
+  //Input that isn't a resource path we'd resolve (eg a disk path with keepUnmatched) is passed through as-is
+  const hasDotSegments = resource.split("/").some(segment => segment === "." || segment === "..");
+  const isResolvablePath = /^(@webhare\/|@mod-|(mod|storage)::)/i.test(resource);
+  if (hasDotSegments && isResolvablePath && root === undefined)
+    throw new Error(`Invalid resource path '${resource}': '.' and '..' path segments are not allowed`);
+
+  const resolved = resolveFSBase(resource, { allowUnmatched, keepUnmatched });
+  if (resolved === null) //unmatched and allowUnmatched: no path is returned, so nothing can escape
+    return null;
+  if (typeof resolved === "string") { //unmatched and keepUnmatched
+    if (root !== undefined) //we can't verify containment of a path we don't understand
+      throw new Error(`Invalid resource path '${resource}': it cannot be resolved inside the root '${root}'`);
+    return resolved;
+  }
+
+  const { basedir, subpath } = resolved;
+  let result = path.join(basedir, subpath);
+  if (hasDotSegments && [".", ".."].includes(subpath.split("/").at(-1)!) && !result.endsWith("/"))
+    result += "/"; //'x/..' refers to a directory, keep the trailing slash like we do for `mod::system`
+
+  if (!isInsideDir(result, basedir))
+    throw new Error(`Invalid resource path '${resource}': it escapes its base folder`);
+
+  if (root === undefined)
+    return result;
+
+  const rootpath = toFSPath(root); //throws if root itself is invalid or contains dot segments
+  if (!isInsideDir(result, rootpath))
+    throw new Error(`Invalid resource path '${resource}': it escapes the root '${root}'`);
+
+  return result;
+}
+
+/** Test whether a (normalized) path is equal to or inside a directory */
+function isInsideDir(testpath: string, dir: string) {
+  const dirWithSlash = dir.endsWith("/") ? dir : dir + "/";
+  return testpath === dirWithSlash || testpath === dirWithSlash.slice(0, -1) || testpath.startsWith(dirWithSlash);
+}
+
+/** Split a resource into the filesystem base directory it maps to and the remaining subpath */
+function resolveFSBase(resource: string, { allowUnmatched, keepUnmatched }: { allowUnmatched: boolean; keepUnmatched: boolean }): { basedir: string; subpath: string } | string | null {
   if (resource.startsWith("@webhare/"))
-    return backendConfig.installationRoot + "jssdk/" + resource.substring(9);
+    return { basedir: backendConfig.installationRoot + "jssdk/", subpath: resource.substring(9) };
 
   if (resource.startsWith("@mod-"))
     resource = `mod::${resource.substring(5)}`;
@@ -46,10 +99,8 @@ export function toFSPath(resource: string, { allowUnmatched = false, keepUnmatch
 
     const basedir = namespace === "mod" ? modinfo.root : `${backendConfig.dataRoot}storage/${modulename}/`;
 
-    if (nextslash === -1)
-      return basedir; //we'll always terminate a path like `mod::system` with a slash
-    else
-      return path.join(basedir, restpath.substring(nextslash));
+    //we'll always terminate a path like `mod::system` with a slash
+    return { basedir, subpath: nextslash === -1 ? "" : restpath.substring(nextslash + 1) };
   }
 
   if (keepUnmatched)
