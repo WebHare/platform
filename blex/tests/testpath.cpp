@@ -305,4 +305,134 @@ BLEX_TEST_FUNCTION(TestFileDescriptor)
         }
 }
 
+BLEX_TEST_FUNCTION(TestPathAt)
+{
+        std::string basepath = Blex::CreateTempDir(Blex::MergePath(Blex::Test::GetTempDir(), "pathat"), true);
+        BLEX_TEST_CHECK(!basepath.empty());
+
+        Blex::FileDescriptor basefd = Blex::OpenDirectoryNoFollow(basepath);
+        BLEX_TEST_CHECKEQUAL(true, basefd.IsValid());
+
+        // Opening something that isn't a directory fails
+        BLEX_TEST_CHECKEQUAL(false, Blex::OpenDirectoryAt(basefd.Get(), "nonexisting").IsValid());
+        BLEX_TEST_CHECK(Blex::GetLastOSErrorCode() == std::errc::no_such_file_or_directory);
+
+        // Directories
+        BLEX_TEST_CHECKEQUAL(true, Blex::CreateDirAt(basefd.Get(), "subdir", Blex::FilePermissions::AccessFlags(0750)));
+        BLEX_TEST_CHECKEQUAL(false, Blex::CreateDirAt(basefd.Get(), "subdir", Blex::FilePermissions::AccessFlags(0750)));
+        BLEX_TEST_CHECK(Blex::GetLastOSErrorCode() == std::errc::file_exists);
+
+        Blex::FileDescriptor subdirfd = Blex::OpenDirectoryAt(basefd.Get(), "subdir");
+        BLEX_TEST_CHECKEQUAL(true, subdirfd.IsValid());
+
+        Blex::PathStatus subdirstatus;
+        BLEX_TEST_CHECKEQUAL(false, subdirstatus.Exists()); //default constructed
+        subdirstatus.StatAt(basefd.Get(), "subdir");
+        BLEX_TEST_CHECKEQUAL(true, subdirstatus.IsDir());
+        BLEX_TEST_CHECKEQUAL(getuid(), subdirstatus.GetOwner());
+        BLEX_TEST_CHECKEQUAL(Blex::PathStatus(basefd.Get()).GetDevice(), subdirstatus.GetDevice());
+        BLEX_TEST_CHECKEQUAL(true, subdirstatus.IsSameObject(Blex::PathStatus(subdirfd.Get())));
+        BLEX_TEST_CHECKEQUAL(true, subdirstatus.IsSameObject(Blex::PathStatus(Blex::MergePath(basepath, "subdir"))));
+        BLEX_TEST_CHECKEQUAL(false, subdirstatus.IsSameObject(Blex::PathStatus(basefd.Get())));
+
+        BLEX_TEST_CHECKEQUAL(true, Blex::SetUNIXPermissions(subdirfd.Get(), Blex::FilePermissions::AccessFlags(0710)));
+        BLEX_TEST_CHECKEQUAL(0710, Blex::PathStatus(subdirfd.Get()).GetUnixAccess() & 07777);
+
+        // Files
+        Blex::FileDescriptor filefd = Blex::CreateFileAt(subdirfd.Get(), "file", Blex::FilePermissions::AccessFlags(0600));
+        BLEX_TEST_CHECKEQUAL(true, filefd.IsValid());
+        BLEX_TEST_CHECKEQUAL(5, write(filefd.Get(), "hello", 5));
+        BLEX_TEST_CHECKEQUAL(false, Blex::CreateFileAt(subdirfd.Get(), "file", Blex::FilePermissions::AccessFlags(0600)).IsValid());
+        BLEX_TEST_CHECK(Blex::GetLastOSErrorCode() == std::errc::file_exists);
+        BLEX_TEST_CHECKEQUAL(false, Blex::OpenDirectoryAt(subdirfd.Get(), "file").IsValid());
+        BLEX_TEST_CHECK(Blex::GetLastOSErrorCode() == std::errc::not_a_directory);
+        BLEX_TEST_CHECKEQUAL(false, Blex::CreateDirAt(subdirfd.Get(), "file", Blex::FilePermissions::AccessFlags(0750)));
+        BLEX_TEST_CHECK(Blex::GetLastOSErrorCode() == std::errc::file_exists);
+
+        Blex::PathStatus filestatus;
+        filestatus.StatAt(subdirfd.Get(), "file");
+        BLEX_TEST_CHECKEQUAL(true, filestatus.IsFile());
+        BLEX_TEST_CHECKEQUAL(5, filestatus.FileLength());
+        BLEX_TEST_CHECKEQUAL(1u, filestatus.GetLinkCount());
+        BLEX_TEST_CHECKEQUAL(true, filestatus.IsSameObject(Blex::PathStatus(filefd.Get())));
+        filefd.Reset();
+
+        BLEX_TEST_CHECKEQUAL(true, Blex::CreateNewHardLink(Blex::MergePath(basepath, "subdir/hardlink"), Blex::MergePath(basepath, "subdir/file")));
+        filestatus.StatAt(subdirfd.Get(), "file");
+        BLEX_TEST_CHECKEQUAL(2u, filestatus.GetLinkCount());
+
+        // Symbolic links are never followed
+        BLEX_TEST_CHECKEQUAL(true, Blex::CreateNewSoftLink(Blex::MergePath(basepath, "dirlink"), "subdir"));
+        BLEX_TEST_CHECKEQUAL(true, Blex::CreateNewSoftLink(Blex::MergePath(basepath, "subdir/filelink"), "file"));
+        BLEX_TEST_CHECKEQUAL(true, Blex::CreateNewSoftLink(Blex::MergePath(basepath, "subdir/danglinglink"), "newfile"));
+
+        BLEX_TEST_CHECKEQUAL(false, Blex::OpenDirectoryAt(basefd.Get(), "dirlink").IsValid());
+        BLEX_TEST_CHECKEQUAL(false, Blex::OpenDirectoryNoFollow(Blex::MergePath(basepath, "dirlink")).IsValid());
+        BLEX_TEST_CHECKEQUAL(false, Blex::CreateFileAt(subdirfd.Get(), "danglinglink", Blex::FilePermissions::AccessFlags(0600)).IsValid());
+        BLEX_TEST_CHECKEQUAL(false, Blex::PathStatus(Blex::MergePath(basepath, "subdir/newfile")).Exists());
+
+        Blex::PathStatus linkstatus;
+        linkstatus.StatAt(subdirfd.Get(), "filelink");
+        BLEX_TEST_CHECKEQUAL(true, linkstatus.IsLink());
+        BLEX_TEST_CHECKEQUAL(false, linkstatus.IsSameObject(filestatus));
+
+        Blex::PathStatus missing;
+        missing.StatAt(subdirfd.Get(), "nonexisting");
+        BLEX_TEST_CHECKEQUAL(false, missing.Exists());
+        BLEX_TEST_CHECK(Blex::GetLastOSErrorCode() == std::errc::no_such_file_or_directory);
+        BLEX_TEST_CHECKEQUAL(false, missing.IsSameObject(missing));
+
+        // Listing, repeatedly
+        std::vector< std::string > names;
+        for (unsigned i = 0; i < 2; ++i)
+        {
+                BLEX_TEST_CHECKEQUAL(true, Blex::ListDirectoryAt(subdirfd.Get(), &names));
+                std::sort(names.begin(), names.end());
+                BLEX_TEST_CHECKEQUAL(4u, names.size());
+                BLEX_TEST_CHECKEQUAL("danglinglink", names[0]);
+                BLEX_TEST_CHECKEQUAL("file", names[1]);
+                BLEX_TEST_CHECKEQUAL("filelink", names[2]);
+                BLEX_TEST_CHECKEQUAL("hardlink", names[3]);
+        }
+
+        // Ownership. We can't give files away unless we're root, but we can always 'change' them to our own uid/gid
+        uid_t uid = getuid();
+        gid_t gid = getgid(); //the group of the file may not be one of ours (eg. macOS: new files get the group of their directory)
+        BLEX_TEST_CHECKEQUAL(true, Blex::SetOwner(subdirfd.Get(), uid, gid));
+        BLEX_TEST_CHECKEQUAL(true, Blex::SetOwnerAt(subdirfd.Get(), "file", uid, gid, filestatus));
+        BLEX_TEST_CHECKEQUAL(true, Blex::SetOwnerAt(subdirfd.Get(), "filelink", uid, gid, linkstatus));
+        BLEX_TEST_CHECKEQUAL(true, Blex::PathStatus(Blex::MergePath(basepath, "subdir/filelink")).IsFile()); //still a link to the file
+        // Refuses to change an entry that has been replaced
+        BLEX_TEST_CHECKEQUAL(false, Blex::SetOwnerAt(subdirfd.Get(), "filelink", uid, gid, filestatus));
+        BLEX_TEST_CHECKEQUAL(ESTALE, Blex::GetLastOSErrorCode().value());
+        BLEX_TEST_CHECKEQUAL(false, Blex::SetOwnerAt(subdirfd.Get(), "nonexisting", uid, gid, filestatus));
+        BLEX_TEST_CHECK(Blex::GetLastOSErrorCode() == std::errc::no_such_file_or_directory);
+
+        // Moving
+        BLEX_TEST_CHECKEQUAL(true, Blex::MovePathAt(subdirfd.Get(), "hardlink", basefd.Get(), "moved"));
+        Blex::PathStatus movedstatus;
+        movedstatus.StatAt(basefd.Get(), "moved");
+        BLEX_TEST_CHECKEQUAL(true, movedstatus.IsSameObject(filestatus));
+        BLEX_TEST_CHECKEQUAL(false, Blex::MovePathAt(subdirfd.Get(), "hardlink", basefd.Get(), "moved"));
+        BLEX_TEST_CHECK(Blex::GetLastOSErrorCode() == std::errc::no_such_file_or_directory);
+
+        // Removing
+        BLEX_TEST_CHECKEQUAL(false, Blex::RemoveDirAt(basefd.Get(), "subdir")); //not empty
+        BLEX_TEST_CHECKEQUAL(false, Blex::RemoveFileAt(basefd.Get(), "subdir")); //not a file
+        BLEX_TEST_CHECKEQUAL(true, Blex::RemoveFileAt(basefd.Get(), "dirlink")); //removes the link, not the directory
+        BLEX_TEST_CHECKEQUAL(true, Blex::PathStatus(Blex::MergePath(basepath, "subdir")).IsDir());
+        BLEX_TEST_CHECKEQUAL(true, Blex::RemoveFileAt(basefd.Get(), "moved"));
+        for (char const *name : { "file", "filelink", "danglinglink" })
+            BLEX_TEST_CHECKEQUAL(true, Blex::RemoveFileAt(subdirfd.Get(), name));
+        BLEX_TEST_CHECKEQUAL(false, Blex::RemoveFileAt(subdirfd.Get(), "file"));
+        BLEX_TEST_CHECK(Blex::GetLastOSErrorCode() == std::errc::no_such_file_or_directory);
+
+        BLEX_TEST_CHECKEQUAL(true, Blex::ListDirectoryAt(subdirfd.Get(), &names));
+        BLEX_TEST_CHECKEQUAL(0u, names.size());
+        BLEX_TEST_CHECKEQUAL(true, Blex::RemoveDirAt(basefd.Get(), "subdir"));
+        BLEX_TEST_CHECKEQUAL(false, Blex::PathStatus(Blex::MergePath(basepath, "subdir")).Exists());
+
+        basefd.Reset();
+        BLEX_TEST_CHECKEQUAL(true, Blex::RemoveDir(basepath));
+}
 #endif

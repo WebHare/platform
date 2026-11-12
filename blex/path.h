@@ -8,7 +8,9 @@
 #include "stream.h"
 #endif
 
+#include <sys/types.h>
 #include <system_error>
+#include <vector>
 
 namespace Blex
 {
@@ -54,8 +56,9 @@ inline constexpr int DiskTimeToleranceMS = 1;
 class BLEXLIB_PUBLIC PathStatus
 {
         public:
-        /** Construct a PathStatus object, with garbage data */
+        /** Construct a PathStatus object for a non-existing object */
         PathStatus()
+        : flags(None)
         {
         }
 
@@ -100,6 +103,14 @@ class BLEXLIB_PUBLIC PathStatus
             @param fd File descriptor to obtain status for */
         void Stat(FileHandle fd);
 
+#if !defined(__EMSCRIPTEN__)
+        /** Fill in the PathStatus structure with the status of an entry inside an open directory. If the entry is a
+            link, it isn't dereferenced. On failure, Exists() returns false and GetLastOSErrorCode() returns the reason
+            @param dirfd Directory to look in
+            @param name Name of the entry inside the directory */
+        void StatAt(FileHandle dirfd, std::string const &name);
+#endif
+
         /** Does an object with this path exist? */
         bool Exists() const
         { return (int)flags!=None; }
@@ -115,6 +126,34 @@ class BLEXLIB_PUBLIC PathStatus
         /** Is this object a link ? */
         bool IsLink() const
         { return (flags&TypeMask)==Link; }
+
+        /** Is this object something other than a file, directory or link (eg. a socket, fifo or device)? */
+        bool IsOther() const
+        { return (flags&TypeMask)==Other; }
+
+        /** User id of the owner of the object */
+        uid_t GetOwner() const
+        { return owner; }
+
+        /** Group id of the object */
+        gid_t GetGroup() const
+        { return group; }
+
+        /** Id of the device (filesystem) containing the object */
+        dev_t GetDevice() const
+        { return device; }
+
+        /** Inode number of the object */
+        ino_t GetInode() const
+        { return inode; }
+
+        /** Number of hard links to the object */
+        unsigned GetLinkCount() const
+        { return linkcount; }
+
+        /** Do this and another status refer to the same filesystem object (same device and inode)? */
+        bool IsSameObject(PathStatus const &rhs) const
+        { return Exists() && rhs.Exists() && device == rhs.device && inode == rhs.inode; }
 
         /** The length of the object in bytes */
         FileOffset FileLength(void) const
@@ -169,6 +208,16 @@ class BLEXLIB_PUBLIC PathStatus
         FileOffset length;
         /** UNIX File permssion mask */
         FilePermissions::AccessFlags unix_permissions;
+        /** Owner user id */
+        uid_t owner;
+        /** Owner group id */
+        gid_t group;
+        /** Device containing the object */
+        dev_t device;
+        /** Inode number */
+        ino_t inode;
+        /** Number of hard links */
+        unsigned linkcount;
 
         friend class Directory;
 };
@@ -455,6 +504,71 @@ BLEXLIB_PUBLIC FileDescriptor OpenDirectoryNoFollow(std::string const &path);
     @return The directory descriptor, invalid on failure */
 BLEXLIB_PUBLIC FileDescriptor OpenDirectoryAt(FileHandle dirfd, std::string const &name);
 
+/** Create a directory inside another directory
+    @param dirfd Parent directory
+    @param name Name of the directory to create
+    @param mode Permissions for the new directory (modified by the umask)
+    @return True if the directory was created. Fails with std::errc::file_exists if the name was already in use */
+BLEXLIB_PUBLIC bool CreateDirAt(FileHandle dirfd, std::string const &name, FilePermissions::AccessFlags mode);
+
+/** Create a new file inside a directory and open it for writing. Fails if the name is already in use (even by a
+    symbolic link)
+    @param dirfd Parent directory
+    @param name Name of the file to create
+    @param mode Permissions for the new file (modified by the umask)
+    @return The file descriptor of the new file, invalid on failure (std::errc::file_exists if the name was already in use) */
+BLEXLIB_PUBLIC FileDescriptor CreateFileAt(FileHandle dirfd, std::string const &name, FilePermissions::AccessFlags mode);
+
+/** Remove a file, link or other non-directory entry from a directory
+    @param dirfd Parent directory
+    @param name Name of the entry to remove
+    @return True on success */
+BLEXLIB_PUBLIC bool RemoveFileAt(FileHandle dirfd, std::string const &name);
+
+/** Remove an empty directory from a directory
+    @param dirfd Parent directory
+    @param name Name of the directory to remove
+    @return True on success */
+BLEXLIB_PUBLIC bool RemoveDirAt(FileHandle dirfd, std::string const &name);
+
+/** Move or rename an entry, replacing the destination if possible (see rename(2))
+    @param olddirfd Directory containing the entry
+    @param oldname Name of the entry
+    @param newdirfd Destination directory
+    @param newname New name for the entry
+    @return True on success */
+BLEXLIB_PUBLIC bool MovePathAt(FileHandle olddirfd, std::string const &oldname, FileHandle newdirfd, std::string const &newname);
+
+/** List the names of the entries in a directory, excluding '.' and '..'. Can be called repeatedly on the same descriptor
+    @param dirfd Directory to list
+    @param names Receives the names, in no particular order
+    @return True on success */
+BLEXLIB_PUBLIC bool ListDirectoryAt(FileHandle dirfd, std::vector< std::string > *names);
+
+/** Change the owner and group of an open file or directory
+    @param fd File descriptor
+    @param owner New owner user id
+    @param group New group id
+    @return True on success */
+BLEXLIB_PUBLIC bool SetOwner(FileHandle fd, uid_t owner, gid_t group);
+
+/** Change the owner and group of an entry inside a directory, without following symbolic links (a link itself gets the
+    new owner), but only if it is still the object that was previously examined
+    On Linux, this is race-free. On other platforms there is a small window between verifying and changing the entry.
+    @param dirfd Parent directory
+    @param name Name of the entry
+    @param owner New owner user id
+    @param group New group id
+    @param expected Status of the entry, as obtained earlier using StatAt. If the entry has been replaced with another
+        object since, it's left alone and the function fails with ESTALE
+    @return True on success */
+BLEXLIB_PUBLIC bool SetOwnerAt(FileHandle dirfd, std::string const &name, uid_t owner, gid_t group, PathStatus const &expected);
+
+/** Set UNIX permissions on an open file or directory
+    @param fd File descriptor
+    @param newpermissions New permissions (including the setuid, setgid and sticky bits)
+    @return True on success */
+BLEXLIB_PUBLIC bool SetUNIXPermissions(FileHandle fd, FilePermissions::AccessFlags newpermissions);
 #endif
 
 /** Verify whether a [namebegin,nameend[ is acceptable as a file, folder, site or username in WebHare.

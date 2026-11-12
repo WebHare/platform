@@ -20,6 +20,8 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <functional>
+#include <cstring>
+#include <memory>
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten/version.h>
@@ -568,6 +570,11 @@ void PathStatus::ParseStatbuf(void const *__statbuf, const char *)
 
         length=statbuf.st_size;
         unix_permissions=(Blex::FilePermissions::AccessFlags)statbuf.st_mode;
+        owner=statbuf.st_uid;
+        group=statbuf.st_gid;
+        device=statbuf.st_dev;
+        inode=statbuf.st_ino;
+        linkcount=statbuf.st_nlink;
 }
 
 void PathStatus::Stat(std::string const &name)
@@ -607,6 +614,18 @@ void PathStatus::Stat(int fd)
         else
             ParseStatbuf(&statbuf, NULL);
 }
+
+#if !defined(__EMSCRIPTEN__)
+void PathStatus::StatAt(FileHandle dirfd, std::string const &name)
+{
+        struct stat statbuf;
+
+        if (fstatat(dirfd, name.c_str(), &statbuf, AT_SYMLINK_NOFOLLOW) != 0)
+            flags = None;
+        else
+            ParseStatbuf(&statbuf, name.c_str());
+}
+#endif
 
 bool PathIsAbsolute(const std::string &p)
 {
@@ -1027,6 +1046,105 @@ FileDescriptor OpenDirectoryAt(FileHandle dirfd, std::string const &name)
         return FileDescriptor(openat(dirfd, name.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
 }
 
+bool CreateDirAt(FileHandle dirfd, std::string const &name, FilePermissions::AccessFlags mode)
+{
+        return mkdirat(dirfd, name.c_str(), mode) == 0;
+}
+
+FileDescriptor CreateFileAt(FileHandle dirfd, std::string const &name, FilePermissions::AccessFlags mode)
+{
+        // O_EXCL also makes the open fail if name is a symbolic link, even if it's dangling
+        return FileDescriptor(openat(dirfd, name.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_NOCTTY | O_CLOEXEC, mode));
+}
+
+bool RemoveFileAt(FileHandle dirfd, std::string const &name)
+{
+        return unlinkat(dirfd, name.c_str(), 0) == 0;
+}
+
+bool RemoveDirAt(FileHandle dirfd, std::string const &name)
+{
+        return unlinkat(dirfd, name.c_str(), AT_REMOVEDIR) == 0;
+}
+
+bool MovePathAt(FileHandle olddirfd, std::string const &oldname, FileHandle newdirfd, std::string const &newname)
+{
+        return renameat(olddirfd, oldname.c_str(), newdirfd, newname.c_str()) == 0;
+}
+
+bool ListDirectoryAt(FileHandle dirfd, std::vector< std::string > *names)
+{
+        names->clear();
+
+        // fdopendir takes ownership of the descriptor, so give it a duplicate
+        int listfd = fcntl(dirfd, F_DUPFD_CLOEXEC, 0);
+        if (listfd < 0)
+            return false;
+
+        DIR *dir = fdopendir(listfd);
+        if (!dir)
+        {
+                FileDescriptor closer(listfd);
+                return false;
+        }
+        std::unique_ptr< DIR, int(*)(DIR*) > dircloser(dir, &closedir);
+
+        // The duplicate shares the file offset with dirfd, so it may already be at the end because of an earlier listing
+        rewinddir(dir);
+        while (true)
+        {
+                errno = 0;
+                struct dirent *entry = readdir(dir);
+                if (!entry)
+                    return errno == 0;
+
+                if (std::strcmp(entry->d_name, ".") != 0 && std::strcmp(entry->d_name, "..") != 0)
+                    names->push_back(entry->d_name);
+        }
+}
+
+bool SetOwner(FileHandle fd, uid_t owner, gid_t group)
+{
+        return fchown(fd, owner, group) == 0;
+}
+
+bool SetOwnerAt(FileHandle dirfd, std::string const &name, uid_t owner, gid_t group, PathStatus const &expected)
+{
+#if defined(PLATFORM_LINUX)
+        // Get a reference to the entry itself (without opening it, so this works for any type of entry), verify it, then
+        // change the object we verified
+        FileDescriptor fd(openat(dirfd, name.c_str(), O_PATH | O_NOFOLLOW | O_CLOEXEC));
+        if (!fd.IsValid())
+            return false;
+
+        PathStatus current(fd.Get());
+        if (!current.Exists())
+            return false;
+        if (!current.IsSameObject(expected))
+        {
+                errno = ESTALE;
+                return false;
+        }
+        return fchownat(fd.Get(), "", owner, group, AT_EMPTY_PATH | AT_SYMLINK_NOFOLLOW) == 0;
+#else
+        // No O_PATH, so we can't reference an entry without opening it. Verify by name and accept the (small) race
+        PathStatus current;
+        current.StatAt(dirfd, name);
+        if (!current.Exists())
+            return false;
+        if (!current.IsSameObject(expected))
+        {
+                errno = ESTALE;
+                return false;
+        }
+        return fchownat(dirfd, name.c_str(), owner, group, AT_SYMLINK_NOFOLLOW) == 0;
+#endif
+}
+
+bool SetUNIXPermissions(FileHandle fd, FilePermissions::AccessFlags newpermissions)
+{
+        return fchmod(fd, newpermissions) == 0;
+}
 #endif
 
 std::string FixupToAbsolutePath(std::string const &inpath)
