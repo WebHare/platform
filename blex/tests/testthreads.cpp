@@ -581,3 +581,126 @@ BLEX_TEST_FUNCTION(TestCloseFileHandlesFrom)
                 return 0;
         });
 }
+
+namespace
+{
+
+/** Start a child that sends 'tellparent' to us and then waits for a signal (or exits with code 'exitcode' if
+    tellparent is 0), and supervise it. Runs in a child process of the test
+    @return The exit code to use for the test child */
+int SuperviseTestChild(int tellparent, int exitcode, int *childstatus)
+{
+        // Block the forwarded signals before starting the child, so we can't miss them
+        sigset_t block, oldmask;
+        sigemptyset(&block);
+        sigaddset(&block, SIGUSR1);
+        sigaddset(&block, SIGTERM);
+        sigprocmask(SIG_BLOCK, &block, &oldmask);
+
+        pid_t pid = fork();
+        if (pid < 0)
+            return 1;
+        if (pid == 0)
+        {
+                signal(SIGUSR1, SIG_DFL);
+                signal(SIGTERM, SIG_DFL);
+                sigprocmask(SIG_SETMASK, &oldmask, nullptr);
+                if (!tellparent)
+                    _exit(exitcode);
+
+                kill(getppid(), tellparent);
+                while (true)
+                    pause();
+        }
+
+        *childstatus = Blex::WaitForProcessForwardingSignals(pid);
+        if (*childstatus == -1)
+            return 2;
+
+        // Our mask should be restored
+        sigset_t curmask;
+        sigprocmask(SIG_SETMASK, nullptr, &curmask);
+        if (!sigismember(&curmask, SIGUSR1) || !sigismember(&curmask, SIGTERM))
+            return 3;
+        return 0;
+}
+
+} // End of anonymous namespace
+
+BLEX_TEST_FUNCTION(TestForwardSignals)
+{
+        // Signals sent to the supervisor are forwarded to the child
+        for (int sig : { SIGUSR1, SIGTERM })
+        {
+                CheckChildSucceeds([sig]()
+                {
+                        int status;
+                        int retval = SuperviseTestChild(sig, 0, &status);
+                        if (retval)
+                            return retval;
+                        return WIFSIGNALED(status) && WTERMSIG(status) == sig ? 0 : 10;
+                });
+        }
+
+        // Exit codes are reported
+        CheckChildSucceeds([]()
+        {
+                int status;
+                int retval = SuperviseTestChild(0, 42, &status);
+                if (retval)
+                    return retval;
+                return WIFEXITED(status) && WEXITSTATUS(status) == 42 ? 0 : 10;
+        });
+
+        // Waiting for something that isn't our child fails
+        CheckChildSucceeds([]()
+        {
+                return Blex::WaitForProcessForwardingSignals(getpid()) == -1 && errno == ECHILD ? 0 : 1;
+        });
+}
+
+BLEX_TEST_FUNCTION(TestExitWithWaitStatus)
+{
+        // Pass on exit codes
+        for (int code : { 0, 1, 42, 255 })
+        {
+                int childstatus = RunInChild([code]() { _exit(code); return 0; });
+                int status = RunInChild([childstatus]() { Blex::ExitWithWaitStatus(childstatus); return 99; });
+                BLEX_TEST_CHECKEQUAL(true, WIFEXITED(status));
+                BLEX_TEST_CHECKEQUAL(code, WEXITSTATUS(status));
+        }
+
+        // Pass on signals, even if they're blocked or handled
+        for (int sig : { SIGTERM, SIGKILL, SIGUSR1, SIGSEGV })
+        {
+                int childstatus = RunInChild([sig]()
+                {
+                        // Don't leave a core dump
+                        struct rlimit nocore = { 0, 0 };
+                        setrlimit(RLIMIT_CORE, &nocore);
+#if defined(PLATFORM_LINUX)
+                        prctl(PR_SET_DUMPABLE, 0, 0, 0, 0);
+#endif
+                        signal(SIGSEGV, SIG_DFL);
+                        kill(getpid(), sig);
+                        while (true)
+                            pause();
+                        return 0;
+                });
+                BLEX_TEST_CHECKEQUAL(true, WIFSIGNALED(childstatus));
+                BLEX_TEST_CHECKEQUAL(sig, WTERMSIG(childstatus));
+
+                int status = RunInChild([childstatus]()
+                {
+                        signal(SIGTERM, SIG_IGN);
+                        sigset_t block;
+                        sigemptyset(&block);
+                        sigaddset(&block, SIGUSR1);
+                        sigprocmask(SIG_BLOCK, &block, nullptr);
+                        Blex::ExitWithWaitStatus(childstatus);
+                        return 99;
+                });
+                BLEX_TEST_CHECKEQUAL(true, WIFSIGNALED(status));
+                BLEX_TEST_CHECKEQUAL(sig, WTERMSIG(status));
+        }
+}

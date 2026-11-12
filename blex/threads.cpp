@@ -1890,6 +1890,118 @@ void CloseFileHandlesFrom(int firstfd)
         CloseAllFromTheHardWay(firstfd);
 }
 
+namespace
+{
+
+volatile sig_atomic_t forward_signals_to = 0;
+
+extern "C" void ForwardSignalToChild(int sig)
+{
+        int saved_errno = errno;
+        pid_t pid = forward_signals_to;
+        if (pid > 0)
+            kill(pid, sig);
+        errno = saved_errno;
+}
+
+} // End of anonymous namespace
+
+int WaitForProcessForwardingSignals(pid_t pid)
+{
+        static int const forwardsignals[] = { SIGHUP, SIGINT, SIGQUIT, SIGTERM, SIGUSR1, SIGUSR2, SIGALRM, SIGWINCH, SIGCONT };
+        static unsigned const numsignals = sizeof forwardsignals / sizeof forwardsignals[0];
+
+        sigset_t forwardset;
+        sigemptyset(&forwardset);
+        for (int sig : forwardsignals)
+            sigaddset(&forwardset, sig);
+
+        // Install the handlers with the signals blocked, so none of them can arrive halfway
+        sigset_t oldmask;
+        pthread_sigmask(SIG_BLOCK, &forwardset, &oldmask);
+
+        forward_signals_to = pid;
+
+        struct sigaction sa;
+        std::memset(&sa, 0, sizeof sa);
+        sa.sa_handler = ForwardSignalToChild;
+        sigemptyset(&sa.sa_mask);
+        struct sigaction oldactions[numsignals];
+        for (unsigned i = 0; i < numsignals; ++i)
+            sigaction(forwardsignals[i], &sa, &oldactions[i]);
+
+        pthread_sigmask(SIG_UNBLOCK, &forwardset, nullptr);
+
+        /* Wait for the child to exit without reaping it, so its pid can't be reused by another process while we may still
+           be forwarding signals to it */
+        int retval = 0;
+        siginfo_t info;
+        while (waitid(P_PID, pid, &info, WEXITED | WNOWAIT) != 0)
+        {
+                if (errno != EINTR)
+                {
+                        retval = -1;
+                        break;
+                }
+        }
+
+        pthread_sigmask(SIG_BLOCK, &forwardset, nullptr);
+        forward_signals_to = 0;
+        for (unsigned i = 0; i < numsignals; ++i)
+            sigaction(forwardsignals[i], &oldactions[i], nullptr);
+
+        int status = 0;
+        if (retval == 0)
+        {
+                while (true)
+                {
+                        pid_t res = waitpid(pid, &status, 0);
+                        if (res == pid)
+                            break;
+                        if (res < 0 && errno != EINTR)
+                        {
+                                retval = -1;
+                                break;
+                        }
+                }
+        }
+
+        int saved_errno = errno;
+        pthread_sigmask(SIG_SETMASK, &oldmask, nullptr);
+        errno = saved_errno;
+        return retval == 0 ? status : -1;
+}
+
+void ExitWithWaitStatus(int waitstatus)
+{
+        if (WIFEXITED(waitstatus))
+            _exit(WEXITSTATUS(waitstatus));
+        if (!WIFSIGNALED(waitstatus))
+            _exit(255);
+
+        // Die by the same signal. Don't dump core, the process that crashed may already have done that
+        int sig = WTERMSIG(waitstatus);
+        struct rlimit nocore = { 0, 0 };
+        setrlimit(RLIMIT_CORE, &nocore);
+#if defined(PLATFORM_LINUX)
+        prctl(PR_SET_DUMPABLE, 0, 0, 0, 0); //RLIMIT_CORE is ignored when core dumps are piped to a program
+#endif
+
+        struct sigaction sa;
+        std::memset(&sa, 0, sizeof sa);
+        sa.sa_handler = SIG_DFL;
+        sigemptyset(&sa.sa_mask);
+        sigaction(sig, &sa, nullptr);
+
+        sigset_t unblock;
+        sigemptyset(&unblock);
+        sigaddset(&unblock, sig);
+        pthread_sigmask(SIG_UNBLOCK, &unblock, nullptr);
+        raise(sig);
+
+        _exit(128 + sig); //the signal didn't kill us
+}
+
 } // end of namespace Blex
 
 #endif // if defined(__EMSCRIPTEN__)

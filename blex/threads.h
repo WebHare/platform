@@ -861,6 +861,19 @@ BLEXLIB_PUBLIC bool SetParentDeathSignal(int signal);
     @param firstfd Lowest file descriptor to close */
 BLEXLIB_PUBLIC void CloseFileHandlesFrom(int firstfd);
 
+/** Wait for a child process to finish, forwarding termination and job control signals (SIGHUP, SIGINT, SIGQUIT, SIGTERM,
+    SIGUSR1, SIGUSR2, SIGALRM, SIGWINCH and SIGCONT) to it. These signals are unblocked while waiting, so callers can block
+    them before starting the child to make sure no signal is lost. Signal handlers and mask are restored afterwards.
+    Only one thread at a time may use this function.
+    @param pid Process id of the child
+    @return Wait status of the child (see waitpid), -1 on error */
+BLEXLIB_PUBLIC int WaitForProcessForwardingSignals(pid_t pid);
+
+/** Exit the current process the same way as a process with the specified wait status did: with the same exit code, or
+    by being killed with the same signal (skipping core dumps). Exit handlers are not run.
+    @param waitstatus Wait status, as returned by waitpid or WaitForProcessForwardingSignals */
+[[noreturn]] BLEXLIB_PUBLIC void ExitWithWaitStatus(int waitstatus);
+
 #endif //!defined(__EMSCRIPTEN__)
 
 } //end namespace Blex
