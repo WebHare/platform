@@ -318,3 +318,60 @@ BLEX_TEST_FUNCTION(TestSignalHandling)
         // should be 256 + 15(SIGTERM)
         BLEX_TEST_CHECKEQUAL(271, testloopback.GetReturnValue());
 }
+
+#include <fcntl.h>
+#include <grp.h>
+#include <pwd.h>
+#include <signal.h>
+#include <sys/resource.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <functional>
+#if defined(PLATFORM_LINUX)
+#include <sys/prctl.h>
+#endif
+
+BLEX_TEST_FUNCTION(TestUserLookup)
+{
+        uid_t uid = 12345;
+        gid_t gid = 12345;
+        BLEX_TEST_CHECKEQUAL(true, Blex::LookupUser("root", &uid, &gid));
+        BLEX_TEST_CHECKEQUAL(0u, uid);
+        BLEX_TEST_CHECKEQUAL(0u, gid);
+        BLEX_TEST_CHECKEQUAL(true, Blex::LookupUser("root", nullptr, nullptr));
+
+        BLEX_TEST_CHECKEQUAL(false, Blex::LookupUser("blex-nonexisting-user", &uid, &gid));
+        BLEX_TEST_CHECKEQUAL(false, Blex::LookupUser("", &uid, &gid));
+
+        if (struct passwd *pw = getpwuid(getuid())) //the current user may not have a name, eg. in a container
+        {
+                std::string name = pw->pw_name;
+                BLEX_TEST_CHECKEQUAL(true, Blex::LookupUser(name, &uid, &gid));
+                BLEX_TEST_CHECKEQUAL(getuid(), uid);
+        }
+
+        // Group 0 is 'root' on Linux and 'wheel' on macOS
+        struct group *gr = getgrgid(0);
+        BLEX_TEST_CHECK(gr != nullptr);
+        std::string rootgroup = gr->gr_name;
+        gid = 12345;
+        BLEX_TEST_CHECKEQUAL(true, Blex::LookupGroup(rootgroup, &gid));
+        BLEX_TEST_CHECKEQUAL(0u, gid);
+        BLEX_TEST_CHECKEQUAL(true, Blex::LookupGroup(rootgroup, nullptr));
+        BLEX_TEST_CHECKEQUAL(false, Blex::LookupGroup("blex-nonexisting-group", &gid));
+}
+
+BLEX_TEST_FUNCTION(TestProcessGroups)
+{
+        BLEX_TEST_CHECKEQUAL(true, Blex::IsProcessInGroup(getgid()));
+
+        std::vector< gid_t > groups(getgroups(0, nullptr));
+        groups.resize(getgroups(groups.size(), groups.data()));
+        for (gid_t gid : groups)
+            BLEX_TEST_CHECKEQUAL(true, Blex::IsProcessInGroup(gid));
+
+        gid_t notmember = 0x7FFF0000;
+        while (notmember == getgid() || std::find(groups.begin(), groups.end(), notmember) != groups.end())
+            ++notmember;
+        BLEX_TEST_CHECKEQUAL(false, Blex::IsProcessInGroup(notmember));
+}

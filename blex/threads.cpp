@@ -15,6 +15,8 @@
 
 #include <dirent.h>
 #include <fcntl.h>
+#include <grp.h>
+#include <pwd.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/resource.h>
@@ -1755,6 +1757,76 @@ void Process::SetEnvironment(Environment const &newenvironment)
 void SetEnvironVariable(std::string const &envname, std::string const &envvalue)
 {
         setenv(envname.c_str(), envvalue.c_str(), 1);
+}
+
+bool LookupUser(std::string const &name, uid_t *uid, gid_t *gid)
+{
+        long bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
+        std::vector< char > buffer(bufsize > 0 ? bufsize : 16384);
+        while (true)
+        {
+                struct passwd pwd;
+                struct passwd *result = nullptr;
+                int error = getpwnam_r(name.c_str(), &pwd, buffer.data(), buffer.size(), &result);
+                if (error == ERANGE && buffer.size() < 1024 * 1024)
+                {
+                        buffer.resize(buffer.size() * 2);
+                        continue;
+                }
+                if (!result)
+                {
+                        errno = error ? error : ENOENT;
+                        return false;
+                }
+                if (uid)
+                    *uid = pwd.pw_uid;
+                if (gid)
+                    *gid = pwd.pw_gid;
+                return true;
+        }
+}
+
+bool LookupGroup(std::string const &name, gid_t *gid)
+{
+        long bufsize = sysconf(_SC_GETGR_R_SIZE_MAX);
+        std::vector< char > buffer(bufsize > 0 ? bufsize : 16384);
+        while (true)
+        {
+                struct group grp;
+                struct group *result = nullptr;
+                int error = getgrnam_r(name.c_str(), &grp, buffer.data(), buffer.size(), &result);
+                if (error == ERANGE && buffer.size() < 1024 * 1024)
+                {
+                        buffer.resize(buffer.size() * 2);
+                        continue;
+                }
+                if (!result)
+                {
+                        errno = error ? error : ENOENT;
+                        return false;
+                }
+                if (gid)
+                    *gid = grp.gr_gid;
+                return true;
+        }
+}
+
+bool IsProcessInGroup(gid_t gid)
+{
+        if (getgid() == gid)
+            return true;
+
+        int ngroups = getgroups(0, nullptr);
+        if (ngroups <= 0)
+            return false;
+
+        std::vector< gid_t > groups(ngroups);
+        ngroups = getgroups(groups.size(), groups.data());
+        if (ngroups < 0)
+            return false;
+        groups.resize(ngroups);
+
+        return std::find(groups.begin(), groups.end(), gid) != groups.end();
 }
 
 } // end of namespace Blex

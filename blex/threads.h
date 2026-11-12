@@ -4,6 +4,7 @@
 #include "datetime.h"
 
 #include <pthread.h>
+#include <sys/types.h>
 #include <stdexcept>
 #include <vector> // needed to implement IsOwnedRead()
 #include <map>
@@ -804,6 +805,27 @@ class BLEXLIB_PUBLIC Process
         /** Max virtual memory size */
         int64_t rlimit_virtualmemory;
 };
+
+/* Process credentials and lower level process control. Functions that fail set the last OS error (see GetLastOSError
+   in path.h). Functions marked async-signal-safe may be used between fork() and exec() */
+
+/** Look up a user by name
+    @param name User name
+    @param uid If not NULL, receives the user id
+    @param gid If not NULL, receives the primary group id of the user
+    @return True if the user exists */
+BLEXLIB_PUBLIC bool LookupUser(std::string const &name, uid_t *uid, gid_t *gid);
+
+/** Look up a group by name
+    @param name Group name
+    @param gid If not NULL, receives the group id
+    @return True if the group exists */
+BLEXLIB_PUBLIC bool LookupGroup(std::string const &name, gid_t *gid);
+
+/** Is the current process a member of a group, either as its real group or as a supplementary group?
+    @param gid Group to look for
+    @return True if the process is a member of the group */
+BLEXLIB_PUBLIC bool IsProcessInGroup(gid_t gid);
 
 #endif //!defined(__EMSCRIPTEN__)
 
