@@ -244,6 +244,10 @@ PUBLIC MACRO CustomForm()
   res := tester->SubmitForm(submitrec);
   TestEq(TRUE, res.success);
 
+  // Discard all mail so far. This also flushes the mail tasks, which must complete before we delete the results below
+  // (a task still rendering this result would otherwise find its attachments deleted underneath it)
+  testfw->ExtractAllMailFor("mailresult+jstest@beta.webhare.net", [ timeout := 0, count := 1 ]);
+
   RECORD exportwithattachments := webtoolresults->CreateExporter([ withattachments := TRUE ])->ExportAllResultsWithAttachments();
   TestEq(1, Length(exportwithattachments.rows));
   TestEq(2, Length(exportwithattachments.attachments));
@@ -285,8 +289,6 @@ PUBLIC MACRO CustomForm()
   TestEq(TRUE, RecordExists(lastresult));
   TestEq(RepeatText("x", 8192), GetCell(lastresult, col_textarea));
 
-  // Discard all mail so far
-  testfw->ExtractAllMailFor("mailresult+jstest@beta.webhare.net", [ timeout := 0, count := 1 ]);
   TestEq(1, webtoolresults->GetResultsCount(), "still one result");
 
   // Test a spammy result
