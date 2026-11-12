@@ -69,7 +69,7 @@ PUBLIC MACRO TestAddressField()
 
   INSERT CELL visiblegroup := VARIANT[] INTO fields;
   formresult := tester->SubmitForm(fields);;
-  TestEQ(VARIANT[], formresult.errors);
+  TestEQ(RECORD[], formresult.errors);
   fields.visiblegroup := INTEGER[1];
 
   // no errors when disabled
@@ -80,7 +80,7 @@ PUBLIC MACRO TestAddressField()
   fields.enablefields := INTEGER[1];
   INSERT CELL enablegroup := VARIANT[] INTO fields;
   formresult := tester->SubmitForm(fields);;
-  TestEQ(VARIANT[], formresult.errors);
+  TestEQ(RECORD[], formresult.errors);
   fields.enablegroup := INTEGER[1];
 
   // still errors when all visible + enabled
