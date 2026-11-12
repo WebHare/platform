@@ -244,7 +244,7 @@ export const mimeToExt: Record<string, string> = {
   "image/gif": ".gif",
   "image/png": ".png",
   "image/jpeg": ".jpg",
-  "image/svgx+xml": ".svg",
+  "image/svg+xml": ".svg",
   "image/webp": ".webp",
   "image/avif": ".avif",
 
