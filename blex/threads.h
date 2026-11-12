@@ -827,6 +827,40 @@ BLEXLIB_PUBLIC bool LookupGroup(std::string const &name, gid_t *gid);
     @return True if the process is a member of the group */
 BLEXLIB_PUBLIC bool IsProcessInGroup(gid_t gid);
 
+/** Set the supplementary groups of the current process (requires root privileges). Async-signal-safe.
+    @param groups New list of supplementary groups
+    @return True on success */
+BLEXLIB_PUBLIC bool SetSupplementaryGroups(std::vector< gid_t > const &groups);
+
+/** Set the real, effective and saved group ids of the current process. Async-signal-safe.
+    @param real New real group id
+    @param effective New effective and saved group id
+    @return True on success */
+BLEXLIB_PUBLIC bool SetProcessGroupIds(gid_t real, gid_t effective);
+
+/** Set the real, effective and saved user ids of the current process. Async-signal-safe.
+    Use real == effective to drop root privileges permanently. Changing credentials also prevents unprivileged users from
+    tracing the process or getting core dumps from it.
+    @param real New real user id
+    @param effective New effective and saved user id
+    @return True on success */
+BLEXLIB_PUBLIC bool SetProcessUserIds(uid_t real, uid_t effective);
+
+/** Prevent the current process and its future children from gaining privileges through exec (eg. through setuid
+    binaries). Can't be undone. Only supported on Linux, fails with ENOSYS elsewhere. Async-signal-safe.
+    @return True on success */
+BLEXLIB_PUBLIC bool DisallowNewPrivileges();
+
+/** Request a signal to be sent to the current process when its parent dies. Only supported on Linux, fails with ENOSYS
+    elsewhere. Async-signal-safe. Note that the parent may already have died before this call.
+    @param signal Signal to send, 0 to cancel the request
+    @return True on success */
+BLEXLIB_PUBLIC bool SetParentDeathSignal(int signal);
+
+/** Close all file descriptors from a given descriptor up. Async-signal-safe.
+    @param firstfd Lowest file descriptor to close */
+BLEXLIB_PUBLIC void CloseFileHandlesFrom(int firstfd);
+
 #endif //!defined(__EMSCRIPTEN__)
 
 } //end namespace Blex

@@ -13,6 +13,7 @@
 #include <iostream>
 #include <csignal>
 
+#include <cstring>
 #include <dirent.h>
 #include <fcntl.h>
 #include <grp.h>
@@ -23,6 +24,10 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#if defined(PLATFORM_LINUX)
+#include <sys/prctl.h>
+#include <sys/syscall.h>
+#endif
 #if defined(__EMSCRIPTEN__)
 #include "emscripten.h"
 #endif
@@ -1827,6 +1832,62 @@ bool IsProcessInGroup(gid_t gid)
         groups.resize(ngroups);
 
         return std::find(groups.begin(), groups.end(), gid) != groups.end();
+}
+
+bool SetSupplementaryGroups(std::vector< gid_t > const &groups)
+{
+        return setgroups(groups.size(), groups.data()) == 0;
+}
+
+bool SetProcessGroupIds(gid_t real, gid_t effective)
+{
+#if defined(PLATFORM_LINUX)
+        return setresgid(real, effective, effective) == 0;
+#else
+        // BSD semantics: when the real group id is set, the saved group id is set to the new effective group id
+        return setregid(real, effective) == 0;
+#endif
+}
+
+bool SetProcessUserIds(uid_t real, uid_t effective)
+{
+#if defined(PLATFORM_LINUX)
+        return setresuid(real, effective, effective) == 0;
+#else
+        // BSD semantics: when the real user id is set, the saved user id is set to the new effective user id
+        return setreuid(real, effective) == 0;
+#endif
+}
+
+bool DisallowNewPrivileges()
+{
+#if defined(PLATFORM_LINUX)
+        return prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) == 0;
+#else
+        errno = ENOSYS;
+        return false;
+#endif
+}
+
+bool SetParentDeathSignal(int signal)
+{
+#if defined(PLATFORM_LINUX)
+        return prctl(PR_SET_PDEATHSIG, signal, 0, 0, 0) == 0;
+#else
+        (void)signal;
+        errno = ENOSYS;
+        return false;
+#endif
+}
+
+void CloseFileHandlesFrom(int firstfd)
+{
+#if defined(PLATFORM_LINUX) && defined(SYS_close_range)
+        // Linux 5.9+. Use the syscall directly so we don't depend on the glibc version
+        if (syscall(SYS_close_range, firstfd, ~0U, 0) == 0)
+            return;
+#endif
+        CloseAllFromTheHardWay(firstfd);
 }
 
 } // end of namespace Blex
