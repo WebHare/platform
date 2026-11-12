@@ -1,5 +1,6 @@
+/* wh runtest system.nodejs.whfs.test_whfs_types */
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
-import { beginWork, commitWork, db } from "@webhare/whdb";
+import { beginWork, commitWork, db, rollbackWork } from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
 import { whfsType } from "@webhare/whfs";
 import type { WHFSFile } from "@webhare/whfs";
@@ -12,8 +13,21 @@ import { getWHType } from "@webhare/std/src/quacks";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { dbLoc } from "@webhare/services/src/symbols";
 import { exportRTDToRawHTML } from "@webhare/hscompat";
+import { openWorkflowManager } from "@webhare/whfs/src/workflow";
 
 void dumpSettings; //don't require us to add/remove the import while debugging
+
+async function testRootSyncSettings() {
+  await beginWork();
+  // Reach the instance-data write even when root settings are incorrectly classified as historic.
+  const rootSettings = await whfs.openFolder("/webhare-private/platform/whfs/webhare-publisher-rootsettings/", { allowHistoric: true });
+  const syncType = whfsType("platform:publisher.foldersync");
+  await syncType.set(rootSettings.id, { peers: [{ peer: "root-sync-test.invalid", remotepath: "/" }] });
+  test.eqPartial({ peers: [{ peer: "root-sync-test.invalid", remotepath: "/" }] }, await syncType.get(rootSettings.id));
+  await syncType.set(rootSettings.id, { peers: [] });
+  test.eq({ peers: [] }, await syncType.get(rootSettings.id));
+  await rollbackWork();
+}
 
 async function testCodecs() {
   const basesettingrow = {
@@ -917,6 +931,8 @@ async function testRecycle() {
   const tmpfolder = await test.getTestSiteHSTemp();
   const testfile: WHFSFile = await tmpfolder.openFile("testfile.txt");
   await testfile.recycle();
+  const hsType = await loadlib("mod::system/lib/whfs.whlib").openWHFSType("webhare_testsuite:global.generic_test_type");
+  await test.throws(/Attempting to update readonly object/, () => hsType.setInstanceData(testfile.id, { url: "http://www.webhare.net/" }));
   await test.throws(/recycled or historic/, () => whfsType("webhare_testsuite:global.generic_test_type").set(testfile.id, {
     url: "http://www.webhare.net/"
   }));
@@ -934,14 +950,41 @@ async function testRecycle() {
   await commitWork();
 }
 
+async function testSnapshotInstanceData() {
+  await beginWork();
+  const tmpfolder = await test.getTestSiteHSTemp();
+  const file = await tmpfolder.createFile("readonly-snapshot.txt");
+  const type = whfsType("webhare_testsuite:global.type_clone_ondraft");
+  await type.set(file.id, { onDraftString: "Original" });
+  const workflow = await openWorkflowManager(file.id, {
+    workflowTypes: ["webhare_testsuite:global.type_clone_ondraft"],
+    assumeWriteAccess: true
+  });
+  await workflow.set("webhare_testsuite:global.type_clone_ondraft", { onDraftString: "Updated" });
+  await workflow.save({ finalize: true });
+  await commitWork();
+
+  const history = await file.listHistory();
+  const snapshot = history[0].snapshot;
+  test.assert(snapshot);
+  await beginWork();
+  await test.throws(/recycled or historic/, () => type.set(snapshot, { onDraftString: "Overwritten" }));
+  const hsType = await loadlib("mod::system/lib/whfs.whlib").openWHFSType("webhare_testsuite:global.type_clone_ondraft");
+  await test.throws(/Attempting to update readonly object/, () => hsType.setInstanceData(snapshot, { on_draft_string: "Overwritten" }));
+  test.eq({ onDraftString: "Original" }, await type.get(snapshot));
+  await rollbackWork();
+}
+
 
 test.runTests([
   test.reset,
+  testRootSyncSettings,
   testCodecs,
   testMockedTypes,
   testInstanceData,
   testXMLInstanceData,
   testExportImport,
   testVisitor,
+  testSnapshotInstanceData,
   testRecycle
 ]);
