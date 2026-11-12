@@ -1,7 +1,8 @@
 /**
  * WebHare MCP Server
  *
- * Tells AI clients where WebHare is installed and how to invoke 'wh', and offers the webhare.dev AI skills.
+ * Tells AI clients where WebHare is installed and how to invoke 'wh', offers the webhare.dev AI skills and
+ * offers tools to inspect running HareScript jobs (see debugger.ts).
  * It deliberately has no tools to run commands: clients that can run commands should invoke 'wh' themselves.
  */
 import { backendConfig } from "@webhare/services";
@@ -21,6 +22,7 @@ import {
   McpError
 } from "@modelcontextprotocol/sdk/types.js";
 import { SkillProvider, skillToolName } from "./skills";
+import { debugTools, runDebugTool } from "./debugger";
 
 
 // WebHare installation and data directories of the WebHare running this MCP server (without trailing slash)
@@ -125,7 +127,7 @@ function createServer(skills: SkillProvider) {
    */
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     const skillTool = await skills.getTool();
-    return { tools: skillTool ? [skillTool] : [] };
+    return { tools: [...(skillTool ? [skillTool] : []), ...debugTools] };
   });
 
   /**
@@ -144,11 +146,16 @@ function createServer(skills: SkillProvider) {
         }
 
 
-        default:
+        default: {
+          const text = await runDebugTool(request.params.name, request.params.arguments);
+          if (text !== null)
+            return { content: [{ type: "text", text }] };
+
           throw new McpError(
             ErrorCode.MethodNotFound,
             `Unknown tool: ${request.params.name}`
           );
+        }
       }
     } catch (error) {
       return {
