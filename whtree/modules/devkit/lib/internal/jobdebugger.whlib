@@ -58,12 +58,15 @@ OBJECT FUNCTION ConnectJob(STRING groupid)
   RETURN job;
 }
 
-/// Wait for a debugger request, but give up after a while (the debug manager doesn't answer some errors, eg when the job isn't paused)
+/// Wait for a debugger request and throw if it fails. Gives up after a while (older debug managers don't pass on error responses)
 VARIANT FUNCTION AwaitRequest(OBJECT promise, STRING what)
 {
   RECORD raced := WaitForPromise(CreatePromiseRace([ promise, CreateSleepPromise(10000) ], [ wrap := TRUE ]));
   IF (raced.source != promise)
     THROW NEW Exception(`No response from the job to the ${what} request`);
+  // Errors are responses too (eg 'error-notstopped' when the job isn't paused)
+  IF (TypeID(raced.value) = TypeID(RECORD) AND CellExists(raced.value, "TYPE") AND raced.value.type LIKE "error*")
+    THROW NEW Exception(`The ${what} request failed: ${raced.value.type}${CellExists(raced.value, "MSG") ? " " || raced.value.msg : ""}`);
   RETURN raced.value;
 }
 

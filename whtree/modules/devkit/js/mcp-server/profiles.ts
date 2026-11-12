@@ -26,6 +26,10 @@ const maxProfileDuration = 60000;
 const pauseTimeout = 5000;
 /** Maximum number of live profiles kept (oldest are dropped) */
 const maxLiveProfiles = 200;
+/** Defaults for waiting for live profiles */
+const defaultWaitTimeout = 30000;
+const maxWaitTimeout = 120000;
+const defaultSettle = 3000;
 /** Maximum number of analysed profiles kept in memory (least recently used are dropped, but can be recaptured or reloaded) */
 const maxCachedProfiles = 50;
 
@@ -68,6 +72,8 @@ interface LiveProfile {
   description: string;
   when: Date;
   type: string;
+  /** Total self time (ms) of a function profile, ie roughly how long the profiled request or task took */
+  totalSelf: number;
   rawdata: RawProfile | null;
 }
 
@@ -127,6 +133,8 @@ class ProfileStore {
   private liveCounter = 0;
   private port: ReturnType<typeof bridge.createPort> | null = null;
   private listeningSince: Date | null = null;
+  /** Called whenever a live profile arrives */
+  private liveWaiters = new Set<() => void>();
 
   private remember(profile: AnalysedProfile) {
     this.analysed.delete(profile.id); //re-insert to mark as recently used
@@ -216,15 +224,56 @@ class ProfileStore {
   }
 
   private addLive(msg: { source?: string; command?: string; start?: Date; type?: string; rawdata?: RawProfile }) {
+    const type = msg.type ?? "functionprofile";
     this.live.push({
       id: `live-${++this.liveCounter}`,
       description: [msg.source, msg.command].filter(Boolean).join(": ") || "(unknown source)",
       when: msg.start instanceof Date ? msg.start : new Date,
-      type: msg.type ?? "functionprofile",
+      type,
+      totalSelf: type === "functionprofile" && msg.rawdata?.items ? msg.rawdata.items.reduce((sum, item) => sum + Number(item.selftime) * 1000, 0) : 0,
       rawdata: msg.rawdata ?? null
     });
     if (this.live.length > maxLiveProfiles)
       this.live.splice(0, this.live.length - maxLiveProfiles);
+    for (const waiter of [...this.liveWaiters])
+      waiter();
+  }
+
+  /** Wait for live profiles to come in. Waits up to `timeout` ms for the first profile matching `filter`, then keeps collecting
+      until no matching profile arrived for `settle` ms (a page view is often followed by RPCs and fetches from its frontend code).
+      Returns the matching profiles that arrived during the wait */
+  async waitForLive(filter: string, timeout: number, settle: number): Promise<LiveProfile[]> {
+    if (!this.port)
+      throw new Error(`Not listening for live profiles, start the listener first (action 'start'), then trigger the request`);
+
+    const needle = filter.toLowerCase();
+    const startCount = this.liveCounter;
+    const arrived = () => this.live.filter(profile => Number(profile.id.slice(5)) > startCount && (!needle || profile.description.toLowerCase().includes(needle)));
+
+    const deadline = Date.now() + timeout;
+    let seen = 0;
+    let lastArrival = 0;
+    for (; ;) {
+      const now = Date.now();
+      const count = arrived().length;
+      if (count > seen) {
+        seen = count;
+        lastArrival = now;
+      }
+      const waitUntil = seen ? Math.min(lastArrival + settle, deadline + settle) : deadline;
+      if (now >= waitUntil)
+        return arrived();
+
+      await new Promise<void>(resolve => {
+        const waiter = () => {
+          clearTimeout(timer);
+          this.liveWaiters.delete(waiter);
+          resolve();
+        };
+        const timer = setTimeout(waiter, waitUntil - now);
+        this.liveWaiters.add(waiter);
+      });
+    }
   }
 }
 
@@ -254,14 +303,22 @@ export const profileTools: Tool[] = [
   },
   {
     name: profileListenerToolName,
-    description: `Start or stop collecting live HareScript profiles, like the profiler app's 'live' session. `
+    description: `Collect live HareScript profiles, like the profiler app's 'live' session. `
       + `While listening, profiles reported to the global '${profilesPortName}' port are kept (the last ${maxLiveProfiles}) and listed by ${listProfilesToolName}. `
-      + `They're reported by eg tests run with profiling, managed tasks with profiling enabled, and requests and RPCs made with the 'apr' debug option. `
-      + `Only one listener can be active, so this fails while the profiler app is showing live profiles.`,
+      + `They're reported by eg requests and RPCs with the 'apr' debug option (add '?wh-debug=apr' to the URL, or set it as wh-debug cookie), tests run with profiling and managed tasks with profiling enabled. `
+      + `Typical use: 'start', then trigger the request (eg open the page), then 'wait'. 'wait' returns the profiles that came in, longest first: `
+      + `a page view is usually followed by RPCs and fetches from its frontend code, and the page itself is usually the longest one. `
+      + `Only one listener can be active, so 'start' fails while the profiler app is showing live profiles.`,
     inputSchema: {
       type: "object",
       properties: {
-        action: { type: "string", enum: ["start", "stop", "status"], description: "What to do" }
+        action: {
+          type: "string", enum: ["start", "wait", "stop", "status"],
+          description: "'start' listening, 'wait' for profiles to come in, 'stop' listening (received profiles remain available) or get the 'status'"
+        },
+        filter: { type: "string", description: "wait: only count profiles whose description (source and command, eg the URL) contains this text (case insensitive)" },
+        timeout: { type: "number", description: `wait: how long to wait for the first profile, in milliseconds (default ${defaultWaitTimeout}, max ${maxWaitTimeout})` },
+        settle: { type: "number", description: `wait: after a profile arrived, keep collecting until none arrived for this many milliseconds (default ${defaultSettle})` }
       },
       required: ["action"]
     },
@@ -398,7 +455,7 @@ async function listProfiles(session: string, filter: string, limit: number): Pro
   lines.push(store.status() + (live.length ? ":" : ""));
   const shownLive = live.filter(profile => matches(profile.description)).reverse().slice(0, limit);
   for (const profile of shownLive)
-    lines.push(`- ${profile.id}: ${profile.description}, ${profile.when.toISOString()}${profile.type !== "functionprofile" ? ` (${profile.type})` : ""}`);
+    lines.push(`- ${profile.id}: ${ms(profile.totalSelf)}ms, ${profile.description}, ${profile.when.toISOString()}${profile.type !== "functionprofile" ? ` (${profile.type})` : ""}`);
 
   lines.push("");
   const sessions = await callJobDebugger<string[]>("ListStoredProfileSessions");
@@ -435,8 +492,22 @@ export async function runProfileTool(name: string, args: Record<string, unknown>
         case "start": return await store.startListening();
         case "stop": return store.stopListening();
         case "status": return store.status();
+        case "wait": {
+          const filter = args.filter ? String(args.filter) : "";
+          const timeout = clamp(args.timeout, defaultWaitTimeout, 0, maxWaitTimeout);
+          const profiles = await store.waitForLive(filter, timeout, clamp(args.settle, defaultSettle, 0, 30000));
+          if (!profiles.length)
+            return `No live profiles${filter ? ` matching '${filter}'` : ""} arrived within ${timeout}ms. Was the request made with the 'apr' debug option (?wh-debug=apr)?`;
+          profiles.sort((a, b) => b.totalSelf - a.totalSelf);
+          return [
+            `${profiles.length} live profile(s)${filter ? ` matching '${filter}'` : ""} arrived, longest first:`,
+            ...profiles.map((profile, idx) => `- ${profile.id}: ${ms(profile.totalSelf)}ms, ${profile.description}, ${profile.when.toISOString()}`
+              + `${profile.type !== "functionprofile" ? ` (${profile.type})` : ""}${idx === 0 ? "  <- longest" : ""}`),
+            `Use ${profileFunctionsToolName} with the profile id to see where the time went.`
+          ].join("\n");
+        }
       }
-      throw new Error("action must be 'start', 'stop' or 'status'");
+      throw new Error("action must be 'start', 'wait', 'stop' or 'status'");
 
     case listProfilesToolName:
       return await listProfiles(args?.session ? String(args.session) : "default", args?.filter ? String(args.filter) : "", clamp(args?.limit, 20, 1, 200));
