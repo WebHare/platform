@@ -471,6 +471,7 @@
       <action name="updateopacity" onexecute="doupdateopacity" title="S03 Update opacity" />
       <action name="clearaction" onexecute="doclearaction" title="S04 Clear action" />
       <action name="clearonclick" onexecute="doclearonclick" title="S05 Clear onclick" />
+      <action name="loadpublic" onexecute="doloadpublic" title="S06 Load public resource" />
       <action name="actionclick" onexecute="doactionclick" title="Click" />
     </actions>
 
@@ -481,6 +482,7 @@
         <item action="updateopacity" />
         <item action="clearaction" />
         <item action="clearonclick" />
+        <item action="loadpublic" />
       </menu>
     </menus>
 

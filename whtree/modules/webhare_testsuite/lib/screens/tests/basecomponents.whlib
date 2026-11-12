@@ -602,6 +602,11 @@ PUBLIC OBJECTTYPE SVGTest EXTEND TolliumScreenBase
     ^svg->onclick := DEFAULT FUNCTION PTR;
   }
 
+  MACRO DoLoadPublic()
+  {
+    ^svg->LoadResource("mod::webhare_testsuite/public/img/svgtest.svg");
+  }
+
   MACRO DoActionClick()
   {
     this->AddLog("action");

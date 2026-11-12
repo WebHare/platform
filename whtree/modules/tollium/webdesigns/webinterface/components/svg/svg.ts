@@ -11,7 +11,10 @@ declare global {
 }
 
 interface SVGAttributes extends ActionableAttributes {
-  src: string;
+  // Raw SVG source (not set if url is set)
+  src?: string;
+  // URL to fetch the SVG from (eg. a public module asset)
+  url?: string;
   vars?: Record<string, string>;
   opacity?: number;
 }
@@ -19,6 +22,11 @@ interface SVGAttributes extends ActionableAttributes {
 type SVGUpdate = {
   type: "source";
   src: string;
+  url?: never;
+} | {
+  type: "source";
+  url: string;
+  src?: never;
 } | {
   type: "opacity";
   opacity: number;
@@ -37,6 +45,9 @@ export class ObjSVGImage extends ActionableComponent<SVGAttributes> {
   componenttype = "svg";
   private clickable = false;
   private svgSrc = "";
+  private svgUrl = "";
+  // Incremented on every source change, so a slow fetch doesn't overwrite a newer source
+  private sourceGeneration = 0;
   private opacity = 1;
   private wrapperNode!: HTMLDivElement;
   // Shadow root holding the SVG, so its <style> elements and ids don't leak into (or collide with) the rest of the document
@@ -130,18 +141,44 @@ export class ObjSVGImage extends ActionableComponent<SVGAttributes> {
     this.node.append(this.wrapperNode);
   }
 
-  private updateNode(data: { src?: string; opacity?: number }) {
-    if (data.src !== undefined && data.src !== this.svgSrc) {
-      const svgNode = this.importSVG(data.src);
-      if (svgNode)
-        this.svgRoot.replaceChildren(svgNode);
-      else
-        this.svgRoot.replaceChildren();
+  private updateNode(data: { src?: string; url?: string; opacity?: number }) {
+    if (data.url) {
+      if (data.url !== this.svgUrl) {
+        const url = data.url;
+        const generation = ++this.sourceGeneration;
+        this.svgUrl = url;
+        this.loadSVGFromURL(url, generation).catch(e => {
+          console.error(`Could not load SVG from '${url}'`, e);
+          if (generation === this.sourceGeneration)
+            this.showSVG("");
+        });
+      }
+    } else if (data.src !== undefined && (data.src !== this.svgSrc || this.svgUrl)) {
+      ++this.sourceGeneration;
+      this.svgUrl = "";
+      this.showSVG(data.src);
     }
     if (data.opacity !== undefined && data.opacity !== this.opacity) {
       this.opacity = data.opacity;
       this.wrapperNode.style.opacity = String(this.opacity);
     }
+  }
+
+  private showSVG(src: string) {
+    const svgNode = this.importSVG(src);
+    if (svgNode)
+      this.svgRoot.replaceChildren(svgNode);
+    else
+      this.svgRoot.replaceChildren();
+  }
+
+  private async loadSVGFromURL(url: string, generation: number) {
+    const response = await fetch(url);
+    if (!response.ok)
+      throw new Error(`HTTP status ${response.status}`);
+    const src = await response.text();
+    if (generation === this.sourceGeneration) // Ignore if the source was changed while we were fetching
+      this.showSVG(src);
   }
 
   private updateCSSVars(cssVars?: Record<string, string>) {
