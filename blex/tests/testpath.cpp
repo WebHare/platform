@@ -235,3 +235,74 @@ BLEX_TEST_FUNCTION(TestLongPaths)
         BLEX_TEST_CHECK(Blex::CreateDir(deeperpath,true));
 //        std::string filename = Blex::CreateTempName(Blex::MergePath(Blex::Test::GetTempDir(),"modtimetest"));
 }
+
+#if !defined(__EMSCRIPTEN__)
+#include <fcntl.h>
+#include <unistd.h>
+
+namespace
+{
+bool IsOpenFd(int fd)
+{
+        return fcntl(fd, F_GETFD) != -1;
+}
+} // End of anonymous namespace
+
+BLEX_TEST_FUNCTION(TestFileDescriptor)
+{
+        Blex::FileDescriptor empty;
+        BLEX_TEST_CHECKEQUAL(false, empty.IsValid());
+        BLEX_TEST_CHECKEQUAL(-1, empty.Get());
+        empty.Reset(); //no-op
+
+        int rawfd;
+        {
+                Blex::FileDescriptor fd = Blex::OpenDirectoryNoFollow(Blex::Test::GetTempDir());
+                BLEX_TEST_CHECKEQUAL(true, fd.IsValid());
+                rawfd = fd.Get();
+                BLEX_TEST_CHECKEQUAL(true, IsOpenFd(rawfd));
+                BLEX_TEST_CHECKEQUAL(FD_CLOEXEC, fcntl(rawfd, F_GETFD) & FD_CLOEXEC);
+
+                // Moving transfers ownership
+                Blex::FileDescriptor moved(std::move(fd));
+                BLEX_TEST_CHECKEQUAL(false, fd.IsValid());
+                BLEX_TEST_CHECKEQUAL(rawfd, moved.Get());
+
+                Blex::FileDescriptor assigned;
+                assigned = std::move(moved);
+                BLEX_TEST_CHECKEQUAL(false, moved.IsValid());
+                BLEX_TEST_CHECKEQUAL(rawfd, assigned.Get());
+                BLEX_TEST_CHECKEQUAL(true, IsOpenFd(rawfd));
+        }
+        // Destruction closes it
+        BLEX_TEST_CHECKEQUAL(false, IsOpenFd(rawfd));
+
+        // Release gives up ownership
+        {
+                Blex::FileDescriptor fd = Blex::OpenDirectoryNoFollow(Blex::Test::GetTempDir());
+                rawfd = fd.Release();
+                BLEX_TEST_CHECKEQUAL(false, fd.IsValid());
+        }
+        BLEX_TEST_CHECKEQUAL(true, IsOpenFd(rawfd));
+        close(rawfd);
+
+        // Assigning over a valid descriptor closes the old one
+        {
+                Blex::FileDescriptor first = Blex::OpenDirectoryNoFollow(Blex::Test::GetTempDir());
+                Blex::FileDescriptor second = Blex::OpenDirectoryNoFollow(Blex::Test::GetTempDir());
+                rawfd = first.Get();
+                first = std::move(second);
+                BLEX_TEST_CHECKEQUAL(false, IsOpenFd(rawfd));
+                BLEX_TEST_CHECKEQUAL(true, first.IsValid());
+        }
+
+        // Reset preserves the last OS error
+        {
+                Blex::FileDescriptor fd = Blex::OpenDirectoryNoFollow(Blex::Test::GetTempDir());
+                errno = ENOENT;
+                fd.Reset();
+                BLEX_TEST_CHECK(Blex::GetLastOSErrorCode() == std::errc::no_such_file_or_directory);
+        }
+}
+
+#endif

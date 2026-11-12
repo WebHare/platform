@@ -8,6 +8,8 @@
 #include "stream.h"
 #endif
 
+#include <system_error>
+
 namespace Blex
 {
 
@@ -403,6 +405,57 @@ BLEXLIB_PUBLIC std::string GetRealPath(std::string const &path);
     @return Textual representation of the last error.
 */
 BLEXLIB_PUBLIC std::string GetLastOSError();
+
+/** Returns the last OS error (errno) as an error code, eg. to compare with std::errc::file_exists
+    @return Error code of the last error
+*/
+BLEXLIB_PUBLIC std::error_code GetLastOSErrorCode();
+
+#if !defined(__EMSCRIPTEN__)
+/* Filesystem access relative to directory file descriptors. None of these functions follow a symbolic link in the
+   final component of the name, so they can safely be used in directories that other (less privileged) users can
+   modify. Names are expected to be single path components. File descriptors are opened with close-on-exec.
+   On failure, GetLastOSError() and GetLastOSErrorCode() describe the reason. */
+
+/** Owns an OS file descriptor, closing it when destroyed. Movable but not copyable */
+class BLEXLIB_PUBLIC FileDescriptor
+{
+        public:
+        FileDescriptor() noexcept : fd(-1) { }
+        explicit FileDescriptor(FileHandle _fd) noexcept : fd(_fd) { }
+        FileDescriptor(FileDescriptor &&rhs) noexcept : fd(rhs.fd) { rhs.fd = -1; }
+        FileDescriptor& operator=(FileDescriptor &&rhs) noexcept;
+        ~FileDescriptor() { Reset(); }
+
+        FileDescriptor(FileDescriptor const &) = delete;
+        FileDescriptor& operator=(FileDescriptor const &) = delete;
+
+        /** Get the file descriptor (still owned by this object), -1 if not valid */
+        FileHandle Get() const { return fd; }
+        /** Is a file descriptor present? */
+        bool IsValid() const { return fd >= 0; }
+        /** Close the file descriptor (if present). Preserves the last OS error */
+        void Reset() noexcept;
+        /** Give up ownership of the file descriptor
+            @return The file descriptor, which the caller must close */
+        FileHandle Release() noexcept { FileHandle retval = fd; fd = -1; return retval; }
+
+        private:
+        FileHandle fd;
+};
+
+/** Open a directory. A symbolic link at the end of the path is not followed
+    @param path Path of the directory to open
+    @return The directory descriptor, invalid on failure */
+BLEXLIB_PUBLIC FileDescriptor OpenDirectoryNoFollow(std::string const &path);
+
+/** Open a directory inside another directory, without following symbolic links
+    @param dirfd Parent directory
+    @param name Name of the directory to open
+    @return The directory descriptor, invalid on failure */
+BLEXLIB_PUBLIC FileDescriptor OpenDirectoryAt(FileHandle dirfd, std::string const &name);
+
+#endif
 
 /** Verify whether a [namebegin,nameend[ is acceptable as a file, folder, site or username in WebHare.
     @param slashesok true to ignore slashes in the name (used to validate full paths)

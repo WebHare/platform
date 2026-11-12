@@ -989,6 +989,46 @@ bool IsSafeFilePath(char const *namebegin, char const *nameend, bool slashes_ok)
         return true;
 }
 
+std::error_code GetLastOSErrorCode()
+{
+        return std::error_code(errno, std::generic_category());
+}
+
+#if !defined(__EMSCRIPTEN__)
+FileDescriptor& FileDescriptor::operator=(FileDescriptor &&rhs) noexcept
+{
+        if (this != &rhs)
+        {
+                Reset();
+                fd = rhs.fd;
+                rhs.fd = -1;
+        }
+        return *this;
+}
+
+void FileDescriptor::Reset() noexcept
+{
+        if (fd >= 0)
+        {
+                int saved_errno = errno;
+                close(fd);
+                errno = saved_errno;
+                fd = -1;
+        }
+}
+
+FileDescriptor OpenDirectoryNoFollow(std::string const &path)
+{
+        return FileDescriptor(open(path.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
+}
+
+FileDescriptor OpenDirectoryAt(FileHandle dirfd, std::string const &name)
+{
+        return FileDescriptor(openat(dirfd, name.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
+}
+
+#endif
+
 std::string FixupToAbsolutePath(std::string const &inpath)
 {
                 std::string p = inpath;
