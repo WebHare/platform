@@ -1529,6 +1529,7 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase <
   INTEGER objectid;
   RECORD settings;
   INTEGER defaultstoreresults;
+  BOOLEAN allowmaxsignups;
 
 
   // ---------------------------------------------------------------------------
@@ -1575,7 +1576,10 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase <
 
     ^disablecaptcha->visible := RecordExists(formsettings) AND formsettings.usecaptcha;
     ^disablecaptcha->value := this->settings.disablecaptcha;
-    ^availability->value := this->settings.unavailable ? "unavailable" : this->settings.maxsignups > 0 ? "maxsignups" : "available";
+    this->allowmaxsignups := NOT RecordExists(formsettings) OR formsettings.allowmaxsignups;
+    IF(NOT this->allowmaxsignups)
+      ^availability->options := SELECT * FROM ^availability->options WHERE rowkey != "maxsignups";
+    ^availability->value := this->settings.unavailable ? "unavailable" : this->allowmaxsignups AND this->settings.maxsignups > 0 ? "maxsignups" : "available";
     ^unavailabletext->value := this->settings.unavailabletext;
     ^maxsignups->value := this->settings.maxsignups;
 
@@ -1634,7 +1638,8 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase <
             , storeresults := ^overwritestoreresults->value ? (^storeresults->value = 0 ? -1 : ^storeresults->value) : 0
             , unavailabletext := ^unavailabletext->value
             , unavailable := ^availability->value = "unavailable"
-            , maxsignups := ^availability->value IN [ "unavailable", "maxsignups" ] ? ^maxsignups->value : 0
+            , maxsignups := NOT this->allowmaxsignups ? this->settings.maxsignups //keep any existing maximum if the option is hidden
+                            : ^availability->value IN [ "unavailable", "maxsignups" ] ? ^maxsignups->value : 0
             ];
     IF(^disablecaptcha->enabled)
       instancedata.disablecaptcha := ^disablecaptcha->value;

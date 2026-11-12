@@ -269,6 +269,7 @@ PUBLIC RECORD FUNCTION CombineFormPluginConfiguration(RECORD ARRAY props) {
     , default_store_days := -1
     , process_days := -1
     , max_store_days := -1
+    , allowmaxsignups := TRUE
     ];
 
   FOREVERY(RECORD p FROM props) {
@@ -297,6 +298,8 @@ PUBLIC RECORD FUNCTION CombineFormPluginConfiguration(RECORD ARRAY props) {
       config.process_days := p.process_days;
     IF(CellExists(p, "max_store_days"))
       config.max_store_days := p.max_store_days;
+    IF(CellExists(p, "allow_max_signups"))
+      config.allowmaxsignups := p.allow_max_signups;
 
     IF(CellExists(p, "address_options")) {
       RECORD pao := p.address_options;

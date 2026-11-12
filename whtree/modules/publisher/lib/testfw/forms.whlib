@@ -54,7 +54,7 @@ STATIC OBJECTTYPE FormsapiFormTester
     IF(RecordExists(options.extrasubmit))
       INSERT CELL extrasubmit := options.extrasubmit INTO formdata;
     RECORD result := this->browser->CallJSONRPC(formservice,"FormSubmit",formdata);
-    RETURN result;
+    RETURN EnforceStructure(CELL[ errors := RECORD[] ], result);
   }
 >;
 
