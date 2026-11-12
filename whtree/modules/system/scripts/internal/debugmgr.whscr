@@ -790,6 +790,13 @@ STATIC OBJECTTYPE WHProcess
           }
         }
 
+        /* Error responses to job requests (eg 'error-notstopped' when the job isn't paused) don't have a 'job-' type.
+           Pass them on to the app that made the request, so it isn't left waiting forever */
+        IF (replyto != 0)
+          FOREVERY (RECORD attached FROM this->pvt_attachedjobs)
+            IF (ObjectExists(attached.job) AND attached.job->PassResponse(msg, replyto))
+              RETURN;
+
         IF (debuglevel >= 1)
           PRINT("** Unknown message from C++ debugger " || msg.type || "\n" || AnyToString(msg, "tree"));
 
@@ -925,19 +932,26 @@ STATIC OBJECTTYPE AttachedJob
     this->pvt_app->GotJobDisconnect(PRIVATE this);
   }
 
+  /// Pass a response to a request made through this job on to the app. Returns FALSE if this job didn't make the request
+  BOOLEAN FUNCTION PassResponse(RECORD msg, INTEGER64 replyto)
+  {
+    RECORD pos := RecordLowerBound(this->pvt_requests, [ msgid := replyto ], [ "MSGID" ]);
+    IF (NOT pos.found)
+      RETURN FALSE;
+
+    INSERT CELL processcode := this->pvt_process->processcode INTO msg;
+    IF (debuglevel >= 5)
+      PRINT("Sending process answer to app: " || msg.type || "\n");
+    this->pvt_app->pvt_link->SendReply(msg, this->pvt_requests[pos.position].replyto);
+    DELETE FROM this->pvt_requests AT pos.position;
+    RETURN TRUE;
+  }
+
   MACRO GotMessage(RECORD msg, INTEGER64 msgid, INTEGER64 replyto)
   {
     // Passthrough responses to simple requests
-    RECORD pos := RecordLowerBound(this->pvt_requests, [ msgid := replyto ], [ "MSGID" ]);
-    IF (pos.found)
-    {
-      INSERT CELL processcode := this->pvt_process->processcode INTO msg;
-      IF (debuglevel >= 5)
-        PRINT("Sending process answer to app: " || msg.type || "\n");
-      this->pvt_app->pvt_link->SendReply(msg, this->pvt_requests[pos.position].replyto);
-      DELETE FROM this->pvt_requests AT pos.position;
+    IF (this->PassResponse(msg, replyto))
       RETURN;
-    }
 
     SWITCH (msg.type)
     {
