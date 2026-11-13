@@ -7,7 +7,7 @@
           width="800px"
           height="600px"
           allowresize="true"
-          flags="canedit canpublish canrevertdraft canpreview canview isdeveloper isdirty readonly"
+          flags="canedit canpublish canrevertdraft canpreview canschedule canview isdeveloper isdirty readonly"
           gid=".editdocumentapp"
           icon="tollium:applications/editor"
           interval="60000"
@@ -22,7 +22,7 @@
       <action name="publish" frameflags="canpublish" onexecute="dopublish" />
 
       <!-- this action will *always* lead to editing publicadtion schedule settings. for now used by the draftbar and needed in non-experimental mode -->
-      <action name="schedulepublication" ellipsis="true" frameflags="!readonly" onexecute="dopublish_schedule" />
+      <action name="schedulepublication" ellipsis="true" frameflags="canschedule" onexecute="dopublish_schedule" />
       <action name="close" onexecute="doclose" tid="~close" />
       <windowopenaction name="viewpublished"
                         frameflags="canview"

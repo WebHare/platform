@@ -1668,6 +1668,7 @@
       </textgroup>
       <textgroup gid="messageboxes">   <!-- tolliumapps.editdocument.messageboxes -->
         <text tid="confirmcanceldraft">Weet u zeker dat u de conceptversie wilt annuleren en de laatst gepubliceerde versie wilt terugzetten?</text>
+        <text tid="confirmsaveandmakelive">Weet u zeker dat u deze versie wilt opslaan en de live versie wilt maken?</text>
         <text tid="confirmsaveandpublish">Weet u zeker dat u wilt opslaan en publiceren?</text>
         <text tid="draftcancelled">De conceptversie is geannuleerd - het document is teruggezet naar de laatste gepubliceerde versie.</text>
         <text tid="otherhasdraft"><ifparam p="1" value="">Een andere gebruiker<else/>Gebruiker <param p="1"/></ifparam> heeft op <param p="2"/> een conceptversie van dit document opgeslagen.<br/><br/> Als u doorgaat, neemt u deze versie inclusief wijzigingen over en gaat u verder met het bewerken van de conceptversie.</text>

@@ -1670,6 +1670,7 @@
       </textgroup>
       <textgroup gid="messageboxes">   <!-- tolliumapps.editdocument.messageboxes -->
         <text tid="confirmcanceldraft">Are you sure you want to revert the draft document to the last published version?</text>
+        <text tid="confirmsaveandmakelive">Are you sure you want to save this version and make it the live version?</text>
         <text tid="confirmsaveandpublish">Are you sure you want to save and publish?</text>
         <text tid="draftcancelled">The draft version has been cancelled - the document is reverted to the latest published version.</text>
         <text tid="otherhasdraft"><ifparam p="1" value="">Another user<else/>User <param p="1"/></ifparam> has created a draft version on <param p="2"/> for this document. <br/><br/>If you continue, you will be editing this draft including the changes.</text>

@@ -484,6 +484,42 @@ ASYNC MACRO TestClearedNameConflict() {
   testfile := OpenWHFSObject(testfile->id);
   TestEq("Another name", testfile->title);
   TestEq("another-name", testfile->name, "Publishing should use the name suggested from the latest title");
+}
+
+ASYNC MACRO TestPublishDisabled() {
+  /* STORY basetestjs.siteprl.yml disallows publishing '*test-publication*' files, but allows a preview. Publish should only make
+     the current version the live version, and pinning (which normally blocks publishing an unpublished file) shouldn't matter */
+  testfw->BeginWork();
+  OBJECT testfile := GetTestsuiteJSTempFolder()->CreateFile(
+      [ name :=    "test-publication-editor.rtd"
+      , typens :=  "platform:filetypes.richdocument"
+      , title :=   "Never published"
+      , publish := FALSE
+      ]);
+  testfile->UpdateMetadata([ ispinned := TRUE ]);
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testfile->id) ]  ]));
+  TestEq(FALSE, topscreen->frame->flags.canpublish, "Being unpublished doesn't count as something to publish");
+  TestEq(FALSE, topscreen->frame->flags.canschedule);
+  TestEq(TRUE, topscreen->frame->flags.canpreview);
+  TestEq("The file is not published", TT("filestatustext")->value);
+
+  RTE()->TolliumWeb_FormUpdate('<p class="normal">The live version</p>');
+  TT("doceditor")->contents->^dirtylistener->SetDirty();
+  TestEq(TRUE, topscreen->frame->flags.canpublish);
+
+  RECORD mypreview := ExecuteWindowOpenAction(TT("previewcurrentcontent"));
+  TestEq(TRUE, testfw->browser->GotoWebPage(mypreview.url));
+  TestEqLike("*The live version*", testfw->browser->QS("#content")->textcontent);
+
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("publish")->TolliumClick(), [ messagemask := "*make it the live version*", awaitcall := TRUE ]);
+
+  testfile := OpenWHFSObject(testfile->id);
+  TestEq(FALSE, testfile->publish);
+  TestEqLike("*The live version*", BlobToString(OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->GetInstanceData(testfile->id).data.htmltext));
+  TestEq("final", ListObjectHistory(testfile->id)[END-1].type);
+  TestEq(FALSE, topscreen->frame->flags.canpublish, "Nothing left to publish");
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
@@ -499,6 +535,7 @@ RunTestFramework(
     , PTR TestPublishInitialEmptyDocument
     , PTR TestClearedNameFollowsTitle
     , PTR TestClearedNameConflict
+    , PTR TestPublishDisabled
     ],
     [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                    ]

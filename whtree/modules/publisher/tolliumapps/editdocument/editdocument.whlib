@@ -58,6 +58,11 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
 
   BOOLEAN scheduling_experiment;
 
+  /// Whether the file may not be published (its type can't be published or a 'publication' rule disallows it). Publishing it only updates its live version
+  BOOLEAN publishdisabled;
+  /// Whether a 'publication' rule allows a preview even if the file can't be published
+  BOOLEAN allowpreview;
+
   // ---------------------------------------------------------------------------
   //
   // Init
@@ -100,6 +105,8 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     //Loads the extensions for the file type and invokes additional editor hooks
     this->SetupForFileEdit(this->itemid, data.objeditor);
     this->SetupWorkflowManager( CELL[ data.readonly, data.showversion, useworkflow := TRUE, workflowtypes := data.objeditor.types ]);
+    this->publishdisabled := NOT this->publishallowed;
+    this->allowpreview := this->contexts->applytester->GetPublicationSettings().allowpreview;
 
     IF(this->workflowmgr->IsReadOnly() AND NOT data.assumereadaccess AND NOT data.assumewriteaccess AND NOT this->tolliumuser->HasRightOn("system:fs_browse", this->itemid)) { //not even browse access?
       this->tolliumresult := "cancel";
@@ -288,14 +295,14 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
   MACRO RefreshState()  {
     // Do we have a published version?
     OBJECT fsobj := OpenWHFSObject(this->itemid);
-    BOOLEAN ispublishabletoweb := ObjectExists(fsobj) AND fsobj->parentsite != 0 AND OpenSite(fsobj->parentsite)->outputweb != 0 AND this->filetypeinfo.ispublishable AND this->contexts->editdocumentapi->canpublish;
+    BOOLEAN ispublishabletoweb := ObjectExists(fsobj) AND fsobj->parentsite != 0 AND OpenSite(fsobj->parentsite)->outputweb != 0 AND NOT this->publishdisabled AND this->contexts->editdocumentapi->canpublish;
     this->RefreshReadonly();
 
     IF (ObjectExists(fsobj)) {
       IF (this->contexts->editdocumentapi->oncanpreview != DEFAULT MACRO PTR)
         this->frame->flags.canpreview := this->contexts->editdocumentapi->oncanpreview(fsobj);
-      ELSE
-        this->frame->flags.canpreview := ispublishabletoweb;
+      ELSE //a 'publication' rule can allow a preview of files that can't be published, as long as they're in a site
+        this->frame->flags.canpreview := ispublishabletoweb OR (this->allowpreview AND fsobj->parentsite != 0);
       IF (this->contexts->editdocumentapi->oncanview != DEFAULT MACRO PTR)
         this->frame->flags.canview := this->contexts->editdocumentapi->oncanview(fsobj);
       ELSE
@@ -378,7 +385,9 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       }
     }
 
-    BOOLEAN havesomethingtopublish := status.has_draft OR (ObjectExists(fsobj) AND NOT fsobj->publish);
+    //Files that can't be published stay unpublished, so only a draft gives them something to publish
+    BOOLEAN havesomethingtopublish := status.has_draft OR (NOT this->publishdisabled AND ObjectExists(fsobj) AND NOT fsobj->publish);
+    this->frame->flags.canschedule := NOT this->readonly AND NOT this->publishdisabled;
     //We do not care about ispublishabletoweb for the publish button as we let the Publish button act as 'publish when site goes online' button
     this->frame->flags.canpublish :=
       (this->frame->flags.canedit AND (this->frame->flags.isdirty OR havesomethingtopublish) AND this->contexts->editdocumentapi->canpublish)
@@ -460,15 +469,15 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       this->CheckNameConflict(feedback);
 
       //TODO Refresh actual state, and recheck after publish dialog. perhaps this should move into CheckNameConflict?
-      IF(this->sourceitem->publish = FALSE AND this->sourceitem->ispinned)
-        feedback->AddError(this->GetTid(".cannotpublishpinnedfile")); //FIXME shouldn't block pinned datafiles, they never go to publish: TRUE so this check is unneeded too
+      IF(this->sourceitem->publish = FALSE AND this->sourceitem->ispinned AND NOT this->publishdisabled) //files that can't be published stay unpublished, so their pin doesn't matter
+        feedback->AddError(this->GetTid(".cannotpublishpinnedfile"));
 
       IF(NOT feedback->Finish())
         RETURN FALSE;
     }
 
     RECORD publish_dialog_result;
-    IF(options.finalize) {
+    IF(options.finalize AND NOT this->publishdisabled) { //files that can't be published are only finalized
       RECORD status := this->workflowmgr->GetCurrentStatus();
       IF(options.schedule_dialog) {
         //If currently unpublished we ask the user to publish now or later (unless the app had its own dialog - then we suppress ours. basically because utwente_brochures is the only one that doesn't need this diaolog right now)
@@ -490,7 +499,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       this->workflowmgr->Save(CELL[ finalize := options.finalize, ...publish_dialog_result ]);
 
       //Warn if publishing to an unpublished site (but not if publishing outside a site)
-      IF (options.finalize AND finalitem->parentsite != 0 AND OpenSite(finalitem->parentsite)->outputweb = 0)
+      IF (options.finalize AND NOT this->publishdisabled AND finalitem->parentsite != 0 AND OpenSite(finalitem->parentsite)->outputweb = 0)
         work->AddWarning(this->GetTid(".sitenotpublished"));
     }
 
@@ -605,7 +614,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
   MACRO DoPublish() { //The publish button.
     //We'll show the scheduling dialog if opted in *OR* if the file is scheduleable, unless we're already published or you're hooking onconfirmsaveandpublish (deprecated),
     RECORD status := this->workflowmgr->GetCurrentStatus();
-    this->DoPublish2(CELL[ schedule_dialog := (this->scheduling_experiment OR status.publish_at != DEFAULT DATETIME) AND NOT status.publish AND this->contexts->editdocumentapi->onconfirmsaveandpublish = DEFAULT MACRO PTR]);
+    this->DoPublish2(CELL[ schedule_dialog := (this->scheduling_experiment OR status.publish_at != DEFAULT DATETIME) AND NOT status.publish AND NOT this->publishdisabled AND this->contexts->editdocumentapi->onconfirmsaveandpublish = DEFAULT MACRO PTR]);
   }
 
   MACRO DoPublish_Schedule() {
@@ -615,8 +624,11 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
   MACRO DoPublish2(RECORD options) {
     options := ValidateOptions(CELL[ schedule_dialog := FALSE ], options);
 
+    IF(this->publishdisabled)
+      options.schedule_dialog := FALSE; //files that can't be published can't be scheduled either
+
     OBJECT targetfile := OpenWHFSObject(this->itemid);
-    IF(targetfile->publish = FALSE AND targetfile->ispinned) { // The file's publish status is locked by the pin
+    IF(targetfile->publish = FALSE AND targetfile->ispinned AND NOT this->publishdisabled) { // The file's publish status is locked by the pin
       this->RunSimpleScreen("error", this->GetTid(".cannotpublishpinnedfile"));
       RETURN;
     }
@@ -626,6 +638,13 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     IF(this->contexts->editdocumentapi->onconfirmsaveandpublish != DEFAULT MACRO PTR) {
       //Used by utwente_brochures. DEPRECATED considering removing this hook
       IF(NOT this->contexts->editdocumentapi->onconfirmsaveandpublish())
+        RETURN;
+    } ELSE IF(this->publishdisabled) { //publishing only makes this version the live version
+      IF(this->RunSimpleScreen("confirm"
+                            , GetTid("publisher:tolliumapps.editdocument.messageboxes.confirmsaveandmakelive")
+                            , [ dontshowkey := "publisher.editdocument.confirmsaveandmakelive"
+                              , dontshowbuttons := ["yes"]
+                              ]) != "yes")
         RETURN;
     } ELSE IF(NOT options.schedule_dialog) {
       IF(this->RunSimpleScreen("confirm"
