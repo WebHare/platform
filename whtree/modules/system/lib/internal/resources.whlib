@@ -136,7 +136,8 @@ PUBLIC BLOB FUNCTION CanonicalizeWebhareSchemaLocations(BLOB data)
     @return Record describing the WebHare resource. Throws a %RetrieveResourceException when the resources doesn't exist (returns
       DEFAULT RECORD when allowmissing is set to TRUE)
     @cell(blob) return.data The data
-    @cell(string) return.path Path of the requested resource */
+    @cell(string) return.path Path of the requested resource
+    @cell(datetime) return.modified Modification date of the resource, DEFAULT DATETIME if not known */
 PUBLIC RECORD FUNCTION RetrieveWebHareResource(STRING resourcepath, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ allowmissing := FALSE ], options);
@@ -146,6 +147,7 @@ PUBLIC RECORD FUNCTION RetrieveWebHareResource(STRING resourcepath, RECORD optio
     {
       RETURN [ data := GenerateBuiltinXSD(resourcepath)
              , path := resourcepath
+             , modified := DEFAULT DATETIME
              ];
     }
 

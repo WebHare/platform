@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::float.whlib";
 
@@ -17,6 +18,7 @@ PUBLIC OBJECTTYPE TolliumSVGImage EXTEND TolliumComponentBase <
   //
 
   STRING __svg_source;
+  STRING __res_url;
 
   RECORD __css_vars;
   STRING css_vars_hash;
@@ -86,18 +88,27 @@ PUBLIC OBJECTTYPE TolliumSVGImage EXTEND TolliumComponentBase <
   UPDATE PUBLIC MACRO TolliumWebRender() {
     IF (this->dirtyflags.fully) {
       RECORD compinfo := CELL[
-        src := this->svg_source,
         vars := this->css_vars,
         this->hint,
         unmasked_events := GetUnmask(this, ["click"]),
         action := GetComponentName(this->__action),
         this->opacity,
       ];
+      IF (this->__res_url != "")
+        INSERT CELL url := this->__res_url INTO compinfo;
+      ELSE
+        INSERT CELL src := this->svg_source INTO compinfo;
 
       this->owner->tolliumcontroller->SendComponent(this, compinfo);
     } ELSE {
-      IF (this->dirtyflags.source)
-        this->ToddUpdate([ type := "source", src := this->svg_source ]);
+      IF (this->dirtyflags.source) {
+        RECORD compinfo := [ type := "source" ];
+        IF (this->__res_url != "")
+          INSERT CELL url := this->__res_url INTO compinfo;
+        ELSE
+          INSERT CELL src := this->svg_source INTO compinfo;
+        this->ToddUpdate(compinfo);
+      }
 
       IF (this->dirtyflags.vars)
         this->ToddUpdate([ type := "vars", vars := this->css_vars ]);
@@ -143,9 +154,10 @@ PUBLIC OBJECTTYPE TolliumSVGImage EXTEND TolliumComponentBase <
     RETURN "100px";
   }
 
-  MACRO SetSVGSource(STRING svg_source) {
-    IF (this->__svg_source != svg_source) {
+  MACRO SetSVGSource(STRING svg_source, STRING res_url DEFAULTSTO "") {
+    IF (this->__svg_source != svg_source OR res_url != this->__res_url) {
       this->__svg_source := svg_source;
+      this->__res_url := res_url;
       this->ExtUpdatedSource();
     }
   }
@@ -232,14 +244,31 @@ PUBLIC OBJECTTYPE TolliumSVGImage EXTEND TolliumComponentBase <
   // Public API
   //
 
+  /** Load an svg by absolute resource path
+      @long This loads an svg using an absolute resource path (eg. `mod::mymodule/web/img/image.svg`). Only SVG files are
+          supported. When an empty string is given, the component is cleared.
+
+          The SVG is sent as raw xml to the browser, unless the given resource is a public module asset (eg.
+          `mod::mymodule/public/image.svg`), in which case it is fetched client-side.
+      @param resource The resource to load
+  */
   PUBLIC MACRO LoadResource(STRING resource) {
     IF (resource = "") {
       this->svg_source := "";
       RETURN;
     }
-    RECORD svg := WrapBlob(RetrieveWebHareResource(resource).data, GetNameFromPath(resource));
+    RECORD res := RetrieveWebHareResource(resource);
+    RECORD svg := WrapBlob(res.data, GetNameFromPath(resource));
     IF (svg.mimetype != "image/svg+xml")
       THROW NEW TolliumException(this, `Only SVG resources can be loaded in an <svg> component`);
-    this->svg_source := BlobToString(svg.data);
+    // Only fetch public module assets client-side; other resource urls (eg. webdesign web/ folders) aren't always served
+    STRING res_url;
+    IF (resource LIKE "mod::?*/public/*") {
+      res_url := GetModuleResourceURL(resource);
+      // Add the modification time to the url, so the browser refetches the svg when it's changed on disk
+      IF (res_url != "")
+        res_url := res_url || "?mtime=" || GetUnixTimestamp(res.modified);
+    }
+    this->SetSVGSource(BlobToString(svg.data), res_url);
   }
 >;
