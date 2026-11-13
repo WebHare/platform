@@ -2269,6 +2269,7 @@
         <text tid="editfolder-title">Properties of folder '<param p="1"/>'</text>
         <text tid="editsite-title">Settings for site '<param p="1"/>'</text>
         <text tid="fileispinned">This file is protected (it may not be renamed or moved)</text>
+        <text tid="filenotpublished">This file cannot be published</text>
         <text tid="folderispinned">This folder is protected (it may not be renamed or moved)</text>
         <text tid="info">Properties</text>
         <text tid="isunlisted">Unlisted</text>

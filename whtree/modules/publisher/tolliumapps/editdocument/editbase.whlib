@@ -106,6 +106,8 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND PublisherMetadataBase <
 
   /// Record definition of current (or new) type for the object
   RECORD curtype;
+  /// Whether the object may be published: its type is publishable and no 'publication' apply rule disallows it
+  PUBLIC PROPERTY publishallowed(GetPublishAllowed, -);
   /// Can the name follow the title?
   BOOLEAN namefollowstitle;
   /// Does the seotitle follow title?
@@ -165,6 +167,11 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND PublisherMetadataBase <
   BOOLEAN FUNCTION CanWriteCurrentItem()
   {
     RETURN this->isnew OR (NOT RecordExists(this->recyclebininfo) AND this->tolliumuser->HasRightOn("system:fs_fullaccess", this->itemid));
+  }
+
+  BOOLEAN FUNCTION GetPublishAllowed() {
+    //Read from the current applytester, the properties dialog replaces the one set up by __SetupEditBase
+    RETURN this->contexts->applytester->IsPublishAllowed();
   }
 
   RECORD FUNCTION GetPolicyContext() { //Returns a HSPolicyContext

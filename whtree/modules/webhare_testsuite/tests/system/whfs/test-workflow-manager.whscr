@@ -17,6 +17,7 @@ LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/history.whlib";
 LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/internal/dbschema.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::webhare_testsuite/lib/publisher/testsupport.whlib";
@@ -1034,6 +1035,62 @@ ASYNC MACRO ViewHistory() {
   //FIXME verify this copy
 }
 
+MACRO PublicationDisabledTest() {
+  testfw->BeginWork();
+  testfw->SetTestUser("sysop");
+
+  //basetestjs.siteprl.yml disables publication for '*test-publication*' and enables it again for '*test-publication-allowpublish*'
+  OBJECT nopublishfile := GetTestsuiteJSTempFolder()->CreateFile(
+    [ name := "test-publication-workflow.html"
+    , title := "A file that may not be published"
+    , data := StringToBlob("Initial content")
+    , typens := "http://www.webhare.net/xmlns/publisher/htmlfile"
+    , publish := FALSE
+    ], [ createdby := GetEffectiveUser()
+       , instances := [[ whfstype := "webhare_testsuite:global.type_clone_ondraft", on_draft_string := "initial" ]]
+       ]);
+
+  OBJECT workflowmgr := NEW WorkflowManager(nopublishfile->id, [ user := GetEffectiveUser(), workflowtypes := ["webhare_testsuite:global.type_clone_ondraft"] ]);
+  TestEq(TRUE, workflowmgr->IsPublishDisabled());
+
+  //Publishing it updates the live version, but it stays unpublished
+  workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_ondraft", [ on_draft_string := "first-final" ]);
+  workflowmgr->Save([ finalize := TRUE, publish := TRUE ]);
+  TestEq(FALSE, OpenWHFSObject(nopublishfile->id)->publish);
+  TestEq([ on_draft_string := "first-final" ], nopublishfile->GetInstanceData("webhare_testsuite:global.type_clone_ondraft"));
+  TestEqMembers([ [ type := "created", version := "0.1" ]
+                , [ type := "final",   version := "1.0" ]
+                ], ListObjectHistory(nopublishfile->id), "*");
+
+  //Publishing again without changes doesn't publish it either
+  workflowmgr->Save([ finalize := TRUE, publish := TRUE ]);
+  TestEq(FALSE, OpenWHFSObject(nopublishfile->id)->publish);
+  TestEq(2, Length(ListObjectHistory(nopublishfile->id)));
+
+  //Its publication can't be scheduled
+  workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_ondraft", [ on_draft_string := "scheduled" ]);
+  TestThrowsLike("*may not be published*", PTR workflowmgr->Save([ finalize := TRUE, publish_at := AddDaysToDate(1, GetCurrentDatetime()) ]));
+  TestThrowsLike("*may not be published*", PTR workflowmgr->Save([ finalize := TRUE, end_at := AddDaysToDate(1, GetCurrentDatetime()) ]));
+  TestEq(FALSE, RecordExists(SELECT FROM publisher.schedule WHERE file = nopublishfile->id));
+
+  //A later rule can allow publication again
+  OBJECT publishfile := GetTestsuiteJSTempFolder()->CreateFile(
+    [ name := "test-publication-allowpublish-workflow.html"
+    , title := "A file that may be published"
+    , data := StringToBlob("Initial content")
+    , typens := "http://www.webhare.net/xmlns/publisher/htmlfile"
+    , publish := FALSE
+    ], [ createdby := GetEffectiveUser() ]);
+
+  workflowmgr := NEW WorkflowManager(publishfile->id, [ user := GetEffectiveUser(), workflowtypes := ["webhare_testsuite:global.type_clone_ondraft"] ]);
+  TestEq(FALSE, workflowmgr->IsPublishDisabled());
+  workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_ondraft", [ on_draft_string := "published" ]);
+  workflowmgr->Save([ finalize := TRUE, publish := TRUE ]);
+  TestEq(TRUE, OpenWHFSObject(publishfile->id)->publish);
+
+  testfw->RollbackWork();
+}
+
 RunTestframework([ PTR Prep
                  , PTR DraftingTest
                  , PTR DraftingTestWithCancel
@@ -1041,6 +1098,7 @@ RunTestframework([ PTR Prep
                  , PTR NamingTest
                  , PTR UnpublishedSavesTest
                  , PTR DraftRTDTypeTest
+                 , PTR PublicationDisabledTest
                  , PTR ImportTest
                  , PTR ShowVersion
                  , PTR ViewHistory

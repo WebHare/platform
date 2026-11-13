@@ -1534,6 +1534,18 @@ STATIC OBJECTTYPE ApplyRuleTester <
     RETURN settings;
   }
 
+  /** Returns whether this file may be published: its type must be publishable and no 'publication' apply rule may disallow it.
+      Always FALSE for folders, as they aren't published themselves
+  */
+  PUBLIC BOOLEAN FUNCTION IsPublishAllowed()
+  {
+    IF(this->objisfolder)
+      RETURN FALSE;
+    IF(this->objtype != 0 AND NOT (SELECT AS BOOLEAN ispublishable FROM system.fs_types WHERE id = this->objtype)) //type 0 is an unknown file, which can be published
+      RETURN FALSE;
+    RETURN this->GetPublicationSettings().allowpublish;
+  }
+
   PUBLIC RECORD FUNCTION GetLastValueForCell(STRING cellname)
   {
     RECORD ARRAY applies := this->__GetAppliesForcell(cellname);

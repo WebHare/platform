@@ -220,14 +220,17 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     //ADDME: Set using site profile?
     BOOLEAN iscurrentlypublished := this->startdata.why = "edit" AND this->sourceitem->isfile AND this->sourceitem->publish;
     ^keywords->visible := NOT this->isfolder;
-    ^publish->visible := this->curtype.ispublishable OR iscurrentlypublished;
+    //A 'publication' apply rule disallowing publication makes the file act like a file of a type that can't be published
+    BOOLEAN publishallowed := this->publishallowed;
+    ^publish->visible := publishallowed OR iscurrentlypublished;
 
     //For existing items, copy actual publish setting. For new items, look at initialpublish setting. don't distinguish between duplicate/templates etc, KISS
     ^publish->value := this->startdata.why = "edit" ? iscurrentlypublished : ^publish->visible AND this->curtype.initialpublish;
-    ^notpublished->visible := NOT this->isfolder AND NOT this->curtype.ispublishable;
+    ^notpublished->visible := NOT this->isfolder AND NOT publishallowed;
 
     IF(^notpublished->visible) {
-      ^notpublishedtext->value := this->GetTid(".typenotpublished", ^type->value);
+      ^notpublishedtext->value := this->curtype.ispublishable ? this->GetTid(".filenotpublished")
+                                                              : this->GetTid(".typenotpublished", ^type->value);
     }
 
     IF (this->startdata.why IN [ "duplicate", "newfile", "newfolder" ]) {
@@ -1137,7 +1140,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       IF(NOT this->isfolder) {
         IF (^publish->visible) {
           INTEGER new_publish := this->isnew ? 0 : GetFlagsFromPublished(this->sourceitem->published);
-          IF (RecordExists(this->parentsite) AND this->parentsite.outputweb != 0 AND ^publish->value)
+          IF (RecordExists(this->parentsite) AND this->parentsite.outputweb != 0 AND ^publish->value AND this->publishallowed)
             new_publish := ConvertToWillPublish(new_publish, FALSE, TRUE, PubPrio_DirectEdit);
           ELSE
             new_publish := ConvertToWontPublish(new_publish);

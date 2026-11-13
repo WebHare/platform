@@ -1,5 +1,7 @@
 <?wh
 
+LOADLIB "wh::files.whlib";
+
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::publisher/lib/dialogs.whlib";
@@ -221,9 +223,43 @@ ASYNC MACRO TestDuplicateObjectDialog() {
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape()); //close app
 }
+
+ASYNC MACRO TestPublicationRule() {
+  //basetestjs.siteprl.yml disables publication for '*test-publication*' and enables it again for '*test-publication-allowpublish*'
+  testfw->BeginWork();
+  OBJECT nopublishfile := GetTestsuiteJSTempFolder()->CreateFile([ name := "test-publication-props.html", data := StringToBlob("No publish"), typens := "http://www.webhare.net/xmlns/publisher/htmlfile", publish := FALSE ]);
+  OBJECT publishedfile := GetTestsuiteJSTempFolder()->CreateFile([ name := "test-publication-props-published.html", data := StringToBlob("Published"), typens := "http://www.webhare.net/xmlns/publisher/htmlfile", publish := TRUE ]);
+  OBJECT allowpublishfile := GetTestsuiteJSTempFolder()->CreateFile([ name := "test-publication-allowpublish-props.html", data := StringToBlob("May publish"), typens := "http://www.webhare.net/xmlns/publisher/htmlfile", publish := FALSE ]);
+  testfw->CommitWork();
+
+  //A file that may not be published acts like a file of a type that can't be published
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectpropertiesDialog(GetTestController(), nopublishfile->id));
+  TestEq(FALSE, TTIsVisible("publish"));
+  TestEq(TRUE, TTIsVisible("notpublished"));
+  TestEq("This file cannot be published", TT("notpublishedtext")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  TestEq(FALSE, OpenWHFSObject(nopublishfile->id)->publish);
+
+  //A published file that may not be published can't stay published
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectpropertiesDialog(GetTestController(), publishedfile->id));
+  TestEq(TRUE, TTIsVisible("publish"));
+  TestEq(TRUE, TT("publish")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  TestEq(FALSE, OpenWHFSObject(publishedfile->id)->publish);
+
+  //A later rule can allow publication again
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectpropertiesDialog(GetTestController(), allowpublishfile->id));
+  TestEq(TRUE, TTIsVisible("publish"));
+  TestEq(FALSE, TTIsVisible("notpublished"));
+  TT("publish")->value := TRUE;
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  TestEq(TRUE, OpenWHFSObject(allowpublishfile->id)->publish);
+}
+
 RunTestframework([ PTR DynFolderIndex
                  , PTR TestCreateObjectDialog
                  , PTR CreateUsingTemplates
                  , PTR TestDuplicateObjectDialog
+                 , PTR TestPublicationRule
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ]]);

@@ -2267,6 +2267,7 @@
         <text tid="editfolder-title">Eigenschappen van map '<param p="1"/>'</text>
         <text tid="editsite-title">Eigenschappen van site '<param p="1"/>'</text>
         <text tid="fileispinned">Dit bestand is beschermd (hernoemen en verwijderen zijn niet toegestaan)</text>
+        <text tid="filenotpublished">Dit bestand kan niet gepubliceerd worden</text>
         <text tid="folderispinned">Deze map is beschermd (hernoemen en verwijderen zijn niet toegestaan)</text>
         <text tid="info">Eigenschappen</text>
         <text tid="isunlisted">Niet in navigatie</text>

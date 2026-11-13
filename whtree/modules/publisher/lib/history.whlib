@@ -5,6 +5,7 @@ LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/internal/dbschema.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -71,6 +72,8 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
   BOOLEAN read_only;
   BOOLEAN editable;
   DATETIME publish_at;
+  BOOLEAN checked_publishdisabled;
+  BOOLEAN publishdisabled;
 
   RECORD ARRAY workflowtypes;
 
@@ -432,6 +435,17 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     RETURN ObjectExists(this->currentautosave ?? this->currentdraft);
   }
 
+  /** Returns whether the object may not be published, either because its type can't be published or because a 'publication'
+      apply rule sets 'allowPublish: false'. Finalizing such an object still updates its live version, but keeps it unpublished
+  */
+  PUBLIC BOOLEAN FUNCTION IsPublishDisabled() {
+    IF(NOT this->checked_publishdisabled) {
+      this->publishdisabled := this->baseobject->isfile AND NOT GetApplyTesterForObject(this->baseobject->id)->IsPublishAllowed();
+      this->checked_publishdisabled := TRUE;
+    }
+    RETURN this->publishdisabled;
+  }
+
   PUBLIC MACRO Save(RECORD options DEFAULTSTO DEFAULT RECORD) {
     options := ValidateOptions(CELL[ finalize := FALSE
                                    , publish := FALSE
@@ -445,6 +459,14 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
       THROW NEW Exception("Changing/scheduling a publish or depublish requires finalizing the document");
     IF(CellExists(options,'publish') AND CellExists(options, "publish_at"))
       THROW NEW Exception("Cannot set both publish and publish_at");
+
+    IF(options.finalize AND this->IsPublishDisabled()) {
+      //Finalizing an object that may not be published only updates its live version, the object itself stays unpublished
+      IF(CellExists(options, "publish_at") OR (CellExists(options, "end_at") AND options.end_at != DEFAULT DATETIME))
+        THROW NEW Exception(`Cannot schedule the publication of #${this->baseobject->id} as it may not be published`);
+      IF(CellExists(options, "publish"))
+        options.publish := FALSE;
+    }
 
     this->EnsureMetadataUpToDate(TRUE);
     this->EnsureStartOfHistory(); //create an import if needed

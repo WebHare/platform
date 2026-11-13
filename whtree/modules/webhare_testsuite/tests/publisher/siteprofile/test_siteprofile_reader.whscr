@@ -165,6 +165,15 @@ MACRO TestApplyRuleTester() {
     TestEq([ allowpublish := TRUE, allowpreview := FALSE ], GetApplyTesterForObject(otherfile->id)->GetPublicationSettings());
     TestEq([ allowpublish := FALSE, allowpreview := TRUE ], GetApplyTesterForObject(nopublishfile->id)->GetPublicationSettings());
     TestEq([ allowpublish := TRUE, allowpreview := TRUE ], GetApplyTesterForObject(allowpublishfile->id)->GetPublicationSettings());
+
+    //IsPublishAllowed combines the 'publication' rule with the publishability of the type
+    TestEq(TRUE, GetApplyTesterForObject(otherfile->id)->IsPublishAllowed());
+    TestEq(FALSE, GetApplyTesterForObject(nopublishfile->id)->IsPublishAllowed());
+    TestEq(TRUE, GetApplyTesterForObject(allowpublishfile->id)->IsPublishAllowed());
+
+    OBJECT widgetfile := GetTestsuiteJSTempFolder()->CreateFile([ name := "test-widgetfile", typens := "http://www.webhare.net/xmlns/publisher/widgets/contentsnippet" ]);
+    TestEq(FALSE, GetApplyTesterForObject(widgetfile->id)->IsPublishAllowed(), "widget files can't be published");
+    TestEq(FALSE, GetApplyTesterForObject(GetTestsuiteJSTempFolder()->id)->IsPublishAllowed(), "folders aren't published themselves");
     testfw->RollbackWork();
   }
 
