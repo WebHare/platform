@@ -213,9 +213,13 @@ IF(ToUppercase(targetobject.whfspath) LIKE "/WEBHARE-PRIVATE/PLATFORM/WHFS/*") {
 
 IF(getmostrecentversion) {
  //TODO more efficient direct selection needed
-  RECORD lastdraft := SELECT * FROM ListObjectHistory(targetobject.id) WHERE type="saved" ORDER BY when DESC;
-  IF(RecordExists(lastdraft))
-    contentobject := SELECT id, parentsite, type FROM system.fs_objects WHERE id = lastdraft.snapshot;
+  /* Show the most recent draft, unless a version was finalized after it. The live object then holds the most recent version
+     (a file that may not be published can have a final version while being unpublished) */
+  RECORD lastversion := SELECT * FROM ListObjectHistory(targetobject.id) WHERE type IN ["saved", "final"] ORDER BY when DESC, id DESC;
+  IF(RecordExists(lastversion) AND lastversion.type = "saved")
+    contentobject := SELECT id, parentsite, type FROM system.fs_objects WHERE id = lastversion.snapshot;
+  ELSE IF(RecordExists(lastversion)) //eg. a link to a draft that has been published since
+    contentobject := SELECT id, parentsite, type FROM system.fs_objects WHERE id = targetobject.id;
 }
 
 //TODO or copy the actual targets CSP ?

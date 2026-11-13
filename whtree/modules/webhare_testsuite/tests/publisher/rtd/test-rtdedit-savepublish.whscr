@@ -5,8 +5,10 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::publisher/lib/dialogs.whlib";
+LOADLIB "mod::publisher/lib/history.whlib";
 LOADLIB "mod::publisher/lib/preview.whlib";
 
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
@@ -524,6 +526,34 @@ ASYNC MACRO TestPublishDisabled() {
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+MACRO TestPreviewMostRecentVersion() {
+  /* STORY Previewing the most recent version should show a version that was finalized after the last saved draft, not that draft.
+     The second file may not be published (basetestjs.siteprl.yml), so even a plain preview of it shows its most recent version */
+  STRING richdocns := "http://www.webhare.net/xmlns/publisher/richdocumentfile";
+  testfw->SetTestUser("sysop");
+
+  FOREVERY(STRING name FROM ["preview-mostrecent.rtd", "test-publication-preview.rtd"]) {
+    testfw->BeginWork();
+    OBJECT testfile := GetTestsuiteJSTempFolder()->CreateFile([ name := name, typens := "platform:filetypes.richdocument", title := "Preview test", publish := FALSE ]);
+    OBJECT workflowmgr := NEW WorkflowManager(testfile->id, [ user := GetEffectiveUser(), workflowtypes := [ richdocns ] ]);
+
+    //Save a draft, then make more changes and finalize those without saving them as a draft first
+    workflowmgr->SetInstanceData(richdocns, [ data := [ htmltext := StringToBlob(`<html><body><p class="normal">The saved draft</p></body></html>`) ] ]);
+    workflowmgr->Save();
+    workflowmgr->SetInstanceData(richdocns, [ data := [ htmltext := StringToBlob(`<html><body><p class="normal">The final version</p></body></html>`) ] ]);
+    workflowmgr->Save([ finalize := TRUE, publish := TRUE ]);
+    testfw->CommitWork();
+
+    TestEq(TRUE, testfw->browser->GotoWebPage(workflowmgr->GetPreviewLink("draft", [ share := "mostrecentversion" ])));
+    TestEqLike("*The final version*", testfw->browser->QS("#content")->textcontent, `Most recent version of ${name}`);
+
+    IF(NOT OpenWHFSObject(testfile->id)->publish) {
+      TestEq(TRUE, testfw->browser->GotoWebPage(GetPreviewLink(testfile->id)));
+      TestEqLike("*The final version*", testfw->browser->QS("#content")->textcontent, `Preview of unpublished ${name}`);
+    }
+  }
+}
+
 RunTestFramework(
     [ PTR TestMetaTab
     , PTR TestRevert
@@ -536,6 +566,7 @@ RunTestFramework(
     , PTR TestClearedNameFollowsTitle
     , PTR TestClearedNameConflict
     , PTR TestPublishDisabled
+    , PTR TestPreviewMostRecentVersion
     ],
     [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                    ]
