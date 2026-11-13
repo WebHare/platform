@@ -253,3 +253,52 @@ export function getFileAsDataURL(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
+
+/** Percent-decode a string directly into bytes (decodeURIComponent would require the result to be valid UTF-8) */
+function percentDecodeToBytes(str: string): Uint8Array<ArrayBuffer> {
+  const input = new TextEncoder().encode(str);
+  const output = new Uint8Array(input.length);
+  let outpos = 0;
+  for (let i = 0; i < input.length; ++i) {
+    const hex = input[i] === 0x25 /* % */ ? String.fromCharCode(input[i + 1], input[i + 2]) : "";
+    if (/^[0-9a-f]{2}$/i.test(hex)) {
+      output[outpos++] = parseInt(hex, 16);
+      i += 2;
+    } else {
+      output[outpos++] = input[i];
+    }
+  }
+  return output.subarray(0, outpos);
+}
+
+/** Convert a data: URL to a file without using fetch() (which the page's Content-Security-Policy may block for data: URLs)
+ * @param dataURL - The data: URL to convert. Both base64 and percent-encoded data are supported
+ * @param options - Options
+ * @param options.fileName - Name for the returned file. Defaults to "file"
+ * @param options.maxSize - Maximum size of the decoded data in bytes. Larger data is rejected before it is decoded
+ * @returns The file, with its type set to the data: URL's media type (lowercased, without parameters)
+ * @throws If the data: URL is invalid or its data exceeds maxSize
+ */
+export function getDataURLAsFile(dataURL: string, options?: { fileName?: string; maxSize?: number }): File {
+  const match = dataURL.match(/^data:([^,]*?)(;base64)?,(.*)$/s);
+  if (!match)
+    throw new Error("Invalid data: URL");
+
+  const maxSize = options?.maxSize;
+  if (maxSize !== undefined) {
+    /* Quick check on the encoded length so we don't decode excessively large data. Base64 takes 4 characters per 3 bytes
+       of data, percent-encoding up to 3 characters per byte. Base64 may itself be percent-encoded (eg. %2B for '+') */
+    const base64Length = Math.ceil(maxSize / 3) * 4;
+    const maxEncodedLength = match[2] ? base64Length * (match[3].includes("%") ? 3 : 1) : maxSize * 3;
+    if (match[3].length > maxEncodedLength)
+      throw new Error(`Data is too large (more than ${maxSize} bytes)`);
+  }
+
+  const type = match[1].split(";")[0].trim().toLowerCase();
+  const bytes = match[2] ? Uint8Array.from(atob(match[3].replace(/%([0-9a-f]{2})/gi, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)))), c => c.charCodeAt(0))
+    : percentDecodeToBytes(match[3]);
+  if (maxSize !== undefined && bytes.byteLength > maxSize)
+    throw new Error(`Data is too large (${bytes.byteLength} bytes)`);
+
+  return new File([bytes], options?.fileName ?? "file", { type });
+}
