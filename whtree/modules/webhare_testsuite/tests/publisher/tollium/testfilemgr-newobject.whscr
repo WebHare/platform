@@ -237,6 +237,7 @@ ASYNC MACRO TestPublicationRule() {
   TestEq(FALSE, TTIsVisible("publish"));
   TestEq(TRUE, TTIsVisible("notpublished"));
   TestEq("This file cannot be published", TT("notpublishedtext")->value);
+  TestEq(FALSE, TTIsVisible("makeindex"), "A file that may not be published can't be the index either");
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   TestEq(FALSE, OpenWHFSObject(nopublishfile->id)->publish);
 
@@ -251,6 +252,7 @@ ASYNC MACRO TestPublicationRule() {
   AWAIT ExpectScreenChange(+1, PTR RunFSObjectpropertiesDialog(GetTestController(), allowpublishfile->id));
   TestEq(TRUE, TTIsVisible("publish"));
   TestEq(FALSE, TTIsVisible("notpublished"));
+  TestEq(TRUE, TTIsVisible("makeindex"));
   TT("publish")->value := TRUE;
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   TestEq(TRUE, OpenWHFSObject(allowpublishfile->id)->publish);

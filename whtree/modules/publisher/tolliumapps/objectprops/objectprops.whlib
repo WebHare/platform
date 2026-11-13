@@ -363,7 +363,8 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     }
     ELSE
     {
-      IF (NOT this->curtype.isacceptableindex)
+      //Files that may not be published (eg. by a 'publication' apply rule) can't be the index either
+      IF (NOT this->curtype.isacceptableindex OR NOT this->publishallowed)
         RETURN CELL[ acceptableindex := FALSE, canedit ];
     }
 
