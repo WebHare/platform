@@ -906,8 +906,13 @@ export function getUnifiedCC(date: ValidDateTimeSources) {
   return parts.days ^ parts.msecs;
 }
 
-export function getUCPacketHash(packet: Uint8Array, useExtension: string): string {
-  const key = getFullConfigFile().secrets.cache;
+/** Calculate the hash that signs a unified cache URL
+    @param packet - Packet to sign
+    @param useExtension - Extension of the URL
+    @param secret - Cache secret to use. Defaults to the current one (only pass a retired one when verifying URLs)
+*/
+export function getUCPacketHash(packet: Uint8Array, useExtension: string, secret?: string): string {
+  const key = secret ?? getFullConfigFile().secrets.cache;
   if (!key)
     throw new Error("No cache secret configured");
 
