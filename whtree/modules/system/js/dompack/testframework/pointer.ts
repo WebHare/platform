@@ -740,6 +740,11 @@ function processGestureQueue() {
         if (now - mousestate.dndstate._lasthandled > 350)
           handleRunningDrag(part);
       } else {
+        // Forget the hovered element if its document was unloaded (eg. by test.load). It can't receive events anymore and
+        // Chrome 157 hangs the renderer when dispatching an event with a relatedTarget inside such a document.
+        if (mousestate.lastoverel && !mousestate.lastoverel.ownerDocument?.defaultView)
+          mousestate.lastoverel = null;
+
         const elchanged = mousestate.lastoverel !== elhere;
 
         if (mousestate.lastoverel !== elhere || elchanged) {
