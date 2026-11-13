@@ -3,6 +3,7 @@ import * as tt from "@mod-webhare_testsuite/js/tolliumtest-wts";
 import * as rtetest from "@mod-tollium/js/testframework-rte";
 import { encodeString } from "@webhare/std";
 import { prepareUpload } from '@webhare/test-frontend';
+import type StructuredEditor from '@mod-tollium/web/ui/components/richeditor/internal/structurededitor';
 
 let instanceref = ""; // instance ref at the frontend side
 let instanceid = ""; // instance id at the backend site
@@ -553,7 +554,78 @@ test.runTests(
       test.eq(`<html><body><p class="normal">test</p></body>`, rtetest.getRawHTMLCode(test.getWin()));
       test.clickTolliumButton("Cancel");
       await test.wait("ui");
-    }
+    },
+
+    "Reject unusable pasted images",
+    async function () {
+      const rte = rtetest.getRTE(test.getWin(), 'structured');
+      rtetest.setStructuredContent(rte.getEditor() as StructuredEditor, '<p class="normal">"Image(*0*)here"</p>');
+
+      const imgpaste = document.createElement("div");
+      imgpaste.innerHTML = `<img src="data:text/html;base64,${btoa("<b>not an image</b>")}">`
+        + `<img src="data:image/png;base64,${btoa("not a png")}">`
+        + `<img src="/tollium_todd.res/webhare_testsuite/tollium/nonexistent.png">`
+        + `<img src="file:///C:/Users/someone/AppData/Local/Temp/msohtmlclip1/01/clip_image001.png">`;
+      rte.getEditor()._pasteContent(imgpaste); //FIXME white box test...
+      await test.wait(() => !rte.qS(".wh-rtd__img--uploading"));
+      await test.wait("ui");
+
+      test.eq(0, rte.qSA("img").length, "None of these images should have been imported");
+    },
+
+    "Paste image from clipboard file",
+    async function () {
+      const rte = rtetest.getRTE(test.getWin(), 'structured');
+      const editor = rte.getEditor() as StructuredEditor;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = 20;
+      canvas.height = 10;
+      canvas.getContext("2d")!.fillRect(0, 0, 10, 10);
+      const webp = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/webp"));
+      test.eq("image/webp", webp?.type);
+
+      for (const file of [
+        new File([await (await fetch("/tollium_todd.res/webhare_testsuite/tollium/logo.png")).blob()], "image.png", { type: "image/png" }),
+        new File([webp!], "image.webp", { type: "image/webp" })
+      ]) {
+        rtetest.setStructuredContent(editor, '<p class="normal">"Image(*0*)here"</p>');
+
+        //'Copy image' offers the image's remote URL and the image itself. The remote URL can't be downloaded, so we must use the file
+        await rtetest.paste(editor, {
+          typesdata: { "text/html": `<img src="https://nonexistent.invalid/logo.png" style="width: 20px; height: 10px">` },
+          files: [file]
+        });
+        await test.wait(() => !rte.qS(".wh-rtd__img--uploading"));
+        await test.wait("ui");
+
+        test.eq(1, rte.qSA("img").length, `Pasting ${file.type}`);
+        test.assert(!rte.qR<HTMLImageElement>("img").src.startsWith("blob:"), "Image should have been uploaded");
+
+        test.clickTolliumButton("Edit raw html");
+        await test.wait("ui");
+        test.assert(rtetest.getRawHTMLCode(test.getWin()).includes('src="cid:'));
+        test.getCurrentScreen().clickCloser();
+        await test.wait("ui");
+      }
+    },
+
+    "Paste percent-encoded image data URL",
+    async function () {
+      const rte = rtetest.getRTE(test.getWin(), 'structured');
+      rtetest.setStructuredContent(rte.getEditor() as StructuredEditor, '<p class="normal">"Image(*0*)here"</p>');
+
+      //a non-base64 data URL containing bytes that aren't valid UTF-8 (eg. the PNG signature's %89)
+      const logo = new Uint8Array(await (await fetch("/tollium_todd.res/webhare_testsuite/tollium/logo.png")).arrayBuffer());
+      const imgpaste = document.createElement("div");
+      imgpaste.innerHTML = `<img src="data:image/png,${Array.from(logo, byte => "%" + byte.toString(16).padStart(2, "0")).join("")}">`;
+      rte.getEditor()._pasteContent(imgpaste); //FIXME white box test...
+      await test.wait(() => !rte.qS(".wh-rtd__img--uploading"));
+      await test.wait("ui");
+
+      test.eq(1, rte.qSA("img").length);
+      test.assert(!rte.qR<HTMLImageElement>("img").src.startsWith("data:"), "Image should have been uploaded");
+    },
 
     // ADDME: test dirtying via keyboard interaction (selenium!), editing blocks, some mouse interaction stuff
   ]);

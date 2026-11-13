@@ -14,6 +14,7 @@ import Range from './dom/range';
 import * as tableeditor from "./tableeditor";
 import * as domlevel from "./domlevel";
 import EditorBase, { type TextFormattingState } from './editorbase';
+import { copyPastedImageStyleDimensions } from "./utils";
 import PasteCleanup from './pastecleanup';
 import type { RTEWidget } from "./types";
 import { parseEmbeddedObjectNode } from "./support";
@@ -187,7 +188,18 @@ export default class StructuredEditor extends EditorBase {
         const pastecontent = document.createElement('div');
         pastecontent.innerHTML = htmltext;
 
-        this._pasteContent(pastecontent);
+        /* 'Copy image' in a browser offers both the HTML (with the remote image URL) and the image itself. Prefer the
+           image data, as we can't download the remote URL if its server doesn't send CORS headers */
+        const pastedimgs = pastecontent.querySelectorAll("img");
+        const imagefiles = Array.from((clipboardData.files ?? []) as FileList).filter(file => file.type.startsWith("image/"));
+        const objecturl = pastedimgs.length === 1 && imagefiles.length === 1 ? this.createPastedObjectURL(imagefiles[0]) : null;
+        if (objecturl)
+          pastedimgs[0].src = objecturl;
+
+        void this._pasteContentAsync(pastecontent).finally(() => {
+          if (objecturl) //release it if paste cleanup dropped the image (imported images have already released it)
+            this.releasePastedObjectURL(objecturl);
+        });
         return;
       } else if (types.includes("Files")) {
         for (let idx = 0; idx < clipboardData.items.length; ++idx) {
@@ -265,7 +277,15 @@ export default class StructuredEditor extends EditorBase {
   }
 
   _pasteContent(pastecontent: HTMLDivElement) {
+    void this._pasteContentAsync(pastecontent);
+  }
+
+  /** Paste content, returning a promise that resolves once the paste (but not any image uploads) is complete */
+  _pasteContentAsync(pastecontent: HTMLDivElement): Promise<void> {
     const undolock = this.getUndoLock();
+
+    //Image cleanup only keeps width/height attributes, so preserve any dimensions set through style
+    pastecontent.querySelectorAll("img").forEach(copyPastedImageStyleDimensions);
 
     //console.log('pasteContent preremove', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
 
@@ -273,7 +293,7 @@ export default class StructuredEditor extends EditorBase {
 
     //console.log('pasteContent postremove', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
 
-    this._pasteContentAt(pastecontent, locator).finally(() => undolock.close());
+    return this._pasteContentAt(pastecontent, locator).finally(() => undolock.close());
   }
 
   //validate all our embedded objects on the server, make sure none are broken (eg by bad pastes)
