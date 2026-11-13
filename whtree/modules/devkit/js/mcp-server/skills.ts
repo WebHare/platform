@@ -375,12 +375,21 @@ export class SkillProvider {
      after receiving it. If they don't, this approach is no better than listing the skills in the server instructions.
      It also costs context: the full skill list is part of the tool definitions in every request. To verify: start a
      session, add a skill to the skills folder, and ask the model which WebHare skills it knows about.
+
+     Tool descriptions aren't always in the model's context either: Claude Code defers MCP tools when there are many,
+     leaving only their names in context until the model searches for them. The model then never sees the skill list
+     and has no reason to look for it. So the server instructions (which are always in context) now require the model
+     to call wh_get_skill without arguments, which returns the current skill list, before it reads, modifies or tests
+     WebHare code. The full list is too long to put in the instructions themselves: clients truncate long server
+     instructions (36 skills with descriptions take about 12k characters).
   */
 
-  /** Server instructions pointing to the skill tool. The skill list and where the skills come from (which can change
-      when the registry keys change) live in the tool description, as clients can refresh that (see above - unproven) */
+  /** Server instructions requiring the model to fetch the skill list. The list itself and where the skills come from
+      (which can change when the registry keys change) are returned by the skill tool (see above) */
   getInstructions(): string {
-    return `This server offers WebHare development skills. The description of the ${skillToolName} tool lists the available skills and where they come from. Before working on a task that matches one of these skills, use ${skillToolName} to load its instructions.\n\n`
+    return `This server offers WebHare development skills: instructions for working with WebHare that aren't in the code itself, such as how to log in for testing, run tests, or write siteprofiles, screens and WRD code. `
+      + `Before you read, modify or test WebHare code (including running tests or checking a change in a browser), you MUST call ${skillToolName} without arguments to get the list of skills, then load each skill that matches your task. `
+      + `Do this once per session, and again when the task moves to a different area.\n\n`
       + `Skills useful to WebHare module developers in general are maintained in the webhare_dev module (content/ai/skills/<skill-name>/SKILL.md), not in the project being worked on. `
       + `Before creating or updating a skill, load the 'maintaining-skills' skill: it explains whether a skill belongs in webhare_dev or in a single repository. `
       + `If webhare_dev isn't installed locally (\`wh getmoduledir webhare_dev\` fails), ask the user to check it out from https://github.com/WebHare/webhare_dev and install it before writing skills there.`;
@@ -394,29 +403,37 @@ export class SkillProvider {
 
     return {
       name: skillToolName,
-      description: `Load a WebHare development skill. Before working on a task that matches one of the skills below, load it with this tool and follow its instructions.\n\nAvailable skills:\n`
-        + skills.map(skill => `- ${skill.name}: ${skill.description}`).join("\n")
-        + `\n\n${this.source.describe()}`,
+      description: `Load a WebHare development skill. Call without arguments to get the current list of skills. Before working on a task that matches one of the skills below, load it with this tool and follow its instructions.\n\n`
+        + this.formatSkillList(skills),
       inputSchema: {
         type: "object" as const,
         properties: {
           name: {
             type: "string",
             enum: skills.map(skill => skill.name),
-            description: "Name of the skill to load"
+            description: "Name of the skill to load. Omit to get the list of skills"
           },
           file: {
             type: "string",
             description: "Supporting file of the skill to load, as referenced by the skill. Defaults to SKILL.md"
           }
-        },
-        required: ["name"]
+        }
       }
     };
   }
 
-  /** Execute the skill tool. Returns null if the skill or file doesn't exist */
-  async runTool(name: string, file?: string): Promise<string | null> {
+  private formatSkillList(skills: SkillInfo[]): string {
+    return `Available skills:\n`
+      + skills.map(skill => `- ${skill.name}: ${skill.description}`).join("\n")
+      + `\n\n${this.source.describe()}`;
+  }
+
+  /** Execute the skill tool. Without a name, returns the list of skills. Returns null if the skill or file doesn't exist */
+  async runTool(name?: string, file?: string): Promise<string | null> {
+    if (!name) {
+      const skills = await this.source.listSkills();
+      return `Load a skill by calling ${skillToolName} with its name, and follow its instructions.\n\n` + this.formatSkillList(skills);
+    }
     if (!file || file === "SKILL.md")
       return (await this.getPrompt(name))?.messages[0].content.text ?? null;
     return await this.readFile(name, file);
