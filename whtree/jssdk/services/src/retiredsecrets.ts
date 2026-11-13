@@ -1,7 +1,7 @@
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import type { ClusterSecretType, RetiredSecret } from "./config";
 import { getScopedResource } from "./codecontexts";
-import { logNotice } from "./logwriter";
+import bridge from "@mod-system/js/internal/whmanager/bridge";
 
 /* Retired secrets are secrets that have been replaced (eg by `wh auth rotate-secrets`) but may still be in use by
    tokens issued before the rotation. A retired secret is only accepted if the caller allows it (acceptRetired) and it
@@ -45,13 +45,13 @@ function reportRetiredSecretUse(retired: RetiredSecret, scope: string, accepted:
       return;
 
     lastAcceptedLog.set(key, now);
-    logNotice("info", `Accepted a ${scope} token using retired ${retired.type} secret ${retired.id}`, { data });
+    bridge.logNotice("info", `Accepted a ${scope} token using retired ${retired.type} secret ${retired.id}`, { data });
     return;
   }
 
   if (now - rejectWindowStart >= 60_000) {
     if (rejectsSuppressed > 0)
-      logNotice("warning", `Suppressed ${rejectsSuppressed} more notices about tokens matching retired secrets`, { data: { event: "platform:retired-secret-suppressed", count: rejectsSuppressed } });
+      bridge.logNotice("warning", `Suppressed ${rejectsSuppressed} more notices about tokens matching retired secrets`, { data: { event: "platform:retired-secret-suppressed", count: rejectsSuppressed } });
     rejectWindowStart = now;
     rejectsInWindow = 0;
     rejectsSuppressed = 0;
@@ -65,7 +65,7 @@ function reportRetiredSecretUse(retired: RetiredSecret, scope: string, accepted:
   const message = retired.disabledSince
     ? `Rejected a ${scope} token matching disabled retired ${retired.type} secret ${retired.id}`
     : `Rejected a ${scope} token matching retired ${retired.type} secret ${retired.id}, this scope does not accept retired secrets`;
-  logNotice(retired.compromised ? "error" : "warning", message, { data });
+  bridge.logNotice(retired.compromised ? "error" : "warning", message, { data });
 }
 
 /** Try the retired secrets of a type after the current secret failed
