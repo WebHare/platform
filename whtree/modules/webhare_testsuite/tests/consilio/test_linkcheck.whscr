@@ -7,6 +7,7 @@ LOADLIB "mod::consilio/lib/internal/linkchecker/linkchecking.whlib";
 LOADLIB "mod::consilio/lib/internal/http_api.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
@@ -59,5 +60,36 @@ MACRO TestServerStatus()
   TestEQ(3, result.code);
 }
 
+STRING FUNCTION GetDenylistPattern(STRING url, STRING action)
+{
+  RETURN RunModuleHookTarget("consilio:fetcher_blacklist", CELL[ indexid := 0, contentsourceid := 0, url, action, pattern := "" ]).pattern;
+}
+
+MACRO TestRobotsTxtDenylist()
+{
+  FOREVERY (STRING url FROM [ "/robots.txt", "/ROBOTS.TXT", "http://example.com/robots.txt", "HTTPS://Example.COM:8443/Robots.txt", "://x/robots.txt" ])
+  {
+    TestEq(TRUE, GetDenylistPattern(url, "linkcheck_to") != "", `linkcheck_to ${url}`);
+    TestEq(TRUE, GetDenylistPattern(url, "index") != "", `index ${url}`);
+  }
+
+  FOREVERY (STRING url FROM [ "robots.txt", "/robots.txt?x=1", "/sub/robots.txt", "http://example.com/sub/robots.txt", "http:///robots.txt"
+                            , "http://example.com/myrobots.txt", "http:/example.com/robots.txt", "a/b://example.com/robots.txt"
+                            , "http://example.com/robots.txt/", "http://example.com/" ])
+  {
+    TestEq("", GetDenylistPattern(url, "linkcheck_to"), `linkcheck_to ${url}`);
+    TestEq("", GetDenylistPattern(url, "index"), `index ${url}`);
+  }
+
+  /* This URL segfaulted the linkchecker on Linux: the old robots.txt regex made libstdc++'s std::regex recurse once per
+     character of the ~930 character scheme+host part and overflow the stack. https://gitlab.webhare.com/webharebv/codekloppers/-/work_items/1410 */
+  STRING longurl := "http://Pure%20is%20het%20offici%C3%ABle%20repository%20van%20de%20PThU%20waarin%20alle%20onderzoeksactiviteiten%20en%20-resultaten%20van%20medewerkers%20worden%20vastgelegd.%20Jaarlijks%20leggen%20we%20aan%20de%20overheid%20verantwoording%20af%20op%20basis%20van%20de%20registratie%20in%20Pure.%20Pure%20is%20dus%20een%20administratief%20systeem,%20maar%20vooral%20een%20visitekaartje%20voor%20de%20organisatie.Hoewel%20Pure%20wordt%20beheerd%20door%20de%20bibliotheek,%20is%20het%20de%20verantwoordelijkheid%20van%20alle%20wetenschappelijke%20medewerkers%20om%20hun%20onderzoeksresultaten%20in%20het%20systeem%20up-to-date%20te%20houden.Dit%20inleidende%20webinar%20helpt%20nieuwe%20of%20huidige%20medewerkers%20om%20vertrouwd%20te%20raken%20met%20het%20Pure-systeem.%20De%20basisprincipes%20van%20het%20werken%20met%20Pure%20worden%20gedemonstreerd,%20waarbij%20voldoende%20tijd%20is%20ingeruimd%20voor%20vragen%20en%20antwoorden.bibliotheek@pthu.nl/";
+  TestEq("", GetDenylistPattern(longurl, "linkcheck_to"));
+  TestEq("", GetDenylistPattern(longurl, "index"));
+  TestEq(TRUE, GetDenylistPattern(longurl || "robots.txt", "linkcheck_to") != "");
+  TestEq("", GetDenylistPattern("http://" || RepeatText("a", 100000) || ".example.com/", "linkcheck_to"));
+}
+
 RunTestFramework( [ PTR TestServerStatus
+                  , PTR TestRobotsTxtDenylist
                   ]);
