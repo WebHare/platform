@@ -1111,10 +1111,15 @@ void Request::AddRequestHostTo(std::string *addto, int32_t overrideport, bool fo
         {
                 addto->insert(addto->end(),hostheader->begin(),hostheader->end());
         }
-        else if (is_virtual_host && website) //use hostname from host specification
+        else if (website && !website->hostname.empty()) //use hostname from host specification
         {
                 std::string const &hostname=website->hostname;
                 addto->insert(addto->end(), hostname.begin(), hostname.end());
+
+                // A non-virtual port is bound to a single webserver. Its hostname comes from the webserver's base url,
+                // the port is the one the request came in on (the standard :80/:443 is stripped below)
+                if (!is_virtual_host)
+                    *addto += ":" + Blex::AnyToString(localaddress.GetPort());
         }
         else
         {
