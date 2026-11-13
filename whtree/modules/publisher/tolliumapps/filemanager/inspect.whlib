@@ -806,7 +806,9 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase <
     FOREVERY(RECORD apply FROM this->applytester->__GetAppliesForcell(""))
     {
       OBJECT siteprofdoc := this->OpenSiteprof(apply.siteprofile);
-      RECORD row := [ rowkey := apply.siteprofile || ":" || apply.applynodetype || ":" || apply.applyindex
+      //the rowkey only needs to be unique within this list. siteprofile+applyindex isn't (all type-level apply rules in YAML have index 0)
+      //and line/col isn't either (XML doesn't record col, so two <apply>s on one line would collide)
+      RECORD row := [ rowkey := "apply:" || #apply
                     , path := apply.siteprofile
                     , startline := apply.line
                     , code := ""
@@ -816,7 +818,7 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase <
 
       STRING ARRAY applied;
       FOREVERY(RECORD field FROM UnpackRecord(apply))
-        IF(field.name NOT IN ["APPLYINDEX","APPLYNODETYPE","LINE","PRIORITY","SITEPROFILE","SITEPROFILEIDS","PLUGINS","TOS"] AND NOT IsDefaultvalue(field.value))
+        IF(field.name NOT IN ["APPLYINDEX","APPLYNODETYPE","COL","LINE","PRIORITY","SITEPROFILE","SITEPROFILEIDS","PLUGINS","TOS"] AND NOT IsDefaultvalue(field.value))
           INSERT ToLowercase(field.name) INTO applied AT END;
 
       IF(CellExists(apply,'plugins'))
