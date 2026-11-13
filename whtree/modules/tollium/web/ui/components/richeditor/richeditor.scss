@@ -341,6 +341,12 @@ div.wh-rtd--margins-wide
   background: rgba(224, 255, 240, .7);*/
 }
 
+/* the placeholder may get the dimensions of the image being uploaded, don't stretch the loader */
+.wh-rtd-editor img.wh-rtd__img--uploading
+{
+  object-fit: none;
+}
+
 .wh-rtd-editor .wh-rtd__table
 {
   border-collapse: collapse;

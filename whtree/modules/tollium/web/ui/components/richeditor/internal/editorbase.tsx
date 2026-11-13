@@ -30,6 +30,7 @@ import { getFileAsDataURL, requestFile } from '@webhare/upload';
 import type { ActionState, GetPlainTextMethod, GetPlainTextOptions, RTEComponent } from './types';
 import { RTECompBase } from './rtecompbase';
 import { handleCopyEvent } from "./clipboard";
+import { copyPastedImageStyleDimensions, downloadPastedImage, validatePastedImage } from "./utils";
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -299,7 +300,6 @@ class UndoLock {
 const defaultimgplaceholder = "data:image/png;base64,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";
 
 
-
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 //  Undo stuff
@@ -347,6 +347,8 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   original_value = "<neverset>";
   /** URLs of images we have already seen and stored on the server */
   knownimages: string[] = [];
+  /** Pasted image files by the object URL we created for them, revoked once imported */
+  private pastedfiles = new Map<string, File>();
   language: string;
   bodydiv;
   undopos: number;
@@ -970,6 +972,9 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
 
   destroy() {
     this.setAllChangeObserver(false); //prevent teardown triggering change events
+
+    for (const url of this.pastedfiles.keys())
+      this.releasePastedObjectURL(url);
 
     this.toolbarnode.remove();
     styleloader.unregister(this);
@@ -2009,17 +2014,54 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
       const replacementpromises = [];
       for (const img of imgs) {
         const downloadsrc = img.src;
+        //The placeholder keeps the pasted width/height so it takes the space the image will take (they're removed once it's uploaded)
+        copyPastedImageStyleDimensions(img);
         img.src = this._getImageDownloadURL();
         img.classList.add("wh-rtd__img--uploading");
 
-        replacementpromises.push(getFormService().getImgFromRemoteURL(downloadsrc)
+        replacementpromises.push(this._importPastedImage(downloadsrc)
           .then(result => this._handleUploadedRemoteImage(img, result))
-          .catch(result => this._handleUploadedRemoteImage(img, null)));
+          .catch(error => {
+            if (dompack.debugflags.rte)
+              console.warn(`[rte] Unable to import pasted image ${downloadsrc.substring(0, 100)}`, error);
+            this._handleUploadedRemoteImage(img, null);
+          }));
       }
       await Promise.all(replacementpromises);
+      //TODO show a short notice ("n images could not be copied") instead of silently removing images we couldn't import
     } finally {
       busylock.release();
     }
+  }
+
+  /** Download a pasted image in the browser and upload it to the server. We download client-side so the server never
+   *  has to fetch arbitrary URLs. Images that can't be downloaded (eg. a remote server without CORS headers) are rejected
+   * @param src - The src of the pasted image
+   * @returns Final (image cache) URL for the image
+   */
+  private async _importPastedImage(src: string): Promise<string> {
+    const pastedfile = this.pastedfiles.get(src);
+    if (pastedfile)
+      this.releasePastedObjectURL(src);
+
+    const blob = pastedfile ?? await downloadPastedImage(src);
+    await validatePastedImage(blob);
+    return await getFormService().getUploadedFileFinalURL(await getFileAsDataURL(new File([blob], "image", { type: blob.type })));
+  }
+
+  /** Create an object URL for a pasted image file so it will be imported like any other pasted image. Release it with
+   *  releasePastedObjectURL once the paste is complete in case it wasn't imported (eg. removed by paste cleanup)
+   */
+  protected createPastedObjectURL(file: File): string {
+    const url = URL.createObjectURL(file);
+    this.pastedfiles.set(url, file);
+    return url;
+  }
+
+  /** Release an object URL created by createPastedObjectURL if it hasn't been imported */
+  protected releasePastedObjectURL(url: string) {
+    if (this.pastedfiles.delete(url))
+      URL.revokeObjectURL(url);
   }
 
   _handleUploadedRemoteImage(img, properurl) {

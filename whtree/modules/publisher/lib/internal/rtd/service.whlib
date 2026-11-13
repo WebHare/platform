@@ -277,9 +277,11 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor <
       RETURN; //TODO: discard external urls though?
 
     RECORD img := ParseDataURL(src);
-    RECORD typeinfo := ScanBlob(img.data);
-    IF(typeinfo.mimetype NOT LIKE "image/*") //untrusted, discard
+    RECORD typeinfo := RecordExists(img) ? ScanBlob(img.data) : DEFAULT RECORD;
+    IF(NOT RecordExists(typeinfo) OR typeinfo.mimetype NOT LIKE "image/*") { //invalid or untrusted, discard
       imgnode->Dispose();
+      RETURN;
+    }
 
     STRING hash := EncodeUFS(GetHashForBlob(img.data, "SHA-1"));
     IF(NOT RecordExists(SELECT FROM this->embedded WHERE contentid = hash))

@@ -3,7 +3,6 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/any.whlib";
 LOADLIB "wh::internal/graphics.whlib";
 LOADLIB "wh::internet/urls.whlib";
-LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::platform/lib/captcha/captchamgmt.whlib";
 
@@ -11,7 +10,6 @@ LOADLIB "mod::publisher/lib/forms/api.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
 LOADLIB "mod::system/lib/cache.whlib";
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/mailer.whlib";
 LOADLIB "mod::system/lib/services.whlib";
@@ -60,53 +58,9 @@ PUBLIC STRING FUNCTION RPC_GetUploadedFileFinalURL(STRING uploadurl)
   RECORD file := ParseDataURL(uploadurl);
   RECORD wrapped := WrapBlob(file.data, "");
   OpenPrimary();
-  RETURN IsSupportedImageResizeType(wrapped.mimetype) ? GetCachedFSImageURL("", CreateTempUploadedFile(wrapped)->id, [method := "none", fixorientation := TRUE])
-                                                      : GetCachedFSFileURL("", CreateTempUploadedFile(wrapped)->id);
-}
-PUBLIC STRING FUNCTION RPC_GetImgFromRemoteURL(STRING uploadurl)
-{
-  OpenPrimary();
-
-  BLOB content;
-  IF(uploadurl LIKE "data:*")
-  {
-    RECORD res := ParseDataURL(uploadurl);
-    IF(NOT RecordExists(res))
-      THROW NEW Exception("Invalid data url");
-
-    content := res.data;
-  }
-  ELSE
-  {
-    RECORD unp := UnpackURL(uploadurl);
-    IF(unp.user != "" OR unp.password != "") //we're not a password tryout service either
-      THROW NEW Exception("Authority information may not be specified on a URL");
-    IF(unp.scheme NOT IN ['http','https'])
-      THROW NEW Exception("Unsupported URL: " || uploadurl);
-    IF(NOT unp.isdefaultport) //we're not a port knocker (though we allow it for this WebHare installation)
-    {
-      IF (GetDtapStage() != "development")
-        THROW NEW Exception("Not supporting URLs with a nonstandard port: " || uploadurl);
-      RECORD unp_primary := UnpackURL(GetPrimaryWebhareInterfaceURL());
-      IF (unp.host != unp_primary.host)
-        THROW NEW Exception("Not supporting URLs with a nonstandard port: " || uploadurl || ". Please run tests on the primary interface host.");
-    }
-
-    OBJECT browser := NEW WebBrowser;
-    browser->timeout := 30000;
-
-    IF (NOT browser->GotoWebPage(uploadurl))
-      THROW NEW Exception("Cannot retrieve URL " || uploadurl);
-
-    content := browser->content;
-  }
-
-
-  RECORD wrapped := WrapBlob(content,"");
-  IF(wrapped.width = 0 OR wrapped.height = 0)
-    THROW NEW Exception("Unsupported image");
-
-  RETURN GetCachedFSImageURL("", CreateTempUploadedFile(wrapped)->id, [method := "none", fixorientation := TRUE]);
+  BOOLEAN isimage := IsSupportedImageResizeType(wrapped.mimetype) OR wrapped.mimetype IN ["image/webp", "image/avif"];
+  RETURN isimage ? GetCachedFSImageURL("", CreateTempUploadedFile(wrapped)->id, [method := "none", fixorientation := TRUE])
+                 : GetCachedFSFileURL("", CreateTempUploadedFile(wrapped)->id);
 }
 
 PUBLIC RECORD FUNCTION RPC_RequestBuiltinForm(RECORD submitinfo, STRING filename, STRING formname)

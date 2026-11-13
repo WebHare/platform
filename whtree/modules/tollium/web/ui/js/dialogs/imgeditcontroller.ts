@@ -2,6 +2,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import { getTid } from "@webhare/gettid";
+import { getDataURLAsFile } from "@webhare/upload";
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 import type { ObjFrame } from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 
@@ -20,27 +21,6 @@ export type ImageSettings = {
   refPoint: Size | null;
   fileName: string;
 };
-
-// http://www.nixtu.info/2013/06/how-to-upload-canvas-data-to-server.html
-function dataURItoBlob(dataURI: string) {
-  // convert base64 to raw binary data held in a string
-  // doesn't handle URLEncoded DataURIs - see SO answer #6850276 for code that does this
-  const byteString = atob(dataURI.split(',')[1]);
-
-  // separate out the mime component
-  const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
-
-  // write the bytes of the string to an ArrayBuffer
-  const ab = new ArrayBuffer(byteString.length);
-  const dw = new DataView(ab);
-  for (let i = 0; i < byteString.length; i++) {
-    dw.setUint8(i, byteString.charCodeAt(i));
-  }
-
-  // write the ArrayBuffer to a blob, and you're done
-  return new Blob([ab], { type: mimeString });
-}
-
 
 class ImgeditDialogController {
   defer = Promise.withResolvers<{
@@ -95,8 +75,7 @@ class ImgeditDialogController {
 
     if (src.indexOf("data:") === 0) {
       //console.log("Convert image data from data URL to blob");
-      const blob = dataURItoBlob(src);
-      this._readImageFile(blob, settings);
+      this._readImageFile(getDataURLAsFile(src), settings);
     } else {
       const request = new XMLHttpRequest();
       request.onload = () => {

@@ -3,7 +3,7 @@ import * as services from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
 import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 import { generateRandomId, Money } from "@webhare/std";
-import { SingleFileUploader, type UploadInstructions } from "@webhare/upload";
+import { getDataURLAsFile, SingleFileUploader, type UploadInstructions } from "@webhare/upload";
 import { createUploadSession, getUploadedFile } from "@webhare/services";
 import { existsSync } from "fs";
 import { getStorageFolderForSession } from "@webhare/services/src/sessions";
@@ -148,8 +148,39 @@ async function testUploadHSCompat() {
   test.assert(!existsSync(getStorageFolderForSession(howToUpload.sessionId)));
 }
 
+async function testDataURLAsFile() {
+  const base64file = getDataURLAsFile("data:Text/Plain;charset=utf-8;base64,SGVsbG8gd29ybGQ=");
+  test.eq("file", base64file.name);
+  test.eq("text/plain", base64file.type);
+  test.eq("Hello world", await base64file.text());
+
+  //Percent-encoded data isn't necessarily valid UTF-8
+  const percentfile = getDataURLAsFile("data:image/x-test,%80%FFA%20b", { fileName: "image" });
+  test.eq("image", percentfile.name);
+  test.eq("image/x-test", percentfile.type);
+  test.eq([0x80, 0xFF, 0x41, 0x20, 0x62], [...new Uint8Array(await percentfile.arrayBuffer())]);
+
+  test.eq("", getDataURLAsFile("data:,").type);
+  test.eq(0, getDataURLAsFile("data:,").size);
+
+  test.throws(/Invalid data: URL/, () => getDataURLAsFile("https://example.net/"));
+  test.throws(/Invalid data: URL/, () => getDataURLAsFile("data:text/plain"));
+
+  test.eq(11, getDataURLAsFile("data:text/plain;base64,SGVsbG8gd29ybGQ=", { maxSize: 11 }).size);
+  test.throws(/too large/, () => getDataURLAsFile("data:text/plain;base64,SGVsbG8gd29ybGQ=", { maxSize: 10 }));
+  test.eq(3, getDataURLAsFile("data:text/plain,%41%42%43", { maxSize: 3 }).size);
+  test.throws(/too large/, () => getDataURLAsFile("data:text/plain,%41%42%43", { maxSize: 2 }));
+
+  //Percent-escaped base64 is longer than plain base64, but the decoded size is what counts
+  const escapedbase64 = "data:text/plain;base64," + btoa("Hello world!").replace(/./g, c => "%" + c.charCodeAt(0).toString(16).padStart(2, "0"));
+  test.eq("Hello world!", await getDataURLAsFile(escapedbase64, { maxSize: 12 }).text());
+  test.throws(/too large/, () => getDataURLAsFile(escapedbase64, { maxSize: 11 }));
+  test.eq("Hello world", await getDataURLAsFile("data:text/plain;base64,SGVsbG8gd29ybGQ%3D", { maxSize: 11 }).text());
+}
+
 test.runTests(
   [
+    testDataURLAsFile,
     testSessionStorage,
     testUpload,
     testUploadHSCompat
