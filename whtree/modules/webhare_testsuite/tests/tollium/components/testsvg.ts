@@ -24,7 +24,7 @@ function getLog() {
 test.runTests(
   [
     "Load",
-    async function () {
+    async function() {
       await tt.loadWTSTestScreen("tests/basecomponents.svgtest");
 
       const comp = getSVGComp();
@@ -41,7 +41,7 @@ test.runTests(
     },
 
     "Tollium CSS variables",
-    async function () {
+    async function() {
       // Resolve the expected color through a reference element in the document, so we don't depend on the theme's actual value
       const doc = getSVGComp().ownerDocument;
       test.assert(getComputedStyle(doc.documentElement).getPropertyValue("--tollium-color-accent"), "--tollium-color-accent should be defined");
@@ -56,21 +56,21 @@ test.runTests(
     },
 
     "Click with action and onclick",
-    async function () {
+    async function() {
       test.click(test.qR(getSVGRoot(), "#box"));
       await test.waitForUI();
       test.eq(/^action\nclick box \d+ \d+$/, getLog());
     },
 
     "Update CSS variables",
-    async function () {
+    async function() {
       test.click(test.getMenu(["S01"]));
       await test.waitForUI();
       test.eq("rgb(0, 0, 255)", getComputedStyle(test.qR(getSVGRoot(), "#box")).fill);
     },
 
     "Update source",
-    async function () {
+    async function() {
       test.click(test.getMenu(["S02"]));
       await test.waitForUI();
 
@@ -82,7 +82,7 @@ test.runTests(
     },
 
     "Update opacity",
-    async function () {
+    async function() {
       test.click(test.getMenu(["S03"]));
       await test.waitForUI();
 
@@ -91,7 +91,7 @@ test.runTests(
     },
 
     "Click with only onclick",
-    async function () {
+    async function() {
       test.click(test.getMenu(["S04"]));
       await test.waitForUI();
       test.assert(getSVGComp().classList.contains("clickable"), "Should still be clickable, it has an onclick");
@@ -102,7 +102,7 @@ test.runTests(
     },
 
     "Not clickable without action and onclick",
-    async function () {
+    async function() {
       test.click(test.getMenu(["S05"]));
       await test.waitForUI();
       test.assert(!getSVGComp().classList.contains("clickable"));
@@ -110,5 +110,29 @@ test.runTests(
       test.click(test.qR(getSVGRoot(), "#dot"));
       await test.waitForUI();
       test.eq(/^action\nclick box \d+ \d+\nclick dot \d+ \d+$/, getLog(), "Clicking should not have logged anything");
+    },
+
+    "Load public resource by url",
+    async function() {
+      test.click(test.getMenu(["S06"]));
+      await test.waitForUI();
+      // The SVG is fetched asynchronously after the update is applied
+      const triangle = await test.wait(() => getSVGRoot().querySelector<SVGElement>("svg #triangle"));
+      test.assert(!getSVGRoot().querySelector("#dot"), "The old SVG should have been replaced");
+      test.eq("rgb(0, 0, 255)", getComputedStyle(triangle).fill, "CSS variables should apply to an SVG loaded by url");
+
+      const win = getSVGComp().ownerDocument.defaultView!;
+      const fetched = (win.performance.getEntriesByType("resource") as Array<{ name: string }>).map(entry => new URL(entry.name)).find(url => url.pathname === "/.wh/mod/webhare_testsuite/public/img/svgtest.svg");
+      test.assert(fetched, "The SVG should have been fetched from its public url");
+      test.eq(/^\d+$/, fetched.searchParams.get("mtime") ?? "", "The url should contain the modification time for cache busting");
+    },
+
+    "Switch from url back to the same source",
+    async function() {
+      // S02 sets the same source as before; it should still replace the SVG loaded by url
+      test.click(test.getMenu(["S02"]));
+      await test.waitForUI();
+      test.assert(!getSVGRoot().querySelector("#triangle"), "The SVG loaded by url should have been replaced");
+      test.assert(getSVGRoot().querySelector("svg #dot"));
     }
   ]);
