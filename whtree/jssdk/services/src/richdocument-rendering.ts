@@ -4,6 +4,7 @@ import { appendToArray, encodeString, maybePromiseAll } from "@webhare/std";
 import type { PagePartRequest } from "@webhare/router/src/siterequest";
 import { groupByLink } from "@webhare/hscompat/src/richdocument";
 import type { IntExtLink } from "./intextlink";
+import { isResizableImage } from "./descriptor";
 
 export type RTDRenderingOptions = {
   maxImageWidth?: number;
@@ -20,6 +21,10 @@ export async function renderRTD(partRequest: PagePartRequest, rtd: RichTextDocum
 
     if ("externalImage" in image)
       return litty`<img class="${classes.join(" ")}" src="${image.externalImage}" alt="${image.alt || ''}"${image.width && image.height ? ` width="${image.width}" height="${image.height}"` : ''}>`;
+
+    //Like HS, render only the alt text for images we can't resize, such as SVGs or images without known dimensions
+    if (!isResizableImage(image.image))
+      return litty`${image.alt || ''}`;
 
     //FIXME use the right method
     let setWidth = image.width ?? image.image.width;
