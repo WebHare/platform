@@ -707,6 +707,7 @@ $defs:
             # old name:
             - seotitle
       - type: object
+        additionalProperties: false
         properties:
           title:
             type: boolean
