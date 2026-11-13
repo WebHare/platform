@@ -155,6 +155,19 @@ MACRO TestApplyRuleTester() {
   //yaml baseProps is allowed to reset most settings
   TestEqMembers([ description := TRUE, seotitle := TRUE, pageheading := FALSE ], GetBaseProperties(tester),'*');
 
+  { //Publication settings, merged per property
+    testfw->BeginWork();
+    OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+    OBJECT otherfile := GetTestsuiteJSTempFolder()->CreateFile([ name := "test-other", type := richdoctype->id ]);
+    OBJECT nopublishfile := GetTestsuiteJSTempFolder()->CreateFile([ name := "test-publication", type := richdoctype->id ]);
+    OBJECT allowpublishfile := GetTestsuiteJSTempFolder()->CreateFile([ name := "test-publication-allowpublish", type := richdoctype->id ]);
+
+    TestEq([ allowpublish := TRUE, allowpreview := FALSE ], GetApplyTesterForObject(otherfile->id)->GetPublicationSettings());
+    TestEq([ allowpublish := FALSE, allowpreview := TRUE ], GetApplyTesterForObject(nopublishfile->id)->GetPublicationSettings());
+    TestEq([ allowpublish := TRUE, allowpreview := TRUE ], GetApplyTesterForObject(allowpublishfile->id)->GetPublicationSettings());
+    testfw->RollbackWork();
+  }
+
   { //Check HS site
     //Check dynamicexecution overrides. We need to be sure that the JS dynamicpage goes through the JS engine
     RECORD redirinfo_js := GetSystemRedirectInfo(OpenTestsuiteSite()->OpenByPath("testpages/dynamicpage-override-js")->id);

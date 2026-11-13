@@ -1517,6 +1517,23 @@ STATIC OBJECTTYPE ApplyRuleTester <
     RETURN usetempl;
   }
 
+  /** Get the publication settings (the `publication` apply rule) for this object
+      @cell(boolean) return.allowpublish Whether the object may be published
+      @cell(boolean) return.allowpreview Whether the document editor should allow a preview even if the object can't be published
+  */
+  PUBLIC RECORD FUNCTION GetPublicationSettings()
+  {
+    RECORD settings := [ allowpublish := TRUE, allowpreview := FALSE ];
+    FOREVERY(RECORD apply FROM this->__GetAppliesForcell("PUBLICATION"))
+    {
+      IF(CellExists(apply.publication, "allowpublish"))
+        settings.allowpublish := apply.publication.allowpublish;
+      IF(CellExists(apply.publication, "allowpreview"))
+        settings.allowpreview := apply.publication.allowpreview;
+    }
+    RETURN settings;
+  }
+
   PUBLIC RECORD FUNCTION GetLastValueForCell(STRING cellname)
   {
     RECORD ARRAY applies := this->__GetAppliesForcell(cellname);

@@ -183,6 +183,14 @@ async function testSiteProfiles() {
     const tester = await getApplyTesterForMockedObject(await test.getTestSiteJSTemp(), false, "platform:filetypes.richdocument", "test-rtd-scheduling");
     test.eqPartial([{ editdocScheduling: true }], await tester.getPluginSettings("experiments"));
   }
+
+  {
+    //Publication settings, merged per property
+    const getPublicationSettings = async (name: string) => (await getApplyTesterForMockedObject(await test.getTestSiteJSTemp(), false, "platform:filetypes.richdocument", name)).getPublicationSettings();
+    test.eq({ allowPublish: true, allowPreview: false }, await getPublicationSettings("test-rtd-scheduling"));
+    test.eq({ allowPublish: false, allowPreview: true }, await getPublicationSettings("test-publication"));
+    test.eq({ allowPublish: true, allowPreview: true }, await getPublicationSettings("test-publication-allowpublish"));
+  }
 }
 
 async function testSiteUpdates() {

@@ -398,6 +398,10 @@ export type CSPApplyRule = {
   plugins: CSPPlugin[];
   preview?: any;
   priority: number;
+  publication?: {
+    allowpublish?: boolean;
+    allowpreview?: boolean;
+  };
   republishes: Array<{
     folder: string;
     sitemask: string;

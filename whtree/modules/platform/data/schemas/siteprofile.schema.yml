@@ -551,6 +551,8 @@ $defs:
         $ref: "#/$defs/ApplyFolderSettings"
       fsObjectPolicy:
         $ref: "#/$defs/ApplyFSObjectPolicy"
+      publication:
+        $ref: "#/$defs/ApplyPublication"
       scheduleTimedTasks:
         $ref: "#/$defs/ApplyScheduleTimedTasks"
       scheduleManagedTasks:
@@ -1087,6 +1089,18 @@ $defs:
 
   ApplyFSObjectPolicy:
     type: string
+
+  ApplyPublication:
+    description: Controls whether matching files may be published and previewed. Each property can be set separately, the last matching rule setting a property wins
+    type: object
+    additionalProperties: false
+    properties:
+      allowPublish:
+        type: boolean
+        description: If false, the file is never published. Publishing it from the document editor will still finalize its version and update its live contents, but the file stays unpublished
+      allowPreview:
+        type: boolean
+        description: If true, the document editor offers a preview even if the file cannot be published
 
   ApplyScheduleTimedTasks:
     type: array

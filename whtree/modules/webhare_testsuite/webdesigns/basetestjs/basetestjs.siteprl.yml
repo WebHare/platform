@@ -273,6 +273,18 @@ apply:
       whfsPath: "*scheduling-defaults*"
     fsObjectPolicy: ./webdesign/hooks.ts#schedulingDefaultsPolicy
 
+  - comment: publication - never publish, but allow preview
+    to:
+      whfsPath: "*test-publication*"
+    publication:
+      allowPublish: false
+      allowPreview: true
+  - comment: publication - a later rule overriding only allowPublish
+    to:
+      whfsPath: "*test-publication-allowpublish*"
+    publication:
+      allowPublish: true
+
 applySiteProfiles:
   - ./metadata.siteprl.yml
   - ./siteprofiles/seotab.siteprl.yml

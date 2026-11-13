@@ -515,6 +515,20 @@ export class WHFSApplyTester {
     return baseProperties;
   }
 
+  /** Get the publication settings (the `publication` apply rule) for this object
+      @returns allowPublish: whether the object may be published, allowPreview: whether the document editor should allow a preview even if the object can't be published
+  */
+  async getPublicationSettings() {
+    const settings = { allowPublish: true, allowPreview: false };
+    for (const apply of await this.getMatchingRules('publication')) {
+      if (apply.publication.allowpublish !== undefined)
+        settings.allowPublish = apply.publication.allowpublish;
+      if (apply.publication.allowpreview !== undefined)
+        settings.allowPreview = apply.publication.allowpreview;
+    }
+    return settings;
+  }
+
   async getObjectEditor() {
     if (this.objinfo.obj?.type === "platform:filetypes.contentlink") //a contentlink should ignore any objecteditor settings
       return null;

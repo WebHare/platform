@@ -896,6 +896,13 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
   if (apply.fsObjectPolicy)
     rule.fsobjectpolicy = context.resolve(apply.fsObjectPolicy);
 
+  if (apply.publication) { //only record the properties that are actually set, so later rules can override them separately
+    rule.publication = {
+      ...apply.publication.allowPublish !== undefined ? { allowpublish: apply.publication.allowPublish } : {},
+      ...apply.publication.allowPreview !== undefined ? { allowpreview: apply.publication.allowPreview } : {}
+    };
+  }
+
   if (apply.mailTemplates?.length) {
     rule.mailtemplates = apply.mailTemplates.map(t => ({
       path: context.resolve(t.path || ''),
