@@ -520,6 +520,11 @@
     <allowwidgettype type="http://www.webhare.net/xmlns/publisher/embedvideo" />
   </apply>
 
+  <apply comment="Tested by publisher.forms.testformfile_maxsignups">
+    <to type="file" pathmask="/webtools/form-nomaxsignups" />
+    <formintegration allowmaxsignups="false" />
+  </apply>
+
   <apply>
     <to type="file" pathmask="/webtools/paymenthandlerform" />
     <to type="file" pathmask="/webtools/apipayment" />

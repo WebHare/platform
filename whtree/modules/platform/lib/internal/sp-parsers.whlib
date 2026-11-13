@@ -118,6 +118,8 @@ PUBLIC RECORD FUNCTION GetFormIntegrationAsYaml(OBJECT node) {
     formintegration := CELL[ ...formintegration, default_store_days := ParseXSInt(node->GetAttribute("defaultstoredays")) ];
   IF(node->HasAttribute("processdays"))
     formintegration := CELL[ ...formintegration, process_days := ParseXSInt(node->GetAttribute("processdays")) ];
+  IF(node->HasAttribute("allowmaxsignups"))
+    formintegration := CELL[ ...formintegration, allow_max_signups := ParseXSBoolean(node->GetAttribute("allowmaxsignups")) ];
 
   IF(node->HasAttribute("countrylist") OR node->HasAttribute("addressoptions") OR node->HasAttribute("addressvalidationkey") OR node->HasAttribute("addressvalidationschema")) {
     formintegration := CELL[ ...formintegration, address_options := DEFAULT RECORD ];
