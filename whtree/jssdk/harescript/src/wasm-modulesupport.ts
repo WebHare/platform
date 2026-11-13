@@ -111,6 +111,22 @@ function getPrefix(uri: string): AllowedPrefixes {
   return prefix;
 }
 
+/// Prefixes whose first path component is a module or site name, which paths may not escape
+const moduleScopedPrefixes: readonly AllowedPrefixes[] = ["mod", "site", "storage", "module", "moduledata", "modulescript", "moduleroot"];
+
+/** Collapse '.' and '..' segments in a path, verifying it doesn't escape its root
+    @param subpath - Path to collapse. Leading slashes are ignored
+    @param context - Root of the path, for error messages
+    @returns Collapsed path, without leading slashes. A trailing slash is preserved
+*/
+function collapseInsideRoot(subpath: string, context: string): string {
+  const collapsed = path.posix.normalize("__canary__/" + subpath);
+  if (collapsed === "__canary__")
+    return "";
+  if (!collapsed.startsWith("__canary__/"))
+    throw new Error(`Path '${subpath}' may not escape its context '${context}'`);
+  return collapsed.substring(11);
+}
 
 type RegisteredExternal = {
   name: string;
@@ -202,7 +218,13 @@ export class WASMModule extends WASMModuleBase {
   }
 
   getOpenLibraryPath(uri_ptr: Ptr) {
-    return this.stringToNewUTF8(mapHareScriptPath(this.UTF8ToString(uri_ptr)));
+    const uri = this.UTF8ToString(uri_ptr);
+    const prefixend = uri.indexOf("::");
+    //libraries can't be loaded from storage::. return the uri unmapped (with a normalized prefix) so OpenLibrary rejects it.
+    //toFSPath accepts the namespace in any case, so we must too
+    if (prefixend !== -1 && uri.substring(0, prefixend).toLowerCase() === "storage")
+      return this.stringToNewUTF8("storage::" + uri.substring(prefixend + 2));
+    return this.stringToNewUTF8(mapHareScriptPath(uri));
   }
 
   async recompile(uri_ptr: Ptr) {
@@ -216,51 +238,55 @@ export class WASMModule extends WASMModuleBase {
 
     if (libname.startsWith('relative::')) {
       const loader = this.doTranslateLibraryURI(this.UTF8ToString(loader_ptr)); //doTranslateLibraryURI gets rid of any direct:: paths
-      // Grab the prefixed root. For mod/site we also want the first path component
-      const split = loader.match(/^((?:wh::|(?:mod|site)::[^/]+\/))(.*)$/);
+      // Grab the prefixed root. For module and site paths we also want the first path component
+      const split = loader.match(/^(wh::|(?:mod|site|storage|module|moduledata|modulescript|moduleroot)::[^/]+\/)(.*)$/);
       if (!split)
         throw new Error(`Base path '${loader}' doesn't allow for relative adressing`);
 
-      if (libname.startsWith('relative::/')) //module-root reference
-        return this.stringToNewUTF8(split[1] + path.normalize(libname.substring(10)).substring(1));
-
-      const targetpath = path.normalize("canary/" + path.dirname(split[2]) + "/" + libname.substring(10));
-      if (!targetpath.startsWith("canary/"))
-        throw new Error(`Relative path '${libname}' may not escape its context '${split[1]}'`);
-
-      return this.stringToNewUTF8(split[1] + targetpath.substring(7));
+      const relpath = libname.substring(10);
+      const basedir = relpath.startsWith("/") ? "" : path.posix.dirname(split[2]); //relative::/ goes back to the root of the module/site
+      //Build the absolute path and let the code below resolve it further (eg. rewrite module:: to mod::)
+      libname = split[1] + collapseInsideRoot(basedir + "/" + relpath, split[1]);
     }
 
     const type = getPrefix(libname);
-    libname = libname.substring(type.length + 2);
-    libname = path.normalize(libname);
+    const rest = libname.substring(type.length + 2);
 
-    if (type === "module" || type === "moduledata" || type === "modulescript" || type === "moduleroot") { //module:: should be rewritten to mod:: /lib/
-      // Grab the prefixed root. For mod/site we also want the first path component
-      const firstslash = libname.indexOf("/");
-      const modulename = libname.substring(0, firstslash);
-      let subpart = "";
+    if (moduleScopedPrefixes.includes(type)) {
+      const firstslash = rest.indexOf("/");
+      if (firstslash === -1)
+        return this.stringToNewUTF8(libname); //eg. mod::system, nothing to resolve
 
-      if (type === "moduledata") {
-        subpart = "/data/";
-      } else if (type === "modulescript") {
-        subpart = "/scripts/";
-      } else if (type === "moduleroot") {
-        subpart = "/";
-      } else {
-        //See if /include/ exists, otherwise we'll go for lib (lib is considered default)
-        let useinclude = false;
+      const modulename = rest.substring(0, firstslash);
+      const subpath = collapseInsideRoot(rest.substring(firstslash + 1), `${type}::${modulename}/`);
 
-        const modroot = backendConfig.module[modulename]?.root;
-        if (modroot) {
-          const trylib = modroot + "include/" + libname.substring(firstslash + 1);
-          useinclude = fs.existsSync(trylib);
+      if (type === "module" || type === "moduledata" || type === "modulescript" || type === "moduleroot") { //module:: should be rewritten to mod:: /lib/
+        let subpart = "";
+        if (type === "moduledata") {
+          subpart = "/data/";
+        } else if (type === "modulescript") {
+          subpart = "/scripts/";
+        } else if (type === "moduleroot") {
+          subpart = "/";
+        } else {
+          //See if /include/ exists, otherwise we'll go for lib (lib is considered default)
+          let useinclude = false;
+
+          const modroot = backendConfig.module[modulename]?.root;
+          if (modroot) {
+            const trylib = modroot + "include/" + subpath;
+            useinclude = fs.existsSync(trylib);
+          }
+          subpart = useinclude ? "/include/" : "/lib/";
         }
-        subpart = useinclude ? "/include/" : "/lib/";
+        libname = "mod::" + modulename + subpart + subpath;
+      } else {
+        libname = type + "::" + modulename + "/" + subpath;
       }
-      libname = "mod::" + modulename + subpart + libname.substring(firstslash + 1);
+    } else if (type === "direct" || type === "directclib") {
+      libname = type + "::/" + collapseInsideRoot(rest, type + "::/");
     } else {
-      libname = type + "::" + libname;
+      libname = type + "::" + collapseInsideRoot(rest, type + "::");
     }
 
     if (libname.startsWith("mod::system/whlibs/"))

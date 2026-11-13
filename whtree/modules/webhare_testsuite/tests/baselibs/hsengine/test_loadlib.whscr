@@ -2,6 +2,7 @@
 /// @short Internet functions test
 
 
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
@@ -14,29 +15,48 @@ MACRO SyntaxTest()
 {
   OpenTest("TestLoadlib: SyntaxTest");
 
+  // non-prefixed paths
+  errors := TestCompile('<?wh LOADLIB "wrong"; ?>');
+  MustContainError(2, errors, 184, 'wrong');
+
+  // error loadlib with a lot of metadata, should not crash
+  errors := TestCompile('<?wh LOADLIB "wrong" __ATTRIBUTES__(USED) EXPORT a, b; ?>');
+  MustContainError(2, errors, 184, 'wrong');
+
+  // unknown prefix paths
+  errors := TestCompile('<?wh LOADLIB "wrong::data.whlib"; ?>');
+  MustContainError(2, errors, 165, "wrong", "wrong::data.whlib");
+
+  // 'storage' prefix paths
+  errors := TestCompile('<?wh LOADLIB "storage::module/data.whlib"; ?>');
+  MustContainError(2, errors, 165, "storage", "storage::module/data.whlib");
+
   //No relative paths
   errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/../testdata_loadlib_a.whlib"; ?>');
-  MustContainError(2, errors, 184);
+  MustContainError(2, errors, 184, "mod::webhare_testsuite/tests/baselibs/hsengine/../testdata_loadlib_a.whlib");
 
   //No backslashes relative paths
   errors := TestCompile('<?wh LOADLIB "wh::internet\\\\ftp.whlib"; ?>');
-  MustContainError(3, errors, 184);
+  MustContainError(3, errors, 184, "wh::internet\\ftp.whlib");
 
   //No terminating spaces or dots
   errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_a.whlib "; ?>');
-  MustContainError(4, errors, 184);
+  MustContainError(4, errors, 184, "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_a.whlib ");
   errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_a.whlib."; ?>');
-  MustContainError(5, errors, 184);
+  MustContainError(5, errors, 184, "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_a.whlib.");
 
   //No spaces and dots inside paths
   errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/a /testdata_loadlib_a.whlib"; ?>');
-  MustContainError(6, errors, 184);
+  MustContainError(6, errors, 184, "mod::webhare_testsuite/tests/baselibs/hsengine/a /testdata_loadlib_a.whlib");
   errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/b./testdata_loadlib_a.whlib"; ?>');
-  MustContainError(7, errors, 184);
+  MustContainError(7, errors, 184, "mod::webhare_testsuite/tests/baselibs/hsengine/b./testdata_loadlib_a.whlib");
 
   //Once got harescript crashing with missing lib and no export
   errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/\x80.whlib" EXPORT i; ?>');
-  MustContainError(8, errors, 184);
+  IF (IsWasm())
+    MustContainError(8, errors, 184, "mod::webhare_testsuite/tests/baselibs/hsengine/.whlib");
+  ELSE
+    MustContainError(8, errors, 184, "mod::webhare_testsuite/tests/baselibs/hsengine/\x80.whlib");
 
   CloseTest("TestLoadlib: SyntaxTest");
 }
@@ -141,6 +161,69 @@ MACRO TranslateLibraryPath()
   TestEq("wh::internal/formatter.whlib", __HS_INTERNAL_TRANSLATELIBRARYPATH(whpath || "/internal/formatter.whlib"));
 }
 
+MACRO RelativeEscapeTest()
+{
+  OpenTest("TestLoadlib: RelativeEscapeTest");
+
+  // mod:: - relative:: may move around inside the module but never above its root
+  STRING modloader := "mod::webhare_testsuite/tests/baselibs/hsengine/test.whscr";
+  TestEq("mod::webhare_testsuite/tests/baselibs/hsengine/a.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(modloader, "relative::a.whlib"));
+  TestEq("mod::webhare_testsuite/tests/a.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(modloader, "relative::../../a.whlib"));
+  TestEq("mod::webhare_testsuite/a.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(modloader, "relative::../../../a.whlib"));
+  TestEq("mod::webhare_testsuite/a.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(modloader, "relative::/a.whlib"));
+  TestEq("mod::webhare_testsuite/a.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(modloader, "relative::/x/../a.whlib"));
+  TestThrowsLike("*may not escape*", PTR __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(modloader, "relative::../../../../system/lib/resources.whlib"));
+  TestThrowsLike("*may not escape*", PTR __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(modloader, "relative::x/../../../../../system/lib/resources.whlib"));
+  TestThrowsLike("*may not escape*", PTR __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(modloader, "relative::/../system/lib/resources.whlib"));
+  TestThrowsLike("*may not escape*", PTR __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(modloader, "relative::/x/../../system/lib/resources.whlib"));
+  // and absolute mod:: paths may not use .. to reach another module either
+  TestThrowsLike("*may not escape*", PTR __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(modloader, "mod::webhare_testsuite/../system/lib/resources.whlib"));
+  TestThrowsLike("*may not escape*", PTR __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(modloader, "mod::webhare_testsuite/x/../../system/lib/resources.whlib"));
+
+  // collapsing keeps the trailing slash of folders
+  TestEq("mod::webhare_testsuite/tests/", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("", "mod::webhare_testsuite/tests/"));
+  TestEq("mod::webhare_testsuite/tests/", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("", "mod::webhare_testsuite/tests/x/../"));
+  TestEq("wh::files.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("", "mod::system/whlibs/files.whlib"));
+
+  // collapsing doesn't leave double slashes after the module name
+  TestEq("mod::webhare_testsuite/lib/system/resources.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("", "module::webhare_testsuite//system//resources.whlib"));
+  TestEq("mod::webhare_testsuite/lib/system/resources.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("", "mod::webhare_testsuite//lib//system/resources.whlib"));
+  TestEq("mod::webhare_testsuite/", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("", "mod::webhare_testsuite//"));
+  TestEq("wh::files.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("", "wh:://files.whlib"));
+  // libraries can still be opened by their mod::system/whlibs/ path (which resolves to wh::)
+  TestEq(TRUE, MakeFunctionPtr("mod::system/whlibs/files.whlib#GetDiskResource") != DEFAULT FUNCTION PTR);
+
+  CloseTest("TestLoadlib: RelativeEscapeTest");
+}
+
+MACRO NoStorageLoadlibTest()
+{
+  OpenTest("TestLoadlib: NoStorageLoadlibTest");
+
+  // storage:: paths still resolve (they're used for resources), and relative:: may not escape the module's storage
+  STRING storageloader := "storage::webhare_testsuite/a/b/test.whlib";
+  TestEq("storage::webhare_testsuite/a/b/c.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(storageloader, "relative::c.whlib"));
+  TestEq("storage::webhare_testsuite/c.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(storageloader, "relative::../../c.whlib"));
+  TestEq("storage::webhare_testsuite/c.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(storageloader, "relative::/c.whlib"));
+  TestThrowsLike("*may not escape*", PTR __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(storageloader, "relative::../../../system/c.whlib"));
+  TestThrowsLike("*may not escape*", PTR __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(storageloader, "relative::x/../../../../system/c.whlib"));
+  TestThrowsLike("*may not escape*", PTR __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(storageloader, "relative::/../system/c.whlib"));
+  TestThrowsLike("*may not escape*", PTR __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(storageloader, "storage::webhare_testsuite/../system/c.whlib"));
+
+  // but libraries can't be loaded from storage::, even if the file exists
+
+  STRING libpath := GetWebHareResourceDiskPath("storage::webhare_testsuite/test_loadlib.whlib");
+  CreateDiskDirectoryRecursive(GetWebHareResourceDiskPath("storage::webhare_testsuite/"), TRUE);
+  StoreDiskFile(libpath, StringToBlob(`<?wh PUBLIC STRING FUNCTION LoadlibTarget() { RETURN "ok"; }`), [ overwrite := TRUE ]);
+  errors := TestCompile(`<?wh LOADLIB "storage::webhare_testsuite/test_loadlib.whlib";`);
+  DeleteDiskFile(libpath);
+  MustContainError(1, errors, 165, "storage", "storage::webhare_testsuite/test_loadlib.whlib");
+  // not even when the prefix is spelled differently
+  TestThrowsLike("*storage*", PTR MakeFunctionPtr("Storage::webhare_testsuite/test_loadlib.whlib#LoadlibTarget"));
+
+  CloseTest("TestLoadlib: NoStorageLoadlibTest");
+}
+
 MACRO ObjectStructures()
 {
   errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_b.whlib"; STATIC OBJECTTYPE test EXTEND objecttype3ext < MACRO NEW() { this->memberx3 := 0; } >; ?>');
@@ -172,5 +255,7 @@ CirularReferenceTest();
 NoDirectLoadlibtest();
 DeinitTest();
 TranslateLibraryPath();
+RelativeEscapeTest();
+NoStorageLoadlibTest();
 ObjectStructures();
 ConstantTest();

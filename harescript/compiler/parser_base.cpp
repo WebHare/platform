@@ -318,7 +318,7 @@ bool Parser::CheckLoadlibPath(std::string const &libname, bool report_errors)
         if (!HareScript::IsValidFilesystemPath(libname))
         {
                 if (report_errors)
-                    lexer.AddError(Error::InvalidLoadlib);
+                    lexer.AddError(Error::InvalidLoadlib, libname);
                 return false;
         }
         return true;
