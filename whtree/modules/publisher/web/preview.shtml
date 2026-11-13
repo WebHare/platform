@@ -145,6 +145,9 @@ MACRO RunPublisherPreview(RECORD targetobject, RECORD contentobject, BOOLEAN isp
 }
 
 RECORD topreview := ParsePreviewURL(GetRequestURL());
+IF(NOT RecordExists(topreview))
+  AbortWithHTTPError(404);
+
 RECORD targetobject;
 
 IF(topreview.validuntil > GetCurrentDatetime()) { //still valid
