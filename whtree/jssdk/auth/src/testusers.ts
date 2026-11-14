@@ -93,6 +93,10 @@ interface TestUserSchemaInfo {
   anySchema: AnyUserSchema;
   loginAttribute: string;
   emailAttribute: string | null;
+  /** Whether the schema has units. If so, test users are placed in the test users unit */
+  hasWhuserUnit: boolean;
+  /** Whether the account type has a wrdauthAccountStatus. If so, test users are made active */
+  hasAccountStatus: boolean;
 }
 
 async function getTestUserSchemaInfo(wrdSchema: UserMgmtSchema): Promise<TestUserSchemaInfo> {
@@ -103,14 +107,13 @@ async function getTestUserSchemaInfo(wrdSchema: UserMgmtSchema): Promise<TestUse
     throw new TestUserError(`WRD schema '${wrdSchema.tag}' uses '${authsettings.accountType}' for accounts, test users require 'wrdPerson'`);
   if (!authsettings.loginAttribute)
     throw new TestUserError(`WRD schema '${wrdSchema.tag}' has no login attribute`);
-  if (!authsettings.hasWhuserUnit)
-    throw new TestUserError(`WRD schema '${wrdSchema.tag}' has no units, test users require a 'whuserUnit' type`);
-
   return {
     wrdSchema,
     anySchema: wrd<"*">(wrdSchema.tag),
     loginAttribute: authsettings.loginAttribute,
-    emailAttribute: authsettings.emailAttribute
+    emailAttribute: authsettings.emailAttribute,
+    hasWhuserUnit: authsettings.hasWhuserUnit,
+    hasAccountStatus: authsettings.hasAccountStatus
   };
 }
 
@@ -187,8 +190,11 @@ async function grantRightsAndRoles(wrdSchema: UserMgmtSchema, userId: number, ri
 export async function createTestUser(options?: CreateTestUserOptions): Promise<TestUser> {
   const info = await getTestUserSchemaInfo(await openSchema(options?.schema));
   const { wrdSchema } = info;
-  //Test users are used to verify changes, so always give them access to the debugging options
-  const rights = [...new Set(["platform:debug", ...options?.rights || []])];
+  /* Rights and roles are managed through units, so a schema without units (eg. one only used for website logins)
+     can't grant them. Test users are used to verify changes, so where we can, always give access to the debugging options */
+  if (!info.hasWhuserUnit && (options?.rights?.length || options?.roles?.length))
+    throw new TestUserError(`WRD schema '${wrdSchema.tag}' has no units, so test users in it cannot be granted rights or roles`);
+  const rights = info.hasWhuserUnit ? [...new Set(["platform:debug", ...options?.rights || []])] : [];
   const roles = options?.roles || [];
 
   //Close the user when a normal first party login would expire
@@ -197,7 +203,7 @@ export async function createTestUser(options?: CreateTestUserOptions): Promise<T
   /* Hold the usermgmt mutex (the same one userApi.Create* takes) for the whole transaction so concurrent
      creations don't pick the same unit or username. We don't use the locking userApi.Create* here ourselves */
   return await runInWork(async () => {
-    const unitId = await ensureTestUsersUnit(wrdSchema);
+    const unitId = info.hasWhuserUnit ? await ensureTestUsersUnit(wrdSchema) : null;
     const username = `test${await getNextTestUserNumber(info)}@${testUserDomain}`;
 
     const wrdId = await info.anySchema.insert("wrdPerson", {
@@ -205,12 +211,13 @@ export async function createTestUser(options?: CreateTestUserOptions): Promise<T
       ...(info.emailAttribute ? { [info.emailAttribute]: username } : {}),
       wrdFirstName: pickRandom(firstNames),
       wrdLastName: pickRandom(lastNames),
-      whuserUnit: unitId,
-      wrdauthAccountStatus: { status: "active", since: Temporal.Now.instant() },
+      ...(unitId ? { whuserUnit: unitId } : {}),
+      ...(info.hasAccountStatus ? { wrdauthAccountStatus: { status: "active", since: Temporal.Now.instant() } } : {}),
       wrdClosed: expires
     });
 
-    await grantRightsAndRoles(wrdSchema, wrdId, rights, roles);
+    if (info.hasWhuserUnit)
+      await grantRightsAndRoles(wrdSchema, wrdId, rights, roles);
 
     await writeAuthAuditEvent(wrdSchema, {
       type: "platform:testuser-created",
@@ -243,14 +250,18 @@ export async function findTestUser(spec: string, options?: { schema?: string }):
     wrdId: "wrdId",
     wrdGuid: "wrdGuid",
     username: info.loginAttribute,
-    whuserUnit: "whuserUnit",
+    ...(info.hasWhuserUnit ? { whuserUnit: "whuserUnit" } : {}),
     wrdClosed: "wrdClosed"
-  }).where(matchField, "=", matchValue).execute())[0] as { wrdId: number; wrdGuid: string; username: string; whuserUnit: number | null; wrdClosed: Temporal.Instant | null } | undefined;
+  }).where(matchField, "=", matchValue).execute())[0] as { wrdId: number; wrdGuid: string; username: string; whuserUnit?: number | null; wrdClosed: Temporal.Instant | null } | undefined;
   if (!user)
     throw new TestUserError(`No user '${spec}' in schema '${wrdSchema.tag}'`);
 
-  const unitTag = user.whuserUnit ? (await wrdSchema.getFields("whuserUnit", user.whuserUnit, ["wrdTag"])).wrdTag : "";
-  if (unitTag !== testUsersUnitTag || !user.wrdClosed)
+  /* With units, test users are recognized by their unit. Without units we can only go by the test user login name
+     (test<number>@beta.webhare.net) and the closing date that createTestUser always sets */
+  const isTestUser = info.hasWhuserUnit
+    ? Boolean(user.whuserUnit) && (await wrdSchema.getFields("whuserUnit", user.whuserUnit!, ["wrdTag"])).wrdTag === testUsersUnitTag
+    : new RegExp(`^test\\d+@${testUserDomain.replaceAll(".", "\\.")}$`).test(user.username);
+  if (!isTestUser || !user.wrdClosed)
     throw new TestUserError(`User '${spec}' in schema '${wrdSchema.tag}' is not a test user`);
 
   return { wrdId: user.wrdId, wrdGuid: user.wrdGuid, username: user.username, expires: user.wrdClosed };
