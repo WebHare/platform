@@ -640,8 +640,15 @@ export function suggestImageFormat(mediaType: string): Exclude<OutputFormatName,
   return mediaType as Exclude<OutputFormatName, "keep">;
 }
 
+const resizableImageTypes = ["image/jpeg", "image/png", "image/x-bmp", "image/gif", "image/tiff", "image/webp", "image/avif"];
+
+/** Check whether toResized can process this resource (a bitmap image type we support, with known dimensions) */
+export function isResizableImage(resource: Pick<ResourceMetadata, "width" | "height" | "mediaType">): boolean {
+  return resizableImageTypes.includes(resource.mediaType) && Boolean(resource.width && resource.height);
+}
+
 export function explainImageProcessing(resource: Pick<ResourceMetadata, "width" | "height" | "refPoint" | "mediaType">, method: PackableResizeMethod): ResizeSpecs {
-  if (!["image/jpeg", "image/png", "image/x-bmp", "image/gif", "image/tiff", "image/webp", "image/avif"].includes(resource.mediaType))
+  if (!resizableImageTypes.includes(resource.mediaType))
     throw new Error(`Image type '${resource.mediaType}' is not supported for resizing`);
   if (!resource.width || !resource.height)
     throw new Error("Width and height are required for bitmap images");
