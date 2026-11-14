@@ -48,6 +48,13 @@ async function testWHFSCli() {
     const rtdData2 = (await whfsType("platform:filetypes.richdocument").get(newFile2.id)).data as any;
     test.eq(rtdData2.blocks[0].items[0], richieFirstParagraph.items[0]);
   }
+
+  const listResult = spawnSync("wh", ["whfs", "list-types", "--json", "--count", "platform:filetypes.richdocument"], { shell: false, encoding: "utf-8", stdio: ['inherit', 'pipe', 'inherit'] });
+  test.eq(0, listResult.status, "list-types command should succeed");
+  const [rtdType] = JSON.parse(listResult.stdout);
+  test.eq("platform:filetypes.richdocument", rtdType.type);
+  test.assert(rtdType.count.objects >= 2, "should count at least our two new files");
+  test.assert(rtdType.count.instances >= 2, "should count the instances of our two new files");
 }
 
 
