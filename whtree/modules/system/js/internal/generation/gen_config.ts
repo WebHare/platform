@@ -2,26 +2,14 @@
  */
 
 import { whconstant_whfsid_webharebackend } from "../webhareconstants";
-import { decodeHSON } from "@webhare/hscompat/src/hson";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import { readFile } from "node:fs/promises";
 import type { ConfigFile } from "@webhare/services/src/config";
 
-import { appendSlashWhenMissing, isValidDTAPStage, updateWebHareConfigWithoutDB, type PartialConfigFile } from "./gen_config_nodb";
+import { appendSlashWhenMissing, isValidDTAPStage, parseRetiredSecrets, updateWebHareConfigWithoutDB, type PartialConfigFile } from "./gen_config_nodb";
 import { reloadBackendConfig } from "../configuration";
 import { __createRawConnection } from "@webhare/whdb/src/impl";
-import type { WHDBClientInterface } from "@webhare/whdb/src/connectionbase";
-
-async function rawReadRegistryKey<T>(pgclient: WHDBClientInterface, key: string): Promise<T | undefined> {
-  const res = await pgclient.query<{ data: string }>("SELECT data FROM system.flatregistry WHERE name = $1", [key]);
-  if (!res.rows?.[0])
-    return undefined;
-  const hsondata = res.rows?.[0].data;
-  // Only parse string data
-  if (!hsondata.startsWith(`hson:"`))
-    return undefined;
-  return decodeHSON(hsondata) as (T | undefined);
-}
+import { readRegistryKey } from "@webhare/services/src/registry";
 
 async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: boolean, options?: { debugSettings?: ConfigFile["debugsettings"] | null; socketDir?: string }): Promise<ConfigFile> {
   const finalconfig: ConfigFile = updateWebHareConfigWithoutDB(oldconfig);
@@ -41,14 +29,14 @@ async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: boolean
     const pgclient = await __createRawConnection();
     try {
       if (!process.env.WEBHARE_DTAPSTAGE || !isValidDTAPStage(process.env.WEBHARE_DTAPSTAGE)) {
-        const dtapstage = await rawReadRegistryKey<string>(pgclient, "system.global.servertype");
+        const dtapstage = await readRegistryKey("system:global.servertype");
         if (!dtapstage)
           return finalconfig;
 
         finalconfig.public.dtapstage = isValidDTAPStage(dtapstage) ? dtapstage : "production";
       }
 
-      const servername = await rawReadRegistryKey<string>(pgclient, "system.global.servername");
+      const servername = await readRegistryKey("system:global.servername");
       if (typeof servername === "string") {
         finalconfig.public.serverName = servername;
         finalconfig.public.servername = servername;
@@ -59,11 +47,23 @@ async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: boolean
         finalconfig.public.backendURL = webrootres.rows?.[0].webroot;
 
       //TODO can we declare the other 3 legacy now we're switching to GCM?
-      finalconfig.secrets.cookie = await rawReadRegistryKey<string>(pgclient, "system.webserver.security.cookiesecret") ?? finalconfig.secrets.cookie ?? "";
-      finalconfig.secrets.cache = await rawReadRegistryKey<string>(pgclient, "system.webserver.security.cachesecret") ?? finalconfig.secrets.cache ?? "";
-      finalconfig.secrets.debug = await rawReadRegistryKey<string>(pgclient, "system.webserver.security.debugsecret") ?? finalconfig.secrets.debug ?? "";
-      finalconfig.secrets.gcm = await rawReadRegistryKey<string>(pgclient, "system.webserver.security.gcmsecret") ?? finalconfig.secrets.gcm ?? "";
-      finalconfig.defaultImageFormat = (await rawReadRegistryKey<ConfigFile["defaultImageFormat"]>(pgclient, "platform.cache.defaultimageformat") ?? finalconfig.defaultImageFormat) || "keep";
+      finalconfig.secrets.cookie = await readRegistryKey("system:webserver.security.cookiesecret") ?? finalconfig.secrets.cookie ?? "";
+      finalconfig.secrets.cache = await readRegistryKey("system:webserver.security.cachesecret") ?? finalconfig.secrets.cache ?? "";
+      finalconfig.secrets.debug = await readRegistryKey("system:webserver.security.debugsecret") ?? finalconfig.secrets.debug ?? "";
+      finalconfig.secrets.gcm = await readRegistryKey("system:webserver.security.gcmsecret") ?? finalconfig.secrets.gcm ?? "";
+
+      const retiredsecrets = await readRegistryKey("system:webserver.security.retiredsecrets");
+      if (retiredsecrets !== undefined) { //undefined if the registry key doesn't exist yet. then keep the list from the old platform.json
+        let parsed: unknown = [];
+        try {
+          parsed = retiredsecrets ? JSON.parse(retiredsecrets) : [];
+        } catch (e) {
+          console.error("Failed to parse system:webserver.security.retiredsecrets", e);
+          parsed = finalconfig.secrets.retired; //don't lose the retired secrets if the registry key is damaged
+        }
+        finalconfig.secrets.retired = parseRetiredSecrets(parsed);
+      }
+      finalconfig.defaultImageFormat = (await readRegistryKey<ConfigFile["defaultImageFormat"]>("platform:cache.defaultimageformat") ?? finalconfig.defaultImageFormat) || "keep";
 
       return finalconfig;
     } finally {
