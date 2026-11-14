@@ -1,4 +1,5 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
   <test script="test_whapi.ts" />
   <test script="test_whapi_whfs.ts" />
+  <test script="test_whapi_whfs_data.ts" />
 </group>
