@@ -12,6 +12,7 @@ import { selectFSWHFSPath } from '@webhare/whdb/src/functions';
 import { whconstant_whfsid_versions, whconstant_whfsid_whfs_snapshots } from '@mod-system/js/internal/webhareconstants';
 import { applyWHFSObjectUpdates, exportWHSFObject } from '@mod-platform/openapi/api/whfs';
 import YAML from 'yaml';
+import { findInstances, republishFoundInstances } from '@mod-platform/js/cli/whfs-find';
 import { commonFlags, commonOptions, resolveWHFSPathArgument, resolveWHFSPathArrayArgument } from '@mod-platform/js/cli/cli-tools';
 import { readFileSync } from 'fs';
 import { loadlib } from '@webhare/harescript';
@@ -310,6 +311,53 @@ runCli({
           console.log(JSON.stringify(description, null, 2));
         else
           process.stdout.write(YAML.stringify(description));
+      }
+    },
+    "find-instances": {
+      shortDescription: "Find files and folders using a WHFS type, optionally filtered by its data",
+      description: `Find files and folders using a WHFS type: objects of that type, objects with instance data of that type and objects embedding it (eg. widgets inside rich text). Use --where to filter by the data, eg:
+
+  wh whfs find-instances platform:filetypes.form --where '$.maxsignups > 0' --select maxsignups
+
+The expression receives the instance data as '$' and information about the object (id, whfsPath, link, name, isFolder, objectType, siteId, source, embeddedIn) as 'obj'. By default objects in the recycle bin and in the versions and drafts storage are ignored.`,
+      flags: {
+        "all": "Also include objects in the recycle bin, versions and drafts",
+        "ids": "Only print the ids of the found objects, one per line",
+        "republish": "Schedule the found objects and any objects referring to them for republishing",
+      },
+      options: {
+        "where": { description: "JavaScript expression the instance must satisfy. '$' contains the instance data, 'obj' the object info" },
+        "select": { description: "Member to show (repeatable), '*' to show all members", multiple: true },
+        "under": { description: "Only find objects inside this folder (path or id)" },
+        ...commonOptions.resources
+      },
+      arguments: [{ name: "<type>", description: "WHFS type (scoped type, namespace or id)", type: whfsTypeOption }],
+      main: async ({ opts, args }) => {
+        const under = opts.under ? (await resolveWHFSPathArgument(opts.under)).whfsPath : undefined;
+        let found;
+        try {
+          found = await findInstances(args.type, {
+            where: opts.where,
+            select: opts.select,
+            under,
+            all: opts.all,
+            exportOptions: opts.ids ? undefined : opts.resources === "fetch" ? { export: true, exportFile: exportFileAsFetch } : { export: true }
+          });
+        } catch (e) {
+          throw new CLIRuntimeError((e as Error).message);
+        }
+
+        if (opts.ids)
+          process.stdout.write([...new Set(found.map(item => item.id))].map(id => `${id}\n`).join(""));
+        else if (opts.json)
+          console.log(JSON.stringify(found, null, 2));
+        else
+          process.stdout.write(found.length ? YAML.stringify(found) : "");
+
+        if (opts.republish) {
+          const scheduled = await republishFoundInstances(found);
+          console.error(`Scheduled ${scheduled.folders} folder(s) and ${scheduled.files} file(s) for republication`);
+        }
       }
     },
     "get-preview-link": {
