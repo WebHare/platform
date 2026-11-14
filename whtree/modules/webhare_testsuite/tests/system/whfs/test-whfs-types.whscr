@@ -1,5 +1,6 @@
 ﻿<?wh
 
+/* wh runtest system.whfs.test-whfs-types */
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
@@ -21,6 +22,18 @@ MACRO Prepare()
   OBJECT firstfolder := testfw->GetWHFSTestRoot();
   testsite := CreateSiteFromFolder(firstfolder->id);
   testfw->CommitWork();
+}
+
+MACRO TestRootSyncSettings()
+{
+  testfw->BeginWork();
+  OBJECT rootsettings := OpenWHFSObjectByPath("/webhare-private/platform/whfs/webhare-publisher-rootsettings/");
+  OBJECT synctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/foldersync");
+  synctype->SetInstanceData(rootsettings->id, [ peers := [[ peer := "root-sync-test.invalid", remotepath := "/" ]] ]);
+  TestEqMembers([[ peer := "root-sync-test.invalid", remotepath := "/" ]], synctype->GetInstanceData(rootsettings->id).peers, "*");
+  synctype->SetInstanceData(rootsettings->id, [ peers := DEFAULT RECORD ARRAY ]);
+  TestEq(RECORD[], synctype->GetInstanceData(rootsettings->id).peers);
+  testfw->RollbackWork();
 }
 
 MACRO TestCodecs()
@@ -586,6 +599,7 @@ MACRO TestDirectInstanceData()
 }
 
 RunTestframework([ PTR Prepare
+                 , PTR TestRootSyncSettings
                  , PTR TestCodecs
                  , PTR MockedTypes
                  , PTR MergeTypeInto

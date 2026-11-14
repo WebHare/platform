@@ -187,7 +187,8 @@ PUBLIC STRING FUNCTION GenerateUniqueName(INTEGER parentfolder, STRING suggestio
 
 PUBLIC BOOLEAN FUNCTION IsReadonlyWHFSSpace(STRING path) { // isHistoricWHFSSpace in TypeScript
   path := ToUppercase(path);
-  RETURN path LIKE "/WEBHARE-PRIVATE/PLATFORM/WHFS/*" //WH6.0+ migrates all historic WHFS content to this space
+  RETURN path LIKE "/WEBHARE-PRIVATE/PLATFORM/WHFS/RECYCLEBINS/*" //WH6.0+ migrates all historic WHFS content to this space
+         OR path LIKE "/WEBHARE-PRIVATE/PLATFORM/WHFS/SNAPSHOTS/*"
          OR path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS/SNAPSHOTS/*" //WH5.9
          OR path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONS/*" //WH5.9
          OR path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-DRAFTS/*" //WH5.9
