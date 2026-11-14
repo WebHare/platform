@@ -95,6 +95,8 @@ interface TestUserSchemaInfo {
   emailAttribute: string | null;
   /** Whether the schema has units. If so, test users are placed in the test users unit */
   hasWhuserUnit: boolean;
+  /** Whether the account type has a wrdauthAccountStatus. If so, test users are made active */
+  hasAccountStatus: boolean;
 }
 
 async function getTestUserSchemaInfo(wrdSchema: UserMgmtSchema): Promise<TestUserSchemaInfo> {
@@ -110,7 +112,8 @@ async function getTestUserSchemaInfo(wrdSchema: UserMgmtSchema): Promise<TestUse
     anySchema: wrd<"*">(wrdSchema.tag),
     loginAttribute: authsettings.loginAttribute,
     emailAttribute: authsettings.emailAttribute,
-    hasWhuserUnit: authsettings.hasWhuserUnit
+    hasWhuserUnit: authsettings.hasWhuserUnit,
+    hasAccountStatus: authsettings.hasAccountStatus
   };
 }
 
@@ -209,7 +212,7 @@ export async function createTestUser(options?: CreateTestUserOptions): Promise<T
       wrdFirstName: pickRandom(firstNames),
       wrdLastName: pickRandom(lastNames),
       ...(unitId ? { whuserUnit: unitId } : {}),
-      wrdauthAccountStatus: { status: "active", since: Temporal.Now.instant() },
+      ...(info.hasAccountStatus ? { wrdauthAccountStatus: { status: "active", since: Temporal.Now.instant() } } : {}),
       wrdClosed: expires
     });
 
