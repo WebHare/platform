@@ -388,7 +388,7 @@ export class SkillProvider {
       (which can change when the registry keys change) are returned by the skill tool (see above) */
   getInstructions(): string {
     return `This server offers WebHare development skills: instructions for working with WebHare that aren't in the code itself, such as how to log in for testing, run tests, or write siteprofiles, screens and WRD code. `
-      + `Before you read, modify or test WebHare code (including running tests or checking a change in a browser), you MUST call ${skillToolName} without arguments to get the list of skills, then load each skill that matches your task. `
+      + `Before you read, modify or test WebHare code (including running tests or checking a change in a browser), you MUST call ${skillToolName} without arguments to get the list of skills, then load each skill that matches your task. If the server does not advertise ${skillToolName} in its tool list, you may proceed without loading skills. `
       + `Do this once per session, and again when the task moves to a different area.\n\n`
       + `Skills useful to WebHare module developers in general are maintained in the webhare_dev module (content/ai/skills/<skill-name>/SKILL.md), not in the project being worked on. `
       + `Before creating or updating a skill, load the 'maintaining-skills' skill: it explains whether a skill belongs in webhare_dev or in a single repository. `
