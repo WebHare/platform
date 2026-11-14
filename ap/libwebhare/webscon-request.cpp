@@ -116,6 +116,8 @@ uint8_t const *Connection::SubHookIncomingData(uint8_t const *start, uint8_t con
                 break;
 
         case RequestParser::ErrorUnknownMethod:
+        case RequestParser::ErrorBadRequest:
+        case RequestParser::ErrorBadTransferEncoding:
                 FailRequest(StatusBadRequest,"Unable to interpret HTTP request");
                 break;
         case RequestParser::ErrorTempCreation:

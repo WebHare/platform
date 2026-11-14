@@ -223,6 +223,8 @@ class BLEXLIB_PUBLIC RequestParser : private Blex::Mime::DecodeReceiver
 
 
         friend class Autostart;
+        // Native regressions replace an already opened body stream to force I/O errors.
+        friend struct RequestParserTestAccess;
 
         void StartPart(std::string const &contenttype, std::string const &encoding, std::string const &description, std::string const &disposition, std::string const &content_id, std::string const &original_charset, Blex::FileOffset, Blex::FileOffset);
         void EndPart(Blex::FileOffset, Blex::FileOffset, unsigned);
@@ -302,7 +304,9 @@ class BLEXLIB_PUBLIC RequestParser : private Blex::Mime::DecodeReceiver
                 ///Request parsing is complete (check error code)
                 ParsingDone,
                 ///Request parser has failed - terminate connection because satte is unknown
-                ParsingFailed
+                ParsingFailed,
+                ///The CR of a chunk delimiter has been consumed; require LF
+                ExpectLF
         };
 
         ErrorCode errorcode;
