@@ -7,7 +7,7 @@ import { IncomingWebRequest } from "@webhare/router/src/request";
 import { getTidLanguage } from "@webhare/gettid";
 import { parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 import { litty, littyToString } from "@webhare/litty";
-import { backendConfig, buildInstance, buildRTD } from "@webhare/services";
+import { backendConfig, buildInstance, buildRTD, ResourceDescriptor } from "@webhare/services";
 import type { } from "@mod-publisher/js/internal/plugins/gtmplugin.ts"; //make config["socialite:gtm"] work
 import { parseResponse, getWHConfig, getAsDoc, fetchPreviewAsDoc } from "@mod-webhare_testsuite/js/whfs";
 import { loadlib } from "@webhare/harescript";
@@ -87,6 +87,11 @@ async function testPageResponse() {
     { "p.intro": [{ text: "default p with " }, { text: "bold", bold: true }, { text: " text." }] }
   ]));
   test.eq(`<h1 class="heading1">Heading 1</h1><p class="normal"><br></p><p class="intro">default p with <b>bold</b> text.</p>`, await littyToString(richDocument));
+
+  //Regression: images we can't resize (eg SVGs, which have no width/height) threw instead of rendering their alt text like HareScript does
+  const svgImage = await ResourceDescriptor.fromResource("mod::webhare_testsuite/web/img/testicon_1.b.svg", { mediaType: "image/svg+xml", getHash: true });
+  const svgDocument = await sitereq.renderRTD(await buildRTD([{ p: ["SVG: ", { image: svgImage, alt: "<icon>" }, { image: svgImage }] }]));
+  test.eq(`<p class="normal">SVG: &lt;icon&gt;</p>`, await littyToString(svgDocument));
 }
 
 async function testPaths() {
