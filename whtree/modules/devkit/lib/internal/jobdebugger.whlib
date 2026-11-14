@@ -1,0 +1,515 @@
+<?wh
+/** Inspect running HareScript jobs through the debug manager (wh:debugmgr), for use by tools such as the devkit MCP server.
+    Wraps mod::system/lib/internal/debugger/connector.whlib, the same API the HareScript debugger screen
+    (mod::system/lib/screens/debugger/debugger.whlib) and `wh harescript-debug` use.
+*/
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::promise.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+
+LOADLIB "mod::system/lib/internal/debugger/compiledlibrary.whlib";
+LOADLIB "mod::system/lib/internal/debugger/connector.whlib";
+LOADLIB "mod::system/lib/internal/debugger/externvariable.whlib";
+
+
+OBJECT FUNCTION OpenConnector()
+{
+  OBJECT connector := ConnectToDebugManager();
+  IF (NOT ObjectExists(connector))
+    THROW NEW Exception("Cannot connect to the debug manager");
+  RETURN connector;
+}
+
+RECORD ARRAY FUNCTION GetProcessJobs(OBJECT connector)
+{
+  RECORD ARRAY result;
+  FOREVERY (RECORD proc FROM WaitForPromise(connector->GetProcessListener()->RequestUpdate()))
+  {
+    // Processes may exit while we're listing them (eg a short-lived `wh run`), so skip those that fail
+    TRY
+    {
+      OBJECT listener := proc.obj->GetJobListener();
+      FOREVERY (RECORD job FROM WaitForPromise(listener->RequestUpdate()))
+        INSERT CELL[ proc, job ] INTO result AT END;
+      listener->Close();
+    }
+    CATCH (OBJECT e)
+    {
+      CONTINUE;
+    }
+  }
+  RETURN result;
+}
+
+OBJECT FUNCTION ConnectJob(STRING groupid)
+{
+  OBJECT connector := OpenConnector();
+
+  RECORD entry := SELECT * FROM GetProcessJobs(connector) WHERE job.groupid = VAR groupid;
+  IF (NOT RecordExists(entry))
+    THROW NEW Exception(`No job with group id '${groupid}'`);
+
+  OBJECT job := WaitForPromise(entry.proc.obj->ConnectToJob(groupid)->promise);
+  IF (NOT ObjectExists(job))
+    THROW NEW Exception(`Could not connect to job '${groupid}' (a debugger may already be connected to it)`);
+  RETURN job;
+}
+
+/// Wait for a debugger request and throw if it fails. Gives up after a while (older debug managers don't pass on error responses)
+VARIANT FUNCTION AwaitRequest(OBJECT promise, STRING what)
+{
+  RECORD raced := WaitForPromise(CreatePromiseRace([ promise, CreateSleepPromise(10000) ], [ wrap := TRUE ]));
+  IF (raced.source != promise)
+    THROW NEW Exception(`No response from the job to the ${what} request`);
+  // Errors are responses too (eg 'error-notstopped' when the job isn't paused)
+  IF (TypeID(raced.value) = TypeID(RECORD) AND CellExists(raced.value, "TYPE") AND raced.value.type LIKE "error*")
+    THROW NEW Exception(`The ${what} request failed: ${raced.value.type}${CellExists(raced.value, "MSG") ? " " || raced.value.msg : ""}`);
+  RETURN raced.value;
+}
+
+/** Pause a connected job
+    @return Status of the paused job. Throws if the job doesn't pause in time; the job is then told to continue again
+*/
+RECORD FUNCTION PauseJob(OBJECT job, INTEGER timeoutms)
+{
+  OBJECT pausepromise := job->Pause();
+  RECORD raced := WaitForPromise(CreatePromiseRace([ pausepromise, CreateSleepPromise(timeoutms) ], [ wrap := TRUE ]));
+  IF (raced.source = pausepromise)
+    RETURN raced.value;
+
+  // Don't leave the job paused if the pause still arrives after we gave up
+  job->ContinueJob();
+  raced := WaitForPromise(CreatePromiseRace([ pausepromise, CreateSleepPromise(2000) ], [ wrap := TRUE ]));
+  IF (raced.source = pausepromise)
+    job->ContinueJob();
+  THROW NEW Exception(`Job '${job->groupid}' did not pause within ${timeoutms} ms (it may be busy inside a native call)`);
+}
+
+/** Connect to a job, pause it, run a callback and let the job continue again
+    @param groupid Group id of the job
+    @param timeoutms Maximum time to wait for the job to pause
+    @param callback Called as callback(job, pausedstatus) while the job is paused
+    @return Return value of the callback
+*/
+VARIANT FUNCTION WithPausedJob(STRING groupid, INTEGER timeoutms, FUNCTION PTR callback)
+{
+  OBJECT job := ConnectJob(groupid);
+  BOOLEAN paused;
+  TRY
+  {
+    RECORD status := PauseJob(job, timeoutms);
+    paused := TRUE;
+    RETURN callback(job, status);
+  }
+  FINALLY
+  {
+    IF (paused)
+      job->ContinueJob();
+    job->Close();
+  }
+}
+
+/** List the HareScript jobs known to the debug manager
+    @param mask Only return jobs whose script, status, group id or context info contains this text (case insensitive). Empty to return all jobs
+    @return Jobs
+    @cell(string) return.processcode Debug manager code of the process running the job
+    @cell(string) return.groupid Group id of the job, used to address it
+    @cell(string) return.script Script the job was started with (for `lib#Function` services this is wh::internal/asyncrunner.whscr)
+    @cell(string) return.status Job status, eg 'Running' or 'WaitForMultiple'
+    @cell(datetime) return.creationdate When the job was started
+    @cell(integer) return.runningmsecs Total time spent running (not waiting)
+    @cell(boolean) return.connected Whether a debugger is currently connected to the job
+    @cell(string) return.contextinfo Context info from the job's authentication record, if any
+*/
+PUBLIC RECORD ARRAY FUNCTION ListDebugJobs(STRING mask)
+{
+  OBJECT connector := OpenConnector();
+  STRING upmask := "*" || ToUppercase(mask) || "*";
+
+  RECORD ARRAY result;
+  FOREVERY (RECORD entry FROM GetProcessJobs(connector))
+  {
+    RECORD job := entry.job;
+    RECORD authrec := CellExists(job, "AUTHENTICATIONRECORD") ? job.authenticationrecord : DEFAULT RECORD;
+    RECORD row :=
+        [ processcode :=  entry.proc.processcode
+        , groupid :=      job.groupid
+        , script :=       job.script
+        , status :=       job.status
+        , creationdate := job.creationdate
+        , runningmsecs := CellExists(job, "TOTAL_RUNNING") ? GetMsecondCount(job.total_running) : 0
+        , connected :=    CellExists(job, "CONNECTED") AND job.connected
+        , contextinfo :=  CellExists(authrec, "CONTEXTINFO") ? authrec.contextinfo : ""
+        ];
+
+    IF (mask != "" AND NOT (ToUppercase(row.script || "\t" || row.status || "\t" || row.groupid || "\t" || row.contextinfo) LIKE upmask))
+      CONTINUE;
+    INSERT row INTO result AT END;
+  }
+  RETURN result;
+}
+
+/// Maximum number of items/cells to retrieve per record, object or array
+INTEGER64 maxitemspercontainer := 50;
+/// Remaining number of extra GetVariables requests allowed for the current call (each costs a round trip while the job is paused)
+INTEGER expansionbudget;
+
+BOOLEAN FUNCTION IsContainer(RECORD value)
+{
+  RETURN CellExists(value, "TYPE") AND (value.type IN [ TypeID(RECORD), TypeID(OBJECT), TypeID(WEAKOBJECT) ] OR value.type >= 128);
+}
+
+/** Retrieve more of a raw debugger value, the way the debugger screen does when a node is expanded: the job only sends
+    one level of nested values, so containers deeper down arrive with 'max' (number of items sent) below 'length'
+*/
+RECORD FUNCTION ExpandValue(OBJECT job, RECORD value, INTEGER depth, INTEGER maxdepth)
+{
+  IF (NOT IsContainer(value) OR depth >= maxdepth)
+    RETURN value;
+
+  IF (CellExists(value, "LENGTH") AND CellExists(value, "MAX") AND value.max < value.length AND value.max < maxitemspercontainer
+      AND CellExists(value, "ID") AND expansionbudget > 0)
+  {
+    expansionbudget := expansionbudget - 1;
+    RECORD response := WaitForPromise(job->GetVariables([ [ id := value.id, max := value.length < maxitemspercontainer ? value.length : maxitemspercontainer ] ]));
+    IF (response.type = "job-variables" AND Length(response.variables) = 1 AND RecordExists(response.variables[0]))
+      value := response.variables[0];
+  }
+
+  IF (NOT CellExists(value, "VALUE") OR TypeID(value.value) != TypeID(RECORD ARRAY))
+    RETURN value;
+
+  BOOLEAN isarray := value.type >= 128;
+  FOREVERY (RECORD item FROM value.value)
+  {
+    IF (isarray)
+      value.value[#item] := ExpandValue(job, item, depth + 1, maxdepth);
+    ELSE IF (RecordExists(item) AND CellExists(item, "VALUE"))
+      value.value[#item].value := ExpandValue(job, item.value, depth + 1, maxdepth);
+  }
+  RETURN value;
+}
+
+/// Convert a rendered ExternVariable row to a plain tree (dropping UI-only cells and the object reference)
+RECORD FUNCTION SimplifyVariableRow(RECORD row, INTEGER depth, INTEGER maxdepth)
+{
+  RECORD ARRAY members;
+  IF (depth < maxdepth)
+    FOREVERY (RECORD sub FROM row.subnodes)
+      INSERT SimplifyVariableRow(sub, depth + 1, maxdepth) INTO members AT END;
+
+  RETURN [ name :=      row.name
+         , value :=     row.value
+         , members :=   members
+         , truncated := depth >= maxdepth AND Length(row.subnodes) > 0
+         ];
+}
+
+RECORD ARRAY FUNCTION GetFrameVariables(OBJECT job, RECORD frame, RECORD ARRAY loadedlibs, INTEGER maxdepth)
+{
+  IF (NOT CellExists(frame, "CODEPTR") OR frame.codeptr < 0)
+    THROW NEW Exception(CellExists(frame, "CODEPTR") AND frame.codeptr = -1 ? "No variables available for external (native) functions" : "Stack frame has been unwound");
+
+  OBJECT clib := NEW CompiledLibrary(frame.filename);
+  RECORD loaded := SELECT * FROM loadedlibs WHERE liburi = frame.filename;
+  IF (RecordExists(loaded) AND loaded.compile_id != clib->compile_id)
+    THROW NEW Exception(`The library has been recompiled since the job loaded it, so its variables can't be located`);
+
+  RECORD ARRAY request := clib->GetFrameVariables(frame);
+  IF (Length(request) = 0)
+    RETURN RECORD[];
+
+  RECORD response := WaitForPromise(job->GetVariables(request));
+  IF (response.type != "job-variables")
+    THROW NEW Exception(`Unexpected response '${response.type}' when requesting variables`);
+
+  RECORD ARRAY vars;
+  FOREVERY (RECORD req FROM request)
+  {
+    OBJECT extvar := NEW ExternVariable(DEFAULT OBJECT, req.name, req.name);
+    extvar->HandleValue(ExpandValue(job, response.variables[#req], 0, maxdepth), TRUE);
+    INSERT SimplifyVariableRow(extvar->Render(ToString(#req)).row, 0, maxdepth) INTO vars AT END;
+  }
+  RETURN vars;
+}
+
+RECORD FUNCTION GetStackWhilePaused(INTEGER ARRAY variableframes, INTEGER maxdepth, OBJECT job, RECORD status)
+{
+  RECORD ARRAY rawframes := CellExists(status, "STACKTRACE") ? status.stacktrace : RECORD[];
+  RECORD ARRAY loadedlibs;
+  IF (Length(variableframes) > 0)
+    loadedlibs := WaitForPromise(job->GetLibraries()).libraries;
+
+  RECORD ARRAY frames;
+  FOREVERY (RECORD frame FROM rawframes)
+  {
+    RECORD outframe :=
+        [ filename :=       CellExists(frame, "FILENAME") ? frame.filename : ""
+        , func :=           CellExists(frame, "FUNC") ? frame.func : ""
+        , line :=           CellExists(frame, "LINE") ? frame.line : 0
+        , col :=            CellExists(frame, "COL") ? frame.col : 0
+        , hasvariables :=   FALSE
+        , variables :=      RECORD[]
+        , variableserror := ""
+        ];
+
+    IF (#frame IN variableframes)
+    {
+      TRY
+      {
+        outframe.variables := GetFrameVariables(job, frame, loadedlibs, maxdepth);
+        outframe.hasvariables := TRUE;
+      }
+      CATCH (OBJECT e)
+      {
+        outframe.variableserror := e->what;
+      }
+    }
+    INSERT outframe INTO frames AT END;
+  }
+
+  RETURN [ status := CellExists(status, "REALSTATUS") ? status.realstatus : ""
+         , stacktrace := frames
+         ];
+}
+
+/** Briefly pause a HareScript job to get its stack trace (and optionally variables), then let it continue
+    @param groupid Group id of the job (see ListDebugJobs)
+    @param timeoutms Maximum time to wait for the job to pause
+    @param variableframes Indices of the stack frames (0 = innermost) to also get the variables of
+    @param maxdepth Maximum nesting depth to show for record, object and array variables
+    @return Result
+    @cell(string) return.status Status of the job when it was paused ('DebugStopped' or 'Terminated')
+    @cell(record array) return.stacktrace Stack frames, innermost first
+    @cell(string) return.stacktrace.filename Library
+    @cell(string) return.stacktrace.func Function
+    @cell(integer) return.stacktrace.line Line
+    @cell(integer) return.stacktrace.col Column
+    @cell(boolean) return.stacktrace.hasvariables Whether variables were retrieved for this frame
+    @cell(record array) return.stacktrace.variables Variables (name, value, members, truncated)
+    @cell(string) return.stacktrace.variableserror Why variables couldn't be retrieved, if requested
+*/
+PUBLIC RECORD FUNCTION GetDebugJobStack(STRING groupid, INTEGER timeoutms, INTEGER ARRAY variableframes, INTEGER maxdepth)
+{
+  expansionbudget := 200;
+  RETURN WithPausedJob(groupid, timeoutms, PTR GetStackWhilePaused(variableframes, maxdepth, #1, #2));
+}
+
+RECORD ARRAY FUNCTION GetHandlesWhilePaused(OBJECT job, RECORD status)
+{
+  RECORD response := WaitForPromise(job->GetHandleList());
+  RETURN SELECT name, id FROM response.rawdata.items ORDER BY id, name;
+}
+
+/** Briefly pause a HareScript job to get its open handles (files, IPC links and ports, event streams...), then let it continue
+    @param groupid Group id of the job (see ListDebugJobs)
+    @param timeoutms Maximum time to wait for the job to pause
+    @return Handles
+    @cell(string) return.name Kind of handle
+    @cell(integer) return.id Handle id
+*/
+PUBLIC RECORD ARRAY FUNCTION GetDebugJobHandles(STRING groupid, INTEGER timeoutms)
+{
+  RETURN WithPausedJob(groupid, timeoutms, PTR GetHandlesWhilePaused);
+}
+
+/** List the job locks of all HareScript processes (locks between jobs inside one process, not the cluster-wide mutexes)
+    @return Locks, one row for every job holding or waiting for a lock
+    @cell(string) return.processcode Process the lock lives in
+    @cell(string) return.name Lock name
+    @cell(string) return.groupid Job holding or waiting for the lock
+    @cell(string) return.script Script of that job, if still known
+    @cell(boolean) return.waiting Whether the job is waiting for the lock (otherwise it holds it)
+    @cell(integer) return.lockposition Position in the lock's queue
+    @cell(integer) return.maxconcurrent Maximum number of concurrent holders
+    @cell(datetime) return.waitstart When the job started waiting
+    @cell(datetime) return.lockstart When the job got the lock
+*/
+PUBLIC RECORD ARRAY FUNCTION ListDebugJobLocks()
+{
+  OBJECT connector := OpenConnector();
+  RECORD ARRAY jobs := GetProcessJobs(connector);
+
+  RECORD ARRAY result;
+  FOREVERY (RECORD proc FROM WaitForPromise(connector->GetProcessListener()->RequestUpdate()))
+  {
+    RECORD locks;
+    TRY
+      locks := proc.obj->GetLocks();
+    CATCH (OBJECT e)
+      CONTINUE; // the process may have exited while we're listing them
+    IF (NOT RecordExists(locks) OR NOT CellExists(locks, "RAWDATA"))
+      CONTINUE;
+
+    FOREVERY (RECORD lock FROM locks.rawdata)
+    {
+      RECORD jobentry := SELECT * FROM jobs WHERE job.groupid = lock.groupid;
+      INSERT [ processcode :=   proc.processcode
+             , name :=          lock.name
+             , groupid :=       lock.groupid
+             , script :=        RecordExists(jobentry) ? jobentry.job.script : ""
+             , waiting :=       lock.waiting
+             , lockposition :=  lock.lockposition
+             , maxconcurrent := lock.maxconcurrent
+             , waitstart :=     lock.waitstart
+             , lockstart :=     lock.lockstart
+             ] INTO result AT END;
+    }
+  }
+  RETURN result;
+}
+
+/** Profile a running HareScript job for a while. Profiling can only be switched on and off and read while the job is paused,
+    so the job is paused briefly at the start and at the end
+    @param groupid Group id of the job (see ListDebugJobs)
+    @param durationms How long to profile
+    @param timeoutms Maximum time to wait for the job to pause
+    @return Raw function profile (items, locations), as produced by __INTERNAL_GetRawFunctionProfile
+*/
+PUBLIC RECORD FUNCTION ProfileDebugJob(STRING groupid, INTEGER durationms, INTEGER timeoutms)
+{
+  OBJECT job := ConnectJob(groupid);
+  BOOLEAN paused, profiling;
+  TRY
+  {
+    PauseJob(job, timeoutms);
+    paused := TRUE;
+    AwaitRequest(job->SetProfiling("function", TRUE, TRUE), "start profiling");
+    profiling := TRUE;
+    job->ContinueJob();
+    paused := FALSE;
+
+    WaitForPromise(CreateSleepPromise(durationms));
+
+    PauseJob(job, timeoutms);
+    paused := TRUE;
+    AwaitRequest(job->SetProfiling("all", FALSE, FALSE), "stop profiling");
+    profiling := FALSE;
+
+    RECORD profile := AwaitRequest(job->GetProfile("function"), "get profile");
+    IF (NOT CellExists(profile, "RAWDATA") OR NOT RecordExists(profile.rawdata))
+      THROW NEW Exception(`The job did not return a profile (response '${CellExists(profile, "TYPE") ? profile.type : ""}')`);
+    RETURN profile.rawdata;
+  }
+  FINALLY
+  {
+    IF (profiling) // something failed while profiling, try to switch it off again
+    {
+      TRY
+      {
+        IF (NOT paused)
+        {
+          PauseJob(job, timeoutms);
+          paused := TRUE;
+        }
+        AwaitRequest(job->SetProfiling("all", FALSE, FALSE), "stop profiling");
+      }
+      CATCH (OBJECT e)
+      {
+        // nothing more we can do
+      }
+    }
+    IF (paused)
+      job->ContinueJob();
+    job->Close();
+  }
+}
+
+STRING FUNCTION GetStoredProfilesRoot()
+{
+  RETURN MergePath(GetWebhareConfiguration().basedataroot, "caches/platform/hs-profiles");
+}
+
+MACRO CheckPathPart(STRING part, STRING what)
+{
+  IF (part = "" OR part LIKE "*/*" OR part LIKE "*\\*" OR part LIKE ".*")
+    THROW NEW Exception(`Invalid ${what} '${part}'`);
+}
+
+RECORD FUNCTION ReadStoredProfileHeader(BLOB filedata)
+{
+  STRING firstline := BlobToString(filedata, 4 * 65536);
+  INTEGER nlpos := SearchSubString(firstline, "\n");
+  IF (nlpos < 0)
+    THROW NEW Exception("Not a stored profile");
+  RETURN [ header := DecodeJSON(Left(firstline, nlpos)), datastart := nlpos + 1 ];
+}
+
+/** List the sessions with stored profiles (written when the 'apr' debug tag is set, see `wh harescript-debug setconfig`)
+    @return Session names
+*/
+PUBLIC STRING ARRAY FUNCTION ListStoredProfileSessions()
+{
+  RETURN SELECT AS STRING ARRAY name FROM ReadDiskDirectory(GetStoredProfilesRoot(), "*") WHERE type = 1 ORDER BY name;
+}
+
+/** List the stored profiles of a session, newest first
+    @param session Session name, eg 'default'
+    @param mask Only return profiles whose file name, script or group id contains this text (case insensitive)
+    @param maxcount Maximum number of profiles to return
+    @return Profiles
+    @cell(string) return.filename File name
+    @cell(string) return.type Profile type, eg 'functionprofile'
+    @cell(string) return.script Profiled script
+    @cell(string) return.groupid Group id of the profiled job
+    @cell(string) return.profilingstart When profiling started (ISO date)
+    @cell(integer64) return.size File size
+    @cell(integer) return.totalcount Total number of matching profiles (before applying maxcount)
+*/
+PUBLIC RECORD ARRAY FUNCTION ListStoredProfiles(STRING session, STRING mask, INTEGER maxcount)
+{
+  CheckPathPart(session, "session");
+  STRING dir := MergePath(GetStoredProfilesRoot(), session);
+  STRING upmask := "*" || ToUppercase(mask) || "*";
+
+  // File names start with a timestamp, so sorting by name puts the newest first
+  RECORD ARRAY files := SELECT name, size FROM ReadDiskDirectory(dir, "*.prof") WHERE type = 0 ORDER BY name DESC;
+
+  RECORD ARRAY result;
+  INTEGER totalcount;
+  FOREVERY (RECORD file FROM files)
+  {
+    RECORD header;
+    TRY
+      header := ReadStoredProfileHeader(GetDiskResource(MergePath(dir, file.name))).header;
+    CATCH
+      CONTINUE;
+
+    RECORD row :=
+        [ filename :=       file.name
+        , type :=           CellExists(header, "TYPE") ? header.type : ""
+        , script :=         CellExists(header, "SCRIPT") ? header.script : ""
+        , groupid :=        CellExists(header, "GROUPID") ? header.groupid : ""
+        , profilingstart := CellExists(header, "PROFILINGSTART") ? header.profilingstart : ""
+        , size :=           file.size
+        ];
+    IF (mask != "" AND NOT (ToUppercase(row.filename || "\t" || row.script || "\t" || row.groupid) LIKE upmask))
+      CONTINUE;
+
+    totalcount := totalcount + 1;
+    IF (Length(result) < maxcount)
+      INSERT row INTO result AT END;
+  }
+  RETURN SELECT *, totalcount := VAR totalcount FROM result;
+}
+
+/** Read a stored profile
+    @param session Session name
+    @param filename File name (see ListStoredProfiles)
+    @return Profile
+    @cell(record) return.header Header (type, script, groupid, profilingstart, ...)
+    @cell(record) return.rawdata Raw profile data
+*/
+PUBLIC RECORD FUNCTION ReadStoredProfile(STRING session, STRING filename)
+{
+  CheckPathPart(session, "session");
+  CheckPathPart(filename, "file name");
+  BLOB filedata := GetDiskResource(MergePath(MergePath(GetStoredProfilesRoot(), session), filename));
+  RECORD parsed := ReadStoredProfileHeader(filedata);
+  RETURN [ header := parsed.header
+         , rawdata := DecodeHSONBlob(MakeComposedBlob([ CELL[ data := filedata, start := parsed.datastart ] ]))
+         ];
+}

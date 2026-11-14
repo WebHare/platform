@@ -526,6 +526,14 @@ STATIC OBJECTTYPE Connection
     IF (debug_msgs)
       PRINT(`Recv msg: ${msg.type}\n`);
 
+    /* Error replies to job requests (eg 'error-notstopped' from the C++ debugger, or 'error' from debugmgr.whscr when
+       the job isn't paused) don't have a 'job' type, and not all of them carry a process code or group id. Route them
+       to the job that made the request, so its promise resolves instead of waiting forever */
+    IF (replyto != 0 AND msg.type NOT LIKE "job*")
+      FOREVERY (RECORD proc FROM this->pvt_processlist)
+        IF (proc.obj->HandleReply(msg, replyto))
+          RETURN;
+
     IF (msg.type LIKE "job*")
     {
       // msg has cell processcode
@@ -1146,6 +1154,15 @@ STATIC OBJECTTYPE DebugProcess
     }
   }
 
+  /// Pass a reply to the job that made the request. Returns FALSE if none of our jobs made it
+  BOOLEAN FUNCTION HandleReply(RECORD msg, INTEGER64 replyto)
+  {
+    FOREVERY (RECORD rec FROM this->pvt_jobs)
+      IF (ObjectExists(rec.job) AND rec.job->HandleReply(msg, replyto))
+        RETURN TRUE;
+    RETURN FALSE;
+  }
+
   MACRO GotDisconnected()
   {
     this->pvt_processcode := 0i64;
@@ -1317,16 +1334,23 @@ STATIC OBJECTTYPE DebugJob
   // Message handling
   //
 
-  MACRO GotMessage(RECORD msg, INTEGER64 msgid, INTEGER64 replyto)
+  /// Resolve the pending request this message replies to. Returns FALSE if there is no such request
+  BOOLEAN FUNCTION HandleReply(RECORD msg, INTEGER64 replyto)
   {
     RECORD pos := RecordLowerBound(this->requests, [ msgid := replyto ], [ "MSGID" ]);
-    IF (pos.found)
-    {
-      RECORD deferred := this->requests[pos.position].deferred;
-      DELETE FROM this->requests AT pos.position;
-      deferred.resolve(msg);
+    IF (NOT pos.found)
+      RETURN FALSE;
+
+    RECORD deferred := this->requests[pos.position].deferred;
+    DELETE FROM this->requests AT pos.position;
+    deferred.resolve(msg);
+    RETURN TRUE;
+  }
+
+  MACRO GotMessage(RECORD msg, INTEGER64 msgid, INTEGER64 replyto)
+  {
+    IF (this->HandleReply(msg, replyto))
       RETURN;
-    }
 
     SWITCH (msg.type)
     {
