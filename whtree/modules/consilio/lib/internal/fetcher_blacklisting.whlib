@@ -31,25 +31,43 @@ PUBLIC RECORD FUNCTION BlacklistIntercept(RECORD indexinfo)
   RETURN indexinfo;
 }
 
+BOOLEAN have_cached_blacklist;
 RECORD ARRAY cached_blacklist;
 INTEGER blacklist_event_callback;
 
-/** @short Default blacklist
-    @long The items in this blacklist are always applied
+/** Pattern reported for the built-in robots.txt rule, which is always applied (noindex, nolinkcheck_to). The rule used
+    to be implemented with this regex, but std::regex on Linux recurses per character and segfaults on URLs with a long
+    scheme+host part, so IsRobotsTxt implements it without a regex.
 */
-RECORD ARRAY defaultblacklist := [ [ pattern := "^([^\/]*:\/\/[^\/]+)?\/robots.txt$", pattern_regex := TRUE
-                                   , noindex := TRUE, nofollow := TRUE, nolinkcheck_from := TRUE, nolinkcheck_to := TRUE
-                                   ]
-                                 ];
+CONSTANT STRING robotstxt_pattern := "^([^\/]*:\/\/[^\/]+)?\/robots.txt$";
+
+/** Does the URL point to a robots.txt (either '/robots.txt' or '<scheme>://<host>/robots.txt', case insensitive)?
+*/
+BOOLEAN FUNCTION IsRobotsTxt(STRING url)
+{
+  url := ToLowercase(url);
+  IF (url = "/robots.txt")
+    RETURN TRUE;
+  IF (url NOT LIKE "*/robots.txt")
+    RETURN FALSE;
+
+  // The origin must be '<scheme without slashes>://<non-empty host without slashes>'
+  STRING origin := Left(url, Length(url) - Length("/robots.txt"));
+  INTEGER schemeend := SearchSubstring(origin, "://");
+  RETURN schemeend >= 0
+         AND SearchSubstring(origin, "/") = schemeend + 1
+         AND SearchLastSubstring(origin, "/") = schemeend + 2
+         AND Length(origin) > schemeend + 3;
+}
 
 RECORD ARRAY FUNCTION GetBlacklist()
 {
-  IF (Length(cached_blacklist) = 0)
+  IF (NOT have_cached_blacklist)
   {
-    RECORD ARRAY blacklist := defaultblacklist CONCAT SELECT * FROM consilio.blacklist;
     cached_blacklist := SELECT *
                              , regex := pattern_regex ? NEW RegEx(pattern, "i") : DEFAULT OBJECT
-                          FROM blacklist;
+                          FROM consilio.blacklist;
+    have_cached_blacklist := TRUE;
 
     IF (blacklist_event_callback = 0)
       blacklist_event_callback := RegisterEventCallback("consilio:blacklistchanged", PTR InvalidateCachedBlacklist);
@@ -59,12 +77,16 @@ RECORD ARRAY FUNCTION GetBlacklist()
 
 MACRO InvalidateCachedBlacklist(STRING event, RECORD data)
 {
+  have_cached_blacklist := FALSE;
   cached_blacklist := DEFAULT RECORD ARRAY;
 }
 
 // May this URL be indexed? Returns empty string if not blacklisted, or pattern which blacklisted the URL
 STRING FUNCTION MayIndex(STRING url)
 {
+  IF (IsRobotsTxt(url))
+    RETURN robotstxt_pattern;
+
   RETURN SELECT AS STRING pattern
            FROM GetBlacklist() AS blacklist
           WHERE noindex
@@ -75,6 +97,9 @@ STRING FUNCTION MayIndex(STRING url)
 // May this link be checked? Returns empty string if not blacklisted, or pattern which blacklisted the URL
 STRING FUNCTION MayLinkCheckTo(STRING url)
 {
+  IF (IsRobotsTxt(url))
+    RETURN robotstxt_pattern;
+
   RETURN SELECT AS STRING pattern
            FROM GetBlacklist() AS blacklist
           WHERE nolinkcheck_to
