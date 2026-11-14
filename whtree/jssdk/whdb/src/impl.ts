@@ -506,21 +506,37 @@ export class WHDBConnectionImpl implements WHDBConnection {
     const client = this.waitConnected();
     if (!isPromise(client))
       client.passthroughQuery(query, callback);
-    else void client.then(c => {
-      c.passthroughQuery(query, callback);
-    }, e => callback(e));
+    else {
+      const failed = (error: unknown) => callback(isError(error) ? error : new Error(String(error), { cause: error }));
+      void client.then(c => {
+        let callbackThrew = false, callbackError: unknown;
+        const deliver: PGPassthroughQueryCallback = data => {
+          try {
+            callback(data);
+          } catch (error) {
+            callbackThrew = true;
+            callbackError = error;
+            throw error;
+          }
+        };
+        try {
+          c.passthroughQuery(query, deliver);
+        } catch (error) {
+          // A caller fault is not a transport failure: do not invoke it again.
+          if (callbackThrew && Object.is(error, callbackError))
+            throw error;
+          failed(error);
+        }
+      }, failed);
+    }
   }
 
   async close() {
-    if (this.client)
-      await this.client.close();
-    else if (this.clientPromise) {
-      void this.clientPromise.then(async client => {
-        this.client = undefined;
-        await client.close();
-      });
-    }
+    // An opening failure is delivered to its caller. Cleanup still owns the
+    // pending opening and a successful client's entire close acknowledgement.
+    const client = this.client ?? await this.clientPromise?.catch(() => undefined);
     this.client = undefined;
+    await client?.close();
   }
 
   async __getConfiguration() {

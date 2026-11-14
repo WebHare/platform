@@ -12,6 +12,7 @@
   <test script="test_systemtools.ts" />
   <test script="test_hscompat.ts" />
   <test script="test_codecontext.ts" />
+  <test script="test_connectionclose.ts" />
   <test script="test_crypto.ts" />
   <test script="test_registry.ts" />
   <test script="test_backend_services.ts" />
