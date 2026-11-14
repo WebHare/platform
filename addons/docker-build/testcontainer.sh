@@ -914,7 +914,7 @@ TESTENV_KILLCONTAINER2=""
 
 echo "$(date) Running fixmodules"
 for CONTAINERID in "${CONTAINERS[@]}"; do
-  if ! RunDocker exec "$TESTENV_CONTAINER1" wh fixmodules --nocompile --onlyinstalledmodules ; then
+  if ! RunDocker exec "$CONTAINERID" wh fixmodules --nocompile --onlyinstalledmodules ; then
     testfail "wh fixmodules failed"
   fi
 done
