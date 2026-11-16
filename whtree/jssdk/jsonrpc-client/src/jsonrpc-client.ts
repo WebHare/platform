@@ -29,9 +29,19 @@ export interface RPCCallOptions {
   /** Headers to submit (Eg Authorization) */
   headers?: Record<string, string>;
   /** Base URL for service paths */
+  baseURL?: string;
+  /** @deprecated Use baseURL */
   baseUrl?: string;
   /** Overide fetch credentials option (defaults to same-origin) */
   credentials?: RequestCredentials;
+}
+
+/** Map the deprecated baseUrl option to baseURL. Checks presence rather than value so an explicit `undefined` or `""` still resets an inherited base URL */
+function normalizeBaseURLOption<O extends { baseURL?: string; baseUrl?: string }>(options: O): O {
+  if (!("baseUrl" in options))
+    return options;
+  const { baseUrl, ...rest } = options;
+  return { ...rest, baseURL: rest.baseURL ?? baseUrl } as O;
 }
 
 export type RequestID = number | string | null;
@@ -156,7 +166,7 @@ class ControlledCall {
       else if (this.timedout)
         throw new Error(`RPC Timeout: timeout was set to ${this.timeout} milliseconds`);
       else
-        throw new Error(`RPC Failed: exception: ` + exception);
+        throw new Error(`RPC Failed: exception: ${String(exception)}`, { cause: exception });
     }
 
     let jsonresponse;
@@ -229,7 +239,7 @@ class RPCClient {
     this.options = {
       timeout: 0,
       debug: false,
-      ...options
+      ...normalizeBaseURLOption(options ?? {})
     };
 
     if (!url)
@@ -263,12 +273,12 @@ class RPCClient {
     if (url.match(/^https?:\/\//))
       return url;
 
-    if (this.options.baseUrl)
-      return new URL(url, this.options.baseUrl).toString();
+    if (this.options.baseURL)
+      return new URL(url, this.options.baseURL).toString();
     else if (backendBase)
       return backendBase + (backendBase.endsWith('/') && url.startsWith('/') ? url.substring(1) : url);
     else
-      throw new Error(`You must set the baseUrl option when using the JSONRPC Client without a full URL outside Webhare`);
+      throw new Error(`You must set the baseURL option when using the JSONRPC Client without a full URL outside Webhare`);
   }
 
   invoke(method: string, params: unknown[]) {
@@ -323,7 +333,7 @@ class ServiceProxy<T> {
       return (options: RPCCallOptions) => {
         const newoptions = {
           ...this.client.options,
-          ...options,
+          ...normalizeBaseURLOption(options),
           headers: { ...this.client.options.headers, ...options.headers }
         };
         return createClient<T>(this.client.url, newoptions);

@@ -9,7 +9,7 @@ export async function runOauthFlow(user: string, password: string, url: string) 
   let cookieValue = '';
 
   const authservice = rpc("platform:authservice", {
-    baseUrl: testportal, onResponse: (response) => {
+    baseURL: testportal, onResponse: (response) => {
       for (const cookie of response.headers.getSetCookie()) {
         cookieValue += cookie.split(';')[0] + '; ';
       }
