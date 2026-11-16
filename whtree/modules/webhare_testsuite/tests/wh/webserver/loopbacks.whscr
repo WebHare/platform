@@ -1323,7 +1323,7 @@ MACRO TestWHPubPreview()
   data := DecodeHSONBlob(previewbrowser->content);
   TestEQMembers(
       [ clienturl :=      'https://proxyhost:22143/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml'
-      , serverurl :=      `http://[2001:db8::2]:${testport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
+      , serverurl :=      `http://127.0.0.1:${testport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
       , remoteip :=       `2001:db8::1`
       , remoteport :=     0
       , localip :=        `2001:db8::2`
@@ -1349,7 +1349,7 @@ MACRO TestWHPubPreview()
   data := DecodeHSONBlob(previewbrowser->content);
   TestEQMembers(
       [ clienturl :=      'https://proxyhost:22143/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml'
-      , serverurl :=      `https://[2001:db8::2]:${testport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
+      , serverurl :=      `https://127.0.0.1:${testport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
       , remoteip :=       `2001:db8::1`
       , remoteport :=     0
       , localip :=        `2001:db8::2`
@@ -1392,7 +1392,7 @@ MACRO TestWHPubPreview()
   data := DecodeHSONBlob(previewbrowser->content);
   TestEQMembers(
       [ clienturl :=      'https://proxyhost:22143/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml'
-      , serverurl :=      `http://[2001:db8::2]:${testport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
+      , serverurl :=      `http://127.0.0.1:${testport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
       , remoteip :=       `2001:db8::1`
       , remoteport :=     0
       , localip :=        `2001:db8::2`
