@@ -135,7 +135,7 @@ function createServer(skills: SkillProvider) {
     try {
       switch (request.params.name) {
         case skillToolName: {
-          const name = String(request.params.arguments?.name);
+          const name = request.params.arguments?.name ? String(request.params.arguments.name) : undefined;
           const file = request.params.arguments?.file ? String(request.params.arguments.file) : undefined;
           const text = await skills.runTool(name, file);
           if (text === null)
