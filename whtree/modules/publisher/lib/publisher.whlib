@@ -442,7 +442,7 @@ PUBLIC RECORD FUNCTION LookupPublisherURL(STRING url, RECORD options DEFAULTSTO 
   IF(up.urlpath LIKE ".publisher/preview/*")
   {
     STRING baseurl := Tokenize(Tokenize(Tokenize(up.urlpath, '/')[2],'?')[0],'#')[0];
-    RECORD data := DecryptForThisServer("publisher:preview", baseurl);
+    RECORD data := DecryptForThisServer("publisher:preview", baseurl, [ fallback := DEFAULT RECORD ]);
     IF(RecordExists(data))
     {
       INTEGER targetid := data.id;
