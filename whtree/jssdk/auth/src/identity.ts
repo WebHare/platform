@@ -172,8 +172,10 @@ declare module "@webhare/services" {
       iat: number;
       /** Expiration */
       exp: number;
-      /** Return URL */
-      returnUrl: string;
+      /** Return URL. Optional as tokens created before WebHare 6.2 use returnUrl */
+      returnURL?: string;
+      /** @deprecated Return URL in tokens created before WebHare 6.2 */
+      returnUrl?: string;
       /** Is set password? */
       isSet?: boolean;
     };
@@ -947,7 +949,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     const iat = Date.now();
     const exp = convertWaitPeriodToDate(options?.expires || defaultPasswordResetExpiry).getTime();
     const verifier = options?.separateCode ? ((options?.prefix || "") + generateRandomId("hex", 6)).toUpperCase() : undefined;
-    const tok = encryptForThisServer("platform:passwordreset", { iat, exp, user, verifier, returnUrl: targetUrl, isSet: options?.isSetPassword || undefined });
+    const tok = encryptForThisServer("platform:passwordreset", { iat, exp, user, verifier, returnURL: targetUrl, isSet: options?.isSetPassword || undefined });
 
     if (!options?.skipAuditLog)
       await runInWork(() => writeAuthAuditEvent(this.wrdschema, {
@@ -988,7 +990,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       return { result: "expired" };
 
     const isSetPassword = decode.isSet || false;
-    const returnTo = decode.returnUrl;
+    const returnTo = decode.returnURL ?? decode.returnUrl;
     if (decode.exp < Date.now())
       return { result: "expired", isSetPassword, expired: Temporal.Instant.fromEpochMilliseconds(decode.exp * 1_000), returnTo };
 

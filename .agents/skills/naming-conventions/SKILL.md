@@ -21,6 +21,10 @@ rename a published API just to match. For general TypeScript guidelines see the
 - At the start of a camelCase name, write the acronym in lowercase: `url`,
   `whfsType`. Types and classes keep the capitals: `WHFSFolder`.
 - Exception: write `Id`, not `ID`: `entityId`, `fileId`, `parentId`.
+- Exception: database column names stay lowercase, as they are in PostgreSQL (eg. `creationdate` in
+  `system.fs_objects`). This also applies to rows (eg. `FsObjectRow`) and their extra cells that are selected
+  alongside the columns, such as `objectbaseurl`, so they stay consistent with what you see in `psql`. Use the
+  conventions above for the APIs that expose them, eg. `WHFSObject.objectBaseURL`.
 - Use `lang` for a variable, parameter or member holding a language code (eg.
   `"en"`, `"nl"`), not `langCode`, `language` or `languageCode`. Combine it
   like other words, eg. `defaultLang`.

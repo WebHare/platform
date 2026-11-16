@@ -3,7 +3,7 @@ import type { LinkEndpoint, LinkWireMessage } from "./linkendpoint";
 import { reportException } from "@mod-system/js/wh/errorreporting";
 
 export interface TransportBaseOptions {
-  commurl: string;
+  commURL: string;
   commhost: string;
   onrequestneeded: (() => void) | null;
   onresponse: (() => void) | null;
@@ -22,7 +22,7 @@ export default class TransportBase {
   constructor(options?: Partial<TransportBaseOptions>) {
     this.options =
     {
-      commurl: '',
+      commURL: '',
       commhost: '',
       onrequestneeded: null,
       onresponse: null,

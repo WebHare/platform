@@ -121,7 +121,7 @@ export async function createUploadSession(manifest: UploadManifest, { chunkSize 
   const sessid = await createServerSession("platform:uploadsession", { manifest, chunkSize }, { expires });
   const relUrl = "/.wh/common/upload/?session=" + sessid;
   return {
-    baseUrl: baseURL ? new URL(relUrl, baseURL).toString() : relUrl,
+    baseURL: baseURL ? new URL(relUrl, baseURL).toString() : relUrl,
     sessionId: sessid,
     chunkSize
   };
