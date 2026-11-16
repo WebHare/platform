@@ -104,7 +104,9 @@ PUBLIC STRING FUNCTION GetViewURLWithFeedback(OBJECT file, OBJECT tolliumuser)
 PUBLIC RECORD FUNCTION ParsePreviewURL(STRING url)
 {
   STRING baseurl := Tokenize(Tokenize(url, '/')[5],'?')[0];
-  RECORD data := DecryptForthisServer("publisher:preview",baseurl);
+  RECORD data := DecryptForthisServer("publisher:preview", baseurl, [ fallback := DEFAULT RECORD ]);
+  IF(NOT RecordExists(data))
+    RETURN DEFAULT RECORD;
   RETURN [ id := data.id
          , creationdate := data.c
          , validuntil := data.v
