@@ -107,6 +107,16 @@ RECORD FUNCTION GetObjInfo(INTEGER sourcetype, INTEGER64 sourceid)
   }
 }
 
+STRING FUNCTION GetUnifiedCacheHash(STRING cachesecret, STRING packet, STRING useextension)
+{
+  RETURN Left(GetHashForString(packet || useextension || cachesecret, "MD5"),4);
+}
+
+STRING FUNCTION MatchUnifiedCacheHash(STRING cachesecret, STRING packet, STRING useextension, STRING hash)
+{
+  RETURN GetUnifiedCacheHash(cachesecret, packet, useextension) = hash ? "match" : "";
+}
+
 PUBLIC STRING FUNCTION GetUCSubUrl(RECORD scalemethod, RECORD filedata, INTEGER datatype, INTEGER sourcetype, INTEGER64 sourceid, INTEGER cc, STRING useextension)
 {
   /* Format of added imginfo fields
@@ -143,7 +153,7 @@ PUBLIC STRING FUNCTION GetUCSubUrl(RECORD scalemethod, RECORD filedata, INTEGER 
     , ms := ms
     , imgdatalen := Length(imgdata)
     ]) || imgdata;
-  STRING hash := Left(GetHashForString(packet || useextension || GetClusterKeyBase("cachesecret"), "MD5"),4);
+  STRING hash := GetUnifiedCacheHash(GetClusterKeyBase("cachesecret"), packet, useextension);
   packet := ToLowercase(EncodeBase16(hash || packet));
   RETURN packet;
 }
@@ -501,8 +511,10 @@ PUBLIC RECORD FUNCTION AnalyzeUnifiedURLToken(STRING token)
     retval.hash := Left(datatoken, 4);
     retval.tohash := Substring(datatoken, 4);
 
-    STRING expectedhash := Left(GetHashForString(retval.tohash || retval.extension || GetClusterKeyBase("cachesecret"), "MD5"),4);
-    IF(expectedhash != retval.hash)
+    /* URLs signed with a retired cache secret are accepted until it's disabled: they only prove we once generated the URL
+       and give no access to anything, but published pages keep using them until they're republished */
+    IF(GetUnifiedCacheHash(GetClusterKeyBase("cachesecret"), retval.tohash, retval.extension) != retval.hash
+       AND TryRetiredSecrets("cache", "platform:unifiedcache", TRUE, PTR MatchUnifiedCacheHash(#1, retval.tohash, retval.extension, retval.hash)) = "")
       RETURN DEFAULT RECORD;
 
     retval.token := data.datatoken;
