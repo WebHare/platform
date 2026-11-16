@@ -101,6 +101,7 @@ PACKAGES+=(
  libpng
  libtiff
  openssl
+ pcre2
  pixman
  procps-ng
  psmisc

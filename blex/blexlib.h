@@ -704,6 +704,8 @@ template <typename NumberType>
 template <typename CharType> inline bool IsAlpha(CharType ch) { ch|=0x20; return ch>='a' && ch<='z'; }
 /** Is the character a digit? ASCII-only versions of isdigit */
 template <typename CharType> inline bool IsDigit(CharType ch) { return ch>='0' && ch<='9'; }
+/** Is the character a hexadecimal digit (0-9, A-F or a-f)? ASCII-only versions of isxdigit */
+template <typename CharType> inline bool IsHexDigit(CharType ch) { return IsDigit(ch) || ((ch|0x20)>='a' && (ch|0x20)<='f'); }
 /** Is the character in the range A-Z, a-z or 0-9? ASCII-only versions of isalnum*/
 template <typename CharType> inline bool IsAlNum(CharType ch) { return IsDigit(ch) || IsAlpha(ch); }
 /** Is the character in the ASCII character set? */

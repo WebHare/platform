@@ -3411,9 +3411,9 @@ void RegisterDeprecatedBaseLibs(BuiltinFunctionsRegistrator &bifreg, Blex::Conte
 #ifndef __EMSCRIPTEN__
         InitJobManager(creg, bifreg);
         InitIPC(creg, bifreg);
+        InitRegex(creg, bifreg);
 #endif
         InitJSON(creg, bifreg);
-        InitRegex(creg, bifreg);
         InitStrings(bifreg);
         InitEvents(bifreg);
 

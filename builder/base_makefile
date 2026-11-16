@@ -52,7 +52,7 @@ ifeq ($(WEBHARE_PLATFORM),darwin)
 	POSTGRESQLPACKAGE := $(POSTGRESQLPACKAGE)
 
 	# The pkgconfig dirs of postgresql@13, postgresql@14 and postgresql@17 differ. Include all patterns
-	PKGCONFIGPATHS = $(BREWPREFIX)/opt/openssl/lib/pkgconfig:$(BREWPREFIX)/opt/icu4c/lib/pkgconfig/:$(BREWPREFIX)/opt/$(POSTGRESQLPACKAGE)/lib/pkgconfig/:$(BREWPREFIX)/opt/$(POSTGRESQLPACKAGE)/lib/$(POSTGRESQLPACKAGE)/pkgconfig/:$(BREWPREFIX)/opt/$(POSTGRESQLPACKAGE)/lib/postgresql/pkgconfig/
+	PKGCONFIGPATHS = $(BREWPREFIX)/opt/openssl/lib/pkgconfig:$(BREWPREFIX)/opt/pcre2/lib/pkgconfig:$(BREWPREFIX)/opt/icu4c/lib/pkgconfig/:$(BREWPREFIX)/opt/$(POSTGRESQLPACKAGE)/lib/pkgconfig/:$(BREWPREFIX)/opt/$(POSTGRESQLPACKAGE)/lib/$(POSTGRESQLPACKAGE)/pkgconfig/:$(BREWPREFIX)/opt/$(POSTGRESQLPACKAGE)/lib/postgresql/pkgconfig/
 	CPPFLAGS += -I$(BREWPREFIX)/include -I$(BREWPREFIX)/include/pixman-1
 	GLOBALLDFLAGS += -L$(BREWPREFIX)/lib
 
@@ -90,7 +90,7 @@ export DLL_SUFFIX
 # Compiler/linker configuration
 #
 
-PKGCONFIG_PACKAGES = openssl pixman-1 icu-i18n libpq
+PKGCONFIG_PACKAGES = openssl pixman-1 icu-i18n libpq libpcre2-8
 PKGCONFIGCFLAGS := $(shell $(PKGCONFIG) --cflags $(PKGCONFIG_PACKAGES))
 PKGCONFIGLDFLAGS := $(shell $(PKGCONFIG) --libs $(PKGCONFIG_PACKAGES))
 
@@ -354,8 +354,8 @@ LIBBLEX_NATIVE_ADDTESTNAMES=test_btree_blocks test_btree_filesystem testdynamic 
 LIBBLEX_WASM_ADDTESTNAMES=
 
 # HARESCRIPT - Configuartion
-LIBHSVM_SHARED_SOURCENAMES=baselibs bl_blobs bl_docgen bl_json bl_libdumper bl_mime bl_os bl_regex bl_strings bl_tcpip bl_tokenstream bl_types bufferedpipes errors filesystem groupdata hs_lexer hsvm_blobinterface hsvm_columnnamemapper hsvm_constants hsvm_context hsvm_dllinterface hsvm_environment hsvm_events hsvm_externals hsvm_functioncalltree hsvm_idmapstorage hsvm_librarywrapper hsvm_loopbackdbprovider hsvm_marshalling hsvm_pgsql_base hsvm_recorddbprovider hsvm_sqlinterface hsvm_sqllib hsvm_sqlqueries hsvm_stackmachine hsvm_varmemory mangling outputobject sharedpool witty xml_cssengine xml_domobjects xml_provider
-LIBHSVM_NATIVE_ADDSOURCENAMES=bl_crypto hsvm_processmgr hsvm_debugger icu_provider ipc hsvm_pgsql_native
+LIBHSVM_SHARED_SOURCENAMES=baselibs bl_blobs bl_docgen bl_json bl_libdumper bl_mime bl_os bl_strings bl_tcpip bl_tokenstream bl_types bufferedpipes errors filesystem groupdata hs_lexer hsvm_blobinterface hsvm_columnnamemapper hsvm_constants hsvm_context hsvm_dllinterface hsvm_environment hsvm_events hsvm_externals hsvm_functioncalltree hsvm_idmapstorage hsvm_librarywrapper hsvm_loopbackdbprovider hsvm_marshalling hsvm_pgsql_base hsvm_recorddbprovider hsvm_sqlinterface hsvm_sqllib hsvm_sqlqueries hsvm_stackmachine hsvm_varmemory mangling outputobject sharedpool witty xml_cssengine xml_domobjects xml_provider
+LIBHSVM_NATIVE_ADDSOURCENAMES=bl_crypto bl_regex hsvm_processmgr hsvm_debugger icu_provider ipc hsvm_pgsql_native
 LIBHSVM_WASM_ADDSOURCENAMES=wasm-harescript wasm-tools hsvm_pgsql_wasm
 
 ## Expansions. Old defines may also use these..
@@ -398,7 +398,7 @@ blex_DEPLOYABLES_WHAP=$(blex_DEPLOYABLES_HSENGINE)
 blex_DEPLOYABLES=$(blex_DEPLOYABLES_WHAP)
 
 BLEX_BASE_LIBS=z dl $(ICU_LIBS) $(BLEX_SSL_LIBS)
-BLEX_HSVM_LIBS=$(ICU_LIBS) pq
+BLEX_HSVM_LIBS=$(ICU_LIBS) pq pcre2-8
 
 ifeq ($(WEBHARE_PLATFORM),darwin)
   BLEX_BASE_LIBS+=iconv
