@@ -163,8 +163,12 @@ export async function runPaymentRequest(driver: string, configAsJSON: string, hs
     ...buildPaymentCheck(hsPaymentInfo),
     orderId: hsPaymentInfo.orderid,
     paymentId: hsPaymentInfo.paymentuuid,
-    pushUrl: hsPaymentInfo.pushurl,
-    returnUrl: hsPaymentInfo.returnurl,
+    pushURL: hsPaymentInfo.pushurl,
+    returnURL: hsPaymentInfo.returnurl,
+    get pushUrl() { return this.pushURL; },
+    set pushUrl(value: string) { this.pushURL = value; },
+    get returnUrl() { return this.returnURL; },
+    set returnUrl(value: string) { this.returnURL = value; },
   };
 
   if (!req.orderId)
