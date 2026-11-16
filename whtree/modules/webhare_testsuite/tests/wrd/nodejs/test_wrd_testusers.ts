@@ -14,6 +14,8 @@ import type { PlatformDB } from "@mod-platform/generated/db/platform";
 //The JS testsite logs in using this schema, so we can test login links against it
 const schema = "webhare_testsuite:testschema";
 const testSchema = wrd<WRDSchemaLike["webhare_testsuite:oidcschema"]>(schema);
+//A schema only used for website logins, without units (and therefore without rights or roles)
+const noUnitsSchema = "webhare_testsuite:nounits";
 let roleAuthObjectId = 0;
 let regularUserId = 0;
 
@@ -28,6 +30,8 @@ async function setup() {
     regularUserId = await userApi.CreateUser({ whuser_unit: unitId, wrd_contact_email: "regular@beta.webhare.net" });
     const roleId = await userApi.CreateRole({ wrd_leftentity: unitId, wrd_title: "Testusers role", wrd_tag: "TESTUSERS_ROLE" });
     roleAuthObjectId = await (await userApi.GetRole(roleId) as HSVMObject).$get<number>("authobjectid");
+
+    await createSchema(noUnitsSchema, { schemaDefinitionResource: toResourcePath(__dirname + "/data/nounits.wrdschema.xml") });
   });
 }
 
@@ -91,6 +95,49 @@ async function testFindTestUser() {
   await test.throws(/is not a test user/, findTestUser("regular", { schema }));
 }
 
+// Verifies test users in a schema without units, which can't be granted rights or roles
+async function testSchemaWithoutUnits() {
+  const start = Temporal.Now.instant();
+  const anySchema = wrd<"*">(noUnitsSchema);
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: A test user is created without a unit and without rights (not even platform:debug)
+  const user = await createTestUser({ schema: noUnitsSchema });
+  test.eq(/^test\d+@beta\.webhare\.net$/, user.username);
+  test.eqPartial({ wrdContactEmail: user.username, wrdClosed: user.expires }, await anySchema.getFields("wrdPerson", user.wrdId, ["wrdContactEmail", "wrdClosed"]));
+  test.eqPartial({
+    entity: user.wrdId,
+    entityLogin: user.username,
+    data: { rights: [], roles: [], expires: user.expires }
+  }, await test.getLastAuthAuditEvent(anySchema, { type: "platform:testuser-created", since: start }));
+
+  const user2 = await createTestUser({ schema: noUnitsSchema });
+  test.eq(parseInt(user.username.substring(4)) + 1, parseInt(user2.username.substring(4)));
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Rights and roles are rejected before anything is created
+  const countUsers = async () => (await anySchema.query("wrdPerson").select("wrdId").historyMode("all").execute()).length;
+  const numUsers = await countUsers();
+  await test.throws(e => e instanceof TestUserError && /has no units/.test(e.message), createTestUser({ schema: noUnitsSchema, rights: ["system:sysop"] }));
+  await test.throws(e => e instanceof TestUserError && /has no units/.test(e.message), createTestUser({ schema: noUnitsSchema, roles: ["TESTUSERS_ROLE"] }));
+  test.eq(numUsers, await countUsers());
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Test users are recognized by their generated login and closing date
+  for (const spec of [String(user.wrdId), user.wrdGuid, user.username, user.username.split("@")[0]])
+    test.eq(user, await findTestUser(spec, { schema: noUnitsSchema }), `Looking up '${spec}'`);
+
+  const { notClosedId, otherLoginId } = await runInWork(async () => ({
+    //Looks like a test user's login, but test users always have a closing date
+    notClosedId: await anySchema.insert("wrdPerson", { wrdContactEmail: "test999998@beta.webhare.net" }),
+    //Has a closing date, but isn't a test user's login
+    otherLoginId: await anySchema.insert("wrdPerson", { wrdContactEmail: "closing@beta.webhare.net", wrdClosed: user.expires })
+  }));
+  await test.throws(/is not a test user/, findTestUser(String(notClosedId), { schema: noUnitsSchema }));
+  await test.throws(/is not a test user/, findTestUser("test999998", { schema: noUnitsSchema }));
+  await test.throws(/is not a test user/, findTestUser(String(otherLoginId), { schema: noUnitsSchema }));
+}
+
 /** Extract the (server-side) ID token cookie set by a test login redemption */
 function getIdTokenCookie(response: Response): string {
   const cookie = response.headers.getSetCookie().find(c => c.includes("accessToken%3A")) ?? throwError("Expected the ID token cookie to be set");
@@ -130,5 +177,6 @@ test.runTests([
   setup,
   testCreateTestUser,
   testFindTestUser,
+  testSchemaWithoutUnits,
   testLoginLink
 ]);

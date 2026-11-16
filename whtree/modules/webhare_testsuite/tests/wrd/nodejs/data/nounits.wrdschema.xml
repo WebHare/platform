@@ -1,0 +1,15 @@
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition"
+                  accountemailfield="wrd_contact_email"
+                  accountloginfield="wrd_contact_email"
+                  accountpasswordfield="password"
+                  accounttype="wrd_person">
+
+  <!-- A schema only used for website logins: no usermgmt import, so no units, rights or roles -->
+  <object tag="wrd_person">
+    <attributes>
+      <email tag="wrd_contact_email" required="1" title="Email address" unique="1" />
+      <authenticationsettings tag="password" title="Password" />
+    </attributes>
+  </object>
+
+</schemadefinition>
