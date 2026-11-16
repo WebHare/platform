@@ -395,6 +395,8 @@
 
     <!-- Legacy image cache URL. They should start using /.wh/ea/uc/ since WH 5.6.2 -->
     <webrule path="allroots:/.uc/" match="initial" cachecontrol="public, max-age=31536000, immutable" priority="after">
+      <!-- Sandbox user-uploaded content, see the /.wh/ea/uc/ rule in the platform module -->
+      <addheader header="Content-Security-Policy" value="sandbox" />
       <tryfolder path="whdata::caches/platform/uc/" resolver="sha256b16_directory" tag="platform:unifiedcache" />
       <tryfile path="mod::platform/scripts/routers/unifiedcache.shtml" />
     </webrule>

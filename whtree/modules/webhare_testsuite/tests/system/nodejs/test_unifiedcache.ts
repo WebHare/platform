@@ -571,7 +571,9 @@ async function testFileCache() {
   const extensionless = await tmpfolder.createFile("extensionless", { data: await ResourceDescriptor.from(Buffer.from("\x00\x01\x02\x03")) });
   const oddity = await tmpfolder.createFile("Bowie Space!.oddity", { data: await ResourceDescriptor.from(Buffer.from("Space?")) });
   const oddity2 = await tmpfolder.createFile("Bowie Space!.oddity 2!", { data: await ResourceDescriptor.from(Buffer.from("Space?")) });
-  test.assert(docxje.data && oddity.data && oddity2.data && extensionless.data);
+  const pdf = await tmpfolder.createFile("test.pdf", { data: await ResourceDescriptor.fromResource("mod::webhare_testsuite/web/resources/tests/test.pdf") });
+  const svg = await tmpfolder.createFile("script.svg", { data: await ResourceDescriptor.from(Buffer.from(`<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" width="200" height="40"><script>document.title="svg-script-ran"</script><text x="5" y="25">svg</text></svg>`), { mediaType: "image/svg+xml" }) });
+  test.assert(docxje.data && oddity.data && oddity2.data && extensionless.data && pdf.data && svg.data);
 
   await commitWork();
 
@@ -580,6 +582,21 @@ async function testFileCache() {
   const docxjelink_fetched = await fetch(new URL(docxjelink, backendConfig.backendURL));
   test.eq(200, docxjelink_fetched.status, `Failed to fetch ${docxjelink_fetched.url}`);
   test.eq("application/vnd.openxmlformats-officedocument.wordprocessingml.document", docxjelink_fetched.headers.get("content-type"));
+  test.eq("sandbox", docxjelink_fetched.headers.get("content-security-policy"), "Unified cache content should be sandboxed");
+
+  //Active content (SVG, PDF) must be served sandboxed so it can't run scripts in the site's origin
+  const pdflink = pdf.data.toLink({ fileName: "test.pdf" });
+  test.eq(/\/test.pdf$/, pdflink);
+  const pdflink_fetched = await fetch(new URL(pdflink, backendConfig.backendURL));
+  test.eq(200, pdflink_fetched.status, `Failed to fetch ${pdflink_fetched.url}`);
+  test.eq("application/pdf", pdflink_fetched.headers.get("content-type"));
+  test.eq("sandbox", pdflink_fetched.headers.get("content-security-policy"));
+
+  //WHFS currently stores SVGs as application/octet-stream (analyzeImage can't scan them) so they get a .bin link. Whatever type ends up being served, it must be sandboxed
+  const svglink = svg.data.toLink({ fileName: "script.svg" });
+  const svglink_fetched = await fetch(new URL(svglink, backendConfig.backendURL));
+  test.eq(200, svglink_fetched.status, `Failed to fetch ${svglink_fetched.url}`);
+  test.eq("sandbox", svglink_fetched.headers.get("content-security-policy"));
 
   let odditylink = oddity.data.toLink({ baseURL: backendConfig.backendURL });
   test.eq(/\/bowie-space.oddity.bin$/, odditylink);

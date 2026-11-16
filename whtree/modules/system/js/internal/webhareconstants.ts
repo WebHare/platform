@@ -213,7 +213,7 @@ export const whconstant_forms_validhandlereditdefaults = ["condition"];
 
 /* valid user-supplied debug tokens
    - apr is currently enabled for practical reasons but ideally we'd have users explicitly activate profiling through Debug or through an invite
-   - nsc needs to be here to allow skipping captchas. we're still doing a dtapstage check at use
+   - nsc needs to be here to allow skipping captchas. the captcha mock is only honoured on development servers (see captchamgmt.whlib)
 */
 export const whconstant_whdebug_publicflags = ["apr", "nsc"];
 
