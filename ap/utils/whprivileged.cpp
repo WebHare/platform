@@ -36,8 +36,9 @@
    - We don't use Blex::InvokeMyMain: it changes signal dispositions (which would be inherited by the programs we start)
      and initializes libraries we don't need.
    - Mount points (eg. volumes or directories shared from the host) are left alone and never descended into.
-   - All filesystem access is relative to directory file descriptors opened with O_NOFOLLOW, and ownership is changed
-     through O_PATH descriptors. A symlink planted by an unprivileged user is never followed.
+   - All filesystem access is relative to directory file descriptors and never follows symlinks (see the *At functions in
+     blex/path.h). Ownership of entries is only changed after verifying they're still the object we examined (race-free
+     on Linux, using O_PATH descriptors). A symlink planted by an unprivileged user is never followed.
    - When taking over a tree, only entries owned by the users we expect (root for data from a container that ran WebHare
      as root, or eg. postgres) are changed. Directories are processed depth first and changed only after their contents,
      so the unprivileged user can't add anything to a directory we still have to process. Root-owned files with multiple
@@ -47,28 +48,25 @@
 #include <blex/blexlib.h>
 #include <blex/getopt.h>
 #include <blex/path.h>
+#include <blex/threads.h>
 
-#include <dirent.h>
-#include <fcntl.h>
-#include <grp.h>
-#include <pwd.h>
 #include <signal.h>
-#include <sys/prctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/wait.h>
 #include <unistd.h>
 
 #include <algorithm>
 #include <cerrno>
 #include <cstring>
-#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
 namespace
 {
+
+using Blex::FileDescriptor;
+using Blex::FilePermissions::AccessFlags;
 
 std::string const DataRoot = "/opt/whdata";
 char const AllowedGroup[] = "whdata";
@@ -120,36 +118,15 @@ void Info(std::string const &msg)
         Blex::ErrStream() << "whprivileged: " << msg;
 }
 
-/// Owned file descriptor
-class Fd
+bool LastErrorIs(std::errc error)
 {
-        public:
-        Fd() : fd(-1) { }
-        explicit Fd(int _fd) : fd(_fd) { }
-        Fd(Fd &&rhs) : fd(rhs.fd) { rhs.fd = -1; }
-        Fd& operator=(Fd &&rhs) { if (this != &rhs) { Reset(); fd = rhs.fd; rhs.fd = -1; } return *this; }
-        ~Fd() { Reset(); }
-
-        int Get() const { return fd; }
-        bool IsValid() const { return fd >= 0; }
-        void Reset() { if (fd >= 0) close(fd); fd = -1; }
-
-        private:
-        Fd(Fd const &) = delete;
-        Fd& operator=(Fd const &) = delete;
-
-        int fd;
-};
-
-Fd OpenAt(int parentfd, std::string const &name, int flags)
-{
-        return Fd(openat(parentfd, name.c_str(), flags | O_NOFOLLOW | O_CLOEXEC));
+        return Blex::GetLastOSErrorCode() == error;
 }
 
-struct stat StatFd(int fd, std::string const &path)
+Blex::PathStatus StatFd(int fd, std::string const &path)
 {
-        struct stat st;
-        if (fstat(fd, &st) != 0)
+        Blex::PathStatus st(fd);
+        if (!st.Exists())
             FailOS("Cannot stat " + path);
         return st;
 }
@@ -161,20 +138,7 @@ bool Contains(UidSet const &set, uid_t uid)
 
 bool CallerIsAllowed()
 {
-        if (getuid() == 0 || getgid() == whdata_gid)
-            return true;
-
-        int ngroups = getgroups(0, nullptr);
-        if (ngroups < 0)
-            FailOS("getgroups");
-
-        std::vector< gid_t > groups(ngroups);
-        ngroups = getgroups(groups.size(), groups.data());
-        if (ngroups < 0)
-            FailOS("getgroups");
-        groups.resize(ngroups);
-
-        return std::find(groups.begin(), groups.end(), whdata_gid) != groups.end();
+        return getuid() == 0 || Blex::IsProcessInGroup(whdata_gid);
 }
 
 /// The uid and primary gid of a service user
@@ -186,102 +150,78 @@ struct ServiceUser
 
 ServiceUser LookupUser(std::string const &name)
 {
-        struct passwd *pw = getpwnam(name.c_str());
-        if (!pw)
+        ServiceUser user;
+        if (!Blex::LookupUser(name, &user.uid, &user.gid))
             Fail("User '" + name + "' does not exist");
-        if (pw->pw_uid == 0 || pw->pw_gid == 0)
+        if (user.uid == 0 || user.gid == 0)
             Fail("User '" + name + "' must not have uid or gid 0");
-        return ServiceUser{ pw->pw_uid, pw->pw_gid };
+        return user;
 }
 
 /// Open the dataroot and verify nobody but root can modify it - otherwise none of our checks make sense
-Fd OpenDataRoot()
+FileDescriptor OpenDataRoot()
 {
-        Fd fd(open(DataRoot.c_str(), O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
+        FileDescriptor fd = Blex::OpenDirectoryNoFollow(DataRoot);
         if (!fd.IsValid())
             FailOS("Cannot open " + DataRoot);
 
-        struct stat st = StatFd(fd.Get(), DataRoot);
-        if (st.st_uid != 0 || (st.st_mode & (S_IWGRP | S_IWOTH)))
+        Blex::PathStatus st = StatFd(fd.Get(), DataRoot);
+        if (st.GetOwner() != 0 || (st.GetUnixAccess() & (S_IWGRP | S_IWOTH)))
             Fail(DataRoot + " must be owned by root and not be writable by group or others");
         return fd;
-}
-
-/// Change ownership of the entry 'fd' (an O_PATH or regular descriptor)
-bool ChownFd(int fd, uid_t uid, gid_t gid)
-{
-        return fchownat(fd, "", uid, gid, AT_EMPTY_PATH | AT_SYMLINK_NOFOLLOW) == 0;
 }
 
 /// Give all entries inside dirfd that are owned by a user in 'from' to uid:gid, depth first
 void ClaimContents(int dirfd, std::string const &path, uid_t uid, gid_t gid, UidSet const &from)
 {
-        dev_t dir_dev = StatFd(dirfd, path).st_dev;
+        dev_t dir_dev = StatFd(dirfd, path).GetDevice();
 
-        int listfd = dup(dirfd);
-        if (listfd < 0)
-            FailOS("dup");
-        DIR *dir = fdopendir(listfd);
-        if (!dir)
+        std::vector< std::string > names;
+        if (!Blex::ListDirectoryAt(dirfd, &names))
+            FailOS("Cannot list " + path);
+
+        for (std::string const &name : names)
         {
-                close(listfd);
-                FailOS("Cannot list " + path);
-        }
-        std::unique_ptr< DIR, int(*)(DIR*) > dircloser(dir, &closedir);
-
-        while (struct dirent *entry = readdir(dir))
-        {
-                std::string name = entry->d_name;
-                if (name == "." || name == "..")
-                    continue;
-
                 std::string subpath = Blex::MergePath(path, name);
-                Fd fd = OpenAt(dirfd, name, O_PATH);
-                if (!fd.IsValid())
+                Blex::PathStatus st;
+                st.StatAt(dirfd, name);
+                if (!st.Exists())
                 {
-                        if (errno != ENOENT)
-                            Warn("Cannot open " + subpath + ": " + Blex::GetLastOSError());
+                        if (!LastErrorIs(std::errc::no_such_file_or_directory))
+                            Warn("Cannot stat " + subpath + ": " + Blex::GetLastOSError());
                         continue;
                 }
-
-                struct stat st;
-                if (fstat(fd.Get(), &st) != 0)
-                {
-                        Warn("Cannot stat " + subpath + ": " + Blex::GetLastOSError());
-                        continue;
-                }
-                if (st.st_dev != dir_dev) //never cross into other mounts
+                if (st.GetDevice() != dir_dev) //never cross into other mounts
                     continue;
 
-                if (st.st_uid == uid && st.st_gid == gid) //already ours. we still need to descend into directories though
+                if (st.GetOwner() == uid && st.GetGroup() == gid) //already ours. we still need to descend into directories though
                 {
-                        if (!S_ISDIR(st.st_mode))
+                        if (!st.IsDir())
                             continue;
                 }
-                else if (!Contains(from, st.st_uid))
+                else if (!Contains(from, st.GetOwner()))
                 {
                         continue; //owned by someone else, leave it (and its contents) alone
                 }
 
-                if (S_ISDIR(st.st_mode))
+                if (st.IsDir())
                 {
-                        // Reopen as a real directory descriptor - O_PATH descriptors can't be listed. Verify it's still the same dir
-                        Fd subdirfd = OpenAt(dirfd, name, O_DIRECTORY);
-                        struct stat subst;
-                        if (!subdirfd.IsValid() || fstat(subdirfd.Get(), &subst) != 0 || subst.st_dev != st.st_dev || subst.st_ino != st.st_ino)
+                        // Open the directory to process its contents. Verify it's still the same dir
+                        FileDescriptor subdirfd = Blex::OpenDirectoryAt(dirfd, name);
+                        if (!subdirfd.IsValid() || !Blex::PathStatus(subdirfd.Get()).IsSameObject(st))
                         {
                                 Warn(subpath + " changed while we were processing it, skipping");
                                 continue;
                         }
                         ClaimContents(subdirfd.Get(), subpath, uid, gid, from);
-                        if (fchown(subdirfd.Get(), uid, gid) != 0)
+                        if (!Blex::SetOwner(subdirfd.Get(), uid, gid))
                             Warn("Cannot chown " + subpath + ": " + Blex::GetLastOSError());
                 }
-                else if (S_ISREG(st.st_mode) || S_ISLNK(st.st_mode))
+                else if (st.IsFile() || st.IsLink())
                 {
-                        if (S_ISREG(st.st_mode) && st.st_uid == 0 && st.st_nlink > 1)
+                        if (st.IsFile() && st.GetOwner() == 0 && st.GetLinkCount() > 1)
                             Warn("Not changing ownership of " + subpath + ": it's owned by root and has multiple hard links");
-                        else if (!ChownFd(fd.Get(), uid, gid))
+                        else if (!Blex::SetOwnerAt(dirfd, name, uid, gid, st))
                             Warn("Cannot chown " + subpath + ": " + Blex::GetLastOSError());
                 }
                 // else: we don't touch sockets, fifos or device nodes
@@ -292,31 +232,31 @@ void ClaimContents(int dirfd, std::string const &path, uid_t uid, gid_t gid, Uid
     in 'from', take it and its contents over. Applies 'mode' when creating or taking over the directory, or always if
     force_mode is set.
     @return An open descriptor for the directory, invalid if we can't or won't use it */
-Fd EnsureDir(int parentfd, std::string const &path, std::string const &name, uid_t uid, gid_t gid, mode_t mode, bool force_mode, UidSet const &from)
+FileDescriptor EnsureDir(int parentfd, std::string const &path, std::string const &name, uid_t uid, gid_t gid, unsigned mode, bool force_mode, UidSet const &from)
 {
         bool created = false;
-        if (mkdirat(parentfd, name.c_str(), 0700) == 0)
+        if (Blex::CreateDirAt(parentfd, name, AccessFlags(0700)))
             created = true;
-        else if (errno != EEXIST)
+        else if (!LastErrorIs(std::errc::file_exists))
             FailOS("Cannot create " + path);
 
-        Fd fd = OpenAt(parentfd, name, O_DIRECTORY);
+        FileDescriptor fd = Blex::OpenDirectoryAt(parentfd, name);
         if (!fd.IsValid())
         {
                 Warn(path + " is not a directory: " + Blex::GetLastOSError());
-                return Fd();
+                return FileDescriptor();
         }
 
-        struct stat st = StatFd(fd.Get(), path);
-        if (st.st_dev != StatFd(parentfd, path).st_dev) //a mount (eg. a volume or a directory shared from the host). not ours to manage
+        Blex::PathStatus st = StatFd(fd.Get(), path);
+        if (st.GetDevice() != StatFd(parentfd, path).GetDevice()) //a mount (eg. a volume or a directory shared from the host). not ours to manage
             return fd;
 
-        if (st.st_uid != uid)
+        if (st.GetOwner() != uid)
         {
-                if (st.st_uid != 0 && !Contains(from, st.st_uid))
+                if (st.GetOwner() != 0 && !Contains(from, st.GetOwner()))
                 {
-                        Warn("Leaving " + path + " alone: it's owned by uid " + std::to_string(st.st_uid));
-                        return Fd();
+                        Warn("Leaving " + path + " alone: it's owned by uid " + std::to_string(st.GetOwner()));
+                        return FileDescriptor();
                 }
 
                 if (!created) //take over the contents too, eg. data from a container that ran WebHare as root
@@ -328,14 +268,14 @@ Fd EnsureDir(int parentfd, std::string const &path, std::string const &name, uid
                         ClaimContents(fd.Get(), path, uid, gid, claimfrom);
                 }
         }
-        if (st.st_uid != uid || st.st_gid != gid)
+        if (st.GetOwner() != uid || st.GetGroup() != gid)
         {
-                if (fchown(fd.Get(), uid, gid) != 0)
+                if (!Blex::SetOwner(fd.Get(), uid, gid))
                     FailOS("Cannot chown " + path);
                 force_mode = true;
         }
 
-        if ((force_mode || created) && (st.st_mode & 07777) != mode && fchmod(fd.Get(), mode) != 0)
+        if ((force_mode || created) && unsigned(st.GetUnixAccess() & 07777) != mode && !Blex::SetUNIXPermissions(fd.Get(), AccessFlags(mode)))
             FailOS("Cannot chmod " + path);
         return fd;
 }
@@ -344,27 +284,26 @@ Fd EnsureDir(int parentfd, std::string const &path, std::string const &name, uid
 void EnsureCallerFile(int parentfd, std::string const &name)
 {
         std::string path = Blex::MergePath(DataRoot, name);
-        Fd fd(openat(parentfd, name.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0640));
+        FileDescriptor fd = Blex::CreateFileAt(parentfd, name, AccessFlags(0640));
         if (fd.IsValid())
         {
-                if (fchown(fd.Get(), caller_uid, whdata_gid) != 0)
+                if (!Blex::SetOwner(fd.Get(), caller_uid, whdata_gid))
                     FailOS("Cannot chown " + path);
                 return;
         }
-        if (errno != EEXIST)
+        if (!LastErrorIs(std::errc::file_exists))
             FailOS("Cannot create " + path);
 
-        fd = OpenAt(parentfd, name, O_PATH);
-        if (!fd.IsValid())
-            FailOS("Cannot open " + path);
-
-        struct stat st = StatFd(fd.Get(), path);
-        if (st.st_uid == caller_uid)
+        Blex::PathStatus st;
+        st.StatAt(parentfd, name);
+        if (!st.Exists())
+            FailOS("Cannot stat " + path);
+        if (st.GetOwner() == caller_uid)
             return;
 
-        if (!S_ISREG(st.st_mode) || st.st_uid != 0 || st.st_nlink > 1)
+        if (!st.IsFile() || st.GetOwner() != 0 || st.GetLinkCount() > 1)
             Warn("Leaving " + path + " alone: not a regular file owned by root");
-        else if (!ChownFd(fd.Get(), caller_uid, whdata_gid))
+        else if (!Blex::SetOwnerAt(parentfd, name, caller_uid, whdata_gid, st))
             FailOS("Cannot chown " + path);
 }
 
@@ -372,36 +311,45 @@ void EnsureCallerFile(int parentfd, std::string const &name)
 void RemoveFile(int parentfd, std::string const &name)
 {
         std::string path = Blex::MergePath(DataRoot, name);
-        struct stat st;
-        if (fstatat(parentfd, name.c_str(), &st, AT_SYMLINK_NOFOLLOW) != 0)
+        Blex::PathStatus st;
+        st.StatAt(parentfd, name);
+        if (!st.Exists())
         {
-                if (errno != ENOENT)
+                if (!LastErrorIs(std::errc::no_such_file_or_directory))
                     Warn("Cannot stat " + path + ": " + Blex::GetLastOSError());
                 return;
         }
-        if (!S_ISREG(st.st_mode))
+        if (!st.IsFile())
         {
                 Warn("Not removing " + path + ": not a regular file");
                 return;
         }
-        if (unlinkat(parentfd, name.c_str(), 0) != 0 && errno != ENOENT)
+        if (!Blex::RemoveFileAt(parentfd, name) && !LastErrorIs(std::errc::no_such_file_or_directory))
             FailOS("Cannot remove " + path);
 }
 
-/// Open parentfd/name, which must be a directory owned by uid
-Fd OpenOwnedDir(int parentfd, std::string const &path, std::string const &name, uid_t uid)
+/// Does parentfd/name not exist? (false if it exists or we can't tell)
+bool IsMissing(int parentfd, std::string const &name)
 {
-        Fd fd = OpenAt(parentfd, name, O_DIRECTORY);
+        Blex::PathStatus st;
+        st.StatAt(parentfd, name);
+        return !st.Exists() && LastErrorIs(std::errc::no_such_file_or_directory);
+}
+
+/// Open parentfd/name, which must be a directory owned by uid
+FileDescriptor OpenOwnedDir(int parentfd, std::string const &path, std::string const &name, uid_t uid)
+{
+        FileDescriptor fd = Blex::OpenDirectoryAt(parentfd, name);
         if (!fd.IsValid())
             FailOS("Cannot open " + path);
-        if (StatFd(fd.Get(), path).st_uid != uid)
+        if (StatFd(fd.Get(), path).GetOwner() != uid)
             Fail(path + " is not owned by uid " + std::to_string(uid));
         return fd;
 }
 
 void PrepareDataRoot()
 {
-        Fd rootfd = OpenDataRoot();
+        FileDescriptor rootfd = OpenDataRoot();
 
         for (char const *name : WebHareDirs)
             EnsureDir(rootfd.Get(), Blex::MergePath(DataRoot, name), name, caller_uid, whdata_gid, 0750, false, UidSet());
@@ -423,9 +371,9 @@ void PreparePostgreSQLUserDirs(int psfd, uid_t postgres_uid)
 void PreparePostgreSQL()
 {
         ServiceUser pg = LookupUser("postgres");
-        Fd rootfd = OpenDataRoot();
+        FileDescriptor rootfd = OpenDataRoot();
 
-        Fd psfd = EnsureDir(rootfd.Get(), Blex::MergePath(DataRoot, "postgresql"), "postgresql", pg.uid, whdata_gid, 0710, true, UidSet());
+        FileDescriptor psfd = EnsureDir(rootfd.Get(), Blex::MergePath(DataRoot, "postgresql"), "postgresql", pg.uid, whdata_gid, 0710, true, UidSet());
         if (!psfd.IsValid())
             Fail("Cannot prepare " + Blex::MergePath(DataRoot, "postgresql"));
         PreparePostgreSQLUserDirs(psfd.Get(), pg.uid);
@@ -434,26 +382,26 @@ void PreparePostgreSQL()
 void PrepareOpenSearch()
 {
         ServiceUser os = LookupUser("opensearch");
-        Fd rootfd = OpenDataRoot();
+        FileDescriptor rootfd = OpenDataRoot();
 
         // Rename old data folder
-        struct stat st;
-        if (fstatat(rootfd.Get(), "opensearch", &st, AT_SYMLINK_NOFOLLOW) != 0 && errno == ENOENT
-            && fstatat(rootfd.Get(), "elasticsearch", &st, AT_SYMLINK_NOFOLLOW) == 0 && S_ISDIR(st.st_mode))
+        if (IsMissing(rootfd.Get(), "opensearch"))
         {
-                if (renameat(rootfd.Get(), "elasticsearch", rootfd.Get(), "opensearch") != 0)
+                Blex::PathStatus st;
+                st.StatAt(rootfd.Get(), "elasticsearch");
+                if (st.IsDir() && !Blex::MovePathAt(rootfd.Get(), "elasticsearch", rootfd.Get(), "opensearch"))
                     FailOS("Cannot rename " + Blex::MergePath(DataRoot, "elasticsearch") + " to opensearch");
         }
 
-        Fd osfd = EnsureDir(rootfd.Get(), Blex::MergePath(DataRoot, "opensearch"), "opensearch", os.uid, os.gid, 0700, true, UidSet());
+        FileDescriptor osfd = EnsureDir(rootfd.Get(), Blex::MergePath(DataRoot, "opensearch"), "opensearch", os.uid, os.gid, 0700, true, UidSet());
         if (!osfd.IsValid())
             Fail("Cannot prepare " + Blex::MergePath(DataRoot, "opensearch"));
 }
 
 void PrepareRestore()
 {
-        Fd rootfd = OpenDataRoot();
-        Fd fd = EnsureDir(rootfd.Get(), Blex::MergePath(DataRoot, "postgresql.restore"), "postgresql.restore", caller_uid, whdata_gid, 0700, true, UidSet());
+        FileDescriptor rootfd = OpenDataRoot();
+        FileDescriptor fd = EnsureDir(rootfd.Get(), Blex::MergePath(DataRoot, "postgresql.restore"), "postgresql.restore", caller_uid, whdata_gid, 0700, true, UidSet());
         if (!fd.IsValid())
             Fail("Cannot prepare " + Blex::MergePath(DataRoot, "postgresql.restore"));
 }
@@ -461,88 +409,45 @@ void PrepareRestore()
 void FinishRestore()
 {
         ServiceUser pg = LookupUser("postgres");
-        Fd rootfd = OpenDataRoot();
+        FileDescriptor rootfd = OpenDataRoot();
 
         std::string const psroot = Blex::MergePath(DataRoot, "postgresql");
         std::string const restoreroot = Blex::MergePath(DataRoot, "postgresql.restore");
 
-        struct stat st;
-        if (fstatat(rootfd.Get(), "postgresql", &st, AT_SYMLINK_NOFOLLOW) == 0 || errno != ENOENT)
+        if (!IsMissing(rootfd.Get(), "postgresql"))
             Fail(psroot + " already exists");
 
-        Fd restorefd = OpenOwnedDir(rootfd.Get(), restoreroot, "postgresql.restore", caller_uid);
+        FileDescriptor restorefd = OpenOwnedDir(rootfd.Get(), restoreroot, "postgresql.restore", caller_uid);
         OpenOwnedDir(restorefd.Get(), Blex::MergePath(restoreroot, "db"), "db", caller_uid);
         OpenOwnedDir(restorefd.Get(), Blex::MergePath(restoreroot, "blob"), "blob", caller_uid);
 
-        Fd psfd = EnsureDir(rootfd.Get(), psroot, "postgresql", pg.uid, whdata_gid, 0710, true, UidSet());
+        FileDescriptor psfd = EnsureDir(rootfd.Get(), psroot, "postgresql", pg.uid, whdata_gid, 0710, true, UidSet());
         if (!psfd.IsValid())
             Fail("Cannot create " + psroot);
 
         // Move the database into place first so the caller can no longer add anything to it, then hand it to postgres
-        if (renameat(restorefd.Get(), "db", psfd.Get(), "db") != 0)
+        if (!Blex::MovePathAt(restorefd.Get(), "db", psfd.Get(), "db"))
             FailOS("Cannot move the restored database into place");
 
         std::string const dbpath = Blex::MergePath(psroot, "db");
-        Fd dbfd = OpenOwnedDir(psfd.Get(), dbpath, "db", caller_uid);
+        FileDescriptor dbfd = OpenOwnedDir(psfd.Get(), dbpath, "db", caller_uid);
         ClaimContents(dbfd.Get(), dbpath, pg.uid, whdata_gid, UidSet{ caller_uid });
-        if (fchown(dbfd.Get(), pg.uid, whdata_gid) != 0 || fchmod(dbfd.Get(), 0700) != 0)
+        if (!Blex::SetOwner(dbfd.Get(), pg.uid, whdata_gid) || !Blex::SetUNIXPermissions(dbfd.Get(), AccessFlags(0700)))
             FailOS("Cannot hand " + dbpath + " to postgres");
 
-        if (renameat(restorefd.Get(), "blob", psfd.Get(), "blob") != 0)
+        if (!Blex::MovePathAt(restorefd.Get(), "blob", psfd.Get(), "blob"))
             FailOS("Cannot move the restored blobs into place");
         PreparePostgreSQLUserDirs(psfd.Get(), pg.uid);
 
         restorefd.Reset();
-        if (unlinkat(rootfd.Get(), "postgresql.restore", AT_REMOVEDIR) != 0)
+        if (!Blex::RemoveDirAt(rootfd.Get(), "postgresql.restore"))
             Warn("Cannot remove " + restoreroot + ": " + Blex::GetLastOSError());
 }
 
 void ClearRestoreMode()
 {
-        Fd rootfd = OpenDataRoot();
+        FileDescriptor rootfd = OpenDataRoot();
         RemoveFile(rootfd.Get(), "webhare.restoremode");
-}
-
-volatile sig_atomic_t child_pid;
-
-void ForwardSignal(int sig)
-{
-        if (child_pid > 0)
-            kill(child_pid, sig);
-}
-
-/// Wait for the child, forwarding termination signals to it, and exit with its status
-[[noreturn]] void SuperviseChild()
-{
-        struct sigaction sa;
-        memset(&sa, 0, sizeof sa);
-        sa.sa_handler = ForwardSignal; //no SA_RESTART, we want waitpid to return so we notice the child exiting
-        sigemptyset(&sa.sa_mask);
-        for (int sig : { SIGHUP, SIGINT, SIGQUIT, SIGTERM, SIGUSR1, SIGUSR2, SIGALRM, SIGWINCH, SIGCONT })
-            sigaction(sig, &sa, nullptr);
-
-        int status;
-        while (true)
-        {
-                pid_t res = waitpid(child_pid, &status, 0);
-                if (res == child_pid)
-                    break;
-                if (res < 0 && errno != EINTR)
-                    FailOS("waitpid");
-        }
-
-        if (WIFEXITED(status))
-            _exit(WEXITSTATUS(status));
-
-        // Die the same way our child did so our parent sees the same result
-        int sig = WTERMSIG(status);
-        signal(sig, SIG_DFL);
-        sigset_t unblock;
-        sigemptyset(&unblock);
-        sigaddset(&unblock, sig);
-        sigprocmask(SIG_UNBLOCK, &unblock, nullptr);
-        raise(sig);
-        _exit(128 + sig);
 }
 
 /// Report an error in the forked child of RunAs. Only uses async-signal-safe functions
@@ -587,13 +492,14 @@ void ForwardSignal(int sig)
         argv.push_back(nullptr);
 
         // Drop supplementary groups and switch to the target group (needs root, so do it before forking)
-        if (setgroups(groups.size(), groups.data()) != 0)
+        if (!Blex::SetSupplementaryGroups(groups))
             FailOS("setgroups");
-        if (setresgid(user.gid, user.gid, user.gid) != 0)
+        if (!Blex::SetProcessGroupIds(user.gid, user.gid))
             FailOS("setresgid");
 
         /* We can't simply exec the program: the caller (eg. the WebHare service manager) wouldn't be allowed to signal it to
-           stop it. So we stay around as a parent that forwards signals. Block them until we've set up forwarding */
+           stop it. So we stay around as a parent that forwards signals. Block them until we're ready to forward them
+           (WaitForProcessForwardingSignals unblocks them) */
         sigset_t all, old;
         sigfillset(&all);
         sigprocmask(SIG_BLOCK, &all, &old);
@@ -605,24 +511,26 @@ void ForwardSignal(int sig)
 
         if (pid > 0)
         {
-                child_pid = pid;
                 /* The parent keeps the caller as real uid so the caller can signal us, and the target user as effective uid so we
                    can signal the child. Changing credentials also makes us non-dumpable so the caller can't ptrace us */
-                if (setresuid(caller_uid, user.uid, user.uid) != 0)
+                if (!Blex::SetProcessUserIds(caller_uid, user.uid))
                 {
                         kill(pid, SIGKILL);
                         FailOS("setresuid");
                 }
                 /* We don't need any of the caller's file descriptors except stdin/out/err (for puppeteer, its pipe should close
                    when the browser exits) */
-                close_range(3, ~0U, 0);
-                sigprocmask(SIG_SETMASK, &old, nullptr);
-                SuperviseChild();
+                Blex::CloseFileHandlesFrom(3);
+
+                int status = Blex::WaitForProcessForwardingSignals(pid);
+                if (status == -1)
+                    FailOS("waitpid");
+                Blex::ExitWithWaitStatus(status);
         }
 
         /* Child. Only use async-signal-safe functions from here on: ChildFail writes a fixed message and _exits */
         // Drop the uid (real, effective and saved)
-        if (setresuid(user.uid, user.uid, user.uid) != 0)
+        if (!Blex::SetProcessUserIds(user.uid, user.uid))
             ChildFail("whprivileged: setresuid failed\n");
 
         // Paranoia: verify we can't get root back
@@ -630,10 +538,10 @@ void ForwardSignal(int sig)
             ChildFail("whprivileged: still able to regain root after dropping privileges\n");
 
         // None of these services need setuid helpers (chrome is started with --no-sandbox). Make sure they can't use any
-        if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0)
+        if (!Blex::DisallowNewPrivileges())
             ChildFail("whprivileged: prctl(PR_SET_NO_NEW_PRIVS) failed\n");
         // If our parent is killed (eg. SIGKILL from the service manager), take the child down too
-        if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0) != 0)
+        if (!Blex::SetParentDeathSignal(SIGKILL))
             ChildFail("whprivileged: prctl(PR_SET_PDEATHSIG) failed\n");
         if (getppid() != parent_pid) //parent already gone
             _exit(127);
@@ -678,10 +586,8 @@ int PrivilegedMain(int argc, char const * const argv[])
         if (geteuid() != 0)
             Fail("Not running as root - this binary must be owned by root and have the setuid bit set");
 
-        struct group *grp = getgrnam(AllowedGroup);
-        if (!grp)
+        if (!Blex::LookupGroup(AllowedGroup, &whdata_gid))
             Fail(std::string("Group '") + AllowedGroup + "' does not exist");
-        whdata_gid = grp->gr_gid;
 
         // File permissions (root:whdata 4750) should already enforce this, but don't depend on that
         if (!CallerIsAllowed())
