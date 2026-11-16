@@ -2,6 +2,7 @@
 
 LOADLIB "wh::internet/urls.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/webserver/whdebug.whlib";
@@ -302,7 +303,7 @@ PUBLIC STATIC OBJECTTYPE WebContext <
 
   STRING FUNCTION __GetCaptchaURL()
   {
-    STRING url := IsWHDebugOptionSet("nsc") ? "mock" : GetFormRequestURL();
+    STRING url := IsWHDebugOptionSet("nsc") AND GetDtapStage() = "development" ? "mock" : GetFormRequestURL();
     RETURN url;
   }
 

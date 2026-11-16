@@ -5,11 +5,17 @@ LOADLIB "wh::internet/urls.whlib";
 LOADLIB "mod::platform/lib/captcha/friendly-captcha.whlib";
 LOADLIB "mod::platform/lib/captcha/google-recaptcha.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/keystore.whlib";
 LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 
+// The unsigned ?wh-debug=nsc flag is public, so only honour the captcha mock on development servers
+BOOLEAN FUNCTION IsCaptchaMockAllowed() {
+  RETURN GetDTAPStage() = "development" AND IsWHDebugOptionSet("nsc");
+}
+
 PUBLIC RECORD FUNCTION GetCaptchaProvider(STRING url) {
-  IF(IsWHDebugOptionSet("nsc")) //the mock for CI is currently provided by the google recaptcha code
+  IF(IsCaptchaMockAllowed()) //the mock for CI is currently provided by the google recaptcha code
     RETURN CELL[ name := "google-recaptcha", apikey := "mock" ];
 
   RECORD keyinfo := GetAPIKey(["platform:google.recaptcha","platform:friendlycaptcha"], url, [ allowmissing := TRUE ]);
@@ -26,7 +32,7 @@ PUBLIC BOOLEAN FUNCTION VerifyCaptchaResponse(STRING url, STRING response)  {
   IF(response = "") //Don't send anyone a request if we know it won't pass
     RETURN FALSE;
 
-  IF(IsWHDebugOptionSet("nsc"))
+  IF(IsCaptchaMockAllowed())
     RETURN response = "mock";
 
   RECORD provider := GetCaptchaProvider(url);
