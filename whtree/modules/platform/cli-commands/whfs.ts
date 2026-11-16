@@ -2,7 +2,7 @@
 
 import { createWHFSExportZip, describeWHFSType, lookupURL, openFileOrFolder, openSite, storeWHFSExport, type ExportWHFSOptions, type WHFSFile } from '@webhare/whfs';
 import { CLIRuntimeError, CLISyntaxError, enumOption, floatOption, intOption, runCli, type CLIArgumentType } from "@webhare/cli";
-import { countContentTypeUsage, describeContentType, findContentType, getAllContentTypes, getTypeName, listContentTypes, metaTypeCategories, type DescribedWHFSType, type ListedWHFSType } from '@mod-platform/js/cli/whfs-types';
+import { countWHFSTypeUsage, describeContentType, findContentType, getAllContentTypes, getTypeName, listContentTypes, metaTypeCategories, type DescribedWHFSType, type ListedWHFSType } from '@mod-platform/js/cli/whfs-types';
 import type { CSPContentType } from '@webhare/whfs/src/siteprofiles';
 import { getBestMatch } from "@webhare/js-api-tools";
 import { storeDiskFile } from "@webhare/system-tools";
@@ -298,7 +298,7 @@ runCli({
         let types: Array<ListedWHFSType | DescribedWHFSType> = listContentTypes({ masks: args.masks, categories: opts.kind, members: opts.members });
         if (opts.count) {
           const typeIds = new Map(getAllContentTypes().map(type => [getTypeName(type), type.id]));
-          const counts = await countContentTypeUsage(types.map(type => typeIds.get(type.type)!));
+          const counts = await countWHFSTypeUsage(types.map(type => typeIds.get(type.type)!));
           types = types.map(type => ({ ...type, count: counts.get(typeIds.get(type.type)!) }));
         }
         if (opts.json)

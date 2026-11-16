@@ -157,7 +157,7 @@ export interface WHFSTypeUsageCount {
  * @param typeIds - Ids of the types to count
  * @returns Usage counts per type id. Every requested id is present in the map
  */
-export async function countContentTypeUsage(typeIds: number[]): Promise<Map<number, WHFSTypeUsageCount>> {
+export async function countWHFSTypeUsage(typeIds: number[]): Promise<Map<number, WHFSTypeUsageCount>> {
   const result = new Map<number, WHFSTypeUsageCount>(typeIds.map(id => [id, { objects: 0, instances: 0, embedded: 0 }]));
   if (!typeIds.length)
     return result;

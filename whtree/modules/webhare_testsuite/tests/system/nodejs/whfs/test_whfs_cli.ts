@@ -1,11 +1,23 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
-import { buildRTD, ResourceDescriptor } from "@webhare/services";
+import { buildInstance, buildRTD, ResourceDescriptor } from "@webhare/services";
 import type { RTDExport } from "@webhare/services/src/richdocument";
 import { beginWork, commitWork } from "@webhare/whdb";
 import { whfsType } from "@webhare/whfs";
 import { spawnSync } from "node:child_process";
 
+function getTypeUsageCounts() {
+  const listResult = spawnSync("wh", ["whfs", "list-types", "--json", "--count", "platform:filetypes.richdocument", "webhare_testsuite:global.generic_test_type"], { shell: false, encoding: "utf-8", stdio: ['inherit', 'pipe', 'inherit'] });
+  test.eq(0, listResult.status, "list-types command should succeed");
+  const types = JSON.parse(listResult.stdout) as Array<{ type: string; count: { objects: number; instances: number; embedded: number } }>;
+  return {
+    rtd: types.find(type => type.type === "platform:filetypes.richdocument")!.count,
+    widget: types.find(type => type.type === "webhare_testsuite:global.generic_test_type")!.count
+  };
+}
+
 async function testWHFSCli() {
+  const baseline = getTypeUsageCounts();
+
   //setup test data
   await beginWork();
   const tmpfolder = await test.getTestSiteJSTemp();
@@ -13,7 +25,10 @@ async function testWHFSCli() {
   const newFile2 = await tmpfolder.createFile("new-file-2", { type: "platform:filetypes.richdocument", title: "Export test", data: null });
   const fish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getHash: true, getImageMetadata: true });
   await whfsType("platform:filetypes.richdocument").set(newFile.id, {
-    data: await buildRTD([{ p: ["Dit is een test met image: ", { image: fish }] }])
+    data: await buildRTD([
+      { p: ["Dit is een test met image: ", { image: fish }] },
+      { widget: await buildInstance({ whfsType: "webhare_testsuite:global.generic_test_type", data: { str: "embedded widget" } }) }
+    ])
   });
   await commitWork();
 
@@ -49,12 +64,10 @@ async function testWHFSCli() {
     test.eq(rtdData2.blocks[0].items[0], richieFirstParagraph.items[0]);
   }
 
-  const listResult = spawnSync("wh", ["whfs", "list-types", "--json", "--count", "platform:filetypes.richdocument"], { shell: false, encoding: "utf-8", stdio: ['inherit', 'pipe', 'inherit'] });
-  test.eq(0, listResult.status, "list-types command should succeed");
-  const [rtdType] = JSON.parse(listResult.stdout);
-  test.eq("platform:filetypes.richdocument", rtdType.type);
-  test.assert(rtdType.count.objects >= 2, "should count at least our two new files");
-  test.assert(rtdType.count.instances >= 2, "should count the instances of our two new files");
+  const counts = getTypeUsageCounts();
+  test.eq(baseline.rtd.objects + 2, counts.rtd.objects, "should count our two new files");
+  test.eq(baseline.rtd.instances + 2, counts.rtd.instances, "should count the instances of our two new files");
+  test.eq(baseline.widget.embedded + 2, counts.widget.embedded, "should count the widget embedded in both files");
 }
 
 
