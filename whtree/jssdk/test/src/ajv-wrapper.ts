@@ -1,3 +1,6 @@
+//Node requires the JSON import attribute, but our tsconfig's commonjs module setting doesn't allow it (TS2823)
+// @ts-expect-error -- see above
+import draft06MetaSchema from "ajv/dist/refs/json-schema-draft-06.json" with { type: "json" };
 import type { SchemaObject, ValidateFunction } from "ajv";
 import type Ajv from "ajv";
 import type Ajv2019 from "ajv/dist/2019";
@@ -10,6 +13,14 @@ let ajv2020: (Ajv2020 | null) = null;
 export type { SchemaObject as JSONSchemaObject, ValidateFunction as AjvValidateFunction };
 export type AnyAjv = Ajv | Ajv2019 | Ajv2020;
 
+/** JSON Schema meta-schema URLs we know which Ajv flavour to use for */
+export const knownJSONSchemaMetaSchemas: readonly string[] = [
+  "http://json-schema.org/draft-06/schema#",
+  "http://json-schema.org/draft-07/schema#",
+  "https://json-schema.org/draft/2019-09/schema",
+  "https://json-schema.org/draft/2020-12/schema",
+];
+
 function addKeywords(ajv: AnyAjv) {
   ajv.addKeyword({
     keyword: "tsType",
@@ -17,24 +28,26 @@ function addKeywords(ajv: AnyAjv) {
   });
 }
 
-export async function getAjvForSchema(schema: SchemaObject) {
+export async function getAjvForSchema(schema: SchemaObject | boolean) {
   const addFormats = (await import("ajv-formats")).default;
+  const $schema = typeof schema === "object" && schema ? schema.$schema : undefined;
 
   if ([
-    "http://json-schema.org/draft-04/schema#",
     "http://json-schema.org/draft-06/schema#",
     "http://json-schema.org/draft-07/schema#",
-  ].includes(schema.$schema ?? "")) {
+  ].includes($schema ?? "")) {
     if (!ajvDraft) {
       const AjvLib = await import("ajv");
       ajvDraft = new AjvLib.default({ allErrors: true, allowMatchingProperties: true, strict: true });
+      //Ajv's default instance only knows draft-07, add the draft-06 meta-schema (Ajv 8 doesn't support draft-04)
+      ajvDraft.addMetaSchema(draft06MetaSchema);
       addFormats(ajvDraft);
       addKeywords(ajvDraft);
     }
     return ajvDraft;
   }
 
-  if (schema.$schema === "https://json-schema.org/draft/2019-09/schema") {
+  if ($schema === "https://json-schema.org/draft/2019-09/schema") {
     if (!ajv2019) {
       const Ajv2019Lib = await import("ajv/dist/2019.js");
       ajv2019 = new Ajv2019Lib.default({ allErrors: true, allowMatchingProperties: true, strict: true });

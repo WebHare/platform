@@ -15,8 +15,8 @@
       <exclude mask="tests/publisher/siteprofile/data/test*.xml" why="Purposefully broken site profiles" />
       <exclude mask="tests/wh/hscore/xml/testinfo.xml"
                why="Refers to generated/testinfo.xml but this file does not exist until the XML tests have been generated" />
-      <exclude mask="tests/baselibs/hsengine/testdata_jobs_loadliberror.whlib"
-               why="Purposefully broken loadlib" />
+      <exclude mask="tests/baselibs/hsengine/testdata_jobs_loadliberror.whlib" why="Purposefully broken loadlib" />
+      <exclude mask="tests/system/nodejs/data/null.schema.json" why="Purposefully broken schema" />
 
       <!-- <exclude mask="tests/*/data/*" why="don't validate test data, its often broke" /> -->
       <exclude mask="*testdata_loadlib_circ_?.whlib" why="These libraries are supposed to fail to compile" />
@@ -36,7 +36,7 @@
 
   <servicemanager>
     <runonce script="scripts/runonce/typescript-runonce.ts" tag="typescript_runonce" when="poststart" />
-    <runonce script="scripts/whcommands/reset.whscr" tag="setuptestsites" when="poststart" ifenvironset="WEBHARE_CI"  />
+    <runonce script="scripts/whcommands/reset.whscr" tag="setuptestsites" when="poststart" ifenvironset="WEBHARE_CI" />
 
     <task script="scripts/tasks/singleshottest.ts" tag="singleshottest" description="Test singleshot tasks">
       <arg>ARG1 SHOT</arg>
@@ -72,13 +72,13 @@
       </accesscheck>
     </linkapp>
 
-    <application name="runscreen" startmacro="lib/tollium.whlib#RunScreen" allowuntrustedparams="true">
+    <application name="runscreen" allowuntrustedparams="true" startmacro="lib/tollium.whlib#RunScreen">
       <accesscheck />
     </application>
-    <application name="runwasmscreen" startmacro="lib/tollium.whlib#RunScreen" allowuntrustedparams="true" engine="wasm">
+    <application name="runwasmscreen" allowuntrustedparams="true" engine="wasm" startmacro="lib/tollium.whlib#RunScreen">
       <accesscheck />
     </application>
-    <application name="runyamlscreen" startmacro="lib/tollium.whlib#RunYamlScreenApp" allowuntrustedparams="true">
+    <application name="runyamlscreen" allowuntrustedparams="true" startmacro="lib/tollium.whlib#RunYamlScreenApp">
       <accesscheck />
     </application>
     <application name="testdocs" startmacro="tests/tollium/shell/data/testdocs.whlib#starttestdocs">
@@ -87,7 +87,9 @@
     <application name="uploadtest" screen="/tolliumapps/components/uploadtest.xml">
       <accesscheck />
     </application>
-    <application name="anycomponent" startmacro="lib/screens/tests/anycomponent.whlib#RunAnyComponent" allowuntrustedparams="true">
+    <application name="anycomponent"
+                 allowuntrustedparams="true"
+                 startmacro="lib/screens/tests/anycomponent.whlib#RunAnyComponent">
       <accesscheck />
     </application>
     <application name="appstarttest" screen="/screens/tests/comm.xml#appstart">
@@ -361,8 +363,8 @@
     <webdesignplugin name="test"
                      hooksfeatures="preparemail"
                      namespace="http://www.webhare.net/xmlns/webhare_testsuite"
-                     toyaml="mod::webhare_testsuite/lib/internal/testplugin.whlib#ParseTestPlugin"
                      objectname="mod::webhare_testsuite/lib/internal/testplugin.whlib#TestPlugin"
+                     toyaml="mod::webhare_testsuite/lib/internal/testplugin.whlib#ParseTestPlugin"
                      yamlproperty="testPlugin" />
 
     <filemgrextension>
