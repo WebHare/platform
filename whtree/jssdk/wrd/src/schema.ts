@@ -848,7 +848,11 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 
   private async __closeEntities(ids: number[], closeAt: Date): Promise<void> {
+    //Don't move the close date of entities that were already closed
+    const alreadyClosed = new Set((await db<PlatformDB>().selectFrom("wrd.entities").select("id").where("id", "in", [...new Set(ids)]).where("limitdate", "<=", closeAt).execute()).map(_ => _.id));
     for (const id of ids) {
+      if (alreadyClosed.has(id))
+        continue;
       //@ts-expect-error WRD doesn't recognize wrdClosed/wrdLimitDate as existing everywhere
       await this.updateEntity(id, this.legacySchema ? { wrdLimitDate: closeAt } : { wrdClosed: closeAt });
     }
