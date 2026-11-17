@@ -919,17 +919,20 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 PUBLIC STATIC OBJECTTYPE EditSource EXTEND TolliumScreenBase
 <
   INTEGER entityid;
+  STRING originalsource;
 
   MACRO Init(RECORD data)
   {
     this->entityid := data.entityid;
     RECORD result := CallJS("@mod-wrd/js/internal/entitysource.ts#exportEntitySource", this->entityid);
+    this->originalsource := result.yaml;
     ^code->value := result.yaml;
   }
 
   BOOLEAN FUNCTION Submit()
   {
-    RECORD result := CallJS("@mod-wrd/js/internal/entitysource.ts#importEntitySource", this->entityid, ^code->value);
+    //Only fields changed compared to the original export are updated
+    RECORD result := CallJS("@mod-wrd/js/internal/entitysource.ts#importEntitySource", this->entityid, ^code->value, this->originalsource);
     OBJECT work := this->BeginUnvalidatedFeedback();
     IF(result.error != "")
       work->AddError(result.error);

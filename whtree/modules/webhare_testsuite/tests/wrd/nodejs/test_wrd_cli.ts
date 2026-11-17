@@ -3,7 +3,7 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { createWRDTestSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import type { Combine, WRDInsertable } from "@webhare/wrd/src/types";
 import { buildRTD, ResourceDescriptor } from "@webhare/services";
-import { beginWork, commitWork } from "@webhare/whdb";
+import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 import { spawnSync } from "node:child_process";
 import type { RTDExport } from "@webhare/services/src/richdocument";
 import { omit } from "@webhare/std";
@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { YAML } from "@webhare/deps";
 import { storeTempFile } from "@webhare/system-tools";
+import { exportEntitySource, importEntitySource } from "@mod-wrd/js/internal/entitysource";
 
 async function testWRDSettingsCli() {
   await createWRDTestSchema();
@@ -217,7 +218,7 @@ async function testWRDEditEntityCli() {
   writeFileSync(newSource.path, original.replace(/^wrdFirstName: Edit$/m, "wrdFirstName: Edited"));
   const editResult = runEdit({ VISUAL: editorScript.path, EDITOR: "false" });
   test.eq(0, editResult.status, editResult.stderr);
-  test.eq(`Updated entity #${personId}\n`, editResult.stdout);
+  test.eq(`Updated entity #${personId}: wrdFirstName\n`, editResult.stdout);
   test.eq("Edited", await wrdschema.getFields("wrdPerson", personId, "wrdFirstName"));
 
   //Invalid source fails without updating (and doesn't offer to retry as stdin isn't a terminal)
@@ -226,6 +227,23 @@ async function testWRDEditEntityCli() {
   test.eq(1, invalidResult.status);
   test.eq(/must be a YAML object/, invalidResult.stderr);
   test.eq("Edited", await wrdschema.getFields("wrdPerson", personId, "wrdFirstName"));
+
+  //Only fields changed compared to the original export are applied, so concurrent changes to other fields survive
+  const { yaml: exported } = await exportEntitySource(personId);
+  await runInWork(() => wrdschema.update("wrdPerson", personId, { wrdLastName: "Changed elsewhere" }));
+  test.eq({ error: "", changedFields: [] }, await importEntitySource(personId, exported, exported));
+  test.eq({ error: "", changedFields: ["wrdFirstName"] }, await importEntitySource(personId, exported.replace(/^wrdFirstName: Edited$/m, "wrdFirstName: Again"), exported));
+  test.eqPartial({ wrdFirstName: "Again", wrdLastName: "Changed elsewhere" }, await wrdschema.getFields("wrdPerson", personId, ["wrdFirstName", "wrdLastName"]));
+
+  //A failed edit compared with the original export still fails instead of being reported as unmodified
+  test.eq(/must be a YAML object/, (await importEntitySource(personId, "- not an object\n", exported)).error);
+  const invalidEmail = exported.replace(/^wrdContactEmail: .*$/m, "wrdContactEmail: not-an-email");
+  test.assert((await importEntitySource(personId, invalidEmail, exported)).error);
+  test.eq("edit@beta.webhare.net", await wrdschema.getFields("wrdPerson", personId, "wrdContactEmail"));
+
+  const jsonResult = spawnSync("wh", ["wrd", "edit-entity", "--json", String(personId)], { shell: false, encoding: "utf-8", stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, EDITOR: editorScript.path } });
+  test.eq(1, jsonResult.status);
+  test.eq(/does not support --json/, jsonResult.stderr);
 
   //When wh is terminated while the editor runs, the editor should be stopped and the temporary file still removed
   await using killerScript = await storeTempFile("killer.sh", `#!/bin/sh\necho "$1" > "${editPath.path}"\nP=$PPID\nwhile [ "$P" -gt 1 ] && ! ps -o command= -p $P | grep -q node; do P=$(ps -o ppid= -p $P | tr -d ' '); done\nkill -TERM $P\nexec sleep 30\n`, { mode: "700" });

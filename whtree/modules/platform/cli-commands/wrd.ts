@@ -4,7 +4,7 @@ import { wrd, describeEntity, listSchemas, type AnySchemaType, type WRDEntityMat
 import { regExpFromWildcards, throwError } from '@webhare/std';
 import { decodeHSON } from '@webhare/hscompat';
 import { beginWork, runInWork } from '@webhare/whdb';
-import { CLIRuntimeError, intOption, runCli } from "@webhare/cli";
+import { CLIRuntimeError, CLISyntaxError, intOption, runCli } from "@webhare/cli";
 import { parseSchema } from '@webhare/wrd/src/schemaparser';
 import { checkWRDSchema, type WRDIssue } from '@webhare/wrd/src/check';
 import YAML from 'yaml';
@@ -64,24 +64,17 @@ async function closeEntities(ids: number[], mode: "close" | "delete", opts: { js
   console.log(opts.json ? JSON.stringify({ wrdIds: processed }) : `${mode === "close" ? "Closed" : "Deleted"} ${processed.map(id => `#${id}`).join(", ")}`);
 }
 
-async function editEntity(entityId: number, opts: { json: boolean }): Promise<number> {
+async function editEntity(entityId: number): Promise<number> {
   const { yaml } = await exportEntitySource(entityId);
   //storeTempFile makes the file only readable by us, which is important as the export may contain personal data
   await using tempFile = await storeTempFile(`entity-${entityId}.yml`, yaml);
 
-  let lastSource = yaml;
   for (; ;) {
     await runEditor(tempFile.path);
-    const source = await readFile(tempFile.path, "utf-8");
-    if (source === lastSource) {
-      console.log(opts.json ? JSON.stringify({ wrdId: entityId, updated: false }) : `Entity #${entityId} not modified`);
-      return 0;
-    }
-    lastSource = source;
-
-    const { error } = await importEntitySource(entityId, source);
+    //Always compare with the original export, so edits from an earlier failed attempt aren't lost if the file is closed unchanged
+    const { error, changedFields } = await importEntitySource(entityId, await readFile(tempFile.path, "utf-8"), yaml);
     if (!error) {
-      console.log(opts.json ? JSON.stringify({ wrdId: entityId, updated: true }) : `Updated entity #${entityId}`);
+      console.log(changedFields.length ? `Updated entity #${entityId}: ${changedFields.join(", ")}` : `Entity #${entityId} not modified`);
       return 0;
     }
 
@@ -196,7 +189,11 @@ runCli({
     "edit-entity": {
       description: "Edit an entity's source in $VISUAL, $EDITOR or vi and update it if modified",
       arguments: [{ name: "<id>", description: "Entity ID", type: intOption() }],
-      main: async ({ opts, args }) => editEntity(args.id, opts)
+      main: async ({ opts, args }) => {
+        if (opts.json) //we're interactive, and our prompts would end up in the JSON output
+          throw new CLISyntaxError("edit-entity does not support --json");
+        return editEntity(args.id);
+      }
     },
     "update-entity": {
       description: "Update an entity from imported data",
