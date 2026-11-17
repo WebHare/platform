@@ -874,6 +874,34 @@ ASYNC MACRO UnpublishedSavesTest()
   VerifyTSHistory(unpublishedfile->id);
 }
 
+//Previewing a draft of a rich document should use the RTD type of the original file, not the RTD type applying to the draft in /webhare-private/
+MACRO DraftRTDTypeTest() {
+  testfw->BeginWork();
+
+  //basetest applies the testrichdoc RTD type (which has MYCUSTOMSTYLE) to tmp/tabletest.rtd
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  OBJECT rtdfile := GetTestsuiteTempFolder()->CreateFile([ name := "tabletest.rtd", type := richdoctype->id, publish := FALSE ]);
+  richdoctype->SetInstanceData(rtdfile->id, [ data := [ htmltext := StringToBlob(`<html><body><div class="mycustomstyle">Live custom style</div></body></html>`) ] ]);
+  testfw->CommitWork();
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(GetPreviewLink(rtdfile->id)));
+  TestEq(TRUE, ObjectExists(testfw->browser->QS("div.mycustomstyle")), "Live version should render MYCUSTOMSTYLE");
+
+  testfw->BeginWork();
+  OBJECT workflowmgr := NEW WorkflowManager(rtdfile->id,
+    [ user := GetEffectiveUser(),
+      workflowtypes := ["http://www.webhare.net/xmlns/publisher/richdocumentfile"]
+    ]);
+  workflowmgr->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile", [ data := [ htmltext := StringToBlob(`<html><body><div class="mycustomstyle">Draft custom style</div></body></html>`) ] ]);
+  workflowmgr->Save();
+  testfw->CommitWork();
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(GetPreviewLink(workflowmgr->__GetDraftObject()->id)));
+  OBJECT customstyle := testfw->browser->QS("div.mycustomstyle");
+  TestEq(TRUE, ObjectExists(customstyle), "Draft should render MYCUSTOMSTYLE, not fall back to a normal paragraph");
+  TestEq("Draft custom style", customstyle->textcontent);
+}
+
 //Test whether files that receive updates but had no history at all, properly get an import entry
 ASYNC MACRO ImportTest() {
   testfw->BeginWork();
@@ -1012,6 +1040,7 @@ RunTestframework([ PTR Prep
                  , PTR AutosaveClockTest
                  , PTR NamingTest
                  , PTR UnpublishedSavesTest
+                 , PTR DraftRTDTypeTest
                  , PTR ImportTest
                  , PTR ShowVersion
                  , PTR ViewHistory
