@@ -8,7 +8,10 @@ import { CLIRuntimeError, intOption, runCli } from "@webhare/cli";
 import { parseSchema } from '@webhare/wrd/src/schemaparser';
 import { checkWRDSchema, type WRDIssue } from '@webhare/wrd/src/check';
 import YAML from 'yaml';
-import { commonFlags, commonOptions, readArgFile } from '@mod-platform/js/cli/cli-tools';
+import { commonFlags, commonOptions, prompt, readArgFile, runEditor } from '@mod-platform/js/cli/cli-tools';
+import { exportEntitySource, importEntitySource } from '@mod-wrd/js/internal/entitysource';
+import { storeTempFile } from '@webhare/system-tools';
+import { readFile } from 'node:fs/promises';
 import { exportFileAsFetch } from '@webhare/services/src/descriptor';
 
 async function exportEntity(entitySchema: WRDSchemaType<AnySchemaType>, entityType: string, entityMatch: WRDEntityMatch<WRDSchemaType<AnySchemaType>, string>, opts: { json: boolean; resources: string }, field?: string) {
@@ -59,6 +62,33 @@ async function closeEntities(ids: number[], mode: "close" | "delete", opts: { js
 
   const processed = [...byType.values()].flatMap(_ => _.ids);
   console.log(opts.json ? JSON.stringify({ wrdIds: processed }) : `${mode === "close" ? "Closed" : "Deleted"} ${processed.map(id => `#${id}`).join(", ")}`);
+}
+
+async function editEntity(entityId: number, opts: { json: boolean }): Promise<number> {
+  const { yaml } = await exportEntitySource(entityId);
+  //storeTempFile makes the file only readable by us, which is important as the export may contain personal data
+  await using tempFile = await storeTempFile(`entity-${entityId}.yml`, yaml);
+
+  let lastSource = yaml;
+  for (; ;) {
+    await runEditor(tempFile.path);
+    const source = await readFile(tempFile.path, "utf-8");
+    if (source === lastSource) {
+      console.log(opts.json ? JSON.stringify({ wrdId: entityId, updated: false }) : `Entity #${entityId} not modified`);
+      return 0;
+    }
+    lastSource = source;
+
+    const { error } = await importEntitySource(entityId, source);
+    if (!error) {
+      console.log(opts.json ? JSON.stringify({ wrdId: entityId, updated: true }) : `Updated entity #${entityId}`);
+      return 0;
+    }
+
+    console.error(`Error updating entity #${entityId}: ${error}`);
+    if (!process.stdin.isTTY || !(await prompt("Edit again? [Y/n] ")).match(/^(y|yes|)$/i))
+      throw new CLIRuntimeError(`Entity #${entityId} was not updated`);
+  }
 }
 
 runCli({
@@ -162,6 +192,11 @@ runCli({
           await work.commit();
         console.log(opts.json ? JSON.stringify({ wrdId: result, wrdGuid: importData.wrdGuid }) : `Inserted entity #${result} (${importData.wrdGuid})`);
       }
+    },
+    "edit-entity": {
+      description: "Edit an entity's source in $VISUAL, $EDITOR or vi and update it if modified",
+      arguments: [{ name: "<id>", description: "Entity ID", type: intOption() }],
+      main: async ({ opts, args }) => editEntity(args.id, opts)
     },
     "update-entity": {
       description: "Update an entity from imported data",
