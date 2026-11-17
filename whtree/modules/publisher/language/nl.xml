@@ -147,8 +147,12 @@
       </textgroup>
     </textgroup>
     <textgroup gid="errors">   <!-- components.errors -->
+      <text tid="cachedattachmentlink">De link in veld '<param p="1"/>' verwijst naar een bestand dat in '<param p="2"/>' is opgeslagen. Upload het bestand in de Publisher en gebruik in plaats daarvan een interne link ernaar.</text>
+      <text tid="cachedfilelink">De link in veld '<param p="1"/>' verwijst naar een gecachte kopie van '<param p="2"/>'. Gebruik in plaats daarvan een interne link naar '<param p="2"/>'.</text>
       <text tid="invalidappend">De toevoeging van de interne link van veld '<param p="1"/>' moet beginnen met '#', '?' of '/'".</text>
+      <text tid="previewlink">De link in veld '<param p="1"/>' verwijst naar een tijdelijke preview van '<param p="2"/>'. Gebruik in plaats daarvan een interne link naar '<param p="2"/>'.</text>
       <text tid="renamepinned">Dit object mag niet hernoemd worden.</text>
+      <text tid="webhareinternallink">De link in veld '<param p="1"/>' verwijst naar een intern WebHare-adres dat op elk moment kan ophouden te werken. Gebruik in plaats daarvan een interne link of een link naar een gepubliceerde pagina.</text>
     </textgroup>
     <textgroup gid="filelist">   <!-- components.filelist -->
       <text tid="clickallresults">Klik hier om alle <param p="1"/> resultaten te tonen.</text>

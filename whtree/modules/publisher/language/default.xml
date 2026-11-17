@@ -147,8 +147,12 @@
       </textgroup>
     </textgroup>
     <textgroup gid="errors">   <!-- components.errors -->
+      <text tid="cachedattachmentlink">The link in field '<param p="1"/>' points to a file stored in '<param p="2"/>'. Upload the file to the Publisher and use an internal link to it instead.</text>
+      <text tid="cachedfilelink">The link in field '<param p="1"/>' points to a cached copy of '<param p="2"/>'. Use an internal link to '<param p="2"/>' instead.</text>
       <text tid="invalidappend">The append to the internal link of field '<param p="1"/>' must start with a '#', '?' or '/'.</text>
+      <text tid="previewlink">The link in field '<param p="1"/>' points to a temporary preview of '<param p="2"/>'. Use an internal link to '<param p="2"/>' instead.</text>
       <text tid="renamepinned">This object is not allowed to be renamed.</text>
+      <text tid="webhareinternallink">The link in field '<param p="1"/>' points to an internal WebHare address that may stop working at any time. Use an internal link or a link to a published page instead.</text>
     </textgroup>
     <textgroup gid="filelist">   <!-- components.filelist -->
       <text tid="clickallresults">Click here to show all <param p="1"/> results.</text>
