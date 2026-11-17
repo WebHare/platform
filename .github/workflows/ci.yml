@@ -217,6 +217,11 @@ jobs:
     needs: [prepare, all-tests-passed]
     if: github.event_name == 'push' && !inputs.scheduled
     runs-on: ${{ github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name && vars.WHBUILD_RUNNER && fromJSON(vars.WHBUILD_RUNNER) || 'ubuntu-26.04' }}
+    permissions: # job-level permissions replace the workflow-level ones. Callers must grant pull-requests: write too
+      contents: read
+      packages: write
+      id-token: write
+      pull-requests: write # to comment the deployed images on the PR
     env:
       CI_COMMIT_REF_SLUG: ${{ needs.prepare.outputs.CI_COMMIT_REF_SLUG }}
       DOCKERHUB_REGISTRY_PASSWORD: ${{ secrets.DOCKERHUB_REGISTRY_PASSWORD }}
@@ -234,10 +239,24 @@ jobs:
           registry: ${{ secrets.cache_registry || vars.CI_REGISTRY_IMAGE }}
           username: ${{ secrets.cache_user }}
           password: ${{ secrets.cache_password }}
-      - run: BUILD_IMAGE="$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA" addons/docker-build/deploydocker.sh
+      - id: deploydocker
+        run: BUILD_IMAGE="$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA" addons/docker-build/deploydocker.sh
         env:
           PUSH_BUILD_IMAGES: "1"
           USEPODMAN: "1"
+      - name: Comment deployed images on PR
+        # Also stores the image list so pr-image-comment.yml can comment on PRs opened after this deploy finished
+        uses: actions/github-script@v7
+        env:
+          BUILD_IMAGE: ${{ steps.deploydocker.outputs.build_image }}
+          BRANCH_IMAGES: ${{ steps.deploydocker.outputs.branch_images }}
+          PUBLIC_IMAGES: ${{ steps.deploydocker.outputs.public_images }}
+        with:
+          script: await require('./.github/scripts/deployed-images-comment.cjs').afterDeploy({ github, context, core })
+      - uses: actions/upload-artifact@v7
+        with:
+          name: deployed-images
+          path: deployed-images/
       - uses: actions/upload-artifact@v7
         if: always()
         with:

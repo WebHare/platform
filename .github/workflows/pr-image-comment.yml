@@ -1,0 +1,41 @@
+name: PR container image
+
+# ci.yml's deploy job comments the pushed images on the open PR for the branch, but if the deploy finished before the PR
+# was opened there was nothing to comment on yet. This workflow picks up the image list stored by that deploy instead.
+# If the deploy is still running when the PR is opened, nothing is found here and the deploy job will comment itself.
+
+on:
+  pull_request:
+    types: [opened, reopened]
+
+permissions:
+  actions: read # to find the deploy run and download its artifact
+  contents: read
+  pull-requests: write
+
+jobs:
+  comment:
+    name: Comment deployed images
+    # Fork PRs are never deployed (and don't get a write token anyway)
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ${{ vars.WHBUILD_RUNNER && fromJSON(vars.WHBUILD_RUNNER) || 'ubuntu-26.04' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+      - id: find
+        uses: actions/github-script@v7
+        with:
+          result-encoding: string
+          script: return await require('./.github/scripts/deployed-images-comment.cjs').findDeployRun({ github, context, core })
+      - if: steps.find.outputs.result != ''
+        uses: actions/download-artifact@v7
+        with:
+          name: deployed-images
+          path: deployed-images/
+          run-id: ${{ steps.find.outputs.result }}
+          github-token: ${{ github.token }}
+      - if: steps.find.outputs.result != ''
+        uses: actions/github-script@v7
+        with:
+          script: await require('./.github/scripts/deployed-images-comment.cjs').onPullRequest({ github, context, core })

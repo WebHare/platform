@@ -9,6 +9,7 @@ permissions:
   contents: read
   packages: write
   id-token: write
+  pull-requests: write # ci.yml's deploy job comments the deployed images on the PR (it only runs on push)
 
 jobs:
   # Job 1: Run pre-requisite steps & capture credentials into outputs
