@@ -271,10 +271,13 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND PublisherMetadataBase <
           ]);
   }
 
-  STRING FUNCTION GetSuggestedSlug(INTEGER parentfolder) {
+  /** Suggest a name based on the current title
+      @param parentfolder Folder to make the name unique in, 0 to skip the uniqueness check
+      @param fsobject Object being named, so the uniqueness check doesn't conflict with its current name */
+  STRING FUNCTION GetSuggestedSlug(INTEGER parentfolder, OBJECT fsobject DEFAULTSTO DEFAULT OBJECT) {
     IF(^title->value != "" OR this->itemid = 0) { //generates based on actual title, or fall back to a type-based name
       STRING extension := ObjectExists(this->sourceitem) ? GetExtensionFromPath(this->sourceitem->name) : "";
-      RETURN SuggestSeoNameFromTitle(^title->value, CELL[ typeinfo := this->curtype, language := GetTidLanguage(), parentfolder, extension ]);
+      RETURN SuggestSeoNameFromTitle(^title->value, CELL[ fsobject, typeinfo := this->curtype, language := GetTidLanguage(), parentfolder, extension ]);
     }
 
     //FIXME don't select from database, we should just load this info at startup. we need it for the titlebar anyway

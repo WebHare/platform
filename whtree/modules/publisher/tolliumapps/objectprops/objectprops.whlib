@@ -1064,6 +1064,11 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
   }
 
   INTEGER FUNCTION Submit() {
+    /* A cleared name field shows a name suggested from the title (or the current name if there's no title) as its
+       placeholder. Save with that name, as the name field is required for existing objects */
+    IF(NOT this->isnew AND this->namefollowstitle AND ^name->enabled AND NOT ^name->readonly AND ^name->value = "")
+      ^name->value := this->GetSuggestedSlug(this->parentfolder->id, this->sourceitem);
+
     // Auto-check for required fields
     OBJECT quickfeedback := this->BeginFeedback();
     IF(^name->value = "" AND ^title->value = "")
