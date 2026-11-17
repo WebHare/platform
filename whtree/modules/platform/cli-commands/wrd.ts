@@ -38,6 +38,29 @@ async function updateEntity(entitySchema: WRDSchemaType<AnySchemaType>, entityTy
   console.log(opts.json ? JSON.stringify({ wrdId: entityId }) : `Updated entity #${entityId}`);
 }
 
+async function closeEntities(ids: number[], mode: "close" | "delete", opts: { json: boolean }) {
+  //Look up all entities first, so we don't modify anything if one of them is missing
+  const byType = new Map<string, { schema: string; type: string; ids: number[] }>();
+  for (const id of new Set(ids)) {
+    const entityInfo = await describeEntity(id);
+    if (!entityInfo)
+      throw new CLIRuntimeError(`Entity #${id} not found`);
+
+    const key = `${entityInfo.schemaId}:${entityInfo.typeId}`;
+    if (!byType.has(key))
+      byType.set(key, { schema: entityInfo.schema, type: entityInfo.type, ids: [] });
+    byType.get(key)!.ids.push(id);
+  }
+
+  await runInWork(async () => {
+    for (const { schema, type, ids: typeIds } of byType.values())
+      await wrd<AnySchemaType>(schema).close(type, typeIds, { mode });
+  });
+
+  const processed = [...byType.values()].flatMap(_ => _.ids);
+  console.log(opts.json ? JSON.stringify({ wrdIds: processed }) : `${mode === "close" ? "Closed" : "Deleted"} ${processed.map(id => `#${id}`).join(", ")}`);
+}
+
 runCli({
   description: "Manage WRD",
   flags: {
@@ -123,7 +146,7 @@ runCli({
       ],
       main: async ({ opts, args }) => {
         const wrdschema = wrd<AnySchemaType>(args.schema);
-        const importData: Record<string, unknown> = YAML.parse(await (await readArgFile(args.source)).text());
+        const importData: Record<string, unknown> & { wrdGuid?: string } = YAML.parse(await (await readArgFile(args.source)).text());
 
         const attrs = await wrdschema.getType(args.type).listAttributes();
         for (const attr of attrs)
@@ -153,6 +176,20 @@ runCli({
         const entityId = args.id;
         const entityInfo = await describeEntity(entityId) ?? throwError(`Entity #${entityId} not found`);
         await updateEntity(wrd<AnySchemaType>(entityInfo.schema), entityInfo.type, entityId, args.source, opts);
+      }
+    },
+    "close-entity": {
+      description: "Close one or more entities",
+      arguments: [{ name: "<ids...>", description: "Entity IDs", type: intOption() }],
+      main: async ({ opts, args }) => {
+        await closeEntities(args.ids, "close", opts);
+      }
+    },
+    "delete-entity": {
+      description: "Permanently delete one or more entities",
+      arguments: [{ name: "<ids...>", description: "Entity IDs", type: intOption() }],
+      main: async ({ opts, args }) => {
+        await closeEntities(args.ids, "delete", opts);
       }
     },
     "update-setting": {

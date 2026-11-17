@@ -148,8 +148,43 @@ async function testWRDCli() { //  tests
   test.eq("null\n", missingResult.stdout);
 }
 
+async function testWRDCloseDeleteCli() {
+  type TestSchemaType = Combine<[WRDSchemaLike["wrd:testschema"], CustomExtensions]>;
+  const wrdschema = wrd<TestSchemaType>(testSchemaTag);
+  await createWRDTestSchema();
+
+  await beginWork();
+  const testunit = await wrdschema.insert("whuserUnit", { wrdTitle: "Root unit", wrdTag: "TESTFW_ROOT_UNIT" });
+  const ids = [];
+  for (const name of ["Close1", "Close2", "Delete1", "Delete2"])
+    ids.push(await wrdschema.insert("wrdPerson", { wrdFirstName: name, wrdLastName: "Test", wrdContactEmail: `${name.toLowerCase()}@beta.webhare.net`, whuserUnit: testunit, wrdauthAccountStatus: { status: "active" } }));
+  await commitWork();
+  const [close1, close2, delete1, delete2] = ids;
+
+  //Missing entity should abort without changing anything
+  const missingResult = spawnSync("wh", ["wrd", "close-entity", String(close1), "999999999"], { shell: false, encoding: "utf-8", stdio: ['inherit', 'pipe', 'pipe'] });
+  test.eq(1, missingResult.status);
+  test.eq(/999999999/, missingResult.stderr);
+  test.eq(close1, await wrdschema.search("wrdPerson", "wrdId", close1));
+
+  const closeResult = spawnSync("wh", ["wrd", "close-entity", "--json", String(close1), String(close2)], { shell: false, encoding: "utf-8", stdio: ['inherit', 'pipe', 'inherit'] });
+  test.eq(0, closeResult.status);
+  test.eq({ wrdIds: [close1, close2] }, JSON.parse(closeResult.stdout));
+  test.eq(null, await wrdschema.search("wrdPerson", "wrdId", close1));
+  test.eq(null, await wrdschema.search("wrdPerson", "wrdId", close2));
+  test.eq(close1, await wrdschema.search("wrdPerson", "wrdId", close1, { historyMode: "all" }));
+
+  const deleteResult = spawnSync("wh", ["wrd", "delete-entity", String(delete1), String(delete2), String(close1)], { shell: false, encoding: "utf-8", stdio: ['inherit', 'pipe', 'inherit'] });
+  test.eq(0, deleteResult.status);
+  test.eq(`Deleted #${delete1}, #${delete2}, #${close1}\n`, deleteResult.stdout);
+  for (const id of [delete1, delete2, close1])
+    test.eq(null, await wrdschema.search("wrdPerson", "wrdId", id, { historyMode: "unfiltered" }));
+  test.eq(close2, await wrdschema.search("wrdPerson", "wrdId", close2, { historyMode: "all" }));
+}
+
 test.runTests([
   //basic exports to get typings right
   testWRDSettingsCli,
   testWRDCli,
+  testWRDCloseDeleteCli,
 ]);
