@@ -383,8 +383,13 @@ export class HSDebugJob {
 
   /** Let a paused job continue */
   continue() {
-    if (this._attached)
-      this.conn.send({ type: "job-continue", processcode: this.processcode, groupid: this.groupid });
+    if (!this._attached)
+      return;
+    this.conn.send({ type: "job-continue", processcode: this.processcode, groupid: this.groupid });
+    /* Don't keep reporting the job as paused until its status update arrives, or a waitForStatus() for the next stop
+       would return right away */
+    if (this._status.realstatus === "DebugStopped")
+      this._status = { ...this._status, realstatus: "Running", pausereason: 0, stacktrace: undefined };
   }
 
   /** Terminate the job */
