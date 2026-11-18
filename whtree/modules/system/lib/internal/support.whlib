@@ -1,5 +1,7 @@
 ﻿<?wh
 
+LOADLIB "wh::os.whlib";
+
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -214,10 +216,12 @@ PUBLIC RECORD ARRAY FUNCTION GetSystemAppRunnerConfig()
 
   IF (NOT ReadRegistryKey("system.backend.development.manualdebugmgr"))
   {
-    INSERT
-        [ name :=       "system:debugmgr"
-        , cmdline :=    "wh run mod::system/scripts/internal/debugmgr.whscr"
-        ] INTO apps AT END;
+    // WEBHARE_HSDEBUGMGR=ts lets debugmgr.ts manage HareScript processes too, instead of debugmgr.whscr (experimental)
+    IF (GetEnvironmentVariable("WEBHARE_HSDEBUGMGR") != "ts")
+      INSERT
+          [ name :=       "system:debugmgr"
+          , cmdline :=    "wh run mod::system/scripts/internal/debugmgr.whscr"
+          ] INTO apps AT END;
     INSERT
         [ name :=       "system:debugmgr-ts"
         , cmdline :=    "wh run mod::system/js/internal/whmanager/debugmgr.ts"

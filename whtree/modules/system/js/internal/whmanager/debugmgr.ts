@@ -3,6 +3,7 @@ import EventSource from "../eventsource";
 import bridge, { checkAllMessageTypesHandled } from "./bridge";
 import { type DebugIPCLinkType, DebugRequestType, DebugResponseType, type DebugMgrClientLink, DebugMgrClientLinkRequestType, DebugMgrClientLinkResponseType, directforwards, type ForwardByRequestType } from "./debug";
 import { pid } from "process";
+import { startHSDebugManager } from "./hsdebugmgr";
 
 
 type ProcessRegistration = {
@@ -111,6 +112,10 @@ async function start() {
   const port = bridge.createPort<DebugMgrClientLink>("ts:debugmgr", { global: true });
   port.on("accept", (link) => new DebugMgrClient(link));
   await port.activate();
+
+  // Manage the HareScript processes too, instead of mod::system/scripts/internal/debugmgr.whscr (experimental, see support.whlib)
+  if (process.env.WEBHARE_HSDEBUGMGR === "ts")
+    await startHSDebugManager();
 }
 
 void start();
