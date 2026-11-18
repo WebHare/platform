@@ -1,0 +1,30 @@
+<?wh
+/* Target for test_hsdebugger.ts: a script that waits in a known function with known local variables, and keeps calling
+   a function so a profile has something to show */
+
+LOADLIB "wh::os.whlib";
+
+INTEGER FUNCTION ComputeSomething(INTEGER base)
+{
+  INTEGER total;
+  FOR (INTEGER i := 0; i < 100; i := i + 1)
+    total := total + base * i;
+  RETURN total;
+}
+
+MACRO WaitInTarget(STRING marker, INTEGER ARRAY numbers, RECORD info)
+{
+  STRING localtext := "hello " || marker;
+  INTEGER rounds;
+  Print("ready\n");
+  WHILE (TRUE)
+  {
+    rounds := rounds + 1;
+    ComputeSomething(rounds);
+    Sleep(20);
+    IF (rounds < 0) // never true, but keeps the variables alive so the debugger can show them
+      Print(localtext || marker || Length(numbers) || info.b || (info.c.nested ? "" : "-"));
+  }
+}
+
+WaitInTarget(GetConsoleArguments()[0], [ 1, 2, 3 ], [ a := 42, b := "two", c := [ nested := TRUE ] ]);
