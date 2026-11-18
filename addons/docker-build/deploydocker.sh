@@ -44,6 +44,7 @@ for P in $BRANCH_IMAGES; do
 done
 
 # As we're using ephemeral builders logging out isn't needed anymore
+PUSHED_PUBLIC_IMAGES=
 if [ -n "$PUBLIC_IMAGES" ] && [ -n "$DOCKERHUB_REGISTRY_PASSWORD" ]; then
   # dockerhub requires a separate login. ghcr.io is taken care of by the github runner
   if ! echo "$DOCKERHUB_REGISTRY_PASSWORD" | "$CONTAINERENGINE" login -u "$DOCKERHUB_REGISTRY_USER" --password-stdin docker.io ; then
@@ -62,7 +63,17 @@ if [ -n "$PUBLIC_IMAGES" ] && [ -n "$DOCKERHUB_REGISTRY_PASSWORD" ]; then
       echo Push to external registry failed
       exit 1
     fi
+    PUSHED_PUBLIC_IMAGES="$(trim $PUSHED_PUBLIC_IMAGES $P)"
   done
+fi
+
+# Report what we pushed to the GitHub workflow (eg. to comment on the PR)
+if [ -n "$GITHUB_OUTPUT" ]; then
+  {
+    echo "build_image=$BUILD_IMAGE"
+    echo "branch_images=$BRANCH_IMAGES"
+    echo "public_images=$PUSHED_PUBLIC_IMAGES"
+  } >> "$GITHUB_OUTPUT"
 fi
 
 echo "-----------------------------------------------------------------------"
