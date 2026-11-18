@@ -358,6 +358,7 @@ PUBLIC OBJECTTYPE BaseTest EXTEND TolliumScreenBase
   MACRO OnStaticListSelect()
   {
     this->staticlistselection->value := ToString(this->staticlist->value);
+    this->staticlistselectlog->value := TrimWhitespace(this->staticlistselectlog->value || " " || ToString(this->staticlist->value));
   }
   MACRO onstaticlistcheck(RECORD row, STRING cboxname)
   {
@@ -461,6 +462,32 @@ PUBLIC OBJECTTYPE BaseTest EXTEND TolliumScreenBase
   {
     this->dynamiclist->value := [ "300" ];
     this->dynamiclist->value := [ "21" ];
+  }
+
+  RECORD ARRAY FUNCTION RemoveRow(RECORD ARRAY rows, INTEGER rowkey)
+  {
+    RECORD ARRAY result;
+    FOREVERY (RECORD row FROM rows)
+    {
+      IF (row.rowkey = rowkey)
+        CONTINUE;
+      IF (CellExists(row, "subnodes"))
+        row.subnodes := this->RemoveRow(row.subnodes, rowkey);
+      INSERT row INTO result AT END;
+    }
+    RETURN result;
+  }
+
+  MACRO DoDeleteSelected()
+  {
+    this->staticlistselectlog->value := "";
+    this->staticlist->rows := this->RemoveRow(this->staticlist->rows, this->staticlist->value);
+  }
+
+  MACRO DoDeleteSelectedAndSelect()
+  {
+    this->DoDeleteSelected();
+    this->staticlist->value := 7; //Row #3
   }
 
   MACRO DoSwitchSelectMode()

@@ -554,5 +554,49 @@ test.runTests(
         await test.wait("ui");
         test.eq('3', test.compByName("staticlistfocusincount").textContent);
       }
+    },
+
+    //reload the screen to get the original tree back
+    async function () {
+      await tt.loadWTSTestScreen('tests/lists.basetest');
+    },
+
+    {
+      name: 'server-deletes-selected-row',
+      test: async function () {
+        const isSelected = (text) => test.getCurrentScreen().getListRow('staticlist', text).classList.contains("wh-list__row--selected");
+
+        test.click(test.getCurrentScreen().getListRow('staticlist', 'Row #1.1'));
+        await test.wait("ui");
+        test.eq('2', test.getCurrentScreen().getText("staticlistselection"));
+
+        //the server deletes the selected Row #1.1 without selecting anything itself, so its parent Row #1 is selected and the server is told so
+        test.click(test.getMenu(['M01', 'M16']));
+        await test.wait("ui");
+        test.eq(null, test.getCurrentScreen().getListRow('staticlist', 'Row #1.1'));
+        test.assert(isSelected('Row #1|'));
+        await test.wait(() => test.getCurrentScreen().getText("staticlistselection") === '1');
+        test.eq("0 1", test.getCurrentScreen().getText("staticlistselectlog"));
+
+        //keyboard navigation continues from Row #1
+        await test.pressKey("ArrowDown");
+        test.assert(isSelected('Row #1.2'));
+        await test.wait("ui");
+        test.eq('3', test.getCurrentScreen().getText("staticlistselection"));
+
+        //the server deletes the selected Row #1.2 and selects Row #3 itself, so the client shouldn't select (and report) the parent Row #1
+        test.click(test.getMenu(['M01', 'M17']));
+        await test.wait("ui");
+        test.eq(null, test.getCurrentScreen().getListRow('staticlist', 'Row #1.2'));
+        test.assert(isSelected('Row #3|'));
+        test.assert(!isSelected('Row #1|'));
+        test.eq("0 7", test.getCurrentScreen().getText("staticlistselectlog"));
+
+        //keyboard navigation continues from Row #3
+        await test.pressKey("ArrowUp");
+        test.assert(isSelected('Row #2|'));
+        await test.wait("ui");
+        test.eq('4', test.getCurrentScreen().getText("staticlistselection"));
+      }
     }
   ]);
