@@ -297,6 +297,7 @@ test.runTests(
         test.assert(!isSelected('0 nochildren 20'));
         test.assert(!isSelected('0 nochildren 10'));
         await test.wait("ui");
+        test.eq('20 30 31', test.compByName("dynamiclistselection").textContent); //the server received the replaced selection too
       }
     },
 
