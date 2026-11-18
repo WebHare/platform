@@ -25,7 +25,7 @@ import { PageMetadata, getOpenGraphData, type StructuredDataItem } from "./metad
 import { dbLoc } from "@webhare/services/src/symbols";
 import type { WebHareDBLocation } from "@webhare/services/src/descriptor";
 import { debugFlags, dtapStage, setAssetBase } from "@webhare/env";
-import type { CSPRTDStructure, RawPluginSettings } from "@webhare/whfs/src/siteprofiles";
+import type { RawPluginSettings } from "@webhare/whfs/src/siteprofiles";
 import { getWebHareDBLocation } from "@webhare/whfs/src/objects";
 import type { Timings } from "@mod-platform/js/logging/timings";
 import { minify } from 'html-minifier-next';
@@ -58,6 +58,14 @@ export type ContentBuilderFunction = (request: ContentPageRequest) => Promise<We
 export type PageBuilderFunction = (request: PageBuildRequest) => Promise<WebResponse>;
 
 export type WidgetBuilderFunction = (request: PagePartRequest, data: InstanceData) => Promise<Litty>;
+
+/** Options for renderRTD */
+export type RenderRTDOptions = {
+  /** RTD type to render the document with, eg for a rich text field whose editor uses a different RTD type than the page */
+  rtdType?: string;
+};
+
+type RenderableWidget = { whfsType: string; data: InstanceData;[dbLoc]?: WebHareDBLocation | null };
 
 /** Defines the callback offered by a plugin (not exported from webhare/router yet, plugin APIs are still unstable) */
 export type PagePluginFunction = (init: PagePluginInit, req: PagePluginRequest) => Promise<void> | void;
@@ -146,7 +154,7 @@ export class CPageRequest {
   private _statusCode: number;
   private _isEditorPreview: boolean;
   private _isPublisherPreview: boolean;
-  #rtdStructure: Promise<CSPRTDStructure | null> | undefined;
+  #pageRTDType: Promise<string | null> | undefined;
 
   /** If set, Timings can be used to record performance metrics for a Server-Timing header */
   public readonly timings?: Timings;
@@ -690,21 +698,50 @@ export class CPageRequest {
     this.plugins[api] = { api: plugin };
   }
 
-  /** Get the structure of the RTD type that applies to the target object (set by \<rtddoc>), or null if none applies */
-  async #getRTDStructure(): Promise<CSPRTDStructure | null> {
-    this.#rtdStructure ??= this._applyTester.getRTDTypeSettings().then(settings => settings ? getRTDTypeStructure(settings.rtdtype) : null);
-    return this.#rtdStructure;
+  /** Get the RTD type that applies to the target object (set by \<rtddoc>), or null if none applies */
+  async #getPageRTDType(): Promise<string | null> {
+    this.#pageRTDType ??= this._applyTester.getRTDTypeSettings().then(settings => settings?.rtdtype ?? null);
+    return this.#pageRTDType;
   }
 
-  async renderRTD(rtd: RichTextDocument): Promise<Litty> {
+  /** Render a rich text document
+      @param rtd - The document to render
+      @param options - Rendering options
+      @param options.rtdType - RTD type to render with. Defaults to the RTD type of the RTD containing the current widget, or the RTD type of the page (set by \<rtddoc>) */
+  async renderRTD(rtd: RichTextDocument, options?: RenderRTDOptions): Promise<Litty> {
+    return this.#renderRTD(rtd, options?.rtdType ?? await this.#getPageRTDType());
+  }
+
+  async #renderRTD(rtd: RichTextDocument, rtdType: string | null): Promise<Litty> {
     //FIXME need an equivalent for overriding RTD rendering. HareScript does webdesign->rtd_rendering_engine BUT in TS we won't have the webdesign yet during pagerendering. So applytester needs to ship it
     const parsedWith = this._publicationSettings.maxContentWidth.match(/^(\d+)px$/);
     const maxImageWidth = parsedWith ? parseInt(parsedWith[1]) : undefined;
-    return renderRTD(this, rtd, { maxImageWidth, resolveLink: this.resolveLink.bind(this), structure: await this.#getRTDStructure() });
+    return renderRTD(this.#getPartRequestForRTD(rtdType), rtd, { maxImageWidth, resolveLink: this.resolveLink.bind(this), structure: rtdType ? getRTDTypeStructure(rtdType) : null });
+  }
+
+  /** Get the request to pass to widgets inside an RTD, so RTDs rendered by those widgets default to the same RTD type */
+  #getPartRequestForRTD(rtdType: string | null): PagePartRequest {
+    const partRequest: PagePartRequest = new Proxy(this, {
+      get: (target, prop) => {
+        if (prop === "renderRTD")
+          return (rtd: RichTextDocument, options?: RenderRTDOptions) => target.#renderRTD(rtd, options?.rtdType ?? rtdType);
+        if (prop === "renderWidget")
+          return (widget: RenderableWidget) => target.#renderWidget(partRequest, widget);
+
+        const value: unknown = Reflect.get(target, prop, target);
+        return typeof value === "function" ? value.bind(target) : value;
+      }
+    });
+    return partRequest;
   }
 
   //FIXME need a better match for the widget type
-  async renderWidget(widget: { whfsType: string; data: InstanceData;[dbLoc]?: WebHareDBLocation | null }): Promise<Litty> {
+  async renderWidget(widget: RenderableWidget): Promise<Litty> {
+    return this.#renderWidget(this, widget);
+  }
+
+  /** Render a widget, passing partRequest to its renderer */
+  async #renderWidget(partRequest: PagePartRequest, widget: RenderableWidget): Promise<Litty> {
     const renderer = await this._applyTester.getWidgetSettings(widget.whfsType);
     if (!renderer.onRenderWidget) {
       if (renderer.renderHS) {
@@ -719,7 +756,7 @@ export class CPageRequest {
 
     const renderFunction = await importJSFunction<WidgetBuilderFunction>(renderer.onRenderWidget);
     //TODO give a minimized interface/proxy as widgets are known to be eager to reach into other details
-    const result = await renderFunction(this, widget.data);
+    const result = await renderFunction(partRequest, widget.data);
     if (!isLitty(result))
       throw new Error(`Widget renderer '${renderer.onRenderWidget}' failed to return a proper Litty template`);
     return result;

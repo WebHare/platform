@@ -126,6 +126,14 @@ types:
       # TODO shouldn't we be able to use editProps: here too?
       tabsExtension: ./basetestjs.screens.xml#editjswidget1
 
+  jsrtdwidget:
+    comment: A TypeScript widget containing a rich text document, to test which RTD type nested RTDs are rendered with
+    metaType: blockWidget
+    onRenderWidget: ./webdesign/webdesign.ts#renderJSRTDWidget
+    members:
+      contents:
+        type: richTextDocument
+
 apply:
   - to: all
     webDesign:

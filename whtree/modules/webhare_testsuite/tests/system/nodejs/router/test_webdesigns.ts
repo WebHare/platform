@@ -7,7 +7,7 @@ import { IncomingWebRequest } from "@webhare/router/src/request";
 import { getTidLanguage } from "@webhare/gettid";
 import { parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 import { litty, littyToString } from "@webhare/litty";
-import { backendConfig, buildInstance, buildRTD, ResourceDescriptor } from "@webhare/services";
+import { backendConfig, buildInstance, buildRTD, buildWidget, ResourceDescriptor } from "@webhare/services";
 import type { } from "@mod-publisher/js/internal/plugins/gtmplugin.ts"; //make config["socialite:gtm"] work
 import { parseResponse, getWHConfig, getAsDoc, fetchPreviewAsDoc } from "@mod-webhare_testsuite/js/whfs";
 import { loadlib } from "@webhare/harescript";
@@ -95,6 +95,44 @@ async function testPageResponse() {
   const svgImage = await ResourceDescriptor.fromResource("mod::webhare_testsuite/web/img/testicon_1.b.svg", { mediaType: "image/svg+xml", getHash: true });
   const svgDocument = await sitereq.renderRTD(await buildRTD([{ p: ["SVG: ", { image: svgImage, alt: "<icon>" }, { image: svgImage }] }]));
   test.eq(`<p class="normal">SVG: &lt;icon&gt;</p>`, await littyToString(svgDocument));
+}
+
+//renderRTD uses the page's RTD type unless given an rtdType. RTDs rendered by widgets inside an RTD default to the RTD type of the RTD containing the widget
+async function testRenderRTDType() {
+  const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/markdownpage");
+  const sitereq = await createContentPageRequest(markdowndoc, { webRequest: new IncomingWebRequest(markdowndoc.link!) });
+
+  //The page uses the basetestjs RTD type which has a HEADING3 style. testrichdoc has no h3 style, so it renders h3s as normal paragraphs
+  const testRichDocType = "http://www.webhare.net/xmlns/webhare_testsuite/testrichdoc";
+  //An RTD containing a widget with an RTD, containing another widget with an RTD
+  const nestedRTD = await buildRTD([
+    { "h3.heading3": "Level 1" },
+    {
+      widget: await buildWidget("webhare_testsuite:base_test.jsrtdwidget", {
+        contents: await buildRTD([
+          { "h3.heading3": "Level 2" },
+          { widget: await buildWidget("webhare_testsuite:base_test.jsrtdwidget", { contents: await buildRTD([{ "h3.heading3": "Level 3" }]) }) }
+        ])
+      })
+    }
+  ]);
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Without an rtdType, the RTDs at all levels are rendered with the page's RTD type
+  const withPageType = `<h3 class="heading3">Level 1</h3><div class="jsrtdwidget"><h3 class="heading3">Level 2</h3><div class="jsrtdwidget"><h3 class="heading3">Level 3</h3></div></div>`;
+  test.eq(withPageType, await littyToString(await sitereq.renderRTD(nestedRTD)));
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: An rtdType also applies to the RTDs rendered by the widgets inside the RTD, at every level
+  test.eq(`<p class="normal">Level 1</p><div class="jsrtdwidget"><p class="normal">Level 2</p><div class="jsrtdwidget"><p class="normal">Level 3</p></div></div>`,
+    await littyToString(await sitereq.renderRTD(nestedRTD, { rtdType: testRichDocType })));
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: The rtdType doesn't stick to the request
+  test.eq(withPageType, await littyToString(await sitereq.renderRTD(nestedRTD)));
+  test.eq(`<div class="jsrtdwidget"><h3 class="heading3">Level 2</h3></div>`,
+    await littyToString(await sitereq.renderWidget(await buildWidget("webhare_testsuite:base_test.jsrtdwidget", { contents: await buildRTD([{ "h3.heading3": "Level 2" }]) }))),
+    "A widget rendered directly by the page should use the page's RTD type");
 }
 
 async function testPaths() {
@@ -673,6 +711,7 @@ async function testRouter_JSLinkResolving() {
 test.runTests([
   test.reset,
   testPageResponse,
+  testRenderRTDType,
   testPaths,
   testDynamicPage,
   testPageResponseApplies,
