@@ -11,6 +11,18 @@
 #include <blex/getopt.h>
 #include <harescript/compiler/diskfilesystem.h>
 #include <harescript/vm/hsvm_context.h>
+#include <harescript/vm/hsvm_debugsupport.h>
+
+namespace HareScript
+{
+void GetVMStackTrace(VirtualMachine *vm, HSVM_VariableId var_stacktrace, VirtualMachine *testvm, bool full);
+void GetVMLibraries(VirtualMachine *vm, HSVM_VariableId var_resultlibs, VirtualMachine *testvm);
+namespace Baselibs
+{
+void EncodeFunctionProfileData(ProfileData const &profiledata, VirtualMachine *vm, VarId id_set);
+void EncodeHandleList(VirtualMachine *source_vm, VirtualMachine *vm, VarId id_set);
+}
+}
 #include <ap/libwebhare/wh_filesystem.h>
 #include <harescript/vm/wasm-tools.h>
 #include <harescript/vm/baselibs.h>
@@ -499,6 +511,131 @@ const char * EMSCRIPTEN_KEEPALIVE GetVMStackTrace(HSVM *hsvm)
 
 emscripten::EM_VAL EMSCRIPTEN_KEEPALIVE GetMessageList(HSVM *vm, bool with_trace) {
         return BuildMessageList(vm, with_trace).release_ownership();
+}
+
+void EMSCRIPTEN_KEEPALIVE DebugGetStatus(HSVM *hsvm, HSVM_VariableId id_set)
+{
+        HareScript::VirtualMachine *vm = HareScript::GetVirtualMachine(hsvm);
+        HareScript::VMGroup *group = vm->GetVMGroup();
+        HareScript::ColumnNameCache const &cn_cache = vm->cn_cache;
+
+        HSVM_SetDefault(hsvm, id_set, HSVM_VAR_Record);
+        // Set every cell right after creating it, creating a cell may invalidate the ids of earlier cells
+        HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, id_set, cn_cache.col_stacksize), group->GetCallStackSize());
+        HareScript::GetVMStackTrace(vm, HSVM_RecordCreate(hsvm, id_set, cn_cache.col_stacktrace), group->GetCurrentVM() ? group->GetCurrentVM() : vm, true);
+        HSVM_GetVMStatistics(hsvm, HSVM_RecordCreate(hsvm, id_set, cn_cache.col_statistics), hsvm);
+}
+
+void EMSCRIPTEN_KEEPALIVE DebugGetVariables(HSVM *hsvm, HSVM_VariableId requests, HSVM_VariableId id_set)
+{
+        HareScript::VirtualMachine *vm = HareScript::GetVirtualMachine(hsvm);
+        HareScript::ColumnNameCache const &cn_cache = vm->cn_cache;
+        HareScript::StackMachine &stackm = vm->GetStackMachine();
+
+        HSVM_SetDefault(hsvm, id_set, HSVM_VAR_RecordArray);
+        uint32_t len = HSVM_ArrayLength(hsvm, requests);
+        for (unsigned i = 0; i < len; ++i)
+        {
+                HSVM_VariableId var_req = stackm.ArrayElementGet(requests, i);
+                uint32_t id = HSVM_IntegerGet(hsvm, stackm.RecordCellTypedGetByName(var_req, cn_cache.col_id, HareScript::VariableTypes::Integer, true));
+                HSVM_VariableId var_result = HSVM_ArrayAppend(hsvm, id_set);
+                HareScript::VarId toget = HareScript::GetDebugVariable(vm, id);
+                if (!toget)
+                {
+                        HSVM_SetDefault(hsvm, var_result, HSVM_VAR_Record);
+                        HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, var_result, cn_cache.col_type), -1);
+                        HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, var_result, cn_cache.col_id), id);
+                        continue;
+                }
+                HareScript::RetrieveDebugValue(vm, var_result, vm, toget, var_req, 1);
+        }
+}
+
+void EMSCRIPTEN_KEEPALIVE DebugGetLibraries(HSVM *hsvm, HSVM_VariableId id_set)
+{
+        HareScript::VirtualMachine *vm = HareScript::GetVirtualMachine(hsvm);
+        HareScript::GetVMLibraries(vm, id_set, vm);
+}
+
+void EMSCRIPTEN_KEEPALIVE DebugGetDebugInfo(HSVM *hsvm, const char *liburi, HSVM_VariableId id_set)
+{
+        HareScript::VirtualMachine *vm = HareScript::GetVirtualMachine(hsvm);
+        HSVM_SetDefault(hsvm, id_set, HSVM_VAR_Record);
+        HareScript::EncodeLibraryDebugInfo(vm, id_set, vm, liburi);
+}
+
+void EMSCRIPTEN_KEEPALIVE DebugGetHandleList(HSVM *hsvm, HSVM_VariableId id_set)
+{
+        HareScript::VirtualMachine *vm = HareScript::GetVirtualMachine(hsvm);
+        HareScript::Baselibs::EncodeHandleList(vm, vm, id_set);
+}
+
+void EMSCRIPTEN_KEEPALIVE DebugSetFunctionProfiling(HSVM *hsvm, bool enable, bool reset)
+{
+        HareScript::VirtualMachine *vm = HareScript::GetVirtualMachine(hsvm);
+        if (!enable)
+            vm->DisableFunctionProfiling();
+        if (reset)
+            vm->ResetFunctionProfile();
+        if (enable)
+            vm->EnableFunctionProfiling();
+}
+
+void EMSCRIPTEN_KEEPALIVE DebugGetFunctionProfile(HSVM *hsvm, HSVM_VariableId id_set)
+{
+        HareScript::VirtualMachine *vm = HareScript::GetVirtualMachine(hsvm);
+        HareScript::Baselibs::EncodeFunctionProfileData(vm->GetProfileData(), vm, id_set);
+}
+
+void EMSCRIPTEN_KEEPALIVE DebugSetBreakpoints(HSVM *hsvm, HSVM_VariableId config)
+{
+        HareScript::VirtualMachine *vm = HareScript::GetVirtualMachine(hsvm);
+        HareScript::ColumnNameCache const &cn_cache = vm->cn_cache;
+        HareScript::StackMachine &stackm = vm->GetStackMachine();
+        HareScript::VMGroup *group = vm->GetVMGroup();
+
+        unsigned min_stack = stackm.GetInteger(stackm.RecordCellTypedGetByName(config, HSVM_GetColumnId(hsvm, "MINSTACKSIZE"), HareScript::VariableTypes::Integer, true));
+        unsigned max_stack = stackm.GetInteger(stackm.RecordCellTypedGetByName(config, HSVM_GetColumnId(hsvm, "MAXSTACKSIZE"), HareScript::VariableTypes::Integer, true));
+        bool break_on_exception = stackm.GetBoolean(stackm.RecordCellTypedGetByName(config, HSVM_GetColumnId(hsvm, "BREAKONEXCEPTION"), HareScript::VariableTypes::Boolean, true));
+
+        std::vector< HareScript::DebugBreakpointSpec > breakpoints;
+        HSVM_VariableId var_breakpoints = stackm.RecordCellTypedGetByName(config, HSVM_GetColumnId(hsvm, "BREAKPOINTS"), HareScript::VariableTypes::RecordArray, true);
+        uint32_t len = HSVM_ArrayLength(hsvm, var_breakpoints);
+        for (unsigned i = 0; i < len; ++i)
+        {
+                HSVM_VariableId var_bp = stackm.ArrayElementGet(var_breakpoints, i);
+                HareScript::DebugBreakpointSpec bp;
+                bp.liburi = HSVM_StringGetSTD(hsvm, stackm.RecordCellTypedGetByName(var_bp, cn_cache.col_liburi, HareScript::VariableTypes::String, true));
+                bp.compile_id = stackm.GetDateTime(stackm.RecordCellTypedGetByName(var_bp, cn_cache.col_compile_id, HareScript::VariableTypes::DateTime, true));
+                bp.codeptr = HSVM_IntegerGet(hsvm, stackm.RecordCellTypedGetByName(var_bp, cn_cache.col_codeptr, HareScript::VariableTypes::Integer, true));
+                bp.stacksize = HSVM_IntegerGet(hsvm, stackm.RecordCellTypedGetByName(var_bp, cn_cache.col_stacksize, HareScript::VariableTypes::Integer, true));
+                bp.manual = HSVM_BooleanGet(hsvm, stackm.RecordCellTypedGetByName(var_bp, cn_cache.col_manual, HareScript::VariableTypes::Boolean, true));
+                breakpoints.push_back(bp);
+        }
+
+        HareScript::VMGroupDebuggerData &dbg = group->GetDebuggerData();
+        bool was_debugging = dbg.IsDebugging();
+        HareScript::ApplyDebugBreakpoints(*group, group->GetCurrentVM() ? group->GetCurrentVM() : vm, breakpoints, min_stack, max_stack, break_on_exception);
+        if (was_debugging != dbg.IsDebugging())
+            group->RequestDebugModeSwitch();
+}
+
+void EMSCRIPTEN_KEEPALIVE DebugSetAttached(HSVM *hsvm, bool attached)
+{
+        HareScript::VMGroup *group = HareScript::GetVirtualMachine(hsvm)->GetVMGroup();
+        HareScript::VMGroupDebuggerData &dbg = group->GetDebuggerData();
+        bool was_debugging = dbg.IsDebugging();
+        dbg.attached = attached;
+        dbg.poll_countdown = 1;
+        if (!attached)
+        {
+                dbg.breakpoints.clear();
+                dbg.min_stack = 0;
+                dbg.max_stack = -1;
+                dbg.break_on_exception = false;
+        }
+        if (was_debugging != dbg.IsDebugging())
+            group->RequestDebugModeSwitch();
 }
 
 

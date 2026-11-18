@@ -778,6 +778,7 @@ class BLEXLIB_PUBLIC VarMemory
         VarMemory& operator=(VarMemory const &) = delete;
 
         friend class Debugger;
+        friend class DebugSupport;
 };
 
 // ADDME: add a ArrayPushElement and a RecordPushElement that do not make their structures writable (but just copy the variable)

@@ -1343,17 +1343,38 @@ bool VirtualMachine::AddCallToNextDeinitFunction()
         return found_deinit;
 }
 
+#ifdef __EMSCRIPTEN__
+// Let the debugger stop the VM (at a breakpoint or a step). Resolves when the debugger lets it continue
+EM_ASYNC_JS(void, supportDebugStop, (void *hsvm, unsigned reason), {
+  await Module.debugStop(hsvm, reason);
+});
+
+// Give an attached debugger a chance to run (eg to pause a busy VM)
+EM_ASYNC_JS(void, supportDebugPoll, (void *hsvm), {
+  await Module.debugPoll(hsvm);
+});
+
+#endif // __EMSCRIPTEN__
+
 bool VirtualMachine::HandleAbortFlag()
 {
         volatile unsigned *flag = vmgroup->GetAbortFlag();
         if (*flag == HSVM_ABORT_YIELD)
         {
+#ifndef __EMSCRIPTEN__
                 if (!is_suspendable)
                     return false;
-#ifndef __EMSCRIPTEN__
                 vmgroup->GetJobManager()->YieldVMWithoutSuspend(this);
 #else
-                Blex::ErrStream() << "TODO: YieldVMWithoutSuspend";
+                /* There's no job manager in the WASM engine, the debugger yields to switch between debug and normal mode.
+                   Return to VMGroup::Run, which continues the code right away in the new mode. That doesn't suspend the
+                   VM, so it also works for code that can't be suspended */
+                if (!vmgroup->dbg.switch_mode_requested)
+                {
+                        *flag = HSVM_ABORT_DONT_STOP;
+                        return false;
+                }
+                vmgroup->dbg.switch_mode_returned = true;
 #endif // __EMSCRIPTEN__
                 *flag = HSVM_ABORT_DONT_STOP;
         }
@@ -1449,10 +1470,21 @@ template< bool debug >
                                 {
 #ifndef __EMSCRIPTEN__
                                         vmgroup->jobmanager->GetDebugger().OnScriptBreakpointHit(*vmgroup, manualbreakpoint);
+#else
+                                        // Pause reasons as used by the native debugger: 2 = breakpoint, 4 = manual breakpoint
+                                        supportDebugStop(static_cast< HSVM * >(*this), manualbreakpoint ? 4 : 2);
 #endif // __EMSCRIPTEN__
                                         if (vmgroup->TestMustYield() && HandleAbortFlag())
                                             return;
                                 }
+#ifdef __EMSCRIPTEN__
+                                else if (vmgroup->dbg.attached && --vmgroup->dbg.poll_countdown == 0)
+                                {
+                                        // Let the debugger run every so many instructions, so it can pause a busy VM
+                                        vmgroup->dbg.poll_countdown = 10000;
+                                        supportDebugPoll(static_cast< HSVM * >(*this));
+                                }
+#endif // __EMSCRIPTEN__
                                 first_item = false;
                         }
 
@@ -1917,6 +1949,12 @@ void VirtualMachine::PrepareCall(Library const &lib, FunctionId func)
 }
 
 #ifdef __EMSCRIPTEN__
+
+void VMGroup::RequestDebugModeSwitch()
+{
+        dbg.switch_mode_requested = true;
+        *abortflag = HSVM_ABORT_YIELD;
+}
 
 EM_JS(bool, supportExecuteJSMacro, (void *hsvm, const char *name, unsigned externalid), {
   return Module.executeJSMacro(hsvm, name, externalid);
@@ -4192,10 +4230,32 @@ void VMGroup::Run(bool suspendable, bool allow_deinit)
         bool old_suspendable = currentvm->is_suspendable;
         currentvm->is_suspendable = suspendable;
 
+#ifdef __EMSCRIPTEN__
+        // The debugger can make the code return here to switch between debug and normal mode, then continue it in the new mode
+        while (true)
+        {
+                if (dbg.switch_mode_requested)
+                {
+                        dbg.switch_mode_requested = false;
+                        if (*abortflag == HSVM_ABORT_YIELD)
+                            *abortflag = HSVM_ABORT_DONT_STOP;
+                }
+                dbg.switch_mode_returned = false;
+
+                if (dbg.IsDebugging() || currentvm->profiledata.profile_coverage)
+                    currentvm->RunInternal< true >(allow_deinit);
+                else
+                    currentvm->RunInternal< false >(allow_deinit);
+
+                if (!dbg.switch_mode_returned)
+                    break;
+        }
+#else
         if (dbg.IsDebugging() || currentvm->profiledata.profile_coverage)
             currentvm->RunInternal< true >(allow_deinit);
         else
             currentvm->RunInternal< false >(allow_deinit);
+#endif
 
         // And restore it
         currentvm->is_suspendable = old_suspendable;

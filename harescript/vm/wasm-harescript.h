@@ -52,6 +52,39 @@ const char * EMSCRIPTEN_KEEPALIVE GetVMStackTrace(HSVM *hsvm);
 
 emscripten::EM_VAL EMSCRIPTEN_KEEPALIVE GetMessageList(HSVM *vm, bool with_trace);
 
+/* Debugger support for the TypeScript debug agent (whtree/jssdk/harescript/src/wasm-debugger.ts). The VM must not be
+   running instructions: it must be waiting (eg in an async external function) or stopped by the debugger. The results are
+   built in id_set, a variable of the same VM. */
+
+/// Status of the VM: stacktrace (with code and stack positions), stacksize, statistics and errors
+void EMSCRIPTEN_KEEPALIVE DebugGetStatus(HSVM *hsvm, HSVM_VariableId id_set);
+
+/// Variables, like the native debugger's 'getvariables': requests is a record array with id and optionally min and max
+void EMSCRIPTEN_KEEPALIVE DebugGetVariables(HSVM *hsvm, HSVM_VariableId requests, HSVM_VariableId id_set);
+
+/// Loaded libraries (liburi, compile_id, sourcetime, globalvarlocation)
+void EMSCRIPTEN_KEEPALIVE DebugGetLibraries(HSVM *hsvm, HSVM_VariableId id_set);
+
+/// Debug info of a loaded library (found, compile_id, debuginfo_compressed, sourcemap)
+void EMSCRIPTEN_KEEPALIVE DebugGetDebugInfo(HSVM *hsvm, const char *liburi, HSVM_VariableId id_set);
+
+/// Open handles
+void EMSCRIPTEN_KEEPALIVE DebugGetHandleList(HSVM *hsvm, HSVM_VariableId id_set);
+
+/// Switch function profiling on or off, optionally resetting the profile
+void EMSCRIPTEN_KEEPALIVE DebugSetFunctionProfiling(HSVM *hsvm, bool enable, bool reset);
+
+/// Function profile, like __INTERNAL_GetRawFunctionProfile
+void EMSCRIPTEN_KEEPALIVE DebugGetFunctionProfile(HSVM *hsvm, HSVM_VariableId id_set);
+
+/** Set the breakpoints: config has breakpoints (liburi, compile_id, codeptr, stacksize, manual), minstacksize, maxstacksize
+    and breakonexception. Running code picks up the change when it calls or returns from a function. */
+void EMSCRIPTEN_KEEPALIVE DebugSetBreakpoints(HSVM *hsvm, HSVM_VariableId config);
+
+/** Mark the VM as attached to a debugger (or not). While attached, the VM runs in debug mode and gives the debugger a
+    chance to run every so often, so a busy VM can be paused too */
+void EMSCRIPTEN_KEEPALIVE DebugSetAttached(HSVM *hsvm, bool attached);
+
 } // extern "C"
 
 #endif

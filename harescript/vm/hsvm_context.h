@@ -224,7 +224,16 @@ struct VMGroupDebuggerData
         unsigned max_stack;
         bool break_on_exception;
 
-        inline bool IsDebugging() { return !breakpoints.empty() || min_stack != 0 || max_stack != (unsigned)-1; }
+        /// WASM engine: a debugger is attached, run in debug mode so it gets a chance to run every so often
+        bool attached = false;
+        /// WASM engine: the debug mode changed, RunInternal should return to VMGroup::Run to switch
+        bool switch_mode_requested = false;
+        /// WASM engine: RunInternal returned to switch the debug mode, not because the code finished
+        bool switch_mode_returned = false;
+        /// WASM engine: instructions left until the debugger gets a chance to run
+        unsigned poll_countdown = 0;
+
+        inline bool IsDebugging() { return !breakpoints.empty() || min_stack != 0 || max_stack != (unsigned)-1 || attached; }
 };
 
 struct AsyncStackTraceElt
@@ -416,6 +425,18 @@ class BLEXLIB_PUBLIC VMGroup
         void Run(bool suspendable, bool allow_deinit);
 
         VirtualMachine * GetCurrentVM() { return currentvm; }
+
+        /// Debugger data (for the debugger of VMs in the WASM engine, which has no job manager)
+        VMGroupDebuggerData & GetDebuggerData() { return dbg; }
+
+        /// Number of entries on the call stack
+        unsigned GetCallStackSize() const { return callstack.size(); }
+
+#ifdef __EMSCRIPTEN__
+        /** Make the running code switch between debug and normal mode after the debugger data changed. Takes effect at
+            the next call, return or jump */
+        void RequestDebugModeSwitch();
+#endif
 
         /// Closes all handles of VMs in this group (after termination)
         void CloseHandles();
