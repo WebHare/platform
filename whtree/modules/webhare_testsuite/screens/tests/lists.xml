@@ -25,6 +25,8 @@
       <action name="truncatelist" onexecute="dotruncatelist" />
       <action name="switchselectmode" onexecute="DoSwitchSelectMode" />
       <action name="switchfocusin" onexecute="DoSwitchFocusIn" />
+      <action name="deleteselected" onexecute="DoDeleteSelected" />
+      <action name="deleteselectedandselect" onexecute="DoDeleteSelectedAndSelect" />
     </actions>
     <menus>
       <menu name="menubar">
@@ -42,6 +44,8 @@
           <item action="truncatelist" title="M13 truncatelist" />
           <item action="switchselectmode" title="M14 switchselectmode" />
           <item action="switchfocusin" title="M15 switchfocusin" />
+          <item action="deleteselected" title="M16 deleteselected" />
+          <item action="deleteselectedandselect" title="M17 deleteselectedandselect" />
         </item>
       </menu>
       <menu name="staticcontext">
@@ -71,6 +75,7 @@
           <text name="staticlistchecked" title="Top list checked" />
           <text name="dynamiclistselection" title="Bottom list selection" />
           <text name="staticlistfocusincount" title="Top list focusin count" value="0" />
+          <text name="staticlistselectlog" title="Top list onselect log" />
         </line>
         <line layout="left">
           <button action="foreven" title="B01 ForEven" name="forevenbutton" />

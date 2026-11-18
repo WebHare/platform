@@ -185,6 +185,31 @@ test.runTests(
         test.click(spancol);
         test.assert(spancol.classList.contains("sortdescending"));
 
+        //sorting should not affect the selection
+        test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #1.1').classList.contains("wh-list__row--selected"));
+
+        //keyboard navigation continues from the selected row's new position (Row #1.1 is now last, so up selects Row #1.2)
+        await test.pressKey("ArrowUp");
+        test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #1.2').classList.contains("wh-list__row--selected"));
+        test.assert(!test.getCurrentScreen().getListRow('staticlist', 'Row #1.1').classList.contains("wh-list__row--selected"));
+        await test.pressKey("ArrowDown");
+        test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #1.1').classList.contains("wh-list__row--selected"));
+
+        //collapsing Row #1 hides the selected Row #1.1, so Row #1 becomes selected and keyboard navigation continues from there
+        clickRowExpander(test.getCurrentScreen().getListRow('staticlist', 'Row #1|'));
+        await test.wait("ui");
+        test.eq(null, test.getCurrentScreen().getListRow('staticlist', 'Row #1.1'));
+        test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #1|').classList.contains("wh-list__row--selected"));
+        await test.pressKey("ArrowUp");
+        test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #2.1').classList.contains("wh-list__row--selected"));
+
+        //restore the state for the next tests
+        clickRowExpander(test.getCurrentScreen().getListRow('staticlist', 'Row #1|'));
+        await test.wait("ui");
+        test.click(test.getCurrentScreen().getListRow('staticlist', 'Row #1.1'));
+        await test.wait("ui");
+        test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #1.1').classList.contains("wh-list__row--selected"));
+
         /* Study the list! It should be sorted like this:
            Row #3, Row #2, Row #2.2, Row #2.1, Row #1, Row #1.2, Row #1.1 */
         test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #4|').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist', 'Row #3|').getBoundingClientRect().top);
@@ -255,6 +280,24 @@ test.runTests(
         test.assert(test.getCurrentScreen().getListRow('dynamiclist', '0 nochildren 10').classList.contains("wh-list__row--selected"));
         test.assert(test.getCurrentScreen().getListRow('dynamiclist', '0 nochildren 20').classList.contains("wh-list__row--selected"));
         test.eq('11 21', test.compByName("dynamiclistselection").textContent);
+      }
+    },
+
+    {
+      name: 'dynamictree-shiftselect',
+      test: async function () {
+        const isSelected = (text) => test.getCurrentScreen().getListRow('dynamiclist', text).classList.contains("wh-list__row--selected");
+
+        //a shift+click selects the range from the last clicked row and replaces the rest of the selection
+        test.click(test.getCurrentScreen().getListRow('dynamiclist', 'haschildren 20'), { cmd: true });
+        test.click(test.getCurrentScreen().getListRow('dynamiclist', '0 nochildren 30'), { shift: true });
+        test.assert(isSelected('haschildren 20'));
+        test.assert(isSelected('haschildren 30'));
+        test.assert(isSelected('0 nochildren 30'));
+        test.assert(!isSelected('0 nochildren 20'));
+        test.assert(!isSelected('0 nochildren 10'));
+        await test.wait("ui");
+        test.eq('20 30 31', test.compByName("dynamiclistselection").textContent); //the server received the replaced selection too
       }
     },
 
@@ -501,7 +544,8 @@ test.runTests(
         await test.wait("ui");
         test.eq('2', test.compByName("staticlistfocusincount").textContent);
 
-        test.click(test.getCurrentScreen().getListRow('staticlist', 'Row #001').querySelector('input[type="checkbox"]'));
+        //click a checkbox in a visible row. the list may be scrolled to the selection retained after the sorting tests, so Row #001 may not be visible
+        test.click(test.qS(test.compByName("staticlist"), '.wh-list__row--selected input[type="checkbox"]'));
         await test.wait("ui");
         test.eq('2', test.compByName("staticlistfocusincount").textContent);
 
@@ -509,6 +553,50 @@ test.runTests(
         test.click(test.compByName("staticlist"));
         await test.wait("ui");
         test.eq('3', test.compByName("staticlistfocusincount").textContent);
+      }
+    },
+
+    //reload the screen to get the original tree back
+    async function () {
+      await tt.loadWTSTestScreen('tests/lists.basetest');
+    },
+
+    {
+      name: 'server-deletes-selected-row',
+      test: async function () {
+        const isSelected = (text) => test.getCurrentScreen().getListRow('staticlist', text).classList.contains("wh-list__row--selected");
+
+        test.click(test.getCurrentScreen().getListRow('staticlist', 'Row #1.1'));
+        await test.wait("ui");
+        test.eq('2', test.getCurrentScreen().getText("staticlistselection"));
+
+        //the server deletes the selected Row #1.1 without selecting anything itself, so its parent Row #1 is selected and the server is told so
+        test.click(test.getMenu(['M01', 'M16']));
+        await test.wait("ui");
+        test.eq(null, test.getCurrentScreen().getListRow('staticlist', 'Row #1.1'));
+        test.assert(isSelected('Row #1|'));
+        await test.wait(() => test.getCurrentScreen().getText("staticlistselection") === '1');
+        test.eq("0 1", test.getCurrentScreen().getText("staticlistselectlog"));
+
+        //keyboard navigation continues from Row #1
+        await test.pressKey("ArrowDown");
+        test.assert(isSelected('Row #1.2'));
+        await test.wait("ui");
+        test.eq('3', test.getCurrentScreen().getText("staticlistselection"));
+
+        //the server deletes the selected Row #1.2 and selects Row #3 itself, so the client shouldn't select (and report) the parent Row #1
+        test.click(test.getMenu(['M01', 'M17']));
+        await test.wait("ui");
+        test.eq(null, test.getCurrentScreen().getListRow('staticlist', 'Row #1.2'));
+        test.assert(isSelected('Row #3|'));
+        test.assert(!isSelected('Row #1|'));
+        test.eq("0 7", test.getCurrentScreen().getText("staticlistselectlog"));
+
+        //keyboard navigation continues from Row #3
+        await test.pressKey("ArrowUp");
+        test.assert(isSelected('Row #2|'));
+        await test.wait("ui");
+        test.eq('4', test.getCurrentScreen().getText("staticlistselection"));
       }
     }
   ]);
