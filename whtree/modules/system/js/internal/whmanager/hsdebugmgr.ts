@@ -146,7 +146,7 @@ export class HSDebugManager {
     return [...this.processes.values()]
       .filter(proc => proc.clientname)
       .sort((a, b) => a.processcode < b.processcode ? -1 : a.processcode > b.processcode ? 1 : 0)
-      .map(proc => ({ processcode: proc.processcode, clientname: proc.clientname }));
+      .map(proc => ({ processcode: proc.processcode, clientname: proc.clientname, pid: proc.pid, threadid: proc.threadid }));
   }
 
   getProcessByCode(processcode: unknown): HSProcess | undefined {
@@ -179,6 +179,9 @@ class HSProcess {
   readonly link: Link;
   processcode = 0n;
   clientname = "";
+  /** OS process id and thread id (WASM engine threads send these, for native processes the processcode is the pid) */
+  pid = 0n;
+  threadid = 0;
   installedRuleTags: string[] = [];
   appRegistrations = new Map<number, AppRegistration>();
   attachedJobs = new Map<string, AttachedJobEntry>();
@@ -341,6 +344,8 @@ class HSProcess {
       case "greeting": {
         this.clientname = msg.clientname as string;
         this.processcode = BigInt(msg.processcode as bigint);
+        this.pid = msg.pid !== undefined ? BigInt(msg.pid as number) : this.processcode;
+        this.threadid = Number(msg.threadid ?? 0);
         this.mgr.registerProcess(this);
       } break;
 

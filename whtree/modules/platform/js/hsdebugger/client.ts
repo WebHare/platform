@@ -35,6 +35,10 @@ export class HSDebugError extends Error {
 export interface DebugJobEntry extends DebugJobInfo {
   processcode: bigint;
   clientname: string;
+  /** OS process id */
+  pid: number;
+  /** Thread id within the process (0 for the main thread) */
+  threadid: number;
 }
 
 /** Default time to wait for a reply */
@@ -175,7 +179,8 @@ export class HSDebugConnection implements AsyncDisposable, Disposable {
     const processes = await this.listProcesses();
     const perProcess = await Promise.all(processes.map(async proc => {
       try {
-        return (await this.listJobs(proc.processcode)).map(job => ({ ...job, processcode: proc.processcode, clientname: proc.clientname }));
+        const pid = Number(proc.pid ?? proc.processcode), threadid = Number(proc.threadid ?? 0);
+        return (await this.listJobs(proc.processcode)).map(job => ({ ...job, processcode: proc.processcode, clientname: proc.clientname, pid, threadid }));
       } catch {
         return [];
       }

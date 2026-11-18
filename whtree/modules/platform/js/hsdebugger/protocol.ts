@@ -30,6 +30,10 @@ export interface DebugProcessInfo {
   processcode: bigint;
   /** Client name, eg 'webserver' or 'runscript wh::...' */
   clientname: string;
+  /** OS process id (not sent by older debug managers, the processcode is the pid of native processes) */
+  pid?: number | bigint;
+  /** Thread id within the process: 0 for the main thread, the worker thread id for HareScript running in the WASM engine */
+  threadid?: number;
 }
 
 /** A job (VM group) as listed by the debug manager */

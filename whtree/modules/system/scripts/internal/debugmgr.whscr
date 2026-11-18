@@ -614,6 +614,9 @@ STATIC OBJECTTYPE WHProcess
         this->pvt_debugmgr->ChangeProcessRegistration(
             [ processcode :=  msg.processcode
             , clientname :=   msg.clientname
+            // WASM engine threads send their pid and thread id, for native processes the processcode is the pid
+            , pid :=          CellExists(msg, "PID") ? msg.pid : msg.processcode
+            , threadid :=     CellExists(msg, "THREADID") ? msg.threadid : 0
             , process :=      PRIVATE this
             ], TRUE);
       }
@@ -1263,7 +1266,7 @@ STATIC OBJECTTYPE ConnectedApplication
 
         this->pvt_link->SendReply(
             [ type :=       "processlist"
-            , processes :=  (SELECT processcode, clientname FROM this->pvt_debugmgr->pvt_processes)
+            , processes :=  (SELECT processcode, clientname, pid, threadid FROM this->pvt_debugmgr->pvt_processes)
             ], msgid);
       }
 

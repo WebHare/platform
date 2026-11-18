@@ -49,6 +49,9 @@ async function testListJobs() {
     .filter(entry => entry.script.endsWith("debugtarget.whscr"))
     .sort((a, b) => b.creationdate.getTime() - a.creationdate.getTime())[0]);
   test.eq(false, job.connected);
+  // Native processes report their pid as processcode, and run their jobs on their main thread as far as the list goes
+  test.eq(Number(job.processcode), job.pid);
+  test.eq(0, job.threadid);
   // The job mostly sleeps, so it should have been running for far less than a minute
   test.assert(durationToMsecs(job.total_running) >= 0 && durationToMsecs(job.total_running) < 60_000, `Unexpected running time ${durationToMsecs(job.total_running)}`);
   groupid = job.groupid;
@@ -470,6 +473,9 @@ async function testWasmTarget() {
     .filter(entry => entry.script.endsWith("debugtarget.whscr") && entry.clientname.includes("wasm"))
     .sort((a, b) => b.creationdate.getTime() - a.creationdate.getTime())[0]);
   const wasmGroupid = job.groupid;
+  // A WASM thread reports the pid of its node process and its thread id
+  test.assert(job.pid > 0 && job.pid !== Number(job.processcode));
+  test.eq(BigInt(job.pid) * 1000n + BigInt(job.threadid), job.processcode);
 
   // Stack and variables while the VM waits in Sleep()
   const result = await conn.withPausedJob(wasmGroupid, async (pausedJob, status) => {

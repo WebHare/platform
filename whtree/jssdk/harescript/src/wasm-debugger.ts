@@ -280,7 +280,7 @@ export class WasmDebugAgent {
     link.activate().then(() => {
       this.link = link;
       link.dropReference(); // don't keep the process alive for the debugger
-      link.send({ type: "greeting", clientname: `node ${process.argv[1] ?? ""} (wasm thread ${threadId})`, processcode: this.processcode });
+      link.send({ type: "greeting", clientname: `node ${process.argv[1] ?? ""} (wasm thread ${threadId})`, processcode: this.processcode, pid: process.pid, threadid: threadId });
     }, () => {
       link.close();
     }).finally(() => {
