@@ -101,13 +101,15 @@ gh pr create --repo WebHare/platform --draft --base <base> --head <branch> \
 `gh pr create` prints the PR's URL. Reply with just that link: the title and description are on the PR.
 
 Only when the user explicitly asks to merge the PR right away (eg. "create the PR and merge it"), create it without
-`--draft` and enable auto-merge, so GitHub merges it as soon as the required checks pass:
+`--draft` and enable auto-merge, so GitHub merges it once the required checks pass and it has the required approvals
+(the `main` ruleset requires two approving reviews, one from the required team, and all review threads resolved):
 
 ```bash
-gh pr merge <url> --auto --squash
+gh pr merge <url> --auto --merge
 ```
 
-Reply with the link and say that auto-merge is enabled. A request for a PR alone is not a request to merge it.
+Reply with the link and say that auto-merge is enabled but the PR still needs two approvals. A request for a PR
+alone is not a request to merge it.
 
 ## Verify
 
