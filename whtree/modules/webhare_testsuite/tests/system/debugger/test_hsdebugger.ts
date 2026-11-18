@@ -1,11 +1,16 @@
 import * as test from "@webhare/test-backend";
 import { spawn, type ChildProcess } from "node:child_process";
 import { backendConfig, importJSFunction } from "@webhare/services";
-import { generateRandomId } from "@webhare/std";
+import { generateRandomId, Money } from "@webhare/std";
 import { HSDebugConnection, durationToMsecs } from "@mod-platform/js/hsdebugger/client";
 import { getJobStack } from "@mod-platform/js/hsdebugger/stack";
 import { listStoredProfileSessions, listStoredProfiles, readStoredProfile } from "@mod-platform/js/hsdebugger/profiles";
 import { encodeHSON } from "@webhare/hscompat";
+import { HSDebugAgentClient } from "@mod-platform/js/hsdebugger/agentclient";
+import { decodeWire, encodeWire } from "@mod-platform/js/hsdebugger/wire";
+import { PauseReason, type DebugJobStatus } from "@mod-platform/js/hsdebugger/protocol";
+import type { StackFrameWithVariables } from "@mod-platform/js/hsdebugger/stack";
+import type { ResolvedLineBreakpoint } from "@mod-platform/js/hsdebugger/breakpoints";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import * as path from "node:path";
 import { describeValue, getHareScriptTypeName } from "@mod-platform/js/hsdebugger/variables";
@@ -196,6 +201,95 @@ async function testStoredProfiles() {
   }
 }
 
+function testWire() {
+  const value = { a: 1n, b: new Date("2026-01-01T00:00:00Z"), c: new Money("1.5"), d: [{ e: "x" }], f: null };
+  const decoded = decodeWire(encodeWire(value)) as typeof value;
+  test.eq(1n, decoded.a);
+  test.eq(value.b.getTime(), decoded.b.getTime());
+  test.eq("1.5", decoded.c.value);
+  test.eq([{ e: "x" }], decoded.d);
+}
+
+/** Wait for a jobStatus notification matching a condition */
+function waitForAgentStatus(agent: HSDebugAgentClient, condition: (status: DebugJobStatus) => boolean): Promise<DebugJobStatus> {
+  return new Promise(resolve => {
+    const cb = agent.on("jobStatus", ({ groupid: eventGroupid, status }) => {
+      if (eventGroupid === groupid && condition(status)) {
+        agent.off(cb);
+        resolve(status);
+      }
+    });
+  });
+}
+
+async function testAgent() {
+  // Run the agent the way a remote debugger would, as a separate process talking over stdin/stdout
+  using agent = HSDebugAgentClient.spawn([backendConfig.installationRoot + "bin/wh", "debug", "harescript-agent"]);
+  const hello = await agent.call<{ version: number; dataRoot: string }>("hello");
+  test.eq(1, hello.version);
+  test.eq(backendConfig.dataRoot, hello.dataRoot);
+
+  const jobs = await agent.call<Array<{ groupid: string }>>("listJobs", { filter: "debugtarget" });
+  test.assert(jobs.some(job => job.groupid === groupid));
+
+  await agent.call("attach", { groupid });
+  try {
+    const paused = await agent.call<DebugJobStatus>("pause", { groupid });
+    test.eq("DebugStopped", paused.realstatus);
+
+    const stack = await agent.call<StackFrameWithVariables[]>("getStack", { groupid, variableFrames: [3] });
+    test.eq(`"${marker}"`, stack[3].variables.find(v => v.name === "MARKER")?.value);
+
+    // Break on the 'rounds := rounds + 1' line
+    const bps = await agent.call<ResolvedLineBreakpoint[]>("setBreakpoints", { groupid, liburi: targetScript, lines: [22] });
+    test.eqPartial([{ verified: true, actualLine: 22 }], bps);
+
+    // A breakpoint on a line without code moves to the next line with code
+    const moved = await agent.call<ResolvedLineBreakpoint[]>("setBreakpoints", { groupid, liburi: targetScript, lines: [21] }); // the '{' after WHILE
+    test.eqPartial([{ verified: true }], moved);
+    test.assert(moved[0].actualLine > 21);
+    await agent.call("setBreakpoints", { groupid, liburi: targetScript, lines: [22] });
+
+    let stopped = waitForAgentStatus(agent, status => status.realstatus === "DebugStopped");
+    await agent.call("continue", { groupid });
+    let status = await stopped;
+    test.assert(status.pausereason & (PauseReason.breakpoint | PauseReason.manualBreakpoint), `Expected a breakpoint stop, got pause reason ${status.pausereason}`);
+    test.eq(22, status.stacktrace?.[0].line);
+
+    // Step over to the next line
+    stopped = waitForAgentStatus(agent, s => s.realstatus === "DebugStopped");
+    await agent.call("step", { groupid, kind: "over" });
+    status = await stopped;
+    test.eq(23, status.stacktrace?.[0].line);
+    test.eq("WAITINTARGET", status.stacktrace?.[0].func.split(":")[0]);
+
+    // Step into ComputeSomething
+    stopped = waitForAgentStatus(agent, s => s.realstatus === "DebugStopped");
+    await agent.call("step", { groupid, kind: "in" });
+    status = await stopped;
+    test.eq("COMPUTESOMETHING", status.stacktrace?.[0].func.split(":")[0]);
+
+    // And out again
+    stopped = waitForAgentStatus(agent, s => s.realstatus === "DebugStopped");
+    await agent.call("step", { groupid, kind: "out" });
+    status = await stopped;
+    test.eq("WAITINTARGET", status.stacktrace?.[0].func.split(":")[0]);
+
+    // Clear the breakpoints, the job should keep running
+    await agent.call("setBreakpoints", { groupid, liburi: targetScript, lines: [] });
+    const source = await agent.call<{ source: string }>("readSource", { liburi: targetScript });
+    test.assert(source.source.includes("MACRO WaitInTarget"));
+  } finally {
+    await agent.call("continue", { groupid });
+    await agent.call("detach", { groupid });
+  }
+
+  // The job continues after detaching (which doesn't wait for a reply, so wait for the debug manager to see it)
+  await using conn = await HSDebugConnection.connect();
+  const processcode = (await conn.findJob(groupid)).processcode;
+  await test.wait(async () => (await conn.listJobs(processcode)).find(j => j.groupid === groupid && !j.connected));
+}
+
 async function testMCPTools() {
   // The devkit module isn't active in containers (eg CI) unless WEBHARE_ENABLE_DEVKIT is set
   if (!backendConfig.module.devkit) {
@@ -251,6 +345,8 @@ test.runTests([
   testProfile,
   testDebugInfo,
   testStoredProfiles,
+  testWire,
+  testAgent,
   testMCPTools,
   stopTarget,
 ]);

@@ -14,6 +14,7 @@ import { compareProperties, throwError } from "@webhare/std";
 import { existsSync } from "node:fs";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import { loadlib } from "@webhare/harescript";
+import { runHSDebugAgent } from "@mod-platform/js/hsdebugger/agent";
 
 function parseHostPort(str: string) {
   const matchRes = str.match(/^(([0-9.]+):)?([0-9]+)$/);
@@ -360,6 +361,14 @@ runCli({
       options: { ...optProcess },
       main: async ({ opts }) => {
         return mutateFlags(opts.process ? opts.process.toString() : null, "clear", [], false);
+      }
+    },
+    "harescript-agent": {
+      description: "Offer the HareScript debugger on stdin/stdout (JSON-RPC, one message per line), for a debugger running elsewhere",
+      main: async () => {
+        // stdout carries the protocol, so keep any logging on stderr
+        console.log = console.error;
+        await runHSDebugAgent(process.stdin, process.stdout);
       }
     },
     //Stubs for things we'll forward to the HareScript version for now
