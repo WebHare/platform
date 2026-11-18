@@ -2223,8 +2223,8 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
   onClickList(event: MouseEvent, dblclick: boolean) {
     let lastnode, listrow: HTMLDivElement | null = null, listcell, anyfocussable, selectnode: HTMLElement;
     for (selectnode = event.target as HTMLElement; selectnode && selectnode !== this.node; selectnode = selectnode.parentElement as HTMLElement) {
-      // Ignore clicks on the footer
-      if (selectnode.classList.contains("listfooterholder"))
+      // Ignore clicks on the header (eg. sorting a column) and the footer
+      if (selectnode.classList.contains("listheader") || selectnode.classList.contains("listfooterholder"))
         return false;
 
       /* label click, eg checkbox row - we only allow this if selectmode is none,

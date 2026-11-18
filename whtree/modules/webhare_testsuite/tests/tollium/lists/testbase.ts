@@ -185,6 +185,9 @@ test.runTests(
         test.click(spancol);
         test.assert(spancol.classList.contains("sortdescending"));
 
+        //sorting should not affect the selection
+        test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #1.1').classList.contains("wh-list__row--selected"));
+
         /* Study the list! It should be sorted like this:
            Row #3, Row #2, Row #2.2, Row #2.1, Row #1, Row #1.2, Row #1.1 */
         test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #4|').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist', 'Row #3|').getBoundingClientRect().top);
@@ -501,7 +504,8 @@ test.runTests(
         await test.wait("ui");
         test.eq('2', test.compByName("staticlistfocusincount").textContent);
 
-        test.click(test.getCurrentScreen().getListRow('staticlist', 'Row #001').querySelector('input[type="checkbox"]'));
+        //click a checkbox in a visible row. the list may be scrolled to the selection retained after the sorting tests, so Row #001 may not be visible
+        test.click(test.qS(test.compByName("staticlist"), '.wh-list__row--selected input[type="checkbox"]'));
         await test.wait("ui");
         test.eq('2', test.compByName("staticlistfocusincount").textContent);
 
