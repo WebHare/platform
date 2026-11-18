@@ -132,7 +132,11 @@ function checkRunkitPath() { //invoked by both activate and on config change
 
 /** Starts `wh debug harescript-dap` as the debug adapter for 'harescript' debug configurations */
 const harescriptDebugAdapterFactory: vscode.DebugAdapterDescriptorFactory = {
-  createDebugAdapterDescriptor() {
+  createDebugAdapterDescriptor(session) {
+    // 'adapterCommand' runs the adapter elsewhere, eg ["podman", "exec", "-i", "<container>", "wh", "debug", "harescript-dap"]
+    const adapterCommand = session.configuration.adapterCommand as string[] | undefined;
+    if (adapterCommand?.length)
+      return new vscode.DebugAdapterExecutable(adapterCommand[0], adapterCommand.slice(1));
     return usingRunKitPath
       ? new vscode.DebugAdapterExecutable(usingRunKitPath, ["wh", "debug", "harescript-dap"])
       : new vscode.DebugAdapterExecutable("wh", ["debug", "harescript-dap"]);

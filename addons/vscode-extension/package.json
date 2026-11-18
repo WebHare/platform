@@ -165,6 +165,13 @@
 								"description": "Pause the job right after attaching",
 								"default": false
 							},
+							"adapterCommand": {
+								"type": "array",
+								"items": {
+									"type": "string"
+								},
+								"description": "Command that runs the debug adapter, eg [\"podman\", \"exec\", \"-i\", \"<container>\", \"wh\", \"debug\", \"harescript-dap\"] to run it in a devkit container. Defaults to 'wh debug harescript-dap' of the configured WebHare"
+							},
 							"agentCommand": {
 								"type": "array",
 								"items": {

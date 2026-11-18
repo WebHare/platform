@@ -6,6 +6,7 @@
    - script: attach to the newest job whose script contains this text, or
    - groupid: attach to this job
    - agentCommand: command to start a remote agent, eg ["podman", "exec", "-i", "wh-devkit-x", "wh", "debug", "harescript-agent"]
+     (alternatively, run the adapter itself on the remote side, see 'adapterCommand' in the VS Code extension)
    - localRoot, remoteRoot: map local paths (in the editor) to paths on the remote side, eg a worktree to /opt/wh
    - stopOnAttach: pause the job right after attaching
 
@@ -343,10 +344,13 @@ export class HareScriptDebugAdapter {
     }
 
     const { localRoot, remoteRoot } = this.args;
-    const localPath = remotePath && localRoot && remoteRoot && remotePath.startsWith(remoteRoot) ? localRoot + remotePath.substring(remoteRoot.length) : remotePath;
     const name = liburi.split("/").pop() || liburi;
-    if (localPath && existsSync(localPath))
-      return { name, path: localPath };
+    // A file under remoteRoot is the editor's file under localRoot. (The adapter may run on the remote side itself, where
+    // it can't check whether the local file exists)
+    if (remotePath && localRoot && remoteRoot && remotePath.startsWith(remoteRoot))
+      return { name, path: localRoot + remotePath.substring(remoteRoot.length) };
+    if (remotePath && !(localRoot && remoteRoot) && existsSync(remotePath))
+      return { name, path: remotePath };
 
     let ref = this.sourceRefs.get(liburi);
     if (!ref) {
