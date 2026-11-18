@@ -10,7 +10,7 @@
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import type { IPCEndPoint, IPCMessagePacket } from "@mod-system/js/internal/whmanager/ipc";
 import type { IPCMarshallableRecord } from "@mod-system/js/internal/whmanager/hsmarshalling";
-import { dateToParts } from "@webhare/hscompat";
+import { dateToParts, HareScriptType, setHareScriptType } from "@webhare/hscompat";
 import { LibraryDebugInfo } from "./debuginfo";
 import {
   debugManagerPortName, errorReplyTypes,
@@ -39,6 +39,13 @@ export interface DebugJobEntry extends DebugJobInfo {
 
 /** Default time to wait for a reply */
 const defaultTimeout = 10000;
+
+/** Mark an array as a RECORD ARRAY (an empty JavaScript array would be sent as a VARIANT ARRAY, which the debugger rejects) */
+function recordArray<T>(array: T[]): IPCMarshallableRecord[] {
+  const copy = [...array];
+  setHareScriptType(copy, HareScriptType.RecordArray);
+  return copy as unknown as IPCMarshallableRecord[];
+}
 
 function sameCode(a: unknown, b: unknown) {
   return a !== undefined && b !== undefined && String(a) === String(b);
@@ -270,6 +277,7 @@ export class HSDebugConnection implements AsyncDisposable, Disposable {
 /** A job the debugger is attached to */
 export class HSDebugJob {
   private statusWaiters = new Set<(status: DebugJobStatus | null) => void>();
+  private statusListeners = new Set<(status: DebugJobStatus | null) => void>();
   private _status: DebugJobStatus;
   private _attached = true;
 
@@ -298,12 +306,20 @@ export class HSDebugJob {
     return ["DebugStopped", "Terminated"].includes(this._status.realstatus);
   }
 
+  /** Listen for status changes. Called with null when the job is detached
+      @returns Function to remove the listener
+  */
+  addStatusListener(listener: (status: DebugJobStatus | null) => void): () => void {
+    this.statusListeners.add(listener);
+    return () => this.statusListeners.delete(listener);
+  }
+
   /** @internal */
   gotMessage(msg: Message) {
     switch (msg.type) {
       case "job-statechange": {
         this._status = msg.status as unknown as DebugJobStatus;
-        for (const waiter of this.statusWaiters)
+        for (const waiter of [...this.statusWaiters, ...this.statusListeners])
           waiter(this._status);
       } break;
       case "job-disconnected": {
@@ -314,10 +330,13 @@ export class HSDebugJob {
 
   /** @internal */
   gotDisconnected() {
+    if (!this._attached)
+      return;
     this._attached = false;
-    for (const waiter of this.statusWaiters)
+    for (const waiter of [...this.statusWaiters, ...this.statusListeners])
       waiter(null);
     this.statusWaiters.clear();
+    this.statusListeners.clear();
   }
 
   /** Wait for a status change matching a condition */
@@ -395,7 +414,7 @@ export class HSDebugJob {
 
   /** Get variables (the job must be paused) */
   async getVariables(requests: GetVariablesRequest[]): Promise<RawDebugValue[]> {
-    const reply = await this.jobRequest({ type: "job-getvariables", variables: requests as unknown as IPCMarshallableRecord[] }, "get variables");
+    const reply = await this.jobRequest({ type: "job-getvariables", variables: recordArray(requests) }, "get variables");
     return reply.variables as unknown as RawDebugValue[];
   }
 
@@ -448,7 +467,7 @@ export class HSDebugJob {
   async setBreakpoints(config: { breakpoints: DebugBreakpoint[]; breakOnException?: boolean; minStackSize?: number; maxStackSize?: number }): Promise<void> {
     await this.jobRequest({
       type: "job-setbreakpoints",
-      breakpoints: config.breakpoints as unknown as IPCMarshallableRecord[],
+      breakpoints: recordArray(config.breakpoints),
       breakonexception: config.breakOnException ?? false,
       minstacksize: config.minStackSize ?? 0,
       maxstacksize: config.maxStackSize ?? 0x7fffffff,
