@@ -41,7 +41,7 @@ test.runTests(
 
       console.log("RELOADING");
       await test.load(test.getTestSiteRoot() + 'pwatest/');
-      await test.wait(() => test.qR("#pwa-offline"));
+      await test.wait(() => test.qS("#pwa-offline"));
       test.eq(clock, test.qR("#pwa-published-at").textContent, "Shouldnt see the updated file yet, we're supposed to be offline - make sure 'Bypass for network' is not enabled in devtools>app>sw");
 
       test.click('#downloadupdate');
