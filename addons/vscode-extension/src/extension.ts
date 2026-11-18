@@ -14,6 +14,7 @@ import { getStackTraceHandler, showLastStackTraceHandler, getLastStackTracesHand
 import { activateYAML } from './yaml';
 import { activateXML } from './xml';
 import { runScript } from './tasks';
+import { HareScriptJobsProvider } from './hsjobs';
 import { existsSync } from "fs";
 
 let usingRunKitPath: string | null = null;
@@ -147,6 +148,7 @@ export function activate(context: vscode.ExtensionContext) {
   checkRunkitPath();
 
   context.subscriptions.push(vscode.debug.registerDebugAdapterDescriptorFactory("harescript", harescriptDebugAdapterFactory));
+  new HareScriptJobsProvider(() => usingRunKitPath).register(context);
 
   activateXML(context);
   activateYAML(context);

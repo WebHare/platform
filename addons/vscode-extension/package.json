@@ -158,7 +158,7 @@
 							},
 							"groupid": {
 								"type": "string",
-								"description": "Group id of the job to attach to (see 'wh harescript-debug alljobs')"
+								"description": "Group id of the job to attach to (see 'wh harescript-debug alljobs'). You can also attach to a job from the HareScript Jobs view"
 							},
 							"stopOnAttach": {
 								"type": "boolean",
@@ -225,7 +225,28 @@
 				]
 			}
 		],
+		"views": {
+			"debug": [
+				{
+					"id": "webhare.harescriptJobs",
+					"name": "HareScript Jobs",
+					"icon": "$(server-process)"
+				}
+			]
+		},
 		"commands": [
+			{
+				"command": "webhare.harescriptJobs.refresh",
+				"title": "Refresh",
+				"category": "HareScript",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "webhare.harescriptJobs.attach",
+				"title": "Attach Debugger",
+				"category": "HareScript",
+				"icon": "$(debug-alt)"
+			},
 			{
 				"command": "webhare.getStackTrace",
 				"title": "WebHare: Get Stack Trace"
@@ -254,7 +275,29 @@
 			}
 		],
 		"menus": {
+			"view/title": [
+				{
+					"command": "webhare.harescriptJobs.refresh",
+					"when": "view == webhare.harescriptJobs",
+					"group": "navigation"
+				}
+			],
+			"view/item/context": [
+				{
+					"command": "webhare.harescriptJobs.attach",
+					"when": "view == webhare.harescriptJobs && viewItem =~ /^harescriptJob/",
+					"group": "inline"
+				},
+				{
+					"command": "webhare.harescriptJobs.attach",
+					"when": "view == webhare.harescriptJobs && viewItem =~ /^harescriptJob/"
+				}
+			],
 			"commandPalette": [
+				{
+					"command": "webhare.harescriptJobs.attach",
+					"when": "false"
+				},
 				{
 					"command": "webhare.getStackTrace"
 				},

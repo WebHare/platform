@@ -72,6 +72,13 @@ another machine something has to run there:
 the libraries the job has loaded; sources that can't be mapped to a local file are shown read-only through the adapter.
 Expressions can't be evaluated.
 
+The extension also adds a **HareScript Jobs** view to the Run and Debug sidebar. It lists the running jobs grouped by OS
+process (and by thread, for processes running HareScript in the WASM engine on worker threads), with an action to attach
+the debugger to a job. It lists the jobs of the local WebHare and of the WebHares of the `harescript` launch
+configurations, using their `agentCommand`, or their `adapterCommand` with `harescript-dap` replaced by
+`harescript-agent`. The debug manager's process list includes the `pid` and `threadid` of each debugger connection for
+this; for native processes the `processcode` is the pid.
+
 ## HareScript in the WASM engine
 Scripts running in the WASM engine (eg jobs, and `wh run` of a script with `(*WASMENGINE*)` in its first line or with
 `WEBHARE_HARESCRIPT_WASMONLY=1`) are registered with the debug manager by `wasm-debugger.ts` and show up as jobs of a

@@ -235,7 +235,7 @@ export class HareScriptDebugAdapter {
     let groupid = args.groupid;
     if (!groupid) {
       if (!args.script)
-        throw new DAPError("Specify the 'script' or 'groupid' of the job to attach to");
+        throw new DAPError("Specify the 'script' or 'groupid' of the job to attach to (in VS Code you can also attach from the HareScript Jobs view)");
       const jobs = await this.agent.call<Array<{ groupid: string; script: string; creationdate: Date }>>("listJobs", { filter: args.script });
       jobs.sort((a, b) => b.creationdate.getTime() - a.creationdate.getTime());
       if (!jobs.length)
