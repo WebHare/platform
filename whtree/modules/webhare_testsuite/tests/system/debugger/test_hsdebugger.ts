@@ -290,6 +290,131 @@ async function testAgent() {
   await test.wait(async () => (await conn.listJobs(processcode)).find(j => j.groupid === groupid && !j.connected));
 }
 
+/** Minimal DAP client for testing the adapter */
+class DAPTestClient {
+  private seq = 0;
+  private buffer = Buffer.alloc(0);
+  private responses = new Map<number, PromiseWithResolvers<{ success: boolean; message?: string; body: Record<string, unknown> }>>();
+  events: Array<{ event: string; body: Record<string, unknown> }> = [];
+  private eventWaiters: Array<{ event: string; resolve: (body: Record<string, unknown>) => void }> = [];
+  readonly proc: ChildProcess;
+
+  constructor() {
+    this.proc = spawn(backendConfig.installationRoot + "bin/wh", ["debug", "harescript-dap"], { stdio: ["pipe", "pipe", "inherit"] });
+    this.proc.stdout!.on("data", (chunk: Buffer) => this.gotData(chunk));
+  }
+
+  private gotData(chunk: Buffer) {
+    this.buffer = Buffer.concat([this.buffer, chunk]);
+    for (; ;) {
+      const headerEnd = this.buffer.indexOf("\r\n\r\n");
+      if (headerEnd < 0)
+        return;
+      const length = Number(this.buffer.subarray(0, headerEnd).toString().match(/Content-Length: (\d+)/)![1]);
+      if (this.buffer.length < headerEnd + 4 + length)
+        return;
+      const msg = JSON.parse(this.buffer.subarray(headerEnd + 4, headerEnd + 4 + length).toString());
+      this.buffer = this.buffer.subarray(headerEnd + 4 + length);
+      if (msg.type === "response")
+        this.responses.get(msg.request_seq)?.resolve(msg);
+      else if (msg.type === "event") {
+        this.events.push(msg);
+        const waiter = this.eventWaiters.find(w => w.event === msg.event);
+        if (waiter) {
+          this.eventWaiters.splice(this.eventWaiters.indexOf(waiter), 1);
+          waiter.resolve(msg.body);
+        }
+      }
+    }
+  }
+
+  async request(command: string, args: Record<string, unknown> = {}) {
+    const seq = ++this.seq;
+    const defer = Promise.withResolvers<{ success: boolean; message?: string; body: Record<string, unknown> }>();
+    this.responses.set(seq, defer);
+    const body = JSON.stringify({ seq, type: "request", command, arguments: args });
+    this.proc.stdin!.write(`Content-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`);
+    const response = await defer.promise;
+    if (!response.success)
+      throw new Error(`DAP request ${command} failed: ${response.message}`);
+    return response.body;
+  }
+
+  waitForEvent(event: string): Promise<Record<string, unknown>> {
+    return new Promise(resolve => this.eventWaiters.push({ event, resolve }));
+  }
+}
+
+async function testDAP() {
+  const dap = new DAPTestClient();
+  try {
+    const caps = await dap.request("initialize", { adapterID: "harescript" });
+    test.eq(true, caps.supportsConfigurationDoneRequest);
+
+    const initialized = dap.waitForEvent("initialized");
+    await dap.request("attach", { script: "debugtarget.whscr" });
+    await initialized;
+
+    // Set a breakpoint on the 'rounds := rounds + 1' line by file path
+    const targetPath = backendConfig.module.webhare_testsuite.root + "tests/system/debugger/data/debugtarget.whscr";
+    const bps = await dap.request("setBreakpoints", { source: { path: targetPath }, breakpoints: [{ line: 22 }] });
+    test.eqPartial([{ verified: true }], bps.breakpoints as unknown[]);
+
+    let stopped = dap.waitForEvent("stopped");
+    await dap.request("configurationDone");
+    test.eqPartial({ reason: "breakpoint", threadId: 1 }, await stopped);
+
+    const threads = await dap.request("threads");
+    test.eqPartial([{ id: 1, name: targetScript }], threads.threads as unknown[]);
+
+    const stack = await dap.request("stackTrace", { threadId: 1 });
+    const frames = stack.stackFrames as Array<{ id: number; name: string; line: number; source: { path?: string } }>;
+    test.eqPartial({ line: 22, source: { path: targetPath } }, frames[0]);
+
+    const scopes = await dap.request("scopes", { frameId: frames[0].id });
+    const locals = (scopes.scopes as Array<{ variablesReference: number }>)[0];
+    const vars = (await dap.request("variables", { variablesReference: locals.variablesReference })).variables as Array<{ name: string; value: string; variablesReference: number }>;
+    test.eq(`"${marker}"`, vars.find(v => v.name === "MARKER")?.value);
+    const info = vars.find(v => v.name === "INFO")!;
+    test.assert(info.variablesReference > 0, "INFO should be expandable");
+    const infoMembers = (await dap.request("variables", { variablesReference: info.variablesReference })).variables as Array<{ name: string; value: string; variablesReference: number }>;
+    test.eqPartial([{ name: "A", value: "42" }, { name: "B", value: `"two"` }, { name: "C" }], infoMembers);
+    const nested = (await dap.request("variables", { variablesReference: infoMembers[2].variablesReference })).variables;
+    test.eqPartial([{ name: "NESTED", value: "TRUE" }], nested as unknown[]);
+
+    // Step over to the next line
+    stopped = dap.waitForEvent("stopped");
+    await dap.request("next", { threadId: 1 });
+    test.eqPartial({ reason: "step" }, await stopped);
+    test.eqPartial({ line: 23 }, ((await dap.request("stackTrace", { threadId: 1 })).stackFrames as unknown[])[0]);
+
+    // Remove the breakpoint and continue
+    await dap.request("setBreakpoints", { source: { path: targetPath }, breakpoints: [] });
+    await dap.request("continue", { threadId: 1 });
+
+    // Pause it again
+    stopped = dap.waitForEvent("stopped");
+    await dap.request("pause", { threadId: 1 });
+    test.eqPartial({ reason: "pause" }, await stopped);
+
+    // Every frame has a source, either a local file or one sent through the adapter
+    const pausedFrames = (await dap.request("stackTrace", { threadId: 1 })).stackFrames as Array<{ name: string; source?: { path?: string; sourceReference?: number } }>;
+    test.assert(pausedFrames.some(frame => frame.name.startsWith("WAITINTARGET")));
+    for (const frame of pausedFrames)
+      test.assert(frame.source?.path || frame.source?.sourceReference, `Frame ${frame.name} has no source`);
+  } finally {
+    await dap.request("disconnect").catch(() => { });
+    dap.proc.kill();
+  }
+
+  // The job keeps running after disconnecting. Detaching doesn't wait for a reply, and this connection's list may be
+  // handled before the adapter's detach reached the debug manager, so wait for it
+  await using conn = await HSDebugConnection.connect();
+  const processcode = (await conn.findJob(groupid)).processcode;
+  const job = await test.wait(async () => (await conn.listJobs(processcode)).find(j => j.groupid === groupid && !j.connected));
+  test.assert(job.status !== "DebugStopped");
+}
+
 async function testMCPTools() {
   // The devkit module isn't active in containers (eg CI) unless WEBHARE_ENABLE_DEVKIT is set
   if (!backendConfig.module.devkit) {
@@ -347,6 +472,7 @@ test.runTests([
   testStoredProfiles,
   testWire,
   testAgent,
+  testDAP,
   testMCPTools,
   stopTarget,
 ]);

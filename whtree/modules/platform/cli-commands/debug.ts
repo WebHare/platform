@@ -15,6 +15,7 @@ import { existsSync } from "node:fs";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import { loadlib } from "@webhare/harescript";
 import { runHSDebugAgent } from "@mod-platform/js/hsdebugger/agent";
+import { runHareScriptDebugAdapter } from "@mod-platform/js/hsdebugger/dap";
 
 function parseHostPort(str: string) {
   const matchRes = str.match(/^(([0-9.]+):)?([0-9]+)$/);
@@ -369,6 +370,13 @@ runCli({
         // stdout carries the protocol, so keep any logging on stderr
         console.log = console.error;
         await runHSDebugAgent(process.stdin, process.stdout);
+      }
+    },
+    "harescript-dap": {
+      description: "Run a Debug Adapter Protocol (DAP) adapter for HareScript on stdin/stdout, for editors like VS Code",
+      main: async () => {
+        console.log = console.error; // stdout carries the protocol
+        await runHareScriptDebugAdapter(process.stdin, process.stdout);
       }
     },
     //Stubs for things we'll forward to the HareScript version for now
