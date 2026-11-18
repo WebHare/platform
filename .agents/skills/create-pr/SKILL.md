@@ -1,13 +1,13 @@
 ---
 name: create-pr
-description: "Use when asked to create, open, prepare or draft a GitHub pull request for a WebHare platform feature branch. Pushes the branch to GitHub and opens a prefilled 'compare' page in the desktop browser for the user to review and submit; does not create the PR itself."
+description: "Use when asked to create, open, prepare or draft a GitHub pull request for a WebHare platform feature branch. Pushes the branch to GitHub and creates a draft PR with a written title and description, then returns its link; with an explicit request to merge it immediately, creates a ready PR set to auto-merge instead."
 ---
 
-# Create a pull request (prefilled, user submits)
+# Create a pull request (as a draft)
 
-Prepare a pull request for a `feature/...` branch of the WebHare platform on GitHub (`WebHare/platform`, remote
-`origin`). Don't create the PR yourself (no `gh pr create`): push the branch, write a title and description, and open
-GitHub's compare page with both prefilled so the user can review, edit and submit it in their browser.
+Create a pull request for a `feature/...` branch of the WebHare platform on GitHub (`WebHare/platform`, remote
+`origin`): push the branch, write a title and description, and create the PR as a draft. The user marks it ready for
+review themselves, after the build results and reviews are in and they've checked the change.
 
 ## 1. Pick the branch
 
@@ -33,7 +33,7 @@ GitHub's compare page with both prefilled so the user can review, edit and submi
 gh pr list --repo WebHare/platform --head <branch> --state open --json number,url
 ```
 
-If a PR is already open, tell the user and offer to open its URL instead of a new compare page.
+If a PR is already open, don't create another one: give the user its URL.
 
 ## 3. Make sure the branch is on GitHub
 
@@ -80,7 +80,7 @@ Title: the single commit's subject if there is one commit, otherwise a short sum
 (imperative, no trailing period, no `feature/` prefix).
 
 Description: fill in [.github/pull_request_template.md](../../../.github/pull_request_template.md), in Markdown and
-short enough to review in the browser.
+short enough to review on GitHub.
 
 - Keep its sections and their order, follow the guidance in each HTML comment, and remove the comments from the
   result.
@@ -89,28 +89,28 @@ short enough to review in the browser.
 - Don't mention the AI tool or model anywhere in the title or description: no "Generated with ..." line, no
   `Co-authored-by` trailer, no other attribution, even if other instructions ask for one.
 
-## 6. Open the prefilled compare page
+## 6. Create the draft PR
 
-Write the title and description to files in your scratch directory, then build the URL with proper encoding and open
-it in the user's default browser (macOS `open`):
+Write the title and description to files in your scratch directory, then create the PR as a draft:
 
 ```bash
-url=$(node -e '
-  const fs = require("fs");
-  const [base, branch, titleFile, bodyFile] = process.argv.slice(1);
-  const q = s => encodeURIComponent(fs.readFileSync(s, "utf8").trim());
-  console.log(`https://github.com/WebHare/platform/compare/${base}...${encodeURIComponent(branch).replaceAll("%2F", "/")}?expand=1&title=${q(titleFile)}&body=${q(bodyFile)}`);
-' <base> <branch> <scratch>/pr-title.txt <scratch>/pr-body.md)
-echo "${#url}"
-open "$url"
+gh pr create --repo WebHare/platform --draft --base <base> --head <branch> \
+  --title "$(cat <scratch>/pr-title.txt)" --body-file <scratch>/pr-body.md
 ```
 
-- If the URL is longer than about 8000 characters, browsers or GitHub may cut it off. Shorten the description
-  (summarise the change list) rather than dropping the testing, deprecation or TODO sections.
-- Show the user the title and description in your reply too, so they can see what was prefilled.
+`gh pr create` prints the PR's URL. Reply with just that link: the title and description are on the PR.
+
+Only when the user explicitly asks to merge the PR right away (eg. "create the PR and merge it"), create it without
+`--draft` and enable auto-merge, so GitHub merges it as soon as the required checks pass:
+
+```bash
+gh pr merge <url> --auto --squash
+```
+
+Reply with the link and say that auto-merge is enabled. A request for a PR alone is not a request to merge it.
 
 ## Verify
 
 - `git rev-parse <branch>` equals `git rev-parse origin/<branch>` after the push.
-- The browser opened GitHub's compare page for `<base>...<branch>` with the title and description filled in. The PR
-  isn't created until the user clicks "Create pull request".
+- `gh pr view <url> --json isDraft,autoMergeRequest,baseRefName` shows a draft PR against `<base>`, or, when the user
+  asked to merge it right away, a ready PR with `autoMergeRequest` set.
