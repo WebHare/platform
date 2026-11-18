@@ -384,20 +384,26 @@ async function testBuilder() {
   {
     const doc = await buildRTD([
       { h1: ["Heading 1"] },
+      { h6: ["Heading 6"] },
       { tag: "p", items: [] }, //empty line without items
       { "p.superpara": [{ text: "Hi <> everybody!" }] },
-      { "p.normal": [{ text: "default p" }] }
+      { "p.normal": [{ text: "default p" }] },
+      { "div.mycustomstyle": [{ text: "custom div" }] }, //RTD types can set containertag="div" for a block style
+      { div: [{ text: "default div" }] }
     ]);
     test.assert(!doc.isEmpty());
 
     test.eq([
       { tag: "h1", items: [{ text: "Heading 1" }] },
+      { tag: "h6", items: [{ text: "Heading 6" }] },
       { tag: "p", items: [] }, //empty line
       { tag: "p", className: "superpara", items: [{ text: "Hi <> everybody!" }] },
-      { tag: "p", items: [{ text: "default p" }] }
+      { tag: "p", items: [{ text: "default p" }] },
+      { tag: "div", className: "mycustomstyle", items: [{ text: "custom div" }] },
+      { tag: "div", items: [{ text: "default div" }] }
     ], doc.blocks);
     //<br data-wh-rte="bogus"/> is required by the current RTD in fully empty paragraphs
-    test.eq('<html><body><h1 class="heading1">Heading 1</h1><p class="normal"><br data-wh-rte="bogus"/></p><p class="superpara">Hi &lt;&gt; everybody!</p><p class="normal">default p</p></body></html>', await exportRTDToRawHTML(doc));
+    test.eq('<html><body><h1 class="heading1">Heading 1</h1><h6 class="heading6">Heading 6</h6><p class="normal"><br data-wh-rte="bogus"/></p><p class="superpara">Hi &lt;&gt; everybody!</p><p class="normal">default p</p><div class="mycustomstyle">custom div</div><div class="normal">default div</div></body></html>', await exportRTDToRawHTML(doc));
 
     await verifyRoundTrip(doc);
   }

@@ -84,9 +84,10 @@ async function testPageResponse() {
   const richDocument = await sitereq.renderRTD(await buildRTD([
     { h1: ["Heading 1"] },
     { tag: "p", items: [] }, //empty line without items
-    { "p.intro": [{ text: "default p with " }, { text: "bold", bold: true }, { text: " text." }] }
+    { "p.intro": [{ text: "default p with " }, { text: "bold", bold: true }, { text: " text." }] },
+    { "div.mycustomstyle": ["custom div"] }
   ]));
-  test.eq(`<h1 class="heading1">Heading 1</h1><p class="normal"><br></p><p class="intro">default p with <b>bold</b> text.</p>`, await littyToString(richDocument));
+  test.eq(`<h1 class="heading1">Heading 1</h1><p class="normal"><br></p><p class="intro">default p with <b>bold</b> text.</p><div class="mycustomstyle">custom div</div>`, await littyToString(richDocument));
 
   //Regression: images we can't resize (eg SVGs, which have no width/height) threw instead of rendering their alt text like HareScript does
   const svgImage = await ResourceDescriptor.fromResource("mod::webhare_testsuite/web/img/testicon_1.b.svg", { mediaType: "image/svg+xml", getHash: true });
