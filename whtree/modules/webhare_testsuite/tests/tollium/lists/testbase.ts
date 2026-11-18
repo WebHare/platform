@@ -195,6 +195,21 @@ test.runTests(
         await test.pressKey("ArrowDown");
         test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #1.1').classList.contains("wh-list__row--selected"));
 
+        //collapsing Row #1 hides the selected Row #1.1, so Row #1 becomes selected and keyboard navigation continues from there
+        clickRowExpander(test.getCurrentScreen().getListRow('staticlist', 'Row #1|'));
+        await test.wait("ui");
+        test.eq(null, test.getCurrentScreen().getListRow('staticlist', 'Row #1.1'));
+        test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #1|').classList.contains("wh-list__row--selected"));
+        await test.pressKey("ArrowUp");
+        test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #2.1').classList.contains("wh-list__row--selected"));
+
+        //restore the state for the next tests
+        clickRowExpander(test.getCurrentScreen().getListRow('staticlist', 'Row #1|'));
+        await test.wait("ui");
+        test.click(test.getCurrentScreen().getListRow('staticlist', 'Row #1.1'));
+        await test.wait("ui");
+        test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #1.1').classList.contains("wh-list__row--selected"));
+
         /* Study the list! It should be sorted like this:
            Row #3, Row #2, Row #2.2, Row #2.1, Row #1, Row #1.2, Row #1.1 */
         test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #4|').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist', 'Row #3|').getBoundingClientRect().top);
@@ -265,6 +280,23 @@ test.runTests(
         test.assert(test.getCurrentScreen().getListRow('dynamiclist', '0 nochildren 10').classList.contains("wh-list__row--selected"));
         test.assert(test.getCurrentScreen().getListRow('dynamiclist', '0 nochildren 20').classList.contains("wh-list__row--selected"));
         test.eq('11 21', test.compByName("dynamiclistselection").textContent);
+      }
+    },
+
+    {
+      name: 'dynamictree-shiftselect',
+      test: async function () {
+        const isSelected = (text) => test.getCurrentScreen().getListRow('dynamiclist', text).classList.contains("wh-list__row--selected");
+
+        //a shift+click selects the range from the last clicked row and replaces the rest of the selection
+        test.click(test.getCurrentScreen().getListRow('dynamiclist', 'haschildren 20'), { cmd: true });
+        test.click(test.getCurrentScreen().getListRow('dynamiclist', '0 nochildren 30'), { shift: true });
+        test.assert(isSelected('haschildren 20'));
+        test.assert(isSelected('haschildren 30'));
+        test.assert(isSelected('0 nochildren 30'));
+        test.assert(!isSelected('0 nochildren 20'));
+        test.assert(!isSelected('0 nochildren 10'));
+        await test.wait("ui");
       }
     },
 
