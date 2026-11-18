@@ -41,6 +41,8 @@ export type BridgeEvent<DataType extends BridgeEventData = BridgeEventData> = {
 type BridgeEvents = {
   event: BridgeEvent;
   systemconfig: Record<string, unknown>;
+  /** Whether a HareScript debug manager is running changed (used by the debugger for HareScript running in the WASM engine) */
+  hsdebugger: boolean;
 };
 
 type CreatePortOptions = {
@@ -66,6 +68,8 @@ export interface LogErrorOptions extends LogNoticeOptions {
 
 interface Bridge extends EventSource<BridgeEvents> {
   get connected(): boolean;
+  /** Whether a HareScript debug manager is running that HareScript VMs in this process should register with */
+  get haveHSDebugger(): boolean;
   get ready(): Promise<void>;
   get systemconfig(): unknown;
 
@@ -167,6 +171,7 @@ type ToLocalBridgeMessage = {
   connected: boolean;
   systemconfig: Record<string, unknown>;
   have_ts_debugger: boolean;
+  have_hs_debugger: boolean;
 } | {
   type: typeof ToLocalBridgeMessageType.Event;
   name: string;
@@ -314,6 +319,8 @@ type JavaScriptExceptionData = {
 let mainbridge: MainBridge | undefined;
 
 class LocalBridge extends EventSource<BridgeEvents> {
+  /** Whether a HareScript debug manager is running (and HareScript VMs in this process should register with it) */
+  haveHSDebugger = false;
   readonly workerid: string;
   readonly workernr: number;
   port: TypedMessagePort<ToMainBridgeMessage, ToLocalBridgeMessage> | null;
@@ -384,6 +391,10 @@ class LocalBridge extends EventSource<BridgeEvents> {
             this._ready = Promise.withResolvers<void>();
         }
         this.initDebugger(message.have_ts_debugger);
+        if (this.haveHSDebugger !== message.have_hs_debugger) {
+          this.haveHSDebugger = message.have_hs_debugger;
+          this.emit("hsdebugger", this.haveHSDebugger);
+        }
         //Reload the backend configuration - we may have missed system:configupdate (TODO maybe the bridge should announce the config or at least a moddate)
         reloadBackendConfig();
         this.emit("systemconfig", this.systemconfig);
@@ -868,6 +879,7 @@ class MainBridge extends EventSource<BridgeEvents> {
 
   bridgename = "main bridge";
   have_ts_debugger = false;
+  have_hs_debugger = false;
 
   /// Set when waiting for data to flush
   waitunref?: PromiseWithResolvers<void>;
@@ -932,7 +944,7 @@ class MainBridge extends EventSource<BridgeEvents> {
     }
     this.links.clear();
     for (const bridge of this.localbridges) {
-      this.postLocalBridgeMessage(bridge[1], { type: ToLocalBridgeMessageType.SystemConfig, systemconfig: this.systemconfig, connected: false, have_ts_debugger: this.have_ts_debugger });
+      this.postLocalBridgeMessage(bridge[1], { type: ToLocalBridgeMessageType.SystemConfig, systemconfig: this.systemconfig, connected: false, have_ts_debugger: this.have_ts_debugger, have_hs_debugger: this.have_hs_debugger });
     }
     this.unregisterportrequests.forEach((port) => port.close());
     this.unregisterportrequests.clear();
@@ -1006,8 +1018,9 @@ class MainBridge extends EventSource<BridgeEvents> {
           this.systemconfig = decoded as Record<string, unknown>;
         }
         this.have_ts_debugger = data.have_ts_debugger;
+        this.have_hs_debugger = data.have_hs_debugger;
         for (const bridge of this.localbridges) {
-          this.postLocalBridgeMessage(bridge[1], { type: ToLocalBridgeMessageType.SystemConfig, connected: true, systemconfig: this.systemconfig, have_ts_debugger: this.have_ts_debugger });
+          this.postLocalBridgeMessage(bridge[1], { type: ToLocalBridgeMessageType.SystemConfig, connected: true, systemconfig: this.systemconfig, have_ts_debugger: this.have_ts_debugger, have_hs_debugger: this.have_hs_debugger });
         }
       } break;
       case WHMResponseOpcode.SystemConfig: {
@@ -1016,9 +1029,10 @@ class MainBridge extends EventSource<BridgeEvents> {
           : {};
 
         this.have_ts_debugger = data.have_ts_debugger;
+        this.have_hs_debugger = data.have_hs_debugger;
         this.systemconfig = decoded as (Record<string, unknown> | null) ?? {};
         for (const bridge of this.localbridges) {
-          this.postLocalBridgeMessage(bridge[1], { type: ToLocalBridgeMessageType.SystemConfig, connected: true, systemconfig: this.systemconfig, have_ts_debugger: this.have_ts_debugger });
+          this.postLocalBridgeMessage(bridge[1], { type: ToLocalBridgeMessageType.SystemConfig, connected: true, systemconfig: this.systemconfig, have_ts_debugger: this.have_ts_debugger, have_hs_debugger: this.have_hs_debugger });
         }
       } break;
       case WHMResponseOpcode.RegisterPortResult: {
@@ -1490,7 +1504,7 @@ class MainBridge extends EventSource<BridgeEvents> {
       data.port.unref();
     }
     this.localbridges.set(data.workerid, data);
-    this.postLocalBridgeMessage(data, { type: ToLocalBridgeMessageType.SystemConfig, connected: this.connectionactive, systemconfig: this.systemconfig, have_ts_debugger: this.have_ts_debugger });
+    this.postLocalBridgeMessage(data, { type: ToLocalBridgeMessageType.SystemConfig, connected: this.connectionactive, systemconfig: this.systemconfig, have_ts_debugger: this.have_ts_debugger, have_hs_debugger: this.have_hs_debugger });
   }
 
   allocateLinkid() {

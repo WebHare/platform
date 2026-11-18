@@ -4,7 +4,7 @@ import { backendConfig, importJSFunction } from "@webhare/services";
 import { generateRandomId, Money } from "@webhare/std";
 import { HSDebugConnection, durationToMsecs } from "@mod-platform/js/hsdebugger/client";
 import { getJobStack } from "@mod-platform/js/hsdebugger/stack";
-import { listStoredProfileSessions, listStoredProfiles, readStoredProfile } from "@mod-platform/js/hsdebugger/profiles";
+import { listStoredProfileSessions, listStoredProfiles, profileJob, readStoredProfile } from "@mod-platform/js/hsdebugger/profiles";
 import { encodeHSON } from "@webhare/hscompat";
 import { HSDebugAgentClient } from "@mod-platform/js/hsdebugger/agentclient";
 import { decodeWire, encodeWire } from "@mod-platform/js/hsdebugger/wire";
@@ -449,6 +449,98 @@ async function testMCPTools() {
   test.assert(list?.includes(profileId), list ?? "");
 }
 
+let wasmTarget: ChildProcess | undefined;
+let wasmMarker = "";
+
+async function startWasmTarget() {
+  // Run the same target in the WASM engine
+  wasmMarker = "hsdebugger-wasm-" + generateRandomId();
+  wasmTarget = spawn(backendConfig.installationRoot + "bin/wh", ["run", targetScript, wasmMarker], { stdio: ["ignore", "pipe", "inherit"], env: { ...process.env, WEBHARE_HARESCRIPT_WASMONLY: "1" } });
+  process.on("exit", () => wasmTarget?.kill());
+  await new Promise<void>((resolve, reject) => {
+    wasmTarget!.stdout!.on("data", (data: Buffer) => { if (data.toString().includes("ready")) resolve(); });
+    wasmTarget!.on("exit", code => reject(new Error(`WASM debug target exited with code ${code}`)));
+  });
+}
+
+async function testWasmTarget() {
+  await using conn = await HSDebugConnection.connect();
+  // WASM jobs are named after the module, eg '<groupid>-wasmmodule-0', and their process is a node process
+  const job = await test.wait(async () => (await conn.listAllJobs())
+    .filter(entry => entry.script.endsWith("debugtarget.whscr") && entry.clientname.includes("wasm"))
+    .sort((a, b) => b.creationdate.getTime() - a.creationdate.getTime())[0]);
+  const wasmGroupid = job.groupid;
+
+  // Stack and variables while the VM waits in Sleep()
+  const result = await conn.withPausedJob(wasmGroupid, async (pausedJob, status) => {
+    test.eq("DebugStopped", status.realstatus);
+    return {
+      stack: await getJobStack(pausedJob, status, { variableFrames: [...(status.stacktrace ?? []).keys()], maxDepth: 3 }),
+      libraries: await pausedJob.getLibraries(),
+      handles: await pausedJob.getHandleList()
+    };
+  });
+  test.assert(result.libraries.some(lib => lib.liburi === targetScript));
+  const frame = result.stack.find(f => f.func.startsWith("WAITINTARGET"));
+  test.assert(frame, `WaitInTarget not in the stack: ${result.stack.map(f => f.func).join(", ")}`);
+  test.eq("", frame.variablesError);
+  const vars = Object.fromEntries(frame.variables.map(v => [v.name, v]));
+  test.eq(`"${wasmMarker}"`, vars.MARKER?.value);
+  test.eq("INTEGER ARRAY (3 items)", vars.NUMBERS?.value);
+  test.eq("TRUE", vars.INFO.members.find(m => m.name === "C")?.members[0].value);
+  test.assert(Array.isArray(result.handles));
+
+  // Profile it
+  const profile = await profileJob(conn, wasmGroupid, { duration: 300 });
+  test.assert(profile.locations.some(loc => loc.func.startsWith("COMPUTESOMETHING")), "ComputeSomething not in the WASM profile");
+
+  // Breakpoints and stepping through the agent
+  using agent = HSDebugAgentClient.inProcess();
+  await agent.call("attach", { groupid: wasmGroupid });
+  try {
+    await agent.call("pause", { groupid: wasmGroupid });
+    await agent.call("setBreakpoints", { groupid: wasmGroupid, liburi: targetScript, lines: [22] });
+
+    const waitStop = () => new Promise<DebugJobStatus>(resolve => {
+      const cb = agent.on("jobStatus", ({ groupid: g, status }) => {
+        if (g === wasmGroupid && status.realstatus === "DebugStopped") {
+          agent.off(cb);
+          resolve(status);
+        }
+      });
+    });
+
+    let stopped = waitStop();
+    await agent.call("continue", { groupid: wasmGroupid });
+    let status = await stopped;
+    test.assert(status.pausereason & (PauseReason.breakpoint | PauseReason.manualBreakpoint), `Expected a breakpoint stop, got ${status.pausereason}`);
+    test.eq(22, status.stacktrace?.[0].line);
+
+    const stack = await agent.call<StackFrameWithVariables[]>("getStack", { groupid: wasmGroupid, variableFrames: [0] });
+    test.assert(stack[0].variables.some(v => v.name === "ROUNDS"));
+
+    stopped = waitStop();
+    await agent.call("step", { groupid: wasmGroupid, kind: "over" });
+    status = await stopped;
+    test.eq(23, status.stacktrace?.[0].line);
+
+    stopped = waitStop();
+    await agent.call("step", { groupid: wasmGroupid, kind: "in" });
+    status = await stopped;
+    test.eq("COMPUTESOMETHING", status.stacktrace?.[0].func.split(":")[0]);
+
+    await agent.call("setBreakpoints", { groupid: wasmGroupid, liburi: targetScript, lines: [] });
+  } finally {
+    await agent.call("continue", { groupid: wasmGroupid });
+    await agent.call("detach", { groupid: wasmGroupid });
+  }
+}
+
+function stopWasmTarget() {
+  wasmTarget?.kill();
+  wasmTarget = undefined;
+}
+
 function testRendering() {
   test.eq("INTEGER ARRAY", getHareScriptTypeName(0x90));
   test.eq("RECORD ARRAY", getHareScriptTypeName(0xa1));
@@ -475,4 +567,7 @@ test.runTests([
   testDAP,
   testMCPTools,
   stopTarget,
+  startWasmTarget,
+  testWasmTarget,
+  stopWasmTarget,
 ]);

@@ -361,12 +361,15 @@ export class WASMModule extends WASMModuleBase {
       params.push(new HSVMVar(this.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
     // ignoring vm, using itf: only one VM per module!
     const transitionLock = debugFlags.async ? this.itf!.startTransition(false, reg.name) : undefined;
+    const debugState = this.itf.debugState;
+    debugState?.asyncCallStart();
     try {
       await reg.asyncmacro!(this.itf, ...params);
     } catch (e) {
       await this.throwReturnedException(this.itf!, e, "executeAsyncJSMacro");
     } finally {
       transitionLock?.close();
+      await debugState?.asyncCallEnd(); // don't continue while paused by the debugger
     }
   }
 
@@ -377,13 +380,26 @@ export class WASMModule extends WASMModuleBase {
       params.push(new HSVMVar(this.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
     // ignoring vm, using itf: only one VM per module!
     const transitionLock = debugFlags.async ? this.itf!.startTransition(false, reg.name) : undefined;
+    const debugState = this.itf.debugState;
+    debugState?.asyncCallStart();
     try {
       await reg.asyncfunc!(this.itf, new HSVMVar(this.itf!, id_set), ...params);
     } catch (e) {
       await this.throwReturnedException(this.itf!, e, "executeAsyncJSFunction");
     } finally {
       transitionLock?.close();
+      await debugState?.asyncCallEnd(); // don't continue while paused by the debugger
     }
+  }
+
+  /** Called by the VM when it stops at a breakpoint or after a step (supportDebugStop in hsvm_context.cpp) */
+  async debugStop(_vm: HSVM, reason: number): Promise<void> {
+    await this.itf?.debugState?.stop(reason);
+  }
+
+  /** Called by the VM every so many instructions while a debugger is attached (supportDebugPoll in hsvm_context.cpp) */
+  async debugPoll(_vm: HSVM): Promise<void> {
+    await this.itf?.debugState?.poll();
   }
 
   registerExternalMacro(signature: string, macro: (vm: HareScriptVM, ...params: HSVMVar[]) => void): void {

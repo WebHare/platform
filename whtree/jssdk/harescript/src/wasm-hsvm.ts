@@ -19,6 +19,7 @@ import { mapHareScriptPath, HSVMSymbol, parseHSException } from "./wasm-support"
 import { AsyncLocalStorage } from "node:async_hooks";
 import { HSVMRunContext, HSVMRunPermissionSystem } from "./runcontext";
 import { getHSTypeName, getTypedArray, HareScriptType } from "@webhare/hscompat/src/hson";
+import { registerVMWithDebugger, unregisterVMWithDebugger, type WasmVMDebugState } from "./wasm-debugger";
 
 export type { HSVM_VariableId, HSVM_VariableType }; //prevent others from reaching into harescript-interface
 
@@ -207,6 +208,9 @@ export class HareScriptVM implements HSVM_HSVMSource {
 
   terminationValue: unknown = null;
 
+  /** Debugger state, set while the VM runs a script */
+  debugState: WasmVMDebugState | undefined;
+
   /** Unresolved resurrected promises we still expect the VM to syscall fulfillResurrectedPromise for */
   unresolvedPromises = new Map<number, PromiseWithResolvers<unknown>>;
   /** Promises that still appear to be alive and may be requested to resolve by JavaScript users of this VM*/
@@ -338,6 +342,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
     let vmlist;
     try {
       await this.loadScript(script);
+      this.debugState = registerVMWithDebugger(this, script);
       myweakref = new WeakRef(this);
       vmlist = ensureScopedResource<HSVMList>(hsvmlistsymbol, () => new Set<WeakRef<HareScriptVM>>());
       vmlist.add(myweakref);
@@ -360,6 +365,11 @@ export class HareScriptVM implements HSVM_HSVMSource {
 
       if (myweakref)
         vmlist?.delete(myweakref); //remove from active list, prevent any more incoming calls from eg commitWork handlers
+
+      if (this.debugState) {
+        unregisterVMWithDebugger(this.debugState);
+        this.debugState = undefined;
+      }
 
       try {
         //TODO Might want to already release some resources when the main script is done ?
@@ -454,8 +464,13 @@ export class HareScriptVM implements HSVM_HSVMSource {
         if (this.implicitLifetime && !this.keepAliveLocks.size)
           waiter.timer.unref();
       }
-      const res = await waiter.promise;
-      return res;
+      const debugState = this.debugState;
+      debugState?.asyncCallStart();
+      try {
+        return await waiter.promise;
+      } finally {
+        await debugState?.asyncCallEnd(); // don't continue while paused by the debugger
+      }
     } finally {
       callbackRegistration?.[Symbol.dispose]();
     }
