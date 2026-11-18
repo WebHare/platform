@@ -9,7 +9,9 @@
  * - profiles stored on disk when the 'apr' debug tag is set (caches/platform/hs-profiles/<session>/)
  */
 import bridge from "@mod-system/js/internal/whmanager/bridge";
-import { callJobDebugger, callJobDebuggerIsolated } from "./jobdebuggerlib";
+import { HSDebugConnection } from "@mod-platform/js/hsdebugger/client";
+import { listStoredProfileSessions, listStoredProfiles, profileJob, readStoredProfile } from "@mod-platform/js/hsdebugger/profiles";
+import type { RawFunctionProfile } from "@mod-platform/js/hsdebugger/protocol";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 
 const profilesPortName = "system:profiles";
@@ -33,10 +35,7 @@ const defaultSettle = 3000;
 /** Maximum number of analysed profiles kept in memory (least recently used are dropped, but can be recaptured or reloaded) */
 const maxCachedProfiles = 50;
 
-interface RawProfile {
-  items: Array<{ location: number; parentlocation: number; callcount: number; selftime: number; totaltime: number; totaltime_callee_nr: number }>;
-  locations: Array<{ id: number; func: string; library: string; line: number; col: number }>;
-}
+type RawProfile = RawFunctionProfile;
 
 interface ProfileFunction {
   location: number;
@@ -145,7 +144,8 @@ class ProfileStore {
   }
 
   async captureJob(groupid: string, duration: number): Promise<AnalysedProfile> {
-    const raw = await callJobDebuggerIsolated<RawProfile>("ProfileDebugJob", groupid, duration, pauseTimeout);
+    await using conn = await HSDebugConnection.connect();
+    const raw = await profileJob(conn, groupid, { duration, pauseTimeout });
     const id = `job-${++this.captureCounter}`;
     return this.remember(analyseProfile(id, `job ${groupid}, profiled for ${duration}ms`, new Date, raw));
   }
@@ -164,7 +164,7 @@ class ProfileStore {
 
     const stored = id.match(/^stored:([^/]+)\/(.+)$/);
     if (stored) {
-      const result = await callJobDebugger<{ header: { type?: string; script?: string; groupid?: string; profilingstart?: string }; rawdata: RawProfile }>("ReadStoredProfile", stored[1], stored[2]);
+      const result = await readStoredProfile(stored[1], stored[2]);
       if (result.header.type && result.header.type !== "functionprofile")
         throw new Error(`Profile '${id}' is a ${result.header.type}; only function profiles can be analysed`);
       const when = result.header.profilingstart ? new Date(result.header.profilingstart) : null;
@@ -458,13 +458,13 @@ async function listProfiles(session: string, filter: string, limit: number): Pro
     lines.push(`- ${profile.id}: ${ms(profile.totalSelf)}ms, ${profile.description}, ${profile.when.toISOString()}${profile.type !== "functionprofile" ? ` (${profile.type})` : ""}`);
 
   lines.push("");
-  const sessions = await callJobDebugger<string[]>("ListStoredProfileSessions");
+  const sessions = await listStoredProfileSessions();
   if (!sessions.includes(session)) {
     lines.push(`No stored profiles in session '${session}'${sessions.length ? `. Sessions: ${sessions.join(", ")}` : ""}`);
   } else {
-    const stored = await callJobDebugger<Array<{ filename: string; type: string; script: string; groupid: string; profilingstart: string; size: bigint | number; totalcount: number }>>("ListStoredProfiles", session, filter, limit);
+    const { profiles: stored, totalCount } = await listStoredProfiles(session, { filter, limit });
     lines.push(stored.length
-      ? `Stored profiles in session '${session}' (${stored.length} of ${stored[0].totalcount}, newest first${sessions.length > 1 ? `; other sessions: ${sessions.filter(s => s !== session).join(", ")}` : ""}):`
+      ? `Stored profiles in session '${session}' (${stored.length} of ${totalCount}, newest first${sessions.length > 1 ? `; other sessions: ${sessions.filter(s => s !== session).join(", ")}` : ""}):`
       : `No stored profiles in session '${session}'${filter ? ` matching '${filter}'` : ""}`);
     for (const profile of stored)
       lines.push(`- stored:${session}/${profile.filename}: ${profile.script} (job ${profile.groupid}), ${profile.profilingstart}, ${Math.round(Number(profile.size) / 1024)}KB${profile.type !== "functionprofile" ? ` (${profile.type})` : ""}`);

@@ -1,9 +1,13 @@
 import * as test from "@webhare/test-backend";
 import { spawn, type ChildProcess } from "node:child_process";
-import { backendConfig } from "@webhare/services";
+import { backendConfig, importJSFunction } from "@webhare/services";
 import { generateRandomId } from "@webhare/std";
 import { HSDebugConnection, durationToMsecs } from "@mod-platform/js/hsdebugger/client";
 import { getJobStack } from "@mod-platform/js/hsdebugger/stack";
+import { listStoredProfileSessions, listStoredProfiles, readStoredProfile } from "@mod-platform/js/hsdebugger/profiles";
+import { encodeHSON } from "@webhare/hscompat";
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import * as path from "node:path";
 import { describeValue, getHareScriptTypeName } from "@mod-platform/js/hsdebugger/variables";
 
 const targetScript = "mod::webhare_testsuite/tests/system/debugger/data/debugtarget.whscr";
@@ -14,6 +18,7 @@ let groupid = "";
 
 async function startTarget() {
   marker = "hsdebugger-" + generateRandomId();
+  process.on("exit", () => target?.kill()); // don't leave the target running if the test fails
   target = spawn(backendConfig.installationRoot + "bin/wh", ["run", targetScript, marker], { stdio: ["ignore", "pipe", "inherit"] });
   // Wait for the script to report it's waiting
   await new Promise<void>((resolve, reject) => {
@@ -34,9 +39,13 @@ async function testListJobs() {
   test.eq("bigint", typeof processes[0].processcode);
 
   // The target registers with the debug manager when it starts, give it a moment
-  const job = await test.wait(async () => (await conn.listAllJobs()).find(entry => entry.script.endsWith("debugtarget.whscr")));
+  // Take the newest target, in case one of an earlier failed run is still around
+  const job = await test.wait(async () => (await conn.listAllJobs())
+    .filter(entry => entry.script.endsWith("debugtarget.whscr"))
+    .sort((a, b) => b.creationdate.getTime() - a.creationdate.getTime())[0]);
   test.eq(false, job.connected);
-  test.assert(durationToMsecs(job.total_running) >= 0);
+  // The job mostly sleeps, so it should have been running for far less than a minute
+  test.assert(durationToMsecs(job.total_running) >= 0 && durationToMsecs(job.total_running) < 60_000, `Unexpected running time ${durationToMsecs(job.total_running)}`);
   groupid = job.groupid;
 
   await test.throws(/No job with group id/, conn.findJob("no-such-job"));
@@ -153,6 +162,74 @@ async function testDebugInfo() {
   });
 }
 
+async function testStoredProfiles() {
+  // Write a profile the way preload.whlib does: a JSON header line followed by the HSON encoded raw profile
+  const session = "test-hsdebugger-" + generateRandomId();
+  const dir = path.join(backendConfig.dataRoot, "caches/platform/hs-profiles", session);
+  await mkdir(dir, { recursive: true });
+  try {
+    const rawdata = {
+      items: [{ callcount: 3, location: 1, parentlocation: 0, selftime: 0.5, totaltime: 1.5, totaltime_callee_nr: 1.5 }],
+      locations: [{ id: 1, library: "mod::x/y.whlib", func: "MYFUNC:::", line: 10, col: 1 }]
+    };
+    const header = { type: "functionprofile", script: "mod::x/y.whscr", groupid: "testgroup", profilingstart: "2026-01-01T00:00:00.000Z" };
+    await writeFile(path.join(dir, "20260101T000000000-testgroup.prof"), JSON.stringify(header) + "\n" + encodeHSON(rawdata));
+    await writeFile(path.join(dir, "20250101T000000000-other.prof"), JSON.stringify({ ...header, groupid: "other" }) + "\n" + encodeHSON(rawdata));
+
+    test.assert((await listStoredProfileSessions()).includes(session));
+    const all = await listStoredProfiles(session);
+    test.eq(2, all.totalCount);
+    test.eq(["20260101T000000000-testgroup.prof", "20250101T000000000-other.prof"], all.profiles.map(p => p.filename)); //newest first
+    test.eqPartial({ type: "functionprofile", script: "mod::x/y.whscr", groupid: "testgroup" }, all.profiles[0]);
+
+    const filtered = await listStoredProfiles(session, { filter: "OTHER", limit: 10 });
+    test.eq(["20250101T000000000-other.prof"], filtered.profiles.map(p => p.filename));
+
+    const profile = await readStoredProfile(session, "20260101T000000000-testgroup.prof");
+    test.eq("testgroup", profile.header.groupid);
+    test.eq("MYFUNC:::", profile.rawdata.locations[0].func);
+    test.eq(3, profile.rawdata.items[0].callcount);
+
+    await test.throws(/Invalid file name/, readStoredProfile(session, "../x.prof"));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
+async function testMCPTools() {
+  // The devkit module isn't active in containers (eg CI) unless WEBHARE_ENABLE_DEVKIT is set
+  if (!backendConfig.module.devkit) {
+    console.log("Skipping the MCP debug tool tests, the devkit module isn't active");
+    return;
+  }
+
+  // Not imported directly, as the devkit module may not be active
+  type RunDebugTool = (name: string, args: Record<string, unknown> | undefined) => Promise<string | null>;
+  const runDebugTool = await importJSFunction<RunDebugTool>("@mod-devkit/js/mcp-server/debugger#runDebugTool");
+  const jobs = await runDebugTool("wh_debug_list_jobs", { filter: "debugtarget" });
+  test.assert(jobs?.includes(groupid), jobs ?? "");
+
+  const stack = await runDebugTool("wh_debug_get_job_stack", { groupid, variables: [3], depth: 2 });
+  test.assert(stack?.includes("WAITINTARGET"), stack ?? "");
+  test.assert(stack?.includes(`LOCALTEXT = "hello ${marker}"`), stack ?? "");
+
+  const handles = await runDebugTool("wh_debug_get_job_handles", { groupid });
+  test.assert(handles?.includes(groupid), handles ?? "");
+
+  const locks = await runDebugTool("wh_debug_list_locks", {});
+  test.assert(locks?.includes("Cluster mutexes"), locks ?? "");
+
+  const profile = await runDebugTool("wh_debug_profile_job", { groupid, duration: 300 });
+  test.assert(profile?.includes("COMPUTESOMETHING"), profile ?? "");
+  const profileId = profile?.match(/job-\d+/)?.[0];
+  test.assert(profileId, profile ?? "");
+  const functions = await runDebugTool("wh_debug_profile_functions", { profile: profileId, sort: "calls" });
+  test.assert(functions?.includes("COMPUTESOMETHING"), functions ?? "");
+
+  const list = await runDebugTool("wh_debug_list_profiles", {});
+  test.assert(list?.includes(profileId), list ?? "");
+}
+
 function testRendering() {
   test.eq("INTEGER ARRAY", getHareScriptTypeName(0x90));
   test.eq("RECORD ARRAY", getHareScriptTypeName(0xa1));
@@ -173,5 +250,7 @@ test.runTests([
   testHandles,
   testProfile,
   testDebugInfo,
+  testStoredProfiles,
+  testMCPTools,
   stopTarget,
 ]);

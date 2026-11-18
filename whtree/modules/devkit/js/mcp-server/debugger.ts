@@ -2,8 +2,10 @@
  * Debugging tools for the MCP server: inspect running HareScript jobs through the debug manager,
  * eg to find out where a service or test is stuck and what it is waiting for.
  */
-import { callJobDebugger } from "./jobdebuggerlib";
 import { listLocks } from "@mod-platform/js/bridge/tools";
+import { HSDebugConnection, durationToMsecs } from "@mod-platform/js/hsdebugger/client";
+import { getJobStack as getPausedJobStack, type StackFrameWithVariables } from "@mod-platform/js/hsdebugger/stack";
+import type { RenderedVariable } from "@mod-platform/js/hsdebugger/variables";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { profileTools, runProfileTool } from "./profiles";
 
@@ -19,48 +21,9 @@ const maxPauseTimeout = 30000;
 const defaultVariableDepth = 2;
 const maxVariableDepth = 6;
 
-interface DebugJob {
-  processcode: string;
-  groupid: string;
-  script: string;
-  status: string;
-  creationdate: Date;
-  runningmsecs: number;
-  connected: boolean;
-  contextinfo: string;
-}
 
-interface DebugVariable {
-  name: string;
-  value: string;
-  members: DebugVariable[];
-  truncated: boolean;
-}
 
-interface DebugJobStack {
-  status: string;
-  stacktrace: Array<{
-    filename: string;
-    func: string;
-    line: number;
-    col: number;
-    hasvariables: boolean;
-    variables: DebugVariable[];
-    variableserror: string;
-  }>;
-}
 
-interface DebugJobLock {
-  processcode: string;
-  name: string;
-  groupid: string;
-  script: string;
-  waiting: boolean;
-  lockposition: number;
-  maxconcurrent: number;
-  waitstart: Date;
-  lockstart: Date;
-}
 
 const timeoutProperty = {
   type: "number",
@@ -155,8 +118,42 @@ function clampNumber(value: unknown, defaultValue: number, min: number, max: num
   return value !== undefined && Number.isFinite(num) ? Math.min(Math.max(Math.round(num), min), max) : defaultValue;
 }
 
+interface DebugJob {
+  processcode: bigint;
+  groupid: string;
+  script: string;
+  status: string;
+  creationdate: Date;
+  runningmsecs: number;
+  connected: boolean;
+  contextinfo: string;
+}
+
+async function getDebugJobs(conn: HSDebugConnection, filter: string): Promise<DebugJob[]> {
+  const needle = filter.toLowerCase();
+  const jobs: DebugJob[] = [];
+  for (const job of await conn.listAllJobs()) {
+    const authrec = job.authenticationrecord as { contextinfo?: string } | null;
+    const row: DebugJob = {
+      processcode: job.processcode,
+      groupid: job.groupid,
+      script: job.script,
+      status: job.status,
+      creationdate: job.creationdate,
+      runningmsecs: job.total_running ? durationToMsecs(job.total_running) : 0,
+      connected: Boolean(job.connected),
+      contextinfo: typeof authrec?.contextinfo === "string" ? authrec.contextinfo : ""
+    };
+    if (needle && !`${row.script}\t${row.status}\t${row.groupid}\t${row.contextinfo}`.toLowerCase().includes(needle))
+      continue;
+    jobs.push(row);
+  }
+  return jobs;
+}
+
 async function listJobs(filter: string): Promise<string> {
-  const jobs = await callJobDebugger<DebugJob[]>("ListDebugJobs", filter);
+  await using conn = await HSDebugConnection.connect();
+  const jobs = await getDebugJobs(conn, filter);
   if (!jobs.length)
     return filter ? `No jobs match '${filter}'` : "No jobs found";
 
@@ -168,7 +165,7 @@ async function listJobs(filter: string): Promise<string> {
   return `${jobs.length} job(s):\n${lines.join("\n")}`;
 }
 
-function formatVariables(vars: DebugVariable[], indent: string): string[] {
+function formatVariables(vars: RenderedVariable[], indent: string): string[] {
   const lines: string[] = [];
   for (const variable of vars) {
     lines.push(`${indent}${variable.name} = ${variable.value}${variable.truncated ? " (contents not shown, increase depth)" : ""}`);
@@ -178,16 +175,20 @@ function formatVariables(vars: DebugVariable[], indent: string): string[] {
 }
 
 async function getJobStack(groupid: string, timeout: number, variableFrames: number[], depth: number): Promise<string> {
-  const result = await callJobDebugger<DebugJobStack>("GetDebugJobStack", groupid, timeout, variableFrames, depth);
+  await using conn = await HSDebugConnection.connect();
+  const result = await conn.withPausedJob(groupid, async (job, status): Promise<{ status: string; stacktrace: StackFrameWithVariables[] }> => ({
+    status: status.realstatus,
+    stacktrace: await getPausedJobStack(job, status, { variableFrames, maxDepth: depth })
+  }), { timeout });
   if (!result.stacktrace.length)
     return `Job ${groupid} (${result.status}) has no stack trace`;
 
   const lines = [`Stack trace of job ${groupid} (${result.status}), innermost first:`];
   result.stacktrace.forEach((frame, idx) => {
     lines.push(`#${idx} ${frame.func} (${frame.filename}:${frame.line}:${frame.col})`);
-    if (frame.variableserror)
-      lines.push(`    variables unavailable: ${frame.variableserror}`);
-    else if (frame.hasvariables)
+    if (frame.variablesError)
+      lines.push(`    variables unavailable: ${frame.variablesError}`);
+    else if (frame.hasVariables)
       lines.push(...(frame.variables.length ? formatVariables(frame.variables, "    ") : ["    (no local variables)"]));
   });
 
@@ -198,16 +199,48 @@ async function getJobStack(groupid: string, timeout: number, variableFrames: num
 }
 
 async function getJobHandles(groupid: string, timeout: number): Promise<string> {
-  const handles = await callJobDebugger<Array<{ name: string; id: number }>>("GetDebugJobHandles", groupid, timeout);
+  await using conn = await HSDebugConnection.connect();
+  const handles = (await conn.withPausedJob(groupid, job => job.getHandleList(), { timeout }))
+    .sort((a, b) => a.id - b.id || a.name.localeCompare(b.name));
   if (!handles.length)
     return `Job ${groupid} has no open handles`;
   return `Open handles of job ${groupid}:\n${handles.map(handle => `- #${handle.id}: ${handle.name}`).join("\n")}`;
 }
 
+interface DebugJobLock {
+  processcode: bigint;
+  name: string;
+  groupid: string;
+  script: string;
+  waiting: boolean;
+  lockposition: number;
+  maxconcurrent: number;
+  waitstart: Date;
+  lockstart: Date;
+}
+
+/** List the job locks of all HareScript processes (locks between jobs inside one process, not the cluster-wide mutexes) */
+async function listJobLocks(): Promise<DebugJobLock[]> {
+  await using conn = await HSDebugConnection.connect();
+  const jobs = await conn.listAllJobs();
+  const result: DebugJobLock[] = [];
+  for (const proc of await conn.listProcesses()) {
+    let locks;
+    try {
+      locks = await conn.getLocks(proc.processcode) as unknown as Array<Omit<DebugJobLock, "processcode" | "script">>;
+    } catch {
+      continue; // the process may have exited while we're listing them
+    }
+    for (const lock of locks)
+      result.push({ ...lock, processcode: proc.processcode, script: jobs.find(job => job.groupid === lock.groupid)?.script ?? "" });
+  }
+  return result;
+}
+
 async function listAllLocks(): Promise<string> {
   const [mutexStatus, jobLocks] = await Promise.all([
     listLocks(),
-    callJobDebugger<DebugJobLock[]>("ListDebugJobLocks")
+    listJobLocks()
   ]);
 
   const lines: string[] = [];

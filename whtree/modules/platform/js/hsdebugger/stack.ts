@@ -1,4 +1,4 @@
-/* Stack traces with local variables of a paused job (port of GetStackWhilePaused in mod::devkit/lib/internal/jobdebugger.whlib) */
+/* Stack traces with the local variables of a paused job */
 
 import type { HSDebugJob } from "./client";
 import type { DebugJobStatus, DebugStackFrame, RawDebugValue } from "./protocol";

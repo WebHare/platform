@@ -10,7 +10,7 @@
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import type { IPCEndPoint, IPCMessagePacket } from "@mod-system/js/internal/whmanager/ipc";
 import type { IPCMarshallableRecord } from "@mod-system/js/internal/whmanager/hsmarshalling";
-import { defaultDateTime } from "@webhare/hscompat";
+import { dateToParts } from "@webhare/hscompat";
 import { LibraryDebugInfo } from "./debuginfo";
 import {
   debugManagerPortName, errorReplyTypes,
@@ -44,9 +44,10 @@ function sameCode(a: unknown, b: unknown) {
   return a !== undefined && b !== undefined && String(a) === String(b);
 }
 
-/** Convert a DATETIME duration (as used for total_running) to milliseconds */
+/** Convert a DATETIME duration (as used for total_running) to milliseconds. Durations count from day 1 (0001-01-01) */
 export function durationToMsecs(duration: Date): number {
-  return duration.getTime() - defaultDateTime.getTime();
+  const { days, msecs } = dateToParts(duration);
+  return Math.max(0, days - 1) * 86400000 + msecs;
 }
 
 interface MessageWaiter {

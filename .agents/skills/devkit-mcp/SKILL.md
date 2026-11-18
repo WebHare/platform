@@ -18,7 +18,6 @@ WebHare's VS Code extension registers it automatically. Code:
 - `whtree/modules/devkit/js/mcp-server/skills.ts` - skill sources (local/remote) and how skills are exposed
 - `whtree/modules/devkit/js/mcp-server/debugger.ts` - tools to inspect running HareScript jobs, see [Debugging tools](#debugging-tools)
 - `whtree/modules/devkit/js/mcp-server/profiles.ts` - tools to capture and query HareScript function profiles, see [Profiling tools](#profiling-tools)
-- `whtree/modules/devkit/js/mcp-server/jobdebuggerlib.ts` - calls into `mod::devkit/lib/internal/jobdebugger.whlib` on the tools' own HareScript VMs
 
 The server instructions tell the client which WebHare it is connected to: version, server name, backend URL, installation root, data root and the exact command line to invoke `wh`. When started through runkit, that's `<runkit> @<target> wh` (from `WHRUNKIT_ORIGCOMMAND`/`WHRUNKIT_TARGETSERVER`), as a bare `bin/wh` needs runkit's environment; otherwise it's `<installationRoot>bin/wh`.
 
@@ -33,13 +32,13 @@ Added in WebHare 6.2.0. These are the exception to "no tools to run commands": t
 - **`wh_debug_get_job_handles`** (`groupid`, optional `timeout`) - pauses the job and lists its open handles (pipes, IPC links and ports, event streams...). The names are generic, eg 'IPC link endpoint'; use the stack variables to see which port a link belongs to.
 - **`wh_debug_list_locks`** - lists the cluster mutexes from the mutex manager (`listLocks()` in `@mod-platform/js/bridge/tools`, also used by `wh debug get-locks`) with their holders and waiters, plus the job locks inside each HareScript process. A cluster mutex first takes a process-local job lock named `mutex:<name>`; those are only shown when a job is waiting for them, as they otherwise duplicate the cluster list. Database locks aren't included (use `pg_stat_activity` / `pg_blocking_pids()`).
 
-The tools call `mod::devkit/lib/internal/jobdebugger.whlib` through `jobdebuggerlib.ts`, which uses its own VMs (`createVM`) rather than `loadlib`: a HareScript error can shut a VM down, and the code context VM behind `loadlib` isn't replaced after that. The shared VM is replaced after any error; job profiling gets a VM of its own so it doesn't block the other tools while it waits. That library wraps `mod::system/lib/internal/debugger/connector.whlib`, the API the debugger screen (`mod::system/lib/screens/debugger/debugger.whlib`) uses to talk to the debug manager (`wh:debugmgr`); there is no TypeScript client for it. Things to keep in mind when changing it:
+The tools use the TypeScript HareScript debugger client in `whtree/modules/platform/js/hsdebugger/` (`HSDebugConnection` in `client.ts`), which talks to the debug manager (`wh:debugmgr`, `mod::system/scripts/internal/debugmgr.whscr`) over the bridge, like the debugger screen does through `mod::system/lib/internal/debugger/connector.whlib`. No HareScript VM is needed. Things to keep in mind when changing it:
 
-- `WithPausedJob` always resumes a job it paused, also on errors. If the pause times out it sends a continue, then waits another 2 seconds and continues again if the pause arrives late.
-- Variables are located like the debugger screen does: `CompiledLibrary->GetFrameVariables()` maps the frame's `codeptr`/`baseptr` to variable ids using the compiled library on disk. If the library was recompiled after the job loaded it (different `compile_id`), the variables can't be located and the tool says so.
-- The job only sends one level of nested values. `ExpandValue` requests more (`GetVariables` with the value's `id` and `max`, as the screen does when a node is expanded), up to `depth`, at most 50 items per container and 200 extra requests per call, as each request is a round trip while the job is paused. `ExternVariable` (from the debugger screen) formats the values.
-
-- Profiling requests (`SetProfiling`, `GetProfile`) are only accepted while the job is paused. Otherwise the C++ debugger (`harescript/vm/hsvm_debugger.cpp`) answers `error-notstopped`, which doesn't resolve the request's promise, so `AwaitRequest` adds a timeout.
+- `withPausedJob` always resumes a job it paused, also on errors. If the pause times out it sends a continue, then continues again if the pause arrives within 2 seconds.
+- Variables are located with the library's debug info, which the job's debugger returns for the library as it was loaded (`job-getdebuginfo`), so recompiling a library doesn't break this. `LibraryDebugInfo.getFrameVariables()` (`debuginfo.ts`) maps a frame's `codeptr`/`baseptr` to variable ids. Variables the compiler optimized away (not used after the current position) aren't shown.
+- The job only sends one level of nested values. `expandValue` in `stack.ts` requests more (`getVariables` with the value's `id` and `max`, as the screen does when a node is expanded), up to `depth`, at most 50 items per container and 200 extra requests per call, as each request is a round trip while the job is paused. `variables.ts` formats the values.
+- Profiling requests (`setProfiling`, `getFunctionProfile`) are only accepted while the job is paused; otherwise the C++ debugger (`harescript/vm/hsvm_debugger.cpp`) answers `error-notstopped`, which the client turns into an exception.
+- Tests: `wh runtest system.debugger.test_hsdebugger`.
 
 JavaScript processes aren't covered; they have their own debug manager (`ts:debugmgr`, see `wh debug`).
 
