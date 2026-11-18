@@ -19,7 +19,8 @@
 		"onLanguage:xml",
 		"onLanguage:yaml",
 		"onLanguage:webhare-screens-xml",
-		"onLanguage:webhare-siteprofile-xml"
+		"onLanguage:webhare-siteprofile-xml",
+		"onDebugResolve:harescript"
 	],
 	"main": "./dist/extension",
 	"contributes": {
@@ -134,6 +135,87 @@
 			},
 			{
 				"languageId": "webhare-siteprofile-xml"
+			}
+		],
+		"breakpoints": [
+			{
+				"language": "harescript"
+			}
+		],
+		"debuggers": [
+			{
+				"type": "harescript",
+				"label": "HareScript",
+				"languages": [
+					"harescript"
+				],
+				"configurationAttributes": {
+					"attach": {
+						"properties": {
+							"script": {
+								"type": "string",
+								"description": "Attach to the newest running job whose script contains this text"
+							},
+							"groupid": {
+								"type": "string",
+								"description": "Group id of the job to attach to (see 'wh harescript-debug alljobs')"
+							},
+							"stopOnAttach": {
+								"type": "boolean",
+								"description": "Pause the job right after attaching",
+								"default": false
+							},
+							"agentCommand": {
+								"type": "array",
+								"items": {
+									"type": "string"
+								},
+								"description": "Command that runs 'wh debug harescript-agent' for a remote WebHare, eg [\"podman\", \"exec\", \"-i\", \"<container>\", \"wh\", \"debug\", \"harescript-agent\"]. Debugs the local WebHare if not set"
+							},
+							"localRoot": {
+								"type": "string",
+								"description": "Local path that corresponds to remoteRoot, eg the worktree a container runs"
+							},
+							"remoteRoot": {
+								"type": "string",
+								"description": "Path on the remote side that corresponds to localRoot, eg /opt/wh"
+							}
+						}
+					}
+				},
+				"initialConfigurations": [
+					{
+						"type": "harescript",
+						"request": "attach",
+						"name": "Attach to a HareScript job",
+						"script": "${fileBasename}"
+					}
+				],
+				"configurationSnippets": [
+					{
+						"label": "HareScript: Attach to a job",
+						"description": "Attach to a running HareScript job",
+						"body": {
+							"type": "harescript",
+							"request": "attach",
+							"name": "Attach to a HareScript job",
+							"script": "${1:script}"
+						}
+					},
+					{
+						"label": "HareScript: Attach to a job in a devkit container",
+						"description": "Attach to a running HareScript job in a devkit container",
+						"body": {
+							"type": "harescript",
+							"request": "attach",
+							"name": "Attach to a HareScript job in a container",
+							"script": "${1:script}",
+							"agentCommand": ["podman", "exec", "-i", "${2:wh-devkit-name}", "wh", "debug", "harescript-agent"],
+							"localRoot": "^\"\\${workspaceFolder}/\"",
+							"remoteRoot": "/opt/wh/"
+						}
+					}
+				]
 			}
 		],
 		"commands": [

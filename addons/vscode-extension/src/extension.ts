@@ -130,8 +130,19 @@ function checkRunkitPath() { //invoked by both activate and on config change
   }
 }
 
+/** Starts `wh debug harescript-dap` as the debug adapter for 'harescript' debug configurations */
+const harescriptDebugAdapterFactory: vscode.DebugAdapterDescriptorFactory = {
+  createDebugAdapterDescriptor() {
+    return usingRunKitPath
+      ? new vscode.DebugAdapterExecutable(usingRunKitPath, ["wh", "debug", "harescript-dap"])
+      : new vscode.DebugAdapterExecutable("wh", ["debug", "harescript-dap"]);
+  }
+};
+
 export function activate(context: vscode.ExtensionContext) {
   checkRunkitPath();
+
+  context.subscriptions.push(vscode.debug.registerDebugAdapterDescriptorFactory("harescript", harescriptDebugAdapterFactory));
 
   activateXML(context);
   activateYAML(context);
