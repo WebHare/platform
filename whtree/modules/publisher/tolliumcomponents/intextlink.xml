@@ -5,6 +5,7 @@
 
   <fragment name="intextlink" gid=".intextlink">
     <contents>
+<<<<<<< HEAD
       <select name="linktype" type="radio" onchange="onlinktypechange" required="true" rowkeytype="integer" title="">
         <option rowkey="0" tid=".linktype-nolink" />
         <option rowkey="1" tid=".linktype-external">
@@ -26,6 +27,31 @@
           <textedit name="append" width="1pr" />
         </option>
       </select>
+=======
+      <inlineblock name="linkblock" width="1pr" dirtylistener="contentsdirty" title="">
+        <select name="linktype" type="radio" onchange="onlinktypechange" required="true" rowkeytype="integer" title="">
+          <option rowkey="0" tid=".linktype-nolink" />
+          <option rowkey="1" tid=".linktype-external">
+            <textedit name="external"
+                      width="1pr"
+                      errorlabeltid=".linktype-external"
+                      placeholdertid="tollium:common.examples.https-url"
+                      required="true"
+                      title=""
+                      validationchecks="url-plus-relative" />
+          </option>
+          <option rowkey="2" tid=".linktype-internal">
+            <p:browseforobject name="internal"
+                               width="2pr"
+                               errorlabeltid=".linktype-internal"
+                               required="true"
+                               showclear="false"
+                               title="" />
+            <textedit name="append" width="1pr" />
+          </option>
+        </select>
+      </inlineblock>
+>>>>>>> d7ba391fe (Show the intextlink title in the parent's label column again (#264))
     </contents>
   </fragment>
 

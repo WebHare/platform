@@ -54,7 +54,7 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase <
   PUBLIC PROPERTY value(GetValue, SetValue);
 
   /// Title
-  UPDATE PUBLIC PROPERTY title(^linktype->title, ^linktype->title);
+  UPDATE PUBLIC PROPERTY title(^linkblock->title, ^linkblock->title); //the inlineblock carries the title so the parent line renders it in its label column
 
   PUBLIC PROPERTY linkhandlers(__linkhandlers, SetLinkHandlers);
 
