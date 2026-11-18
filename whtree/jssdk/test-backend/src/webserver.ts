@@ -99,7 +99,8 @@ export async function createWebServer(options: CreateWebServerPortOptions = {}):
     description: "testframework.whlib created temporary test port"
   }).returning("id").executeTakeFirstOrThrow()).id : 0;
 
-  const diskFolder = options.diskFolder || (options.outputServer ? join(tmpdir(), generateRandomId()) + "/" : "");
+  //The output analyzer lowercases site output folders on disk, so a mixed-case folder would be moved away from under the webserver
+  const diskFolder = options.diskFolder || (options.outputServer ? join(tmpdir(), generateRandomId("hex")) + "/" : "");
   for (const host of virtualHosts.length ? virtualHosts : [httpHost]) {
     const url = `${protocol}://${host}${[0, 80, 443].includes(portNumber) ? "" : `:${portNumber}`}/`;
     const { id } = await db<PlatformDB>().insertInto("system.webservers").values({
