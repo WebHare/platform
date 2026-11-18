@@ -93,7 +93,7 @@ async function testUpload() {
   await commitWork();
 
   //We get a relative URL that will work in browsers but not in the backend. Resolve relative to our WebHare install so we have an absolute URL for the client
-  howToUpload.baseUrl = new URL(howToUpload.baseUrl, services.backendConfig.backendURL).href;
+  howToUpload.baseURL = new URL(howToUpload.baseURL, services.backendConfig.backendURL).href;
 
   //The client receives the (updated) UploadInstructions and can now start uploading the file. It will receive a token to identify the upload
   const uploadResult = await uploader.upload(howToUpload);
@@ -130,7 +130,7 @@ async function testUploadHSCompat() {
   await commitWork();
 
   //We get a relative URL that will work in browsers but not in the backend. Resolve relative to our WebHare install
-  howToUpload.baseUrl = new URL(howToUpload.baseUrl, services.backendConfig.backendURL).href;
+  howToUpload.baseURL = new URL(howToUpload.baseURL, services.backendConfig.backendURL).href;
   const uploadResult = await uploader.upload(howToUpload);
 
   //Retrieve the file using HS

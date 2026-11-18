@@ -72,9 +72,15 @@ export interface PSPRequest extends PSPPrecheckRequest {
   /** The end-to-end paymentuuid to track this payment attempt which should be globally unique */
   paymentId: string;
   /** URL the PSP should return to */
-  returnUrl: string;
+  returnURL: string;
   /** URL the PSP should push notifications to */
-  pushUrl: string;
+  pushURL: string;
+  /** @deprecated Use returnURL */
+  get returnUrl(): string;
+  set returnUrl(value: string);
+  /** @deprecated Use pushURL */
+  get pushUrl(): string;
+  set pushUrl(value: string);
 }
 
 export interface PSPPrecheckResult {

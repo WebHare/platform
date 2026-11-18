@@ -36,7 +36,7 @@ export async function mockUpload(files: Array<{
   await commitWork();
 
   //We get a relative URL that will work in browsers but not in the backend. Resolve relative to our WebHare install
-  howToUpload.baseUrl = new URL(howToUpload.baseUrl, services.backendConfig.backendURL).href;
+  howToUpload.baseURL = new URL(howToUpload.baseURL, services.backendConfig.backendURL).href;
   const uploadResult = await uploader.upload(howToUpload);
   return files.map((f, i) => ({
     filename: f.filename,

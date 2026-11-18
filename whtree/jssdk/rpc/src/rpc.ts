@@ -20,7 +20,7 @@ function isAbsolute(url: string) {
 
 function getBaseURL() {
   if (!backendBase)
-    throw new Error(`You must set the baseUrl option when using the RPC Client outside Webhare`);
+    throw new Error(`You must set the baseURL option when using the RPC Client outside Webhare`);
   return isAbsolute(backendBase) ? backendBase : new URL(backendBase, location.origin);
 }
 
@@ -42,7 +42,17 @@ export interface RPCClientOptions {
   /** Headers to submit (Eg Authorization) */
   headers?: Record<string, string>;
   /** Base URL for service paths */
+  baseURL?: string;
+  /** @deprecated Use baseURL */
   baseUrl?: string;
+}
+
+/** Map the deprecated baseUrl option to baseURL. Checks presence rather than value so an explicit `undefined` or `""` still resets an inherited base URL */
+function normalizeBaseURLOption<O extends { baseURL?: string; baseUrl?: string }>(options: O): Omit<O, "baseUrl"> {
+  if (!("baseUrl" in options))
+    return options;
+  const { baseUrl, ...rest } = options;
+  return { ...rest, baseURL: rest.baseURL ?? baseUrl } as Omit<O, "baseUrl">;
 }
 
 /** RPC Response format */
@@ -133,7 +143,7 @@ class ControlledCall {
         else if (this.timedout)
           throw new Error(`RPC Timeout: timeout was set to ${this.timeout} milliseconds`);
         else
-          throw new Error(`RPC Failed: exception: ` + exception);
+          throw new Error(`RPC Failed: exception: ${String(exception)}`, { cause: exception });
       }
 
       this.options.onResponse?.(response); //allow hooks to capture headers
@@ -205,7 +215,7 @@ class RPCClient {
     this.options = {
       timeout: 0,
       debug: false,
-      ...options
+      ...normalizeBaseURLOption(options ?? {})
     };
   }
 
@@ -219,7 +229,7 @@ class RPCClient {
   invoke(method: string, params: unknown[]) {
     //build the URL, add profiling and function parameters where needed
     //We'll delay the baseurl calculation until the first call to allow for the backendBase to be set up
-    const callurl = isAbsolute(this.url) ? new URL(this.url + method) : new URL(this.url + method, this.options.baseUrl || getBaseURL());
+    const callurl = isAbsolute(this.url) ? new URL(this.url + method) : new URL(this.url + method, this.options.baseURL || getBaseURL());
 
     let requestStack: StackTrace | null = null;
 
@@ -233,7 +243,7 @@ class RPCClient {
       body: stringify(params, { typed: true }),
     };
 
-    const pathName = typeof location !== "undefined" ? location.pathname : new URL(this.options.baseUrl || getBaseURL()).pathname;
+    const pathName = typeof location !== "undefined" ? location.pathname : new URL(this.options.baseURL || getBaseURL()).pathname;
     if (pathName !== '/')
       callurl.searchParams.set("pathname", pathName);
 
@@ -266,7 +276,7 @@ class ServiceProxy<Service extends keyof KnownRPCServices | object> {
       return (options: RPCClientOptions) => {
         const newoptions = {
           ...this.client.options,
-          ...options,
+          ...normalizeBaseURLOption(options),
           headers: { ...this.client.options.headers, ...options.headers }
         };
         return rpc(this.client.url as (Service extends keyof KnownRPCServices ? Service : string), newoptions);

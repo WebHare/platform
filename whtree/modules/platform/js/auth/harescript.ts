@@ -221,7 +221,9 @@ export async function lookupOIDCUser(targetUrl: WRDAuthPluginSettings_HS, tokens
       wrdSchema: wrdSchema,
       provider: client,
       jwtPayload,
-      finalUrl,
+      finalURL: finalUrl,
+      get finalUrl() { return this.finalURL; },
+      set finalUrl(value: string) { this.finalURL = value; },
       accessToken: tokens.access_token || null,
     });
     if (typeof result === "number")

@@ -207,7 +207,7 @@ async function testCORS() {
 
   }
 
-  using authFetch = await getDirectOpenAPIFetch("webhare_testsuite:authtests", { baseUrl: "http://localhost" });
+  using authFetch = await getDirectOpenAPIFetch("webhare_testsuite:authtests", { baseURL: "http://localhost" });
   const authService = new OpenAPIAuthtestsClient(authFetch);
 
   { // Fake preflight requests
