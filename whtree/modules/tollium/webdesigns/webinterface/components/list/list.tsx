@@ -3260,6 +3260,8 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     this.setSortSetting(setting);
 
     this.flattenRows();
+    //the selected rows have moved, so restart keyboard navigation from the (first) selected row instead of its old position
+    this.cursorrow = this.range_start_idx = this.range_end_idx = this.getFirstSelectedRow();
     this.invalidateAllRows();
     this.refreshSortHeaders();
 

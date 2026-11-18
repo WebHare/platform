@@ -188,6 +188,13 @@ test.runTests(
         //sorting should not affect the selection
         test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #1.1').classList.contains("wh-list__row--selected"));
 
+        //keyboard navigation continues from the selected row's new position (Row #1.1 is now last, so up selects Row #1.2)
+        await test.pressKey("ArrowUp");
+        test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #1.2').classList.contains("wh-list__row--selected"));
+        test.assert(!test.getCurrentScreen().getListRow('staticlist', 'Row #1.1').classList.contains("wh-list__row--selected"));
+        await test.pressKey("ArrowDown");
+        test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #1.1').classList.contains("wh-list__row--selected"));
+
         /* Study the list! It should be sorted like this:
            Row #3, Row #2, Row #2.2, Row #2.1, Row #1, Row #1.2, Row #1.1 */
         test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #4|').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist', 'Row #3|').getBoundingClientRect().top);
