@@ -8,7 +8,7 @@ import { createWRDTestSchema, getLegacyWRDSchema } from "@mod-webhare_testsuite/
 import { buildInstance, type RTDBlock, type RTDInlineItem, type RTDSource, type RTDExport, type Instance } from "@webhare/services/src/richdocument";
 import { isResourceDescriptor, type ExportedResource } from "@webhare/services/src/descriptor";
 import { fetchPreviewAsDoc } from "@mod-webhare_testsuite/js/whfs";
-import { xmlToJS } from "@mod-system/js/internal/generation/xmlhelpers";
+import { xmlToJS, type XMLToJSElement } from "@mod-system/js/internal/generation/xmlhelpers";
 import { getSignedWHDebugOptions } from "@webhare/router/src/debug";
 import { lookupRTDBlockStyle } from "@webhare/services/src/richdocument-styles";
 import type { CSPRTDBlockStyle, CSPRTDStructure } from "@webhare/whfs/src/siteprofiles";
@@ -1425,6 +1425,52 @@ async function testRTDOutputBlockStyles() {
   }
 }
 
+//HareScript and TypeScript webdesigns should both leave out the text styles, links and images a block style doesn't allow
+async function testRTDOutputTextStyles() {
+  //Summarize rendered HTML as tags, classes and text, so we can compare HS and TS output (which differ in attribute quoting and image URLs)
+  function summarize(node: XMLToJSElement | string): string {
+    if (typeof node === "string")
+      return node;
+    const className = node.attributes.class ? `.${node.attributes.class}` : "";
+    return `<${node.tag}${className}>${node.children.map(summarize).join("")}</${node.tag}>`;
+  }
+
+  const fish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getHash: true, getImageMetadata: true, getDominantColor: true });
+  const allStyles = [
+    { text: "B", bold: true },
+    { text: "I", italic: true },
+    { text: "U", underline: true },
+    { text: "S", strikeThrough: true },
+    { text: "SUB", subScript: true },
+    { text: "SUP", superScript: true },
+    { text: "L", link: new IntExtLink("https://example.com/") },
+    { image: fish, alt: "ALT" }
+  ];
+
+  //In the basetestjs RTD type NORMAL allows all of these, HEADING2 only 'i u', MYCUSTOMSTYLE 'b i u' and UNORDERED none at all
+  const rtd = await buildRTD([
+    { "p.normal": allStyles },
+    { "h2.heading2": allStyles },
+    { "div.mycustomstyle": allStyles },
+    { tag: "ul", listItems: [{ li: [{ items: [{ text: "LB", bold: true }, { text: "LI", italic: true }] }] }] }
+  ]);
+
+  for (const tmp of [await test.getTestSiteHSTemp(), await test.getTestSiteJSTemp()]) {
+    await beginWork();
+    const file = await tmp.ensureFile("textstyles-blockstyles.rtd", { type: "platform:filetypes.richdocument" });
+    await whfsType("platform:filetypes.richdocument").set(file.id, { data: rtd });
+    await commitWork();
+
+    const preview = await fetchPreviewAsDoc(file.id);
+    test.eq([
+      `<p.normal><b>B</b><i>I</i><u>U</u><strike>S</strike><sub>SUB</sub><sup>SUP</sup><a>L</a><img.wh-rtd__img></img></p>`,
+      `<h2.heading2>B<i>I</i><u>U</u>SSUBSUPLALT</h2>`,
+      `<div.mycustomstyle><b>B</b><i>I</i><u>U</u>SSUBSUPLALT</div>`,
+      `<ul.unordered><li>LBLI</li></ul>`
+    ], preview.contentElements.map(summarize), tmp.whfsPath);
+  }
+}
+
 async function testExcerpt() {
   test.eq("", new RichTextDocument().getExcerpt());
   test.eq("", new RichTextDocument().getExcerpt({ maxLength: 10 }));
@@ -1521,5 +1567,6 @@ test.runTests(
     testRegressions,
     testRTDOutput,
     testRTDBlockStyleLookup,
-    testRTDOutputBlockStyles
+    testRTDOutputBlockStyles,
+    testRTDOutputTextStyles
   ]);
