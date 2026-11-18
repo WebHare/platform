@@ -59,6 +59,8 @@ export interface BackendEvents {
   "platform:appliedconfig": null;
   "system:managedtasks.any.new": { taskids: number[] };
   "system:modulesupdate": null;
+  /** Report a file as changed to watchsourcefiles, which processes it as if its filesystem watcher had seen it change */
+  "platform:invalidatefile": { path: string };
   /** Invoked when completing oauth2 authorization, used to inform HareScript token getters */
   "platform:internal.peer_token_response": {
     requestId: string;
