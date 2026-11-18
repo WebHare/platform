@@ -5,7 +5,7 @@
 
 import { describeWHFSType, openFileOrFolder, openFolder, openSite, whfsType, type Site, type WHFSFolder, type WHFSObject, type WHFSTypeName } from "@webhare/whfs";
 import type { WebRequest } from "./request";
-import { getApplyTesterForObject, type WHFSApplyTester } from "@webhare/whfs/src/applytester";
+import { getApplyTesterForObject, getRTDTypeStructure, type WHFSApplyTester } from "@webhare/whfs/src/applytester";
 import { renderHSWidget, runHareScriptPage, wrapHSWebdesign } from "./hswebdesigndriver";
 import { importJSFunction, type IntExtLink, type RichTextDocument } from "@webhare/services";
 import type { PageBuilderDataTypes, WebdesignPluginAPIs } from "@webhare/router";
@@ -25,7 +25,7 @@ import { PageMetadata, getOpenGraphData, type StructuredDataItem } from "./metad
 import { dbLoc } from "@webhare/services/src/symbols";
 import type { WebHareDBLocation } from "@webhare/services/src/descriptor";
 import { debugFlags, dtapStage, setAssetBase } from "@webhare/env";
-import type { RawPluginSettings } from "@webhare/whfs/src/siteprofiles";
+import type { CSPRTDStructure, RawPluginSettings } from "@webhare/whfs/src/siteprofiles";
 import { getWebHareDBLocation } from "@webhare/whfs/src/objects";
 import type { Timings } from "@mod-platform/js/logging/timings";
 import { minify } from 'html-minifier-next';
@@ -146,6 +146,7 @@ export class CPageRequest {
   private _statusCode: number;
   private _isEditorPreview: boolean;
   private _isPublisherPreview: boolean;
+  #rtdStructure: Promise<CSPRTDStructure | null> | undefined;
 
   /** If set, Timings can be used to record performance metrics for a Server-Timing header */
   public readonly timings?: Timings;
@@ -689,11 +690,17 @@ export class CPageRequest {
     this.plugins[api] = { api: plugin };
   }
 
+  /** Get the structure of the RTD type that applies to the target object (set by \<rtddoc>), or null if none applies */
+  async #getRTDStructure(): Promise<CSPRTDStructure | null> {
+    this.#rtdStructure ??= this._applyTester.getRTDTypeSettings().then(settings => settings ? getRTDTypeStructure(settings.rtdtype) : null);
+    return this.#rtdStructure;
+  }
+
   async renderRTD(rtd: RichTextDocument): Promise<Litty> {
     //FIXME need an equivalent for overriding RTD rendering. HareScript does webdesign->rtd_rendering_engine BUT in TS we won't have the webdesign yet during pagerendering. So applytester needs to ship it
     const parsedWith = this._publicationSettings.maxContentWidth.match(/^(\d+)px$/);
     const maxImageWidth = parsedWith ? parseInt(parsedWith[1]) : undefined;
-    return renderRTD(this, rtd, { maxImageWidth, resolveLink: this.resolveLink.bind(this) });
+    return renderRTD(this, rtd, { maxImageWidth, resolveLink: this.resolveLink.bind(this), structure: await this.#getRTDStructure() });
   }
 
   //FIXME need a better match for the widget type

@@ -10,6 +10,9 @@ import { isResourceDescriptor, type ExportedResource } from "@webhare/services/s
 import { fetchPreviewAsDoc } from "@mod-webhare_testsuite/js/whfs";
 import { xmlToJS } from "@mod-system/js/internal/generation/xmlhelpers";
 import { getSignedWHDebugOptions } from "@webhare/router/src/debug";
+import { lookupRTDBlockStyle } from "@webhare/services/src/richdocument-styles";
+import type { CSPRTDBlockStyle, CSPRTDStructure } from "@webhare/whfs/src/siteprofiles";
+import { pick } from "@webhare/std";
 
 // An exportable RTD should always be a valid input source
 ({} as RTDExport) satisfies RTDSource;
@@ -1347,6 +1350,81 @@ async function testRTDOutput() {
   }
 }
 
+//The renderer gives a block the tag and class of its block style in the RTD type. Verify we find the same block styles as LookupStyle in structuredef.whlib
+function testRTDBlockStyleLookup() {
+  const baseStyle: Omit<CSPRTDBlockStyle, "tag" | "containertag"> = { type: "text", textstyles: [], tabledefaultblockstyle: "", hidden: false, title: "", importfrom: [], nextblockstyle: "", allowstyles: [] };
+  const structure: CSPRTDStructure = {
+    blockstyles: [
+      { ...baseStyle, tag: "HEADING2", containertag: "h2" },
+      { ...baseStyle, tag: "NORMAL", containertag: "p" },
+      { ...baseStyle, tag: "MYCUSTOMSTYLE", containertag: "div" },
+      { ...baseStyle, tag: "CONTENTTAB", containertag: "p", importfrom: ["h2.tab"] },
+      { ...baseStyle, tag: "UNORDERED", containertag: "ul" },
+      { ...baseStyle, tag: "FANCYLIST", containertag: "ol" },
+      { ...baseStyle, type: "table", tag: "MYTABLE", containertag: "table" }
+    ],
+    cellstyles: [],
+    defaultblockstyle: "NORMAL",
+    contentareawidth: "",
+    tag_b: "b",
+    tag_i: "i"
+  };
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: A block matches the block style named by its class, whatever its stored tag
+  test.eq("MYCUSTOMSTYLE", lookupRTDBlockStyle(structure, "p", "mycustomstyle")?.tag);
+  test.eq("MYCUSTOMSTYLE", lookupRTDBlockStyle(structure, "div", "mycustomstyle")?.tag);
+  test.eq("NORMAL", lookupRTDBlockStyle(structure, "div", "normal")?.tag);
+  test.eq("MYCUSTOMSTYLE", lookupRTDBlockStyle(structure, "P", "other MyCustomStyle")?.tag, "Tags and classes are case insensitive and any of the classes can match");
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Blocks without a matching class fall back to a style for their tag (headings and lists) or the default style
+  test.eq("NORMAL", lookupRTDBlockStyle(structure, "p", "unknownstyle")?.tag);
+  test.eq("HEADING2", lookupRTDBlockStyle(structure, "h2", "unknownstyle")?.tag);
+  test.eq("NORMAL", lookupRTDBlockStyle(structure, "h3", "unknownstyle")?.tag, "There is no h3 style, so the heading becomes a normal paragraph");
+  test.eq("FANCYLIST", lookupRTDBlockStyle(structure, "ol", "")?.tag);
+  test.eq("MYTABLE", lookupRTDBlockStyle(structure, "table", "unknownstyle")?.tag);
+  test.eq(null, lookupRTDBlockStyle(structure, "span", "mystyle"), "Inline elements don't fall back to the default style");
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: A class can't turn a paragraph into a list or a table (or vv), but importfrom can
+  test.eq("NORMAL", lookupRTDBlockStyle(structure, "p", "unordered")?.tag);
+  test.eq("FANCYLIST", lookupRTDBlockStyle(structure, "ul", "fancylist")?.tag);
+  test.eq("NORMAL", lookupRTDBlockStyle(structure, "p", "mytable")?.tag);
+  test.eq("CONTENTTAB", lookupRTDBlockStyle(structure, "h2", "tab")?.tag, "importfrom has priority over matching the tag");
+  test.eq("HEADING2", lookupRTDBlockStyle(structure, "h2", "")?.tag, "importfrom requires all classes of the selector");
+}
+
+//HareScript and TypeScript webdesigns should both render blocks using the tag and class of their block style in the RTD type
+async function testRTDOutputBlockStyles() {
+  //Both temp folders use the basetestjs RTD type for files named *blockstyles*. It has a MYCUSTOMSTYLE style using a div
+  const rtd = await buildRTD([
+    { "p.mycustomstyle": "Stored as p" },
+    { "div.mycustomstyle": "Stored as div" },
+    { div: "Default div" },
+    { "p.unknownstyle": "Unknown class" },
+    { "h3.unknownstyle": "Heading with unknown class" },
+    { "h2.heading3": "Heading with the class of another heading" }
+  ]);
+
+  for (const tmp of [await test.getTestSiteHSTemp(), await test.getTestSiteJSTemp()]) {
+    await beginWork();
+    const file = await tmp.ensureFile("blockstyles.rtd", { type: "platform:filetypes.richdocument" });
+    await whfsType("platform:filetypes.richdocument").set(file.id, { data: rtd });
+    await commitWork();
+
+    const preview = await fetchPreviewAsDoc(file.id);
+    test.eq([
+      { tag: "div", attributes: { class: "mycustomstyle" }, children: ["Stored as p"] },
+      { tag: "div", attributes: { class: "mycustomstyle" }, children: ["Stored as div"] },
+      { tag: "p", attributes: { class: "normal" }, children: ["Default div"] },
+      { tag: "p", attributes: { class: "normal" }, children: ["Unknown class"] },
+      { tag: "h3", attributes: { class: "heading3" }, children: ["Heading with unknown class"] },
+      { tag: "h3", attributes: { class: "heading3" }, children: ["Heading with the class of another heading"] }
+    ], preview.contentElements.map(el => typeof el === "object" ? pick(el, ["tag", "attributes", "children"]) : el), tmp.whfsPath);
+  }
+}
+
 async function testExcerpt() {
   test.eq("", new RichTextDocument().getExcerpt());
   test.eq("", new RichTextDocument().getExcerpt({ maxLength: 10 }));
@@ -1441,5 +1519,7 @@ test.runTests(
     testBuildingRTDsWithInstances,
     testWRDRoundTrips,
     testRegressions,
-    testRTDOutput
+    testRTDOutput,
+    testRTDBlockStyleLookup,
+    testRTDOutputBlockStyles
   ]);

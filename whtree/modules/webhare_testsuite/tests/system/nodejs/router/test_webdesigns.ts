@@ -81,13 +81,15 @@ async function testPageResponse() {
   test.eqPartial([{ tag: 'div', attributes: { class: "level1widget", "data-whfsfileid": String(hsWidget.id) } }, {}], hsWidget.bodyElements);
 
   //Regression: the '<b></b>' part was rendered as '[Object object]'
+  //Blocks are rendered using their block style in the site's RTD type: basetestjs has no 'intro' style, and uses a div for 'mycustomstyle'
   const richDocument = await sitereq.renderRTD(await buildRTD([
     { h1: ["Heading 1"] },
     { tag: "p", items: [] }, //empty line without items
     { "p.intro": [{ text: "default p with " }, { text: "bold", bold: true }, { text: " text." }] },
-    { "div.mycustomstyle": ["custom div"] }
+    { "div.mycustomstyle": ["custom div"] },
+    { "p.mycustomstyle": ["custom p"] }
   ]));
-  test.eq(`<h1 class="heading1">Heading 1</h1><p class="normal"><br></p><p class="intro">default p with <b>bold</b> text.</p><div class="mycustomstyle">custom div</div>`, await littyToString(richDocument));
+  test.eq(`<h1 class="heading1">Heading 1</h1><p class="normal"><br></p><p class="normal">default p with <b>bold</b> text.</p><div class="mycustomstyle">custom div</div><div class="mycustomstyle">custom p</div>`, await littyToString(richDocument));
 
   //Regression: images we can't resize (eg SVGs, which have no width/height) threw instead of rendering their alt text like HareScript does
   const svgImage = await ResourceDescriptor.fromResource("mod::webhare_testsuite/web/img/testicon_1.b.svg", { mediaType: "image/svg+xml", getHash: true });

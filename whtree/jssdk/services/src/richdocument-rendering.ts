@@ -5,13 +5,36 @@ import type { PagePartRequest } from "@webhare/router/src/siterequest";
 import { groupByLink } from "@webhare/hscompat/src/richdocument";
 import type { IntExtLink } from "./intextlink";
 import { isResizableImage } from "./descriptor";
+import type { CSPRTDStructure } from "@webhare/whfs/src/siteprofiles";
+import { lookupRTDBlockStyle } from "./richdocument-styles";
 
 export type RTDRenderingOptions = {
   maxImageWidth?: number;
   resolveLink?: (link: IntExtLink) => Promise<string | null>;
+  /** Structure of the RTD type to render with. Blocks get the tag and class of their block style in this RTD type, like HareScript does.
+      Without a structure blocks are rendered with their own tag and class */
+  structure?: CSPRTDStructure | null;
 };
 
+const listTags = ["ul", "ol"];
+
 export async function renderRTD(partRequest: PagePartRequest, rtd: RichTextDocument, options?: RTDRenderingOptions): Promise<Litty> {
+  /** Get the tag and class to render a paragraph or list with */
+  function getBlockTagAndClass<Tag extends keyof typeof rtdBlockDefaultClass>(tag: Tag, className: string | undefined): { tag: string; className: string } {
+    const useClassName = className || rtdBlockDefaultClass[tag];
+    const style = options?.structure ? lookupRTDBlockStyle(options.structure, tag, useClassName) : null;
+    //Only take the style if it keeps a list a list and a paragraph a paragraph. HareScript can't change those either while rendering
+    if (style && style.type === "text" && listTags.includes(style.containertag.toLowerCase()) === listTags.includes(tag))
+      return { tag: style.containertag.toLowerCase(), className: style.tag.toLowerCase() };
+    return { tag, className: useClassName };
+  }
+
+  function getTableClass(className: string | undefined): string {
+    const useClassName = className || rtdBlockDefaultClass.table;
+    const style = options?.structure ? lookupRTDBlockStyle(options.structure, "table", useClassName) : null;
+    return style?.type === "table" ? style.tag.toLowerCase() : useClassName;
+  }
+
   async function exportImageForHS(image: RTDBaseInlineImageItem<"inMemory">): Promise<Litty> {
     const classes = ["wh-rtd__img"];
     if (image.float === "left")
@@ -48,15 +71,15 @@ export async function renderRTD(partRequest: PagePartRequest, rtd: RichTextDocum
     if ("widget" in block)
       parts.push(await partRequest.renderWidget(block.widget));
     else if ("listItems" in block) {
-      const className = block.className || rtdBlockDefaultClass[block.tag];
-      parts.push(litty`<${block.tag}${className ? litty` class="${className}"` : ""}>`);
+      const { tag, className } = getBlockTagAndClass(block.tag, block.className);
+      parts.push(litty`<${tag}${className ? litty` class="${className}"` : ""}>`);
       for (const item of block.listItems)
         parts.push(litty`<li>${await buildBlocks(item.li)}</li>`);
-      parts.push(litty`</${block.tag}>`);
+      parts.push(litty`</${tag}>`);
     } else if ("items" in block) {
       if (block.tag) {
-        const className = block.className || rtdBlockDefaultClass[block.tag];
-        parts.push(litty`<${block.tag}${className ? litty` class="${className}"` : ""}>${await buildInlineItems(block.items)}</${block.tag}>`);
+        const { tag, className } = getBlockTagAndClass(block.tag, block.className);
+        parts.push(litty`<${tag}${className ? litty` class="${className}"` : ""}>${await buildInlineItems(block.items)}</${tag}>`);
       } else {
         parts.push(await buildInlineItems(block.items));
       }
@@ -133,8 +156,9 @@ export async function renderRTD(partRequest: PagePartRequest, rtd: RichTextDocum
     const colgroups = table.colGroups.map(colgroup => litty`<colgroup>${colgroup.cols.map(col => litty`<col style="width: ${col.width}px;">`)}</colgroup>`);
     const rowgroups = (await maybePromiseAll(table.rowGroups.map(rowgroup => maybePromiseAll(rowgroup.rows.map(buildTableRow))))).flat();
 
-    const wrapperClassName = `wh-rtd__tablewrap ${table.className || "table"}`;
-    const className = `wh-rtd__table ${table.className || "table"}`;
+    const tableClass = getTableClass(table.className);
+    const wrapperClassName = `wh-rtd__tablewrap ${tableClass}`;
+    const className = `wh-rtd__table ${tableClass}`;
     return litty`<div class="${wrapperClassName}"><table class="${className}">${table.caption ? litty`<caption class="wh-rtd__tablecaption">${table.caption}</caption>` : ""}${colgroups}<tbody>${rowgroups}</tbody></table></div>`;
   }
 
