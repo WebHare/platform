@@ -1454,6 +1454,22 @@ STATIC OBJECTTYPE DebugJob
     RETURN this->RegisterRequest(rec.msgid).promise;
   }
 
+  /** Get the debug information of a library as loaded by the job (the job must be paused)
+      @param liburi Library
+      @return Promise for a record with cells found, compile_id and debuginfo_compressed (gzipped JSON)
+  */
+  PUBLIC OBJECT FUNCTION GetDebugInfo(STRING liburi)
+  {
+    RECORD rec := this->pvt_process->connector->link->SendMessage(
+        [ type :=         "job-getdebuginfo"
+        , processcode :=  this->pvt_process->processcode
+        , groupid :=      this->pvt_groupid
+        , liburi :=       liburi
+        ]);
+
+    RETURN this->RegisterRequest(rec.msgid).promise;
+  }
+
   PUBLIC OBJECT FUNCTION SetBreakpoints(RECORD config)
   {
     RECORD rec := this->pvt_process->connector->link->SendMessage(

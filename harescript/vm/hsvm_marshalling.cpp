@@ -760,9 +760,10 @@ uint8_t* Marshaller::MarshalWriteInternal(VarId var, uint8_t *ptr, MarshalPacket
 
                                 std::string blobsource = "m-write";
 #ifndef __EMSCRIPTEN__
+                                // VM groups without a job manager (eg the debugger's communication VM) have no group id
                                 VMGroup *group = vm->GetVMGroup();
-                                std::string const &groupid = group->GetJobManager()->GetGroupId(group);
-                                blobsource += "_" + groupid;
+                                if (group->GetJobManager())
+                                    blobsource += "_" + group->GetJobManager()->GetGroupId(group);
 #endif
                                 std::shared_ptr< MarshalPacket::BlobData > clone;
                                 clone.reset(new MarshalPacket::BlobData);

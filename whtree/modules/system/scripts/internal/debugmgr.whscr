@@ -833,7 +833,10 @@ STATIC OBJECTTYPE WHProcess
   {
     RECORD pos := RecordLowerBound(this->pvt_attachedjobs, [ groupid := groupid ], [ "GROUPID" ]);
     IF (pos.found) // already connection (attempt)
+    {
       app->GotJobConnectFail(PRIVATE this, groupid, "already_connected");
+      RETURN;
+    }
 
     INSERT
         [ groupid :=    groupid
@@ -1043,6 +1046,17 @@ STATIC OBJECTTYPE AttachedJob
           this->SendRequest(
               [ type := "getlibraries"
               , groupid := this->pvt_groupid
+              ], msgid);
+        }
+      }
+      CASE "job-getdebuginfo"
+      {
+        IF (this->CheckPaused(msgid))
+        {
+          this->SendRequest(
+              [ type := "getdebuginfo"
+              , groupid := this->pvt_groupid
+              , liburi := msg.liburi
               ], msgid);
         }
       }
@@ -1293,7 +1307,7 @@ STATIC OBJECTTYPE ConnectedApplication
       {
         OBJECT process := this->pvt_debugmgr->GetProcessByCode(msg.processcode);
         IF (NOT ObjectExists(process))
-          this->SendProcessGone(msg.processcode);
+          this->SendProcessGone(msg.processcode, msgid);
         ELSE
         {
           IF (debuglevel >= 5)
@@ -1308,7 +1322,7 @@ STATIC OBJECTTYPE ConnectedApplication
         OBJECT process := this->pvt_debugmgr->GetProcessByCode(msg.processcode);
 
         IF (NOT ObjectExists(process))
-          this->SendProcessGone(msg.processcode);
+          this->SendProcessGone(msg.processcode, msgid);
         ELSE
           process->SetJobListSubscription(PRIVATE this, msg.enabled);
       }
@@ -1318,7 +1332,7 @@ STATIC OBJECTTYPE ConnectedApplication
         OBJECT process := this->pvt_debugmgr->GetProcessByCode(msg.processcode);
 
         IF (NOT ObjectExists(process))
-          this->SendProcessGone(msg.processcode);
+          this->SendProcessGone(msg.processcode, msgid);
         ELSE
           process->RequestConnect(PRIVATE this, msg.groupid);
       }
@@ -1328,7 +1342,7 @@ STATIC OBJECTTYPE ConnectedApplication
         OBJECT process := this->pvt_debugmgr->GetProcessByCode(msg.processcode);
 
         IF (NOT ObjectExists(process))
-          this->SendProcessGone(msg.processcode);
+          this->SendProcessGone(msg.processcode, msgid);
         ELSE
           process->RequestTerminate(PRIVATE this, msg.groupid);
       }
@@ -1338,7 +1352,7 @@ STATIC OBJECTTYPE ConnectedApplication
         OBJECT process := this->pvt_debugmgr->GetProcessByCode(msg.processcode);
 
         IF (NOT ObjectExists(process))
-          this->SendProcessGone(msg.processcode);
+          this->SendProcessGone(msg.processcode, msgid);
         ELSE
         {
           RECORD pos := RecordLowerBound(process->pvt_attachedjobs, msg, [ "GROUPID" ]);
@@ -1363,7 +1377,7 @@ STATIC OBJECTTYPE ConnectedApplication
           OBJECT process := this->pvt_debugmgr->GetProcessByCode(msg.processcode);
 
           IF (NOT ObjectExists(process))
-            this->SendProcessGone(msg.processcode);
+            this->SendProcessGone(msg.processcode, msgid);
           ELSE
           {
             RECORD pos := RecordLowerBound(process->pvt_attachedjobs, msg, [ "GROUPID" ]);
@@ -1372,7 +1386,8 @@ STATIC OBJECTTYPE ConnectedApplication
               IF (debuglevel >= 5)
                 PRINT("App " || this->id || ": Could not locate job " || msg.groupid || " in list of attached jobs\n");
 
-              this->pvt_link->SendMessage([ type := "job-disconnected", processcode := process->processcode, groupid := msg.groupid ]);
+              // Send it as a reply, so a requester waiting for a response gets one
+              this->pvt_link->SendReply([ type := "job-disconnected", processcode := process->processcode, groupid := msg.groupid ], msgid);
             }
             ELSE
             {
@@ -1384,7 +1399,7 @@ STATIC OBJECTTYPE ConnectedApplication
                 IF (debuglevel >= 5)
                   PRINT("App " || this->id || ": Job is attached by other process\n");
 
-                this->pvt_link->SendMessage([ type := "job-disconnected", processcode := process->processcode, groupid := msg.groupid ]);
+                this->pvt_link->SendReply([ type := "job-disconnected", processcode := process->processcode, groupid := msg.groupid ], msgid);
               }
             }
           }

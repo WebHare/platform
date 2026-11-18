@@ -213,6 +213,7 @@ class Debugger
 
         void RPC_GetVariables();
         void RPC_GetLibraries();
+        void RPC_GetDebugInfo();
         void RPC_SetBreakpoints();
         void RPC_SetProfiling();
         void RPC_GetProfile();
