@@ -385,6 +385,24 @@ export class TableEditor {
     return this.options.getUndoLock ? this.options.getUndoLock() : null;
   }
 
+  /** Run a modification of this table as one undoable action, then update the editor for the new table structure
+      @param td - The cell the modification applies to. Nothing is done if it's not a cell of this table
+      @param modify - Callback doing the actual modification
+  */
+  private modifyTableAt(td, modify: () => void) {
+    const table = td.closest("table");
+    if (table !== this.node)
+      return;
+
+    const undolock = this.getUndoLock();
+
+    modify();
+    this.reset();
+    this._gotStateChange();
+
+    undolock.close();
+  }
+
   /** Add one or more columns to the table
       @param td - The column to insert the new columns after
       @param before - Whether to add the columns before or after the td
@@ -394,20 +412,12 @@ export class TableEditor {
       \@cell options.newcell_callback Called with every new created table cell node
   */
   insertColumns(td, before, num, width, options) {
-    const table = td.closest("table");
-    if (table !== this.node)
-      return;
-
-    const undolock = this.getUndoLock();
-
-    let col = td.propWhPos.col;
-    if (!before)
-      col += (td.colSpan - 1);
-    this._insertColumnsAt("test", col, before, num, width, options || {});
-    this.reset();
-    this._gotStateChange();
-
-    undolock.close();
+    this.modifyTableAt(td, () => {
+      let col = td.propWhPos.col;
+      if (!before)
+        col += (td.colSpan - 1);
+      this._insertColumnsAt("test", col, before, num, width, options || {});
+    });
   }
 
   /** Add one or more rows to the table
@@ -419,20 +429,12 @@ export class TableEditor {
       \@cell options.newcell_callback Called with every new created table cell node
   */
   insertRows(td, before, num, width, options) {
-    const table = td.closest("table");
-    if (table !== this.node)
-      return;
-
-    const undolock = this.getUndoLock();
-
-    let row = td.propWhPos.row;
-    if (!before)
-      row += (td.rowSpan - 1);
-    this._insertRowsAt(row, before, num, width, options || {});
-    this.reset();
-    this._gotStateChange();
-
-    undolock.close();
+    this.modifyTableAt(td, () => {
+      let row = td.propWhPos.row;
+      if (!before)
+        row += (td.rowSpan - 1);
+      this._insertRowsAt(row, before, num, width, options || {});
+    });
   }
 
   /** Add one or more columns to the table
@@ -440,18 +442,7 @@ export class TableEditor {
       @param num - The number of columns to delete
   */
   deleteColumns(td, num) {
-    const table = td.closest("table");
-    if (table !== this.node)
-      return;
-
-    const undolock = this.getUndoLock();
-
-    const col = td.propWhPos.col;
-    this._deleteColumns(col, num);
-    this.reset();
-    this._gotStateChange();
-
-    undolock.close();
+    this.modifyTableAt(td, () => this._deleteColumns(td.propWhPos.col, num));
   }
 
   /** Add one or more columns to the table
@@ -459,18 +450,7 @@ export class TableEditor {
       @param num - The number of rowss to delete
   */
   deleteRows(td, num) {
-    const table = td.closest("table");
-    if (table !== this.node)
-      return;
-
-    const undolock = this.getUndoLock();
-
-    const row = td.propWhPos.row;
-    this._deleteRows(row, num);
-    this.reset();
-    this._gotStateChange();
-
-    undolock.close();
+    this.modifyTableAt(td, () => this._deleteRows(td.propWhPos.row, num));
   }
 
   _applyNewStyle(node, newstyle) {
