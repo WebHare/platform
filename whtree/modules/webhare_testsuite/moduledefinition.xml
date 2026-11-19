@@ -17,6 +17,7 @@
                why="Refers to generated/testinfo.xml but this file does not exist until the XML tests have been generated" />
       <exclude mask="tests/baselibs/hsengine/testdata_jobs_loadliberror.whlib" why="Purposefully broken loadlib" />
       <exclude mask="tests/system/nodejs/data/null.schema.json" why="Purposefully broken schema" />
+      <exclude mask="tests/system/nodejs/data/broken-with-id.schema.json" why="Purposefully broken schema" />
 
       <!-- <exclude mask="tests/*/data/*" why="don't validate test data, its often broke" /> -->
       <exclude mask="*testdata_loadlib_circ_?.whlib" why="These libraries are supposed to fail to compile" />

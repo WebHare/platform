@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://webhare.dev/testsuite/broken-with-id.schema.json",
+  "type": "object",
+  "properties": {
+    "a": { "$ref": "#/nope" }
+  }
+}

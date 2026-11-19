@@ -287,8 +287,8 @@ export async function runYAMLBasedValidator(result: ValidationState, content: We
 
       const ajv = await getAjvForSchema(schema);
 
-      const compiled = ajv.compile(schema);
-      try {
+      try { //compile inside the try, a failed compile can leave the schema's $id registered too
+        const compiled = ajv.compile(schema);
         delete tracked.doc.$schema;
         if (!compiled(tracked.doc)) {
           for (const error of compiled.errors || []) {

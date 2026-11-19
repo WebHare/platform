@@ -259,6 +259,12 @@ async function testJSONValidations() {
 
     const nullschema = await runJSBasedValidator(WebHareBlob.from(`{ "$schema": "mod::webhare_testsuite/tests/system/nodejs/data/null.schema.json" }`), resName);
     test.eqPartial([{ resourcename: resName, message: /is not usable.*must be an object or a boolean/, type: "error" }], nullschema.messages);
+
+    //a schema with an $id that fails to compile shouldn't stay registered, or the next validation reports 'already exists'
+    for (let i = 0; i < 2; ++i) {
+      const broken = await runJSBasedValidator(WebHareBlob.from(`{ "$schema": "mod::webhare_testsuite/tests/system/nodejs/data/broken-with-id.schema.json" }`), resName);
+      test.eqPartial([{ resourcename: resName, message: /can't resolve reference #\/nope/, type: "error" }], broken.messages, `attempt #${i + 1}`);
+    }
   }
 
   { //changes to the referenced schema should invalidate the validation result
