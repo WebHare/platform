@@ -5,6 +5,7 @@ import { parseSchema } from "@webhare/wrd/src/schemaparser";
 import { createSchema, extendSchema, openSchemaById, wrd, type WRDSchemaLike } from "@webhare/wrd";
 import { beginWork, commitWork, rollbackWork } from "@webhare/whdb";
 import { throwError } from "@webhare/std";
+import { defaultDateTime } from "@webhare/hscompat";
 
 const testschemaSchema = wrd("webhare_testsuite:testschema");
 
@@ -45,6 +46,37 @@ async function testSchemaParser() {
     const authstatus = persontype?.allattrs.find(f => f.tag === "WRDAUTH_ACCOUNT_STATUS");
     test.eq(testPart.expectRequired, authstatus?.isrequired);
   }
+
+  const parseDateValues = (testdate: string, testdatetime: string) => parseSchema("mod::webhare_testsuite/schema.xml", true, `
+    <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+      <object tag="date_test">
+        <attributes>
+          <date tag="testdate" />
+          <datetime tag="testdatetime" />
+        </attributes>
+        <values matchattribute="wrd_tag">
+          <value>
+            <field tag="wrd_tag">ENTRY</field>
+            <field tag="testdate">${testdate}</field>
+            <field tag="testdatetime">${testdatetime}</field>
+          </value>
+        </values>
+      </object>
+    </schemadefinition>`);
+
+  test.eq([{ WRD_TAG: "ENTRY", TESTDATE: new Date("2024-02-29T00:00:00Z"), TESTDATETIME: new Date("2024-02-29T11:04:05Z") }],
+    (await parseDateValues("2024-02-29", "2024-02-29T12:04:05+01:00")).types.find(t => t.tag === "DATE_TEST")?.vals);
+  test.eq([{ WRD_TAG: "ENTRY", TESTDATE: defaultDateTime, TESTDATETIME: defaultDateTime }],
+    (await parseDateValues("", "")).types.find(t => t.tag === "DATE_TEST")?.vals);
+
+  await test.throws(/Invalid date.*'2023-02-30' for 'TESTDATE'/, parseDateValues("2023-02-30", ""));
+  await test.throws(/Invalid date.*'2099-1-2' for 'TESTDATE'/, parseDateValues("2099-1-2", ""));
+  await test.throws(/Invalid date.*'2099-01-02T03:04:05Z' for 'TESTDATE'/, parseDateValues("2099-01-02T03:04:05Z", ""));
+  await test.throws(/Invalid date.*'MAX_DATETIME' for 'TESTDATE'/, parseDateValues("MAX_DATETIME", ""));
+  await test.throws(/Invalid datetime.*'2023-04-31T10:00:00Z' for 'TESTDATETIME'/, parseDateValues("", "2023-04-31T10:00:00Z"));
+  await test.throws(/Invalid datetime.*'2099-01-02T25:00:00Z' for 'TESTDATETIME'/, parseDateValues("", "2099-01-02T25:00:00Z"));
+  await test.throws(/Invalid datetime.*'2099-01-02T03:04:05' for 'TESTDATETIME'/, parseDateValues("", "2099-01-02T03:04:05"));
+  await test.throws(/Invalid datetime.*'MAX_DATETIME' for 'TESTDATETIME'/, parseDateValues("", "MAX_DATETIME"));
 }
 
 async function testSchemaApply() {
@@ -54,6 +86,10 @@ async function testSchemaApply() {
 
   const testentry = await testschemaSchema.find("testType", { wrdTag: "TESTENTRY" });
   test.assert(testentry);
+  test.eq({
+    testdate: Temporal.PlainDate.from("2099-01-02"),
+    testdatetime: Temporal.Instant.from("2099-01-02T03:04:05Z")
+  }, await testschemaSchema.getFields("testType", testentry, ["testdate", "testdatetime"]));
 
   // test.eq(testentry?.tag, "TESTENTRY", "Test entry should be found with the correct tag");
 
