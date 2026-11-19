@@ -147,7 +147,7 @@ abstract class StyleButtonBase extends ToolbarButtonBase {
 
   abstract getAvailableStyles(selstate: TextFormattingState): CellStyle[] | BlockStyle[];
   abstract getCurrentStyle(selstate: TextFormattingState): string | null;
-  abstract setStyle(value: string): void;
+  abstract setStyle(editor: StructuredEditor, value: string): void;
 
   updateStructure(selstate: TextFormattingState | null) {
     this.optionlist = [];
@@ -179,7 +179,7 @@ abstract class StyleButtonBase extends ToolbarButtonBase {
   selectStyle() {
     const editor = this.toolbar.rte.getEditor();
     if (editor) {
-      this.setStyle(this.select.value);
+      this.setStyle(editor as StructuredEditor, this.select.value);
       editor.takeFocus();
     }
   }
@@ -202,10 +202,8 @@ class CellStyleButton extends StyleButtonBase {
 
     return null;
   }
-  setStyle(value: string) {
-    const editor = this.toolbar.rte.getEditor();
-    if (editor)
-      (editor as StructuredEditor).setSelectionCellStyle(value);
+  setStyle(editor: StructuredEditor, value: string) {
+    editor.setSelectionCellStyle(value);
   }
 }
 
@@ -221,10 +219,8 @@ class BlockStyleButton extends StyleButtonBase {
   getCurrentStyle(selstate: TextFormattingState) {
     return selstate && selstate.blockstyle ? selstate.blockstyle.tag : null;
   }
-  setStyle(value: string) {
-    const editor = this.toolbar.rte.getEditor();
-    if (editor)
-      (editor as StructuredEditor).setSelectionBlockStyle(value);
+  setStyle(editor: StructuredEditor, value: string) {
+    editor.setSelectionBlockStyle(value);
   }
 }
 
