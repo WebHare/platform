@@ -16,7 +16,6 @@ import * as styleloader from './styleloader';
 import { getFormService } from "@webhare/forms/src/formservice"; //TODO should not require formservice in core RTD code, RTD integration should take care of it
 
 import { isMultiSelectKey, loadImage } from '@webhare/dompack';
-import * as browser from "dompack/extra/browser";
 import * as KeyboardHandler from "dompack/extra/keyboard";
 import SelectionInterface from './selection';
 import * as tablesupport from "./tableeditor";
@@ -383,7 +382,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     });
     this.htmldiv.append(this.bodydiv);
 
-    if (browser.getName() === "safari" && browser.getVersion() < 13)
+    if (dompack.getBrowser().name === "safari" && dompack.getBrowser().version < 13)
       this.bodydiv.classList.add("wh-rtd__body--safariscrollfix");
 
     //Fixes a Firefox repositioning issue, tested by richdoc.teststructured-scroll - as of 2022-11-29 we still need this workaround
@@ -1276,7 +1275,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     }
 
     // Need to explicitly disable inline table editing here, doing it once just isn't enough.
-    if (browser.getName() === "firefox") {
+    if (dompack.getBrowser().name === "firefox") {
       document.execCommand("enableInlineTableEditing", null, "false");
       document.execCommand("enableObjectResizing", null, "false");
     }
@@ -1884,7 +1883,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
       this.bodydiv.addEventListener('cut', this._gotCut.bind(this));
       this.bodydiv.addEventListener('dblclick', this._gotDoubleClick.bind(this));
 
-      if (browser.getName() === "firefox")
+      if (dompack.getBrowser().name === "firefox")
         this.bodydiv.addEventListener('DOMNodeRemoved', this._gotDOMNodeRemoved.bind(this));
     }
   }
@@ -2650,7 +2649,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     }
 
     // Firefox doesn't have anything like selectionchange, so we need to do that before keys arrive
-    if (browser.getName() === "firefox")
+    if (dompack.getBrowser().name === "firefox")
       this._gotSelectionChange(null);
 
     // User input is being handled, handle input events now!

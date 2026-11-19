@@ -1,4 +1,3 @@
-import * as browser from "dompack/extra/browser";
 import * as dompack from "@webhare/dompack";
 import { throwError } from "@webhare/std";
 
@@ -78,7 +77,7 @@ export function setAttributes(node: HTMLElement, attrs: Record<string, string>) 
   let keys = Object.keys(attrs).sort();
 
   // firefox will show attributes in innerHTML in reverse insert order
-  if (browser.getName() === "firefox")
+  if (dompack.getBrowser().name === "firefox")
     keys = keys.reverse();
 
   for (let i = 0; i < keys.length; ++i)
@@ -170,7 +169,7 @@ export class Range {
     // if (rangelog & 32)
     //   console.log('pre normalize', richdebug.getStructuredOuterHTML(maxancestor, { range: this }, true));
 
-    if (this.isCollapsed() && fromnative && browser.getName() === "firefox") {
+    if (this.isCollapsed() && fromnative && dompack.getBrowser().name === "firefox") {
       /* In firefox, there is a distinction between a|<i>b and a<i>|b. When normalizing a native
          selection here, try to maintain that distinction
          Let's try doing nothing.

@@ -7,7 +7,6 @@ import * as rtesupport from "./support";
 import * as richdebug from "./richdebug";
 import { getFormService } from "@webhare/forms/src/formservice";
 import * as dompack from "@webhare/dompack";
-import * as browser from "dompack/extra/browser";
 import * as lists from './structured/lists';
 import ParsedStructure from "./parsedstructure";
 import Range from './dom/range';
@@ -226,7 +225,7 @@ export default class StructuredEditor extends EditorBase {
             }
           }
         }
-      } else if (browser.getName() === "safari" && types.includes("image/tiff") && types.includes("text/uri-list")) {
+      } else if (dompack.getBrowser().name === "safari" && types.includes("image/tiff") && types.includes("text/uri-list")) {
         // Safari doesn't handle pastes of images well, it does pastes a 'webkit-fake-url://..../<urlpath>' url.
         // We can try to get the URL ourselves
 
