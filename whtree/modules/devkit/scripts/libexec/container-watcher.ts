@@ -12,7 +12,7 @@
 
 import { runCli, CLIRuntimeError } from "@webhare/cli";
 import { containerBinary, getContainer, getWatcherFiles, isWatcherRunning, modulesRootInContainer, runGit, sourceRootInContainer, type DevkitContainer } from "@mod-devkit/js/containers/support";
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { rmSync, statSync, watch } from "node:fs";
 import { createServer, type Server } from "node:net";
 import * as path from "node:path";
@@ -22,6 +22,20 @@ const ignoreChangesUnder = ["whtree/node_modules/", "whtree/currentinstall/"];
 
 function log(message: string) {
   console.log(`${new Date().toISOString()} ${message}`);
+}
+
+/** Run a command without blocking the event loop (unlike spawnSync), so the watcher's socket keeps answering while it runs */
+function run(command: string, args: string[], { input }: { input?: string } = {}): Promise<{ status: number | null; stdout: string; stderr: string }> {
+  return new Promise(resolve => {
+    let stdout = "", stderr = "";
+    const proc = spawn(command, args, { stdio: [input === undefined ? "ignore" : "pipe", "pipe", "pipe"] });
+    proc.stdout.setEncoding("utf-8").on("data", (data: string) => stdout += data);
+    proc.stderr.setEncoding("utf-8").on("data", (data: string) => stderr += data);
+    proc.on("error", e => resolve({ status: null, stdout, stderr: e.message }));
+    proc.on("close", status => resolve({ status, stdout, stderr }));
+    if (input !== undefined)
+      proc.stdin?.on("error", () => { }).end(input); //ignore EPIPE if the command exits without reading everything
+  });
 }
 
 /** Listen on the watcher socket, failing if another watcher for this container is already listening */
@@ -65,13 +79,13 @@ function watchMount(container: DevkitContainer, { hostRoot, containerRoot, ignor
   // Like watchsourcefiles, skip hidden files and directories (including .git) and editor backups
   const isRelevant = (relPath: string) => !relPath.split("/").some(part => part.startsWith(".")) && !relPath.endsWith("~") && !ignoreUnder.some(prefix => relPath.startsWith(prefix));
 
-  function filterIgnored(relPaths: string[]): string[] {
+  async function filterIgnored(relPaths: string[]): Promise<string[]> {
     // git check-ignore refuses paths inside submodules, so only pass it paths from the main repository
     const inSubmodule = relPaths.filter(relPath => submodules.some(sub => relPath.startsWith(sub)));
     const inMain = relPaths.filter(relPath => !inSubmodule.includes(relPath));
     if (!inMain.length)
       return inSubmodule;
-    const result = spawnSync("git", ["-C", hostRoot, "check-ignore", "--stdin", "-z"], { input: inMain.join("\0"), encoding: "utf-8" });
+    const result = await run("git", ["-C", hostRoot, "check-ignore", "--stdin", "-z"], { input: inMain.join("\0") });
     if (result.status !== 0 && result.status !== 1) //eg. a module that isn't in a git repository
       return relPaths;
     const ignored = new Set(result.stdout.split("\0"));
@@ -79,8 +93,9 @@ function watchMount(container: DevkitContainer, { hostRoot, containerRoot, ignor
   }
 
   async function flush() {
-    const relPaths = filterIgnored([...pending]);
+    const toFlush = [...pending];
     pending = new Set;
+    const relPaths = await filterIgnored(toFlush);
     if (!relPaths.length)
       return;
 
@@ -96,11 +111,11 @@ function watchMount(container: DevkitContainer, { hostRoot, containerRoot, ignor
       return;
 
     // A WebHare that isn't running doesn't need to be told. Also, `wh event` can't connect to WebHare during a build
-    if (spawnSync(containerBinary, ["exec", container.containerName, "wh", "isrunning"]).status !== 0)
+    if ((await run(containerBinary, ["exec", container.containerName, "wh", "isrunning"])).status !== 0)
       return;
 
     log(`Changed in ${hostRoot}: ${files.join(", ")}`);
-    const result = spawnSync(containerBinary, ["exec", container.containerName, "wh", "event", "invalidate-file", ...files.map(toContainerPath)], { encoding: "utf-8" });
+    const result = await run(containerBinary, ["exec", container.containerName, "wh", "event", "invalidate-file", ...files.map(toContainerPath)]);
     if (result.status !== 0)
       log(`Failed to forward changes: ${result.stderr.trim() || result.stdout.trim()}`);
   }

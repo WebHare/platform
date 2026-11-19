@@ -101,6 +101,8 @@ export function sendWatcherCommand(name: string, command: "ping" | "stop", { tim
   });
 }
 
+/** Whether a watcher is listening on the container's socket. A watcher that accepts the connection but doesn't answer in
+    time (eg. because it's busy) still counts as running, so we never start a second watcher that takes over its socket */
 export async function isWatcherRunning(name: string): Promise<boolean> {
-  return await sendWatcherCommand(name, "ping") === "pong";
+  return await sendWatcherCommand(name, "ping") !== null;
 }
