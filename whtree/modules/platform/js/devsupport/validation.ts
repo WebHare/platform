@@ -310,7 +310,7 @@ export async function runYAMLBasedValidator(result: ValidationState, content: We
 
   // No validator and no schema, report unvalidated YAML file. No message for JSON, too many JSON files would trigger this otherwise
   if (!options?.json)
-    result.messages.push({ ...baseErrorRec, type: "hint", message: `No ${options?.json ? "JSON" : "YAML"} validator available for '${resource}'` });
+    result.messages.push({ ...baseErrorRec, type: "hint", message: `No YAML validator available for '${resource}'` });
   return;
 }
 
