@@ -26,6 +26,9 @@ function addKeywords(ajv: AnyAjv) {
     keyword: "tsType",
     schemaType: "string",
   });
+  //OpenAPI's single 'example' (deprecated in OpenAPI 3.1, but still allowed). We can't require 'examples' yet as SwaggerUI
+  //doesn't fully support it, see https://github.com/swagger-api/swagger-ui/issues/9045
+  ajv.addVocabulary(["example"]);
 }
 
 export async function getAjvForSchema(schema: SchemaObject | boolean) {

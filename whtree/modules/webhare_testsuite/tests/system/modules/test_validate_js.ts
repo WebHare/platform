@@ -176,6 +176,9 @@ async function testJSONSchemaValidations() {
     //and they're still validated in strict mode
     const res = await runJSBasedValidator(WebHareBlob.from(`{ "type": "object", "disruption": 1 }`), schemaResName);
     test.eqPartial([{ resourcename: schemaResName, message: /strict mode: unknown keyword.*disruption/, type: "error" }], res.messages);
+
+    //OpenAPI's 'example' is accepted, as our OpenAPI loader accepts it too
+    test.eq([], (await runJSBasedValidator(WebHareBlob.from(`{ "type": "string", "example": "hello" }`), schemaResName)).messages);
   }
 
   { //syntax errors
