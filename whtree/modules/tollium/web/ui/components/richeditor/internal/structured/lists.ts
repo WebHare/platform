@@ -1,5 +1,3 @@
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as domlevel from "../domlevel";
 
 /** Updates a path with the next node. All elements that are not a proper ancestor of node are removed, then
@@ -8,7 +6,7 @@ import * as domlevel from "../domlevel";
     @param node - New node
     @returns Whether the node had no ancestor in the old path
 */
-function updatePathForNextNode(path, node) {
+function updatePathForNextNode(path: Node[], node: Node): boolean {
   let found = false;
   for (let n = path.length - 1; !found && n >= 0; --n) {
     if (path[n].contains(node)) {
@@ -26,7 +24,7 @@ function updatePathForNextNode(path, node) {
   return found;
 }
 
-export function getLevelActionableListNodes(range, scope) {
+export function getLevelActionableListNodes(range: domlevel.Range, scope: HTMLElement): { addable: HTMLLIElement[]; removeable: HTMLLIElement[] } {
   // Keep range intact
   range = range.clone();
 
@@ -50,25 +48,29 @@ export function getLevelActionableListNodes(range, scope) {
     }
   }
 
-  const linodes = Array.from(range.querySelectorAll('li'));
+  const linodes = range.querySelectorAll('li') as HTMLLIElement[];
 
-  const addable = [], removeable = [];
+  const addable: HTMLLIElement[] = [], removeable: HTMLLIElement[] = [];
 
   // Find the nodes that can be added a level
-  let path = [];
+  let path: Node[] = [];
   for (let i = 0; i < linodes.length; ++i) {
     if (!linodes[i].isContentEditable)
       continue;
 
     if (!linodes[i].previousSibling) {
       // If this is the first li within a list, and there is another list directly before this list, it may be added to that list
-      let prevlist = domlevel.Locator.newPointingTo(linodes[i].parentNode);
-      prevlist.moveToPreviousBlockBoundary(linodes[i].parentNode.parentNode, true);
-      //console.log('glaln prevlist:', richdebug.getStructuredOuterHTML(scope, { prevlist: prevlist }, true));
-      prevlist = prevlist.getPointedNode();
-      if (!prevlist || prevlist === linodes[i].parentNode || (prevlist.nodeName.toUpperCase() !== "UL" && prevlist.nodeName.toUpperCase() !== "OL"))
+      const list = linodes[i].parentNode;
+      if (!list?.parentNode)
         continue;
-    } else if (linodes[i].previousSibling.nodeType !== 1 || linodes[i].previousSibling.nodeName.toLowerCase() !== 'li')
+
+      const prevlistlocator = domlevel.Locator.newPointingTo(list);
+      prevlistlocator.moveToPreviousBlockBoundary(list.parentNode, true);
+      //console.log('glaln prevlist:', richdebug.getStructuredOuterHTML(scope, { prevlist: prevlistlocator }, true));
+      const prevlist = prevlistlocator.getPointedNode();
+      if (!prevlist || prevlist === list || (prevlist.nodeName.toUpperCase() !== "UL" && prevlist.nodeName.toUpperCase() !== "OL"))
+        continue;
+    } else if (linodes[i].previousSibling?.nodeType !== 1 || linodes[i].previousSibling?.nodeName.toLowerCase() !== 'li')
       continue;
 
     // Don't select partial nodes when our selection starts in a list within that node
@@ -85,7 +87,8 @@ export function getLevelActionableListNodes(range, scope) {
     if (!linodes[i].isContentEditable)
       continue;
 
-    if (!domlevel.findParent(linodes[i].parentNode, "li", scope))
+    const parent = linodes[i].parentNode;
+    if (!parent || !domlevel.findParent(parent, "li", scope))
       continue;
 
     // Don't select partial nodes when our selection starts in a list within that node
