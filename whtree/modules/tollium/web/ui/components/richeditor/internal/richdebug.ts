@@ -1,9 +1,10 @@
 /* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as domlevel from "./domlevel";
 import { encodeString } from "@webhare/std";
 import Range from './dom/range';
+import type EditorBase from './editorbase';
+
+type NamedLocators = Record<string, domlevel.Locator>;
 
 function getIndentedLineBreak(indent: number, incr?: number) {
   if (!indent) return '';
@@ -18,7 +19,7 @@ function getStructuredOuterHTML(node: Node, namedlocators: object, options?: num
   else
     options = options || {};
 
-  const locators: Record<string, domlevel.Locator> = {};
+  const locators: NamedLocators = {};
   const indent = options?.indent ? 1 : 0;
 
   // Detect all locators & elements in namedlocators in the first 2 levels (array/record), move to single level object
@@ -35,7 +36,7 @@ function getStructuredOuterHTML(node: Node, namedlocators: object, options?: num
             if ("element" in subelt)
               locators[n + '.' + m] = subelt as domlevel.Locator;
             else if ("nodeType" in subelt) {
-              locators[n + '.' + m + '#elt'] = new domlevel.Locator(subelt);
+              locators[n + '.' + m + '#elt'] = new domlevel.Locator(subelt as Node);
               locators[n + '.' + m + '#elt'].moveToParent();
             } else {
               for (const [k, subsubelt] of Object.entries(subelt)) {
@@ -75,7 +76,7 @@ function getStructuredOuterHTML(node: Node, namedlocators: object, options?: num
     const parent = node.parentNode;
     for (const n in locators)
       if (locators[n].element === parent && locators[n].offset < parent.childNodes.length && parent.childNodes[locators[n].offset] === node)
-        retval += getLocatorText(n, locators[n]);
+        retval += getLocatorText(n);
   }
   if (retval)
     retval += getIndentedLineBreak(indent);
@@ -91,15 +92,15 @@ function getStructuredOuterHTML(node: Node, namedlocators: object, options?: num
   return retval;
 }
 
-function getLocatorText(name, locator) {
-  return '(#' + name + (locator.id ? '$' + locator.id + (locator.cc ? '/' + locator.cc : '') : '') + '#)';
+function getLocatorText(name: string) {
+  return '(#' + name + '#)';
 }
 
-function getNamedLocatorsText(namedlocators, node, offset, indent, incr) {
+function getNamedLocatorsText(namedlocators: NamedLocators, node: Node, offset: number, indent?: number, incr?: number) {
   let locatortext = '';
   for (const n in namedlocators)
     if (namedlocators[n].element === node && namedlocators[n].offset === offset)
-      locatortext += getLocatorText(n, namedlocators[n]);
+      locatortext += getLocatorText(n);
 
   if (locatortext && indent)
     locatortext = getIndentedLineBreak(indent, incr) + locatortext;
@@ -108,7 +109,7 @@ function getNamedLocatorsText(namedlocators, node, offset, indent, incr) {
 }
 
 // Shows HTML structure, shows locators at their location
-function getStructuredOuterHTMLInternal(node, namedlocators, indent) {
+function getStructuredOuterHTMLInternal(node: Node | undefined, namedlocators: NamedLocators, indent: number): string {
   if (!node)
     return '<undefined>';
 
@@ -127,19 +128,18 @@ function getStructuredOuterHTMLInternal(node, namedlocators, indent) {
     return retval;
   }
   if (node.nodeType === 1) {
+    const attributes = (node as Element).attributes;
     retval += '<' + encodeString(node.nodeName, 'attribute');
-    for (let i = 0; i < node.attributes.length; ++i) {
-      const attrvalue = String(node.attributes[i].value || node.attributes[i].nodeValue || '');
+    for (let i = 0; i < attributes.length; ++i) {
+      const attrvalue = String(attributes[i].value || attributes[i].nodeValue || '');
       if (attrvalue) {
-        const attrname = String(node.attributes[i].nodeName);
+        const attrname = String(attributes[i].nodeName);
         if (attrvalue.substr(0, 9) === "function (") // Readability for IE8
           continue;
         retval += ' ' + encodeString(attrname, 'attribute') + '="' + encodeString(attrvalue, 'attribute') + '"';
       }
     }
 
-    if (node._xtest)
-      retval += ':' + node._xtest;
     retval += '>';
 
     let nodecontents = '';
@@ -166,10 +166,8 @@ function getStructuredOuterHTMLInternal(node, namedlocators, indent) {
       retval += '#cdata:';
     if (node.nodeType === 8)
       retval += '#comment:';
-    if (node._xtest)
-      retval += node._xtest + ':';
 
-    let text = '', intext = node.nodeValue; //use temp as accessing long nodeValues is slow on IE
+    let text = '', intext = node.nodeValue ?? ''; //use temp as accessing long nodeValues is slow on IE
     for (let i = 0; i < intext.length; ++i) {
       text += getNamedLocatorsText(namedlocators, node, i);
       text += intext.substr(i, 1);
@@ -182,8 +180,7 @@ function getStructuredOuterHTMLInternal(node, namedlocators, indent) {
   return node.nodeName;
 }
 
-function unstructureDom(node: Node, locators?: domlevel.Locator[]) {
-  locators = locators || [];
+function unstructureDom(node: Node, locators: Array<domlevel.Locator | null> = []): domlevel.Locator[] {
   let foundlocator = false;
   for (let i = 0; i < node.childNodes.length;) {
     const child = node.childNodes[i];
@@ -194,8 +191,8 @@ function unstructureDom(node: Node, locators?: domlevel.Locator[]) {
       continue;
     }
 
-    const text = child.nodeValue;
-    let result = null;
+    const text = child.nodeValue ?? '';
+    let result: string | null = null;
     let quoted = false;
     let locator = new domlevel.Locator(node, i);
     for (let a = 0; a < text.length;) {
@@ -237,12 +234,12 @@ function unstructureDom(node: Node, locators?: domlevel.Locator[]) {
         result += text.substr(a, 1);
         ++locator.offset;
       } else
-        throw new Error("Unquoted content! " + node.innerHTML);
+        throw new Error("Unquoted content! " + (node as Element).innerHTML);
       ++a;
     }
 
     if (quoted)
-      throw new Error("Quotes not balanced: " + node.innerHTML);
+      throw new Error("Quotes not balanced: " + (node as Element).innerHTML);
 
     if (result === null)
       node.removeChild(child);
@@ -257,25 +254,28 @@ function unstructureDom(node: Node, locators?: domlevel.Locator[]) {
     const locator = new domlevel.Locator(node);
     const res = locator.scanForward(node, { whitespace: true }); // only whitespace?
     if (res.type === 'outerblock') {
-      const br = node.ownerDocument.createElement('br');
+      const br = node.ownerDocument!.createElement('br');
       br.setAttribute("data-wh-rte", "bogus");
       locator.insertNode(br);
     }
   }
 
-  return locators;
+  return locators as domlevel.Locator[]; //callers only use the locators they marked themselves
 }
 
 class SourceDebugger {
-  constructor(rte, el, boxel) {
+  rte: EditorBase;
+  el: HTMLInputElement | HTMLTextAreaElement;
+  boxel: HTMLInputElement | HTMLTextAreaElement;
+
+  constructor(rte: EditorBase, el: HTMLInputElement | HTMLTextAreaElement, boxel: HTMLInputElement | HTMLTextAreaElement) {
     this.rte = rte;
     this.el = el;
     this.boxel = boxel;
-    this.editpr = null;
     this.rte.getBody().addEventListener("wh:richeditor-statechange", () => this.onStateChange());
   }
   refresh() {
-    this.onStateChange(null);
+    this.onStateChange();
   }
   onStateChange() {
     try {
@@ -286,7 +286,7 @@ class SourceDebugger {
       const range = editor.getSelectionRange();
       const orgrange = editor.debugGetRawSelectionRange() || range;
 
-      const locators =
+      const locators: NamedLocators =
       {
         start: range.start,
         end: range.end
@@ -303,7 +303,7 @@ class SourceDebugger {
       if (overlap.end.compare(orgrange.end) < 0)
         overlap.end.assign(orgrange.end);
 
-      this.el.value = getStructuredOuterHTML(overlap.getAncestorElement(), locators, true);
+      this.el.value = getStructuredOuterHTML(overlap.getAncestorElement(), locators, true) as string;
 
       const domrange = document.createRange();
       domrange.setStart(locators.start.element, locators.start.offset);
@@ -319,10 +319,10 @@ class SourceDebugger {
 }
 
 
-function getAllLocatorsInNode(node) {
-  let list = [];
+function getAllLocatorsInNode(node: Node): domlevel.Locator[] {
+  let list: domlevel.Locator[] = [];
   if (node.nodeType === 3) {
-    for (let i = 0; i <= node.nodeValue.length; ++i)
+    for (let i = 0; i <= (node.nodeValue ?? '').length; ++i)
       list.push(new domlevel.Locator(node, i));
   } else {
     if (node.nodeName && ["br", "img", "svg"].includes(node.nodeName.toLowerCase()))
@@ -337,21 +337,22 @@ function getAllLocatorsInNode(node) {
   return list;
 }
 
-function cloneNodeWithTextQuotesAndMarkedLocators(node, locators) {
+function cloneNodeWithTextQuotesAndMarkedLocators<T extends Node>(node: T, locators: domlevel.Locator[]): T {
   if (node.nodeType === 3) {
+    const nodeValue = node.nodeValue ?? '';
     let text = '"';
-    for (let i = 0; i <= node.nodeValue.length; ++i) {
+    for (let i = 0; i <= nodeValue.length; ++i) {
       for (let l = 0; l < locators.length; ++l)
         if (locators[l].element === node && locators[l].offset === i)
           text += '(*' + l + '*)';
-      text += node.nodeValue.substr(i, 1);
+      text += nodeValue.substr(i, 1);
     }
-    return document.createTextNode(text + '"');
+    return document.createTextNode(text + '"') as Node as T;
   }
 
-  const copy = node.cloneNode(false);
+  const copy = node.cloneNode(false) as T;
   if (domlevel.isEmbeddedObject(copy)) {
-    copy.removeAttribute("contenteditable");
+    (copy as Node as Element).removeAttribute("contenteditable");
     return copy;
   }
 
