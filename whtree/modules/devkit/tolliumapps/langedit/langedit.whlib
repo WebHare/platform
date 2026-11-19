@@ -662,7 +662,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
     //ADDME Move search/next/prev functions into langeditor.whlib objects
 
-    OBJECT searchregex := NEW JSRegEx(searchstring,"i");
+    OBJECT searchregex := NEW RegEx(searchstring,"i");
     TRY
     {
       searchregex->Test(""); //validate..

@@ -37,6 +37,7 @@ PACKAGES=(
   libjpeg-turbo-devel
   libpng-devel
   openssl-devel
+  pcre2-devel
   libtiff-devel
   make
   mawk # needed by libxml2

@@ -36,6 +36,7 @@ import { getCodeContext } from "@webhare/services/src/codecontexts";
 import { lockMutex } from "./syscalls";
 import { WHManagerConnection, WHMProcessType, WHMRequestOpcode, WHMResponseOpcode } from "@mod-system/js/internal/whmanager/whmanager_conn";
 import { getScriptName } from "@webhare/system-tools";
+import { regexExec, regexReplace } from "./wasm-regex";
 
 type SysCallsModule = { [key: string]: (vm: HareScriptVM, data: unknown) => unknown };
 let syscalls: SysCallsModule | null = null;
@@ -894,6 +895,14 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
 
     port.close();
     ipcContext(vm).ports.delete(var_portid.getInteger());
+  });
+
+  wasmmodule.registerExternalFunction("__HS_INTERNAL_REGEX_EXEC::R:SISS", (vm, id_set, var_data, var_lastindex, var_pattern, var_flags) => {
+    id_set.setJSValue(regexExec(var_data.getStringAsBuffer(), var_lastindex.getInteger(), var_pattern.getString(), var_flags.getString()));
+  });
+
+  wasmmodule.registerExternalFunction("__HS_INTERNAL_REGEX_REPLACE::S:SSSS", (vm, id_set, var_data, var_pattern, var_flags, var_replacement) => {
+    id_set.setString(regexReplace(var_data.getStringAsBuffer(), var_pattern.getString(), var_flags.getString(), var_replacement.getString()));
   });
 
   wasmmodule.registerExternalFunction("ISVALIDWHFSNAME::B:SB", (vm, id_set, var_name, var_slashes) => {
