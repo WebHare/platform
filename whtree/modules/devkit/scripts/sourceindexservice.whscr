@@ -5,10 +5,15 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
-LOADLIB "mod::devkit/lib/sourcecodeindex/settings.whlib";
 LOADLIB "mod::consilio/lib/catalogs.whlib";
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+
+LOADLIB "mod::devkit/lib/sourcecodeindex/consilio.whlib";
+LOADLIB "mod::devkit/lib/sourcecodeindex/settings.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
 
@@ -29,8 +34,8 @@ MACRO OnSourceFileChange(STRING event, RECORD ARRAY msgs)
   //Get unique list of files changed
   FOREVERY(RECORD msg FROM msgs)
   {
-    IF(NOT CellExists(msg,'resourcename'))
-      CONTINUE; //file modified outside mod::
+    IF(NOT CellExists(msg,'resourcename') OR msg.resourcename LIKE "direct::*")
+      CONTINUE; //file modified outside a module, these aren't part of the index (ListGroups doesn't return them)
 
     IF(args.debug)
       Print(`Change reported: ${msg.resourcename}\n`);
@@ -63,6 +68,42 @@ MACRO ScheduleFiles()
   sourcefiles_changed := RECORD[];
 }
 
+/* We only see changes made while we're running, so at startup we compare the index against the files on disk to catch
+   anything we missed (eg. a git checkout while WebHare was down) */
+MACRO ReindexOutdatedFiles(INTEGER attempt) {
+  IF(GetConsilioContentSourceStatus() = contentsourcestatus_rebuilding)
+    RETURN; //Consilio is already (re)indexing all files
+
+  RECORD outdated;
+  TRY {
+    outdated := GetOutdatedSourceGroups();
+  } CATCH(OBJECT e) {
+    // OpenSearch may not be available yet when WebHare is starting up
+    IF(args.debug)
+      Print(`Checking for outdated files failed (attempt ${attempt}): ${e->what}\n`);
+    IF(attempt < 5)
+      RegisterTimedCallback(AddTimeToDate(attempt * 60 * 1000, GetCurrentDateTime()), PTR ReindexOutdatedFiles(attempt + 1));
+    ELSE
+      LogHarescriptException(e);
+    RETURN;
+  }
+
+  IF(args.debug)
+    Print(`Outdated files: ${Length(outdated.toreindex)} to reindex, ${Length(outdated.todelete)} to delete\n`);
+
+  OBJECT sourcecodeindex := OpenConsilioCatalog(devconstants.catalog_sourcecode)->OpenContentSource(devconstants.contentsource_moduleresources);
+  FOREVERY(STRING groupid FROM outdated.toreindex)
+    sourcecodeindex->ReindexGroup(groupid);
+  FOREVERY(STRING groupid FROM outdated.todelete)
+    sourcecodeindex->DeleteGroup(groupid);
+}
+
+INTEGER FUNCTION GetConsilioContentSourceStatus() {
+  INTEGER contentsourceid := OpenConsilioCatalog(devconstants.catalog_sourcecode)->OpenContentSource(devconstants.contentsource_moduleresources)->id;
+  RETURN SELECT AS INTEGER status FROM consilio.contentsources WHERE id = contentsourceid;
+}
+
 OpenPrimary();
 RegisterMultiEventCallback("system:modulefolder.*", PTR OnSourceFileChange);
+RegisterTimedCallback(GetCurrentDateTime(), PTR ReindexOutdatedFiles(1));
 RunWebHareService("devkit:sourceindexservice", DEFAULT MACRO PTR);
