@@ -17,7 +17,7 @@ export interface TargetInfo {
   tablestyletag?: string;
   numrows?: number;
   numcolumns?: number;
-  datacell?: HTMLElement;
+  datacell?: { row: number; col: number };
   //for embeddedobject:
   instanceref?: string;
   //for image:
