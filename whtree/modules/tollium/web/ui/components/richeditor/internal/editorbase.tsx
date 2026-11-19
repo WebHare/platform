@@ -1504,7 +1504,7 @@ export default abstract class EditorBase extends RTECompBase implements RTECompo
     blockparent: ParentNode;
     islist: boolean;
     isintable: boolean;
-    blockstyle: object | null;
+    blockstyle: BlockStyle | null;
   } {
     // Look out - can also be used within document fragments!
     let root: ParentNode = this.getBody();
@@ -1515,7 +1515,7 @@ export default abstract class EditorBase extends RTECompBase implements RTECompo
     let res_blockparent: ParentNode | null = null;
     let res_islist = false;
     let res_isintable = false;
-    let res_blockstyle: object | null = null;
+    let res_blockstyle: BlockStyle | null = null;
 
     let curnode: Node | null = node;
     for (; curnode && curnode !== root; curnode = curnode.parentNode)
@@ -3233,6 +3233,9 @@ export class TextFormattingState {
   blockstyle: BlockStyle | null = null;
 
   cellparent: HTMLTableCellElement | null = null;
+
+  /// Set by the structured editor: the text styles that all blocks in the selection allow
+  limited?: { textstyles: string[] };
 
   hasTextStyle(nodeName: string) {
     return this.getTextStyleByNodeName(nodeName) !== null;

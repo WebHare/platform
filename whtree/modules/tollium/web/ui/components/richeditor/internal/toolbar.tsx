@@ -179,7 +179,7 @@ abstract class StyleButtonBase extends ToolbarButtonBase {
   selectStyle() {
     const editor = this.toolbar.rte.getEditor();
     if (editor) {
-      this.setStyle(editor as unknown as StructuredEditor, this.select.value); //TODO drop the 'unknown' once structurededitor.tsx is type checked
+      this.setStyle(editor as StructuredEditor, this.select.value);
       editor.takeFocus();
     }
   }
