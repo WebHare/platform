@@ -434,7 +434,7 @@ function getCommonAncestor(lhs: Node, rhs: Node): Node {
 function compareContained(container: Locator, contained: Locator) {
   if (container.offset === 0)
     return 1; //container is at the front. everything contained in it is behind it
-  if (container.offset === GetNodeEndOffset(container.element))
+  if (container.offset === getNodeChildCount(container.element))
     return -1; //container is at the end. everything contained in it is before it
 
   const ascended = contained.clone();
@@ -2247,7 +2247,7 @@ export class Locator {
     if (!maxancestor)
       throw new Error("Missing ancestor");
 
-    if (this.offset > GetNodeEndOffset(this.element))
+    if (this.offset > getNodeChildCount(this.element))
       throw new Error("Illegal offset!");
 
     if (typeof ignore.li === "undefined")
@@ -2693,11 +2693,4 @@ export class Locator {
     ++locator.offset;
     return locator;
   }
-}
-
-function GetNodeEndOffset(element: Node) {
-  if (element.nodeType === 1 || element.nodeType === 11)
-    return element.childNodes.length; // for element nodes, document fragments, etc
-  else
-    return element.nodeValue ? element.nodeValue.length : 0; // for text nodes
 }
