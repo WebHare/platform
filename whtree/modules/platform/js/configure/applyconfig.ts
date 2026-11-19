@@ -114,6 +114,9 @@ export async function executeApply(options: ApplyConfigurationOptions & { offlin
   const messages: ValidationMessageWithType[] = [];
   logDebug("platform:configuration", { type: "apply", ...options });
 
+  if (!options.subsystems.length) //an empty list would silently do nothing
+    throw new Error(`No subsystems specified to apply (source: '${options.source}')`);
+
   const todoList = (options.subsystems.includes('all') ? Object.keys(configurableSubsystems) : options.subsystems) as ConfigurableSubsystem[];
   for (const todoItem of todoList) {
     const [systemName, partName] = todoItem.split('.');

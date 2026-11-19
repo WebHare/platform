@@ -141,7 +141,7 @@ MACRO AddWebserver(STRING ARRAY params, BOOLEAN isbackend)
   }
 
   GetPrimary()->CommitWork();
-  ApplyWebHareConfiguration([ subsystems := STRING[], source := "system:webserver-cli-add" ]);
+  ApplyWebHareConfiguration([ subsystems := ["config.base"], source := "system:webserver-cli-add" ]); //update backendConfig.backendURL
   ReloadWebhareConfig(TRUE, FALSE);
 
   //TODO warn if the new interface would be inaccessible (missing port + missing proxies)
@@ -254,6 +254,7 @@ MACRO Reset(STRING ARRAY params) //FIXME this suggests resetting the entire webh
   ELSE
   {
     GetPrimary()->CommitWork();
+    ApplyWebHareConfiguration([ subsystems := ["config.base"], source := "system:webserver-cli-reset" ]); //update backendConfig.backendURL
     ReloadWebhareConfig(TRUE, FALSE);
     Print("Reloaded webserver configuration\n");
   }
@@ -368,6 +369,7 @@ MACRO RewriteHosts(STRING ARRAY params)
   {
     GetPrimary()->CommitWork();
     Print("Reloading...\n");
+    ApplyWebHareConfiguration([ subsystems := ["config.base"], source := "system:webserver-cli-rewritehosts" ]); //update backendConfig.backendURL
     ReloadWebhareConfig(TRUE, FALSE);
     Print("Reloaded webserver configuration\n");
 
