@@ -5,10 +5,14 @@
     <attributes>
       <enum tag="enum1" allowedvalues="a b c" />
       <enum tag="enum2" allowedvalues="a ?:? c:*" />
+      <date tag="testdate" />
+      <datetime tag="testdatetime" />
     </attributes>
     <values matchattribute="wrd_tag">
       <value>
         <field tag="wrd_tag">TESTENTRY</field>
+        <field tag="testdate">2099-01-02</field>
+        <field tag="testdatetime">2099-01-02T03:04:05Z</field>
       </value>
     </values>
   </object>
