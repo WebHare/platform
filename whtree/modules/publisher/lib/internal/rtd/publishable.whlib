@@ -8,6 +8,7 @@ LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/rtd.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
 
@@ -991,11 +992,12 @@ PUBLIC STATIC OBJECTTYPE PublishableRichDocument EXTEND RichDocument <
 
 PUBLIC OBJECT FUNCTION __OpenWHFSRichDocument(OBJECT file, OBJECT webdesign)
 {
-  RECORD settings := GetRTDSettingsForFile(file->id);
+  // Prefer the webdesign's target applytester: 'file' may be a draft or version in /webhare-private/ that the site's apply rules don't match
+  OBJECT applytester := ObjectExists(webdesign) ? webdesign->targetapplytester : GetApplyTesterForObject(file->id);
+  RECORD settings := GetRTDSettingsForApplyTester(applytester);
   OBJECT richdoc := NEW PublishableRichDocument;
   richdoc->webdesign := webdesign;
-  // We should prefer the webdesign's target applytester, GetRTDSettingsForFile might run on a version in /webhare-private/
-  richdoc->__FastLoadFromWHFS(ObjectExists(webdesign) ? webdesign->targetapplytester : settings.applytester, file->id, file);
+  richdoc->__FastLoadFromWHFS(applytester, file->id, file);
 
   IF(settings.namespace != "")
   {
