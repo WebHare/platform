@@ -59,7 +59,7 @@ export class ParsedStructure {
   defaultorderedliststyle: BlockStyle | null = null;
   defaultunorderedliststyle: BlockStyle | null = null;
   defaulttablestyle: BlockStyle | null = null;
-  defaultblockstyle: BlockStyle | null = null;
+  defaultblockstyle: BlockStyle;
 
   constructor(structure: ExternalStructureDef) {
     this.parseBlockStyles(structure.blockstyles);
@@ -80,9 +80,10 @@ export class ParsedStructure {
     if (!structure.defaultblockstyle)
       throw Error("Required field 'defaultblockstyle' not defined in structure");
 
-    this.defaultblockstyle = this.getBlockStyleByTag(structure.defaultblockstyle);
-    if (!this.defaultblockstyle)
+    const defaultblockstyle = this.getBlockStyleByTag(structure.defaultblockstyle);
+    if (!defaultblockstyle)
       throw Error("Block style named by 'defaultblockstyle' does not exist in structure");
+    this.defaultblockstyle = defaultblockstyle;
   }
 
   parseCellStyles(cellstyles: ExternalCellStyle[]) {
