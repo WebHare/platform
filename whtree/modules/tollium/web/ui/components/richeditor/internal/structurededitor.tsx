@@ -2690,7 +2690,8 @@ export default class StructuredEditor extends EditorBase {
     this.stateHasChanged();
     this._reprocessEmbeddedAutoElements();
   }
-  removeEmbeddedObject(node) {
+  /// Remove a node (eg. an embedded object or a table) as an undoable action, preserving the selection
+  private removeNodeWithUndo(node: Node) {
     const range = this.getSelectionRange();
     const undolock = this.getUndoLock();
 
@@ -2700,6 +2701,10 @@ export default class StructuredEditor extends EditorBase {
 
     undolock.close();
     this.stateHasChanged();
+  }
+
+  removeEmbeddedObject(node) {
+    this.removeNodeWithUndo(node);
   }
 
   _createTableNode(data) {
@@ -2768,15 +2773,7 @@ export default class StructuredEditor extends EditorBase {
   }
 
   removeTable(node) {
-    const range = this.getSelectionRange();
-    const undolock = this.getUndoLock();
-
-    domlevel.Locator.newPointingTo(node).removeNode([range], undolock.undoitem);
-
-    this.selectRange(range);
-
-    undolock.close();
-    this.stateHasChanged();
+    this.removeNodeWithUndo(node);
   }
 
   requireBottomParagraph() {

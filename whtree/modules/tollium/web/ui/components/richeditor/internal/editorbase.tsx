@@ -1783,7 +1783,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
       let i;
       for (i = path.length - 1; i >= 0; --i)
         if (path[i].nodeName.toLowerCase() === 'a') {
-          this.selectRange(Range.withinNode(path[i]));
+          this.selectRange(Range.fromNodeInner(path[i]));
           break;
         }
 
