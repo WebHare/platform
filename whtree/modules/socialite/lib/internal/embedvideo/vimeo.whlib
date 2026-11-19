@@ -12,6 +12,11 @@ PUBLIC OBJECTTYPE VimeoProvider EXTEND EmbedVideoProviderBase <
     IF(searchfor = "")
       RETURN [ error := "", results := RECORD[] ];
 
+    // Check if it's a video id we are looking for, in that case directly return the video as a single result
+    RECORD res := this->DescribeVideo(searchfor);
+    IF (RecordExists(res))
+      RETURN [ error := "", results := [res]];
+
   /* Vimeo currently seems to be blocking searches from the EU. Error code 5451: This resource is restricted in your region
      I'm pretty sure that's not how you should interpret the GDPR, but too bad. no more vimeo searches!
 
@@ -32,7 +37,7 @@ PUBLIC OBJECTTYPE VimeoProvider EXTEND EmbedVideoProviderBase <
 
   UPDATE PUBLIC RECORD FUNCTION DescribeVideo(STRING videoid) {
     //Use their public unauthenticated API, at least it doesn't change its opinion on thumbnail dimensions all the time
-    OBJECT videoinfo := FetchSync("https://vimeo.com/api/oembed.json?url=https://player.vimeo.com/video/" || EncodeURL(videoid));
+    OBJECT videoinfo := FetchSync("https://vimeo.com/api/oembed.json?url=https://player.vimeo.com/video/" || EncodeURL(videoid) || "&width=1920&height=1080");
 
     RECORD data := videoinfo->JSON();
     IF(NOT RecordExists(data))
