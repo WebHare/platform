@@ -84,6 +84,8 @@ addons/docker-build/run-devcontainer.sh
 wh make install
 ```
 
+To keep a container running and test a git worktree in it, see [devkit containers](devkit-containers.md).
+
 ## Building for docker
 ```bash
 wh buildcontainer

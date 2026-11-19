@@ -8,6 +8,10 @@ You should only enable this module on development servers, never in production!
 - `wh up` - Update all modules
 - `wh umic` - Update all modules and make+install+start WebHare (like `wh mic`)
 
+## Containers
+`wh devkit:container` builds and runs a WebHare source checkout (eg. a git worktree) in a long-running podman container.
+See [devkit containers](devkit-containers.md).
+
 ## Development tools
 The development tools are normally inserted by the webdesign. If you want to
 manually enable the devtools on a page, insert `<script src="/.wh/mod/devkit/public/debug.mjs" type="module"></script>`.

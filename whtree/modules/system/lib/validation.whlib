@@ -26,6 +26,14 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 CONSTANT STRING ARRAY validate_using_js_extensions := [".yml",".yaml"];
 
+BOOLEAN FUNCTION IsValidatedUsingJS(STRING path)
+{
+  IF(GetExtensionFromPath(path) IN validate_using_js_extensions)
+    RETURN TRUE;
+  //tsconfig.json is JSON-with-comments (and our generated tsconfig.json files start with a comment)
+  RETURN ToLowercase(GetExtensionFromPath(path)) = ".json" AND ToLowercase(GetNameFromPath(path)) NOT IN ["tsconfig.json"];
+}
+
 BOOLEAN FUNCTION IsHareScriptFile(STRING path)
 {
   FOREVERY (STRING ext FROM harescriptextensions)
@@ -190,7 +198,7 @@ BOOLEAN FUNCTION CanValidateFile(STRING resourcename, BOOLEAN onlytids)
     RETURN TRUE;
   IF(IsSVGIconFile(resourcename))
     RETURN onlytids ? FALSE : TRUE;
-  IF(GetExtensionFromPath(resourcename) IN STRING[...whconstant_javascript_extensions, ...validate_using_js_extensions])
+  IF(GetExtensionFromPath(resourcename) IN whconstant_javascript_extensions OR IsValidatedUsingJS(resourcename))
     RETURN TRUE;
   STRING ext := ToUppercase(GetExtensionFromPath(resourcename));
   IF(ext IN [".WITTY",".XML",".XSD",".SITEPRL",".IXO"])
@@ -210,7 +218,7 @@ RECORD FUNCTION RunValidatorForFile(BLOB doc_blob, STRING resourcename, RECORD o
     RETURN RunSVGIconValidator(doc_blob, resourcename, options);
   IF(GetExtensionFromPath(resourcename) IN whconstant_javascript_extensions)
     RETURN RunJSValidator(doc_blob, resourcename, options);
-  IF(GetExtensionFromPath(resourcename) IN validate_using_js_extensions)
+  IF(IsValidatedUsingJS(resourcename))
     RETURN CallJS("@mod-platform/js/devsupport/validation.ts#runJSBasedValidator", doc_blob, resourcename, options);
 
   STRING ext := ToUppercase(GetExtensionFromPath(resourcename));

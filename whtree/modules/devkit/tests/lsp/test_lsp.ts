@@ -130,6 +130,8 @@ async function testFormatting() {
     '  <meta />\n' +
     '\n' +
     '</module>\n', rewrite![0].newText);
+  //The edit should end at the actual end of the document (the empty line after the final newline)
+  test.eq({ start: { line: 0, character: 0 }, end: { line: 1, character: 0 } }, rewrite![0].range);
 }
 
 async function testSourceFixing() {

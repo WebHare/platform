@@ -79,8 +79,8 @@ export class TestDriver implements PSPDriver<TestDriverPayMeta> {
       paymentid: request.paymentId,
       orderid: request.orderId,
       sleep: this.config.sleep || 0,
-      pushurl: request.pushUrl,
-      returnurl: request.returnUrl,
+      pushurl: request.pushURL,
+      returnurl: request.returnURL,
       expires: request.extraPspData?.expires as Date || null,
       lastname: request.lastName || '',
       crashpoll: Boolean(request.extraPspData?.crashpoll)

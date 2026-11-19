@@ -24,7 +24,7 @@ async function setup() {
 
 async function testWRDAPI() {
   const apiurl = (await test.getTestSiteJS()).webRoot + "testsuiteportal/.wh/api/v1/";
-  using directFetch = await getDirectOpenAPIFetch("platform:api", { baseUrl: apiurl });
+  using directFetch = await getDirectOpenAPIFetch("platform:api", { baseURL: apiurl });
 
   const api = new OpenAPIApiClient(directFetch, { bearerToken: apiSysopToken });
 
@@ -158,7 +158,7 @@ async function testWRDAPI() {
 
 async function testWRDAPIPagination() {
   const apiurl = (await test.getTestSiteJS()).webRoot + "testsuiteportal/.wh/api/v1/";
-  using directFetch = await getDirectOpenAPIFetch("platform:api", { baseUrl: apiurl });
+  using directFetch = await getDirectOpenAPIFetch("platform:api", { baseURL: apiurl });
   const api = new OpenAPIApiClient(directFetch, { bearerToken: apiSysopToken });
 
   const testunit = await api.post("/wrd/{schema}/type/{type}/query", {
@@ -225,7 +225,7 @@ async function testWRDAPIPagination() {
 
 async function testWRDAPIHistoryMode() {
   const apiurl = (await test.getTestSiteJS()).webRoot + "testsuiteportal/.wh/api/v1/";
-  using directFetch = await getDirectOpenAPIFetch("platform:api", { baseUrl: apiurl });
+  using directFetch = await getDirectOpenAPIFetch("platform:api", { baseURL: apiurl });
   const api = new OpenAPIApiClient(directFetch, { bearerToken: apiSysopToken });
 
   //Create a current, a temporary, a closed and a future person, all sharing the same last name so we can query just them

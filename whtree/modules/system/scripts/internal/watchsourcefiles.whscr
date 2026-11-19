@@ -244,6 +244,105 @@ ELSE
   }
 }
 
+/** Process a changed (created, modified or deleted) file
+    @param path Full path on disk
+    @param line Description of the change, for debug output
+    @param schedule_time Time to schedule follow-up actions at */
+MACRO ProcessChangedPath(STRING path, STRING line, DATETIME schedule_time)
+{
+  BOOLEAN is_module;
+
+  FOREVERY (STRING linkroot FROM npmlinkroots)
+    IF (path LIKE linkroot || "*")
+    {
+      IF (args.v)
+        PRINT(`Changed (npm link root): ${path}\n`);
+
+      BroadcastEvent("system:npmlinkroot.filechange", DEFAULT RECORD);
+    }
+
+  FOREVERY (STRING moduledir FROM moduledirs)
+  {
+    IF (path NOT LIKE moduledir || "*")
+      CONTINUE;
+    is_module := TRUE;
+
+    STRING subdir := SubString(path, LENGTH(moduledir));
+    STRING ARRAY toks := Tokenize(subdir, "/");
+    IF (LENGTH(toks) < 2)
+      CONTINUE;
+
+    IF (NOT RecordExists(GetDiskFileProperties(MergePath(moduledir, toks[0] || "/moduledefinition.xml"))))
+    {
+      IF (NOT RecordExists(GetDiskFileProperties(MergePath(moduledir, toks[0] || "/" || toks[1] || "/moduledefinition.xml"))))
+        CONTINUE;
+
+      DELETE FROM toks AT 0;
+      IF (LENGTH(toks) < 2)
+        CONTINUE;
+    }
+    //toks[0] is now the module name, including .2010... timestamp
+    IF (toks[0] LIKE "*.tmp") //Don't process temporary modules
+      CONTINUE;
+
+    IF (args.v)
+      PRINT("Changed: " || MergePath(moduledir, Detokenize(toks, "/")) || "\n");
+
+    // Remove the .datestamp part of the module name
+    toks[0] := Tokenize(toks[0], ".")[0];
+
+    // Calcaultate
+    STRING consiliogroupname := "mod::" || toks[0] || "/" || Detokenize(ArraySlice(toks, 1), "/");
+    IF (toks[0] = "system" AND toks[1] IN [ "whlibs" ])
+    {
+      consiliogroupname := "wh::" || Detokenize(ArraySlice(toks, 2), "/");
+    }
+
+    IF (args.o)
+      PRINT("Add " || consiliogroupname || " due to > " || line || "\n");
+
+    RECORD rec :=
+        [ consiliogroupname :=  consiliogroupname
+        , schedule_time :=      schedule_time
+        ];
+
+    STRING changedfolder := "mod::" || toks[0] || "/" || Detokenize(ArraySlice(toks, 1, LENGTH(toks) - 2), "/");
+    IF (changedfolder NOT LIKE "*/")
+      changedfolder := changedfolder || "/";
+    BroadcastEvent("system:modulefolder." || changedfolder, [ resourcename := consiliogroupname ]);
+
+    IF(path LIKE "*/moduledefinition.xml" OR path LIKE "*/moduledefinition.yml")
+      BroadcastEvent("system:modulesupdate", DEFAULT RECORD);
+
+    // Trigger global actions
+    FOREVERY (RECORD action FROM actions)
+    {
+      BOOLEAN ismatch;
+      FOREVERY (STRING mask FROM action.masks)
+        IF (consiliogroupname LIKE mask)
+          ismatch := TRUE;
+      FOREVERY (STRING mask FROM action.skipmasks)
+        IF (consiliogroupname LIKE mask)
+          ismatch := FALSE;
+
+      IF (ismatch)
+      {
+        IF (action.cb != 0)
+          UnregisterCallback(action.cb);
+        actions[#action].cb := RegisterTimedCallback(AddTimeToDate(action.delay, GetCurrentDateTime()), PTR ScheduleAction(#action));
+      }
+    }
+  }
+
+  IF (NOT is_module)
+  {
+    STRING dir := Left(path, SearchLastSubString(path, "/") + 1);
+    IF (args.v)
+      PRINT(`Other file changed: ${path}\n`);
+    BroadcastEvent("system:modulefolder." || dir, [ resourcename := `direct::${path}` ]);
+  }
+}
+
 OBJECT ASYNC FUNCTION HandleWatchProcess(OBJECT proc, BOOLEAN is_inotifywait, STRING watchdir)
 {
   INTEGER output_handle;
@@ -319,99 +418,7 @@ OBJECT ASYNC FUNCTION HandleWatchProcess(OBJECT proc, BOOLEAN is_inotifywait, ST
         CONTINUE;
 
       IF ((code BITAND (2+4+8+16+128)) != 0 OR codestr IN [ "CREATE", "DELETE", "MOVED_FROM", "MOVED_TO", "MODIFY" ] OR codestr LIKE "*CLOSE_WRITE*") // Any change?
-      {
-        BOOLEAN is_module;
-
-        FOREVERY (STRING linkroot FROM npmlinkroots)
-          IF (path LIKE linkroot || "*")
-          {
-            IF (args.v)
-              PRINT(`Changed (npm link root): ${path}\n`);
-
-            BroadcastEvent("system:npmlinkroot.filechange", DEFAULT RECORD);
-          }
-
-        FOREVERY (STRING moduledir FROM moduledirs)
-        {
-          IF (path NOT LIKE moduledir || "*")
-            CONTINUE;
-          is_module := TRUE;
-
-          STRING subdir := SubString(path, LENGTH(moduledir));
-          STRING ARRAY toks := Tokenize(subdir, "/");
-          IF (LENGTH(toks) < 2)
-            CONTINUE;
-
-          IF (NOT RecordExists(GetDiskFileProperties(MergePath(moduledir, toks[0] || "/moduledefinition.xml"))))
-          {
-            IF (NOT RecordExists(GetDiskFileProperties(MergePath(moduledir, toks[0] || "/" || toks[1] || "/moduledefinition.xml"))))
-              CONTINUE;
-
-            DELETE FROM toks AT 0;
-            IF (LENGTH(toks) < 2)
-              CONTINUE;
-          }
-          //toks[0] is now the module name, including .2010... timestamp
-          IF (toks[0] LIKE "*.tmp") //Don't process temporary modules
-            CONTINUE;
-
-          IF (args.v)
-            PRINT("Changed: " || MergePath(moduledir, Detokenize(toks, "/")) || "\n");
-
-          // Remove the .datestamp part of the module name
-          toks[0] := Tokenize(toks[0], ".")[0];
-
-          // Calcaultate
-          STRING consiliogroupname := "mod::" || toks[0] || "/" || Detokenize(ArraySlice(toks, 1), "/");
-          IF (toks[0] = "system" AND toks[1] IN [ "whlibs" ])
-          {
-            consiliogroupname := "wh::" || Detokenize(ArraySlice(toks, 2), "/");
-          }
-
-          IF (args.o)
-            PRINT("Add " || consiliogroupname || " due to > " || line || "\n");
-
-          RECORD rec :=
-              [ consiliogroupname :=  consiliogroupname
-              , schedule_time :=      schedule_time
-              ];
-
-          STRING changedfolder := "mod::" || toks[0] || "/" || Detokenize(ArraySlice(toks, 1, LENGTH(toks) - 2), "/");
-          IF (changedfolder NOT LIKE "*/")
-            changedfolder := changedfolder || "/";
-          BroadcastEvent("system:modulefolder." || changedfolder, [ resourcename := consiliogroupname ]);
-
-          IF(path LIKE "*/moduledefinition.xml" OR path LIKE "*/moduledefinition.yml")
-            BroadcastEvent("system:modulesupdate", DEFAULT RECORD);
-
-          // Trigger global actions
-          FOREVERY (RECORD action FROM actions)
-          {
-            BOOLEAN ismatch;
-            FOREVERY (STRING mask FROM action.masks)
-              IF (consiliogroupname LIKE mask)
-                ismatch := TRUE;
-            FOREVERY (STRING mask FROM action.skipmasks)
-              IF (consiliogroupname LIKE mask)
-                ismatch := FALSE;
-
-            IF (ismatch)
-            {
-              IF (action.cb != 0)
-                UnregisterCallback(action.cb);
-              actions[#action].cb := RegisterTimedCallback(AddTimeToDate(action.delay, GetCurrentDateTime()), PTR ScheduleAction(#action));
-            }
-          }
-        }
-
-        IF (NOT is_module)
-        {
-          STRING dir := Left(path, SearchLastSubString(path, "/") + 1);
-          IF (args.v)
-            PRINT(`Other file changed: ${path}\n`);
-          BroadcastEvent("system:modulefolder." || dir, [ resourcename := `direct::${path}` ]);
-        }
-      }
+        ProcessChangedPath(path, line, schedule_time);
     }
 
     CollectGarbage();
@@ -453,6 +460,17 @@ MACRO RestartForConfigChange(STRING event, RECORD ARRAY events)
   TerminateScript();
 }
 
+/* Files reported changed by `wh event invalidate-file`, eg. because they were changed in a way the filesystem watcher
+   can't see (such as on the host side of a container's bind mount) */
+MACRO OnInvalidateFile(STRING event, RECORD ARRAY events)
+{
+  DATETIME schedule_time := AddTimeToDate(1000, GetCurrentDateTime());
+  FOREVERY (RECORD evt FROM events)
+    IF (CellExists(evt, "path") AND TypeID(evt.path) = TypeID(STRING) AND evt.path LIKE "/*")
+      ProcessChangedPath(evt.path, `invalidate-file ${evt.path}`, schedule_time);
+}
+
 RegisterMultiEventCallback("system:registry.backend.development", PTR RestartForConfigChange);
+RegisterMultiEventCallback("platform:invalidatefile", PTR OnInvalidateFile);
 AddInterruptCallback(PTR CancelEventLoop);
 RunEventLoop();

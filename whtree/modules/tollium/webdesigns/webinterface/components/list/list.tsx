@@ -381,10 +381,14 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
   linesperrow: number;
   dragrowheight: number;
   draglinesperrow: number;
-  cursorrow: number;
   cursorcol: number;
-  range_start_idx: number;
-  range_end_idx: number;
+  /* The cursor row and the start and end of the current (shift) selection range are stored as row keys, not row numbers,
+     so they stay with their rows when the rows are reordered (sorting, server updates, expanding/collapsing) */
+  private cursorkey: string | null = null;
+  private rangestartkey: string | null = null;
+  private rangeendkey: string | null = null;
+  /** Row number in flatrows for each row key, rebuilt by flattenRows */
+  private rownumbykey = new Map<string, number>();
   draginfo: {
     lastpos: { x: number; y: number };
     orgsizes: Array<{ width: number; minwidth: number; room: number }>;
@@ -560,10 +564,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     this.dragrowheight = 0;
     this.draglinesperrow = 1;
 
-    this.cursorrow = -1;
     this.cursorcol = -1;
-    this.range_start_idx = -1;
-    this.range_end_idx = -1;
 
     this.draginfo = null;
     this.dragnode = null;
@@ -696,17 +697,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
 
       case "rows":
         {
-          const selected = [];
-          for (let i = 0; i < this.flatrows.length; ++i)
-            if (this.flatrows[i][1])
-              selected.push(this.flatrows[i][0].rowkey);
-
-          // keep rowkey of first visible row
-          //console.log(data);
-          this.initRows(data.rows);
-
-          this._setSelection(selected);
-
+          this.initRows(data.rows, { keepSelection: true });
           this.invalidateAllRows();
         } break;
 
@@ -755,8 +746,11 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
 
       case "selection":
         {
-          if (this._setSelection(data.selection))
+          if (this._setSelection(data.selection)) {
+            // the server changed the selection, so keyboard navigation continues from the (first) newly selected row
+            this.cursorrow = this.range_start_idx = this.range_end_idx = this.getFirstSelectedRow();
             this.owner.refreshConditions();
+          }
           this.jumpToSelection();
         } break;
 
@@ -935,11 +929,20 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
         return new Text();
     }
   }
-  initRows(rows: FlatRow[]) {
+  initRows(rows: FlatRow[], { keepSelection = false } = {}) {
+    // when keeping our selection, apply it to the new rows before flattening them so a selected row that disappeared can be replaced by its parent
+    const keepselected = keepSelection ? new Set(this.flatrows.filter(row => row[1]).map(row => row[0].rowkey)) : null;
     for (let idx = 0; idx < rows.length; idx++) {
       const row = rows[idx];
       row[0].selectable = !this.selectableflags || this.selectableflags === "" || $todd.checkEnabledFlags([row[0].flags], this.selectableflags.split(" "), 1, 1, "all");
       row[0].ordering = idx;
+      if (keepselected) {
+        const selected = keepselected.has(row[0].rowkey);
+        if (row[1] !== selected) {
+          row[1] = selected;
+          this.pendingValueSubmit = true;
+        }
+      }
     }
 
     this.rows = this.createTreeFromFlatRows(rows);
@@ -1109,11 +1112,85 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     return changed_selection;
   }
   flattenRows() { //NOTE: taken from designfiles/ui/lists.js, may be a good candidate for the base class
+    const lostselection = this.getSingleSelectionLineage();
+
     this.flatrows = [];
-    const changed_selection = this.recurseFlattenRows(this.rows, 0, undefined, this.flatrows);
+    let changed_selection = this.recurseFlattenRows(this.rows, 0, undefined, this.flatrows);
+    this.rownumbykey = new Map(this.flatrows.map((row, idx) => [row[0].rowkey, idx]));
+
+    if (lostselection && !this.rownumbykey.has(lostselection[0]) && this.getFirstSelectedRow() === -1)
+      changed_selection = this.selectClosestAncestor(lostselection.slice(1)) || changed_selection;
+
+    // if the cursor or range rows disappeared, continue from the (first) selected row
+    if (this.cursorrow === -1)
+      this.cursorrow = this.getFirstSelectedRow();
+    if (this.range_start_idx === -1 || this.range_end_idx === -1)
+      this.range_start_idx = this.range_end_idx = this.cursorrow;
 
     if (changed_selection)
       this._updatedSelection(true);
+  }
+
+  /** If exactly one row is selected, get the row keys of that row and its ancestors, closest first */
+  private getSingleSelectionLineage(): string[] | null {
+    const selected = this.flatrows.filter(row => row[1]);
+    if (selected.length !== 1)
+      return null;
+
+    const lineage = [];
+    for (let row: FlatRow | null = selected[0]; row; row = row[0].parentrowkey !== undefined ? this.lookupRowByRowkey(row[0].parentrowkey) : null)
+      lineage.push(row[0].rowkey);
+    return lineage;
+  }
+
+  /** Select the first of the given rows that is still in the list (if it's selectable) */
+  private selectClosestAncestor(ancestorkeys: string[]): boolean {
+    for (const key of ancestorkeys) {
+      const rownum = this.rownumbykey.get(key);
+      if (rownum === undefined)
+        continue;
+
+      const row = this.flatrows[rownum];
+      if (!row[0].selectable || this.options.selectmode === "none")
+        return false;
+
+      row[1] = true;
+      this.pendingValueSubmit = true;
+      return true;
+    }
+    return false;
+  }
+
+  private getRownumByRowkey(rowkey: string | null): number {
+    return rowkey !== null ? this.rownumbykey.get(rowkey) ?? -1 : -1;
+  }
+
+  private getRowkeyByRownum(rownum: number): string | null {
+    return rownum >= 0 && rownum < this.flatrows.length ? this.flatrows[rownum][0].rowkey : null;
+  }
+
+  /** Row number of the cursor row, -1 if none */
+  get cursorrow(): number {
+    return this.getRownumByRowkey(this.cursorkey);
+  }
+  set cursorrow(rownum: number) {
+    this.cursorkey = this.getRowkeyByRownum(rownum);
+  }
+
+  /** Row number where the current (shift) selection range started, -1 if none */
+  get range_start_idx(): number {
+    return this.getRownumByRowkey(this.rangestartkey);
+  }
+  set range_start_idx(rownum: number) {
+    this.rangestartkey = this.getRowkeyByRownum(rownum);
+  }
+
+  /** Row number where the current (shift) selection range ends, -1 if none */
+  get range_end_idx(): number {
+    return this.getRownumByRowkey(this.rangeendkey);
+  }
+  set range_end_idx(rownum: number) {
+    this.rangeendkey = this.getRowkeyByRownum(rownum);
   }
 
   // ---------------------------------------------------------------------------
@@ -1352,10 +1429,8 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
   }
 
   lookupRowByRowkey(rowkey: string) {
-    for (let i = 0; i < this.flatrows.length; ++i)
-      if (this.flatrows[i][0].rowkey === rowkey)
-        return this.flatrows[i];
-    return null;
+    const rownum = this.rownumbykey.get(rowkey);
+    return rownum !== undefined ? this.flatrows[rownum] : null;
   }
 
   doNoLoopCheck(targetrow: FlatRow | null, sourcecomp: ToddCompBase, rowkeys: string[]) {
@@ -2223,8 +2298,8 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
   onClickList(event: MouseEvent, dblclick: boolean) {
     let lastnode, listrow: HTMLDivElement | null = null, listcell, anyfocussable, selectnode: HTMLElement;
     for (selectnode = event.target as HTMLElement; selectnode && selectnode !== this.node; selectnode = selectnode.parentElement as HTMLElement) {
-      // Ignore clicks on the footer
-      if (selectnode.classList.contains("listfooterholder"))
+      // Ignore clicks on the header (eg. sorting a column) and the footer
+      if (selectnode.classList.contains("listheader") || selectnode.classList.contains("listfooterholder"))
         return false;
 
       /* label click, eg checkbox row - we only allow this if selectmode is none,
@@ -2685,9 +2760,10 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     if (expandselection && this.options.selectmode === 'multiple') {
       // make the current range stretch up to the first row
 
-      if (this.range_start_idx > -1)
-        this.setSelectionForRange(this.range_start_idx, this.range_end_idx, false);
+      if (this.range_start_idx === -1)
+        this.range_start_idx = firstselectablerow;
 
+      this.clearSelection(); //a range selection replaces the selection
       this.range_end_idx = 0;
       this.setSelectionForRange(this.range_start_idx, this.range_end_idx, true);
     } else { // new selection will be only the first row
@@ -2711,9 +2787,10 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     if (expandselection && this.options.selectmode === 'multiple') {
       // make the current rage stretch down to the last row
 
-      if (this.range_start_idx > -1)
-        this.setSelectionForRange(this.range_start_idx, this.range_end_idx, false);
+      if (this.range_start_idx === -1)
+        this.range_start_idx = lastselectablerow;
 
+      this.clearSelection(); //a range selection replaces the selection
       this.range_end_idx = lastselectablerow;
       this.setSelectionForRange(this.range_start_idx, this.range_end_idx, true);
     } else { // new selection will be only the last row
@@ -2788,11 +2865,11 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     try {
       // click + shift expands
       if (rownum > -1 && options.expandselection && this.options.selectmode === 'multiple') {
-        // FIXME: improve performance by only clearing/updating the parts that may have changed
-        if (this.range_start_idx > -1)
-          this.setSelectionForRange(this.range_start_idx, this.range_end_idx, false);
+        if (this.range_start_idx === -1)
+          this.range_start_idx = 0;
 
-        this.setSelectionForRange(this.range_start_idx > -1 ? this.range_start_idx : 0, rownum, true);
+        this.clearSelection(); //a range selection replaces the selection
+        this.setSelectionForRange(this.range_start_idx, rownum, true);
 
         this.range_end_idx = rownum;
 

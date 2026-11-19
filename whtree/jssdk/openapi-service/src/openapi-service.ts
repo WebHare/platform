@@ -37,7 +37,9 @@ export type OpenAPIClientFetch = (input: string, init?: RequestInit) => Promise<
 
 /** Returns an OpenAPIClientFetch compatible fetch that sets up the openapi service (but not (yet?) the workers) in the same JavaScript VM*/
 export async function getDirectOpenAPIFetch(service: string, options?: {
-  //Override the base URL pretended that we're hosting the service. This usually matters for Origin checks. Defaults to "https://example.net/api/"
+  /** Override the base URL pretended that we're hosting the service. This usually matters for Origin checks. Defaults to "https://example.net/api/" */
+  baseURL?: string;
+  /** @deprecated Use baseURL */
   baseUrl?: string;
 }): Promise<OpenAPIClientFetch & Disposable> {
   const serviceinstance = await getServiceInstance(service);
@@ -47,14 +49,14 @@ export async function getDirectOpenAPIFetch(service: string, options?: {
     const finalbody = await convertBody(body);
 
     const reqid = debugFlags.wrq ? logWrqRequest(method, route, headers, finalbody) : null;
-    let baseUrl = options?.baseUrl || "https://example.net/api/";
-    if (!baseUrl.endsWith("/"))
-      baseUrl += '/';
+    let baseURL = options?.baseURL || options?.baseUrl || "https://example.net/api/";
+    if (!baseURL.endsWith("/"))
+      baseURL += '/';
 
     const res = await serviceinstance.APICall({
       sourceip: "127.0.0.1",
       method: method.toUpperCase() as HTTPMethod,
-      url: baseUrl + route,
+      url: baseURL + route,
       body: finalbody,
       headers: Object.fromEntries(headers.entries()),
       binding: 0,

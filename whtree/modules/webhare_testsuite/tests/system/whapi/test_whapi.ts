@@ -27,7 +27,7 @@ async function setupWHAPITest() {
 
   //NOTE this doesn't test that API is actually *live* at api/ as we're shortcircuiting the fetch
   const apiurl = (await test.getTestSiteJS()).webRoot + "testsuiteportal/.wh/api/v1/";
-  using directFetch = await getDirectOpenAPIFetch("platform:api", { baseUrl: apiurl });
+  using directFetch = await getDirectOpenAPIFetch("platform:api", { baseURL: apiurl });
 
   //Verify we have no signing keys yet
   const wrdSettingsEntity = await jsAuthSchema.search("wrdSettings", "wrdTag", "WRD_SETTINGS") ?? throwError("wrdSettings not found");
@@ -107,7 +107,7 @@ async function setupWHAPITest() {
 
 async function tryWHAPI() {
   const apiurl = (await test.getTestSiteJS()).webRoot + "testsuiteportal/.wh/api/v1/";
-  using directFetch = await getDirectOpenAPIFetch("platform:api", { baseUrl: apiurl });
+  using directFetch = await getDirectOpenAPIFetch("platform:api", { baseURL: apiurl });
 
   const api = new OpenAPIApiClient(directFetch, { bearerToken: apiSysopToken!.accessToken });
   test.eqPartial({ status: 200, body: { user: { email: "sysop@beta.webhare.net" } } }, await api.get("/meta"));

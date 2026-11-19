@@ -148,10 +148,10 @@ async function getOpenIDConnectMetadata(metadataurl: string) {
 }
 
 type OAuth2ClientInfo = {
-  metadataUrl: string;
+  metadataURL: string;
   /** WRD Schema tag or other identifier to bind responses to the application */
   clientScope: string;
-  redirectUrl?: string;
+  redirectURL?: string;
   clientId: string;
   /** Holds string based secret */
   clientSecret?: string;
@@ -204,9 +204,9 @@ export class OAuth2Client {
    * @param options.responseMode - Provider response mode; defaults to `form_post` when advertised, otherwise the provider's default.
    */
   async createAuthorizeLink(finalurl: string, options?: OAuth2AuthorizeRequestOptions): Promise<NavigateInstruction> {
-    const metadata = await getOpenIDConnectMetadata(this.clientinfo.metadataUrl);
-    const redirecturl = this.clientinfo.redirectUrl || getDefaultOAuth2RedirectURL();
-    const authorizeurl = metadata.config.authorization_endpoint ?? throwError(`Authentication server at ${this.clientinfo.metadataUrl} has no authorization_endpoint`);
+    const metadata = await getOpenIDConnectMetadata(this.clientinfo.metadataURL);
+    const redirecturl = this.clientinfo.redirectURL || getDefaultOAuth2RedirectURL();
+    const authorizeurl = metadata.config.authorization_endpoint ?? throwError(`Authentication server at ${this.clientinfo.metadataURL} has no authorization_endpoint`);
 
     //TODO avoid storing this all in webserver sessions, WRD clientid should often suffice. And link that up to JWT caching for apple logins
     const state: SessionScopes["system:oauth2"] = {
@@ -214,7 +214,7 @@ export class OAuth2Client {
       code_verifier: options?.codeVerifier || '',
       requeststart: new Date,
       client_scope: options?.clientScope || this.clientinfo.clientScope,
-      metadata_url: this.clientinfo.metadataUrl,
+      metadata_url: this.clientinfo.metadataURL,
       user_data: options?.userData ? toSnakeCase(options?.userData) : undefined,
       oauthconfig: {
         clientid: this.clientinfo.clientId,
@@ -223,7 +223,7 @@ export class OAuth2Client {
         extra_params: this.clientinfo.extraParams,
         redirecturl,
         authorizeurl,
-        authtokenurl: metadata.config.token_endpoint ?? throwError(`Authentication server at ${this.clientinfo.metadataUrl} has no token_endpoint`),
+        authtokenurl: metadata.config.token_endpoint ?? throwError(`Authentication server at ${this.clientinfo.metadataURL} has no token_endpoint`),
       }
     };
 
@@ -267,7 +267,7 @@ export class OAuth2Client {
       logDebug("platform:oauth2-client", {
         step: "createAuthorizeLink",
         clientId: this.clientinfo.clientId,
-        metadataUrl: this.clientinfo.metadataUrl,
+        metadataURL: this.clientinfo.metadataURL,
         authURLOrigin: authurl.origin,
         redirectURLOrigin: URL.parse(redirecturl)?.origin,
         returnURLOrigin: URL.parse(finalurl)?.origin
@@ -282,9 +282,9 @@ export async function createOAuth2Client<S extends SchemaTypeDefinition>(wrdSche
   const spData = await wrdSchema.getFields("wrdauthServer", server, ["wrdId", "metadataUrl", "clientId", "additionalScopes", "redirectUri", "clientSigning", "extraParams"]);
 
   return new OAuth2Client({
-    metadataUrl: spData.metadataUrl,
+    metadataURL: spData.metadataUrl,
     clientScope: wrdSchema.tag,
-    redirectUrl: spData.redirectUri,
+    redirectURL: spData.redirectUri,
     clientId: spData.clientId,
     clientSigning: spData.clientSigning || undefined,
     additionalScopes: spData.additionalScopes.split(" ").map(s => s.trim()).filter(s => s),

@@ -249,7 +249,8 @@ export class RestAPI {
 function createAjvValidator(): Ajv2020 {
   const ajv = new Ajv2020({ allowMatchingProperties: true });
   addFormats(ajv);
-  // Allow keyword 'example'
+  // Allow OpenAPI's single 'example' (deprecated in OpenAPI 3.1, but still allowed). We can't require 'examples' yet as
+  // SwaggerUI doesn't fully support it, see https://github.com/swagger-api/swagger-ui/issues/9045
   ajv.addVocabulary(["example"]);
   return ajv;
 }

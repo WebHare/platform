@@ -189,11 +189,11 @@ async function verifyRoutes_HSClient() {
 
 async function verifyRoutes_TSClient() {
   const testsite = await test.getTestSiteJS();
-  const metadataUrl = testsite.webRoot + ".well-known/openid-configuration";
+  const metadataURL = testsite.webRoot + ".well-known/openid-configuration";
   const clientScope = "webhare_testsuite:test_openid_" + generateRandomId();
 
   //Manual metadata checks
-  const openidconfigReq = await fetch(metadataUrl);
+  const openidconfigReq = await fetch(metadataURL);
   test.assert(openidconfigReq.ok, "Cannot find config on " + openidconfigReq.url);
   const openidconfig = await openidconfigReq.json();
   test.eq(testsite.webRoot.replace(/\/$/, ""), openidconfig.issuer);
@@ -208,7 +208,7 @@ async function verifyRoutes_TSClient() {
 
   //Run the new client
   const client = new OAuth2Client({
-    metadataUrl,
+    metadataURL,
     additionalScopes: ["email"],
     clientScope,
     clientId,

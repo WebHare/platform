@@ -12,9 +12,9 @@ Implement `connect()` first. Connect should validate the configuration and retur
 Once `connect()` works you should be able to configure the PSP in WebHare and it should be able to show up in payment
 screens
 
-Implement `startPayment` to handle actual payment attempts. Inform the PSP about the returnUrl and pushUrl.
+Implement `startPayment` to handle actual payment attempts. Inform the PSP about the returnURL and pushURL.
 
-Implement `processPush` to receive notifications sent to the pushUrl. This function should return a status update
+Implement `processPush` to receive notifications sent to the pushURL. This function should return a status update
 AND the response to provide to the notification invoker. eg:
 
 ```typescript

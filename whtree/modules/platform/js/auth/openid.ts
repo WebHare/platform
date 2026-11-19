@@ -21,7 +21,7 @@ type OIDCCallerInfo = {
   state: string | null;
   response_mode: ResponseModesScopes | null;
   response_type: Array<ResponseType>;
-  cbUrl: string;
+  cbURL: string;
 };
 
 declare module "@webhare/services" {
@@ -231,13 +231,13 @@ function createOIDCErrorResponse(callerInfo: OIDCCallerInfo, errorCode: OAuth2En
     return createRedirectResponse({
       type: "form",
       form: {
-        action: callerInfo.cbUrl,
+        action: callerInfo.cbURL,
         vars: [...params.entries()].map(([name, value]) => ({ name, value }))
       }
     });
   }
 
-  const targetUrl = new URL(callerInfo.cbUrl);
+  const targetUrl = new URL(callerInfo.cbURL);
   if (responseMode === "fragment")
     targetUrl.hash = params.toString();
   else
@@ -283,7 +283,7 @@ export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provide
 
   //At this point it's safe to use the callback url
   const callerInfo: OIDCCallerInfo = {
-    cbUrl: redirect_uri,
+    cbURL: redirect_uri,
     state,
     response_mode,
     response_type
@@ -403,7 +403,7 @@ export async function returnAuthorizeFlow<T extends SchemaTypeDefinition>(provid
 
   //Are any scopes requested which we wouldn't automatically honor?
   //TODO validate the requested scopes and block unknown ones/or block the flow entirely - instead of just adding them to the requested token?
-  const finalRedirectURI = new URL(returnInfo.cbUrl);
+  const finalRedirectURI = new URL(returnInfo.cbURL);
 
   const protectedScopes = returnInfo.scopes.filter(scope => Object.keys(supportedAccessScopes).includes(scope)) as Array<keyof typeof supportedAccessScopes>;
   const checkScopes: Array<keyof typeof supportedAccessScopes> = [];
@@ -444,7 +444,7 @@ export async function returnAuthorizeFlow<T extends SchemaTypeDefinition>(provid
         supportedAccessScopes,
         mcpServerHost: resource ? new URL(resource).host : null, //for now, an MCP server is the only resource we issue tokens for (see getProtectedResources)
         //We show where the user will be sent back to: unlike the client's self-reported name, that's verified (it must be one of the client's callback URLs)
-        returnHost: new URL(returnInfo.cbUrl).host,
+        returnHost: new URL(returnInfo.cbURL).host,
         unverifiedClient: Boolean(dynamicStatus)
       }));
     } else {

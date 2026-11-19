@@ -301,14 +301,20 @@ export async function doReformat(doc: TextDocumentLike, options: FormattingOptio
   if (!respath)
     return null;
 
-  const rewriteresult = await rewriteResource(respath, doc.getText());
+  const text = doc.getText();
+  const rewriteresult = await rewriteResource(respath, text);
   if (!rewriteresult)
     return null;
+
+  //Replace the whole document. Some clients (eg Nova) ignore edits with a range beyond the end of the document, so
+  //return the actual end position (LSP positions count characters in UTF-16 code units, like JavaScript strings do)
+  const lines = text.split(/\r\n|\r|\n/);
+  const end = { line: lines.length - 1, character: lines[lines.length - 1].length };
 
   //but ideally we'd ship a limited set of edits, not a full rewrite
   return [
     {
-      range: { start: { line: 0, character: 0 }, end: { line: 999999999, character: 999999999 } },
+      range: { start: { line: 0, character: 0 }, end },
       newText: rewriteresult
     }
   ];

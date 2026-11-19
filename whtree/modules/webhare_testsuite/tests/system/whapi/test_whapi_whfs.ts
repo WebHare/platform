@@ -34,7 +34,7 @@ async function testWHFSAPI() {
   const testSite = await test.getTestSiteJS();
   const testRoot = await testSite.openFolder("/");
   const apiurl = testSite.webRoot + "testsuiteportal/.wh/api/v1/";
-  using directFetch = await getDirectOpenAPIFetch("platform:api", { baseUrl: apiurl });
+  using directFetch = await getDirectOpenAPIFetch("platform:api", { baseURL: apiurl });
 
   { //test anonymous listing
     const api = new OpenAPIApiClient(directFetch);
@@ -336,7 +336,7 @@ async function testWHFSAPI() {
 async function testWHFSasMarge() {
   const testSite = await test.getTestSiteJS();
   const apiurl = testSite.webRoot + "testsuiteportal/.wh/api/v1/";
-  using directFetch = await getDirectOpenAPIFetch("platform:api", { baseUrl: apiurl });
+  using directFetch = await getDirectOpenAPIFetch("platform:api", { baseURL: apiurl });
   const api = new OpenAPIApiClient(directFetch, { bearerToken: apiMargeToken });
 
   const result = await api.get("/whfs/object");

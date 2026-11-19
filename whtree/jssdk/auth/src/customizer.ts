@@ -73,7 +73,10 @@ export interface OpenIdAuthenticationParameters<S extends SchemaTypeDefinition =
   /** JWT payload */
   jwtPayload: JWTPayload;
   /** Final URL the user will be redirected to if the login is successful */
-  finalUrl: string;
+  finalURL: string;
+  /** @deprecated Use finalURL */
+  get finalUrl(): string;
+  set finalUrl(value: string);
   /** Access token provided by the openid server */
   accessToken: string | null;
 }

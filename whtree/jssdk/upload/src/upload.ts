@@ -53,7 +53,7 @@ export interface UploadManifest {
 }
 
 export interface UploadInstructions {
-  baseUrl: string;
+  baseURL: string;
   sessionId: string;
   chunkSize: number;
   signal?: AbortSignal;
@@ -119,7 +119,7 @@ export class MultiFileUploader implements UploaderBase {
         // Data needs to be a real Blob for XMLHttpRequest to work
         if (!isRealBlob(data))
           data = await convertToRealBlob(data);
-        const uploadurl = `${instructions.baseUrl}&offset=${offset}&file=${idx}`;
+        const uploadurl = `${instructions.baseURL}&offset=${offset}&file=${idx}`;
 
 
         /* we can't use fetch as we can't do progress tracking there!

@@ -46,7 +46,7 @@ export class OIDCTestCustomizer implements AuthCustomizer {
         wrdContactEmail: params.jwtPayload!.testfw_email,
         whuserUnit: autounit,
         wrdauthAccountStatus: { status: "active" },
-        whuserComment: params.finalUrl
+        whuserComment: params.finalURL
       });
     });
   }

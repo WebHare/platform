@@ -4,9 +4,9 @@
    wh runwasm mod::system/scripts/whcommands/validate.whscr --tids mod::webhare_testsuite/webdesigns/basetestjs/basetestjs.siteprl.yml
 */
 
-import { backendConfig, importJSFunction, resolveResource, ResourceDescriptor, toResourcePath, type WebHareBlob } from "@webhare/services";
+import { backendConfig, getResourceEventMasks, importJSFunction, isAbsoluteResource, resolveResource, ResourceDescriptor, toResourcePath, type WebHareBlob } from "@webhare/services";
 import { pick, regExpFromWildcards, throwError } from "@webhare/std";
-import { getAjvForSchema, type AjvValidateFunction, type JSONSchemaObject } from "@webhare/test/src/ajv-wrapper";
+import { getAjvForSchema, knownJSONSchemaMetaSchemas, type AjvValidateFunction, type JSONSchemaObject } from "@webhare/test/src/ajv-wrapper";
 import { getAllModuleYAMLs } from "@webhare/services/src/moduledefparser";
 import { validateCompiledSiteProfile } from "./siteprofiles";
 import { validateMCPToolNames } from "./moduledefinition";
@@ -79,6 +79,8 @@ export class ValidationState {
   messages = new Array<ValidationMessageWithType>;
   icons: unknown[] = [];
   tids = new Array<ValidationTid>;
+  /** Event masks for invalidation of this validation result, in addition to the masks for the validated resource itself */
+  eventmasks = new Array<string>;
   options: ValidationOptions;
 
   constructor(options: ValidationOptions) {
@@ -90,7 +92,7 @@ export class ValidationState {
   };
 
   finalize(): ValidationResult {
-    return pick(this, ["messages", "icons", "tids"]);
+    return pick(this, ["messages", "icons", "tids", "eventmasks"]);
   }
 }
 
@@ -131,6 +133,8 @@ export async function runJSBasedValidator(content: WebHareBlob, resource: string
 
   if (resource.endsWith(".yml") || resource.endsWith(".yaml")) {
     await runYAMLBasedValidator(result, content, resource, options);
+  } else if (resource.toLowerCase().endsWith(".json")) {
+    await runYAMLBasedValidator(result, content, resource, { ...options, json: true });
   } else {
     result.messages.push({ resourcename: resource, line: 0, col: 0, message: `No validator available for '${resource}'`, source: "validation", metadata: {}, type: "hint" });
   }
@@ -138,28 +142,93 @@ export async function runJSBasedValidator(content: WebHareBlob, resource: string
 }
 
 
-export async function runYAMLBasedValidator(result: ValidationState, content: WebHareBlob, resource: string, options?: ValidationOptions): Promise<void> {
+/** Check whether a decoded value can be a JSON schema (an object or a boolean, eg not null from an empty file) */
+function isUsableSchema(schema: unknown): schema is JSONSchemaObject | boolean {
+  return typeof schema === "boolean" || (typeof schema === "object" && schema !== null && !Array.isArray(schema));
+}
+
+/** Get the position of a JSON.parse error, if its message contains one */
+function getJSONErrorPosition(text: string, error: Error): ResourcePosition {
+  const linecol = error?.message?.match(/\(line (\d+) column (\d+)\)/);
+  if (linecol)
+    return { line: parseInt(linecol[1]), col: parseInt(linecol[2]) };
+  const pos = error?.message?.match(/at position (\d+)/);
+  if (pos) {
+    const before = text.substring(0, parseInt(pos[1])).split("\n");
+    return { line: before.length, col: before[before.length - 1].length + 1 };
+  }
+  return { line: 0, col: 0 };
+}
+
+/** Resolve a $schema reference to a resource path. Accepts absolute resource paths (eg mod::module/data.schema.json) and
+    paths relative to the validated resource. Returns null for URLs, throws if the reference can't be resolved */
+function resolveSchemaReference(resource: string, ref: string): string | null {
+  if (/^[a-z][a-z0-9+.-]*:(?!:)/i.test(ref)) //looks like a URL (scheme followed by a single ':')
+    return null;
+  //check absolute paths first, resolveResource also requires a supported base (eg not direct::)
+  try {
+    return isAbsoluteResource(ref) && ref.includes("::") ? ref : resolveResource(resource, ref);
+  } catch (e) {
+    throw new Error(`Invalid schema reference '${ref}' relative to '${resource}': ${(e as Error)?.message || "Unknown error"}`);
+  }
+}
+
+/** Validate a YAML or .json file.
+ * @param result The validation state to update with errors and warnings.
+ * @param content The content of the file to validate.
+ * @param resource The resource name or path of the file.
+ * @param options Optional validation options, including whether the file is JSON.
+ */
+export async function runYAMLBasedValidator(result: ValidationState, content: WebHareBlob, resource: string, options?: ValidationOptions & { json?: boolean }): Promise<void> {
   if (resource.startsWith("direct::")) //lives outside a module
     return;
 
-  const data = await content.text();
-  const tracked = new TrackedYAML<object>(data);
+  const baseErrorRec: Omit<ValidationMessageWithType, "message"> = { type: "error", resourcename: resource, line: 0, col: 0, source: "validation", metadata: {} };
 
+  const data = await content.text();
+  if (options?.json) {
+    //YAML is more lenient than JSON (eg it accepts trailing commas and comments), so check the JSON syntax first
+    try {
+      JSON.parse(data);
+    } catch (e) {
+      result.messages.push({ ...baseErrorRec, ...getJSONErrorPosition(data, e as Error), message: (e as Error)?.message || "Invalid JSON" });
+      return;
+    }
+  }
+
+  const tracked = new TrackedYAML<object>(data);
   if (tracked.anyErrors()) {
     result.messages.push(...tracked.getMessages(resource));
     return;
   }
 
   const validators = await getValidators();
-  if (resource.endsWith(".schema.yml")) {
-    const ajv = await getAjvForSchema(tracked.doc as JSONSchemaObject);
+  if (resource.endsWith(".schema.yml") || resource.endsWith(".schema.yaml") || resource.endsWith(".schema.json")) {
+    // The resource contains a JSON schema
+    if (!isUsableSchema(tracked.doc)) {
+      result.messages.push({ ...baseErrorRec, message: "A schema must be an object or a boolean" });
+      return;
+    }
 
-    // ajv.validateSchema didn't report typo 'desription' vs 'description'? but compile does..
-    try {
-      ajv.compile(tracked.doc as JSONSchemaObject);
-    } catch (e) {
-      //but we won't get errorinfo this way. well at least we get *some* indication the schema is broken
-      result.messages.push({ type: "error", resourcename: resource, line: 0, col: 0, message: (e as Error)?.message || "Unknown error", source: "validation", metadata: {} });
+    const $schema = tracked.doc.$schema;
+    if ($schema !== undefined && typeof $schema !== "string") {
+      result.messages.push({ ...baseErrorRec, message: "The $schema property must be a string" });
+      return;
+    }
+
+    if (!$schema || knownJSONSchemaMetaSchemas.includes($schema)) { // Only validate if the $schema is to a known JSON schema metaschema or not present
+      const ajv = await getAjvForSchema(tracked.doc);
+
+      // ajv.validateSchema didn't report typo 'desription' vs 'description'? but compile does..
+      try {
+        ajv.compile(tracked.doc as JSONSchemaObject);
+      } catch (e) {
+        result.messages.push({ ...baseErrorRec, message: "Cannot validate: " + ((e as Error)?.message || "Unknown error") });
+      } finally {
+        ajv.removeSchema(tracked.doc);
+      }
+    } else {
+      result.messages.push({ ...baseErrorRec, message: "Unrecognized $schema " + JSON.stringify($schema) });
     }
     return;
   }
@@ -168,37 +237,80 @@ export async function runYAMLBasedValidator(result: ValidationState, content: We
     if (!resource.match(validator.resourceMask))
       continue;
 
-    if (!validator.compiledSchemaValidator) {
-      //TODO readResource?
-      const schema = decodeYAML<JSONSchemaObject>(await (await ResourceDescriptor.fromResource(validator.schema)).resource.text());
+    try {
+      if (!validator.compiledSchemaValidator) {
+        //TODO readResource?
+        result.eventmasks.push(...getResourceEventMasks(validator.schema));
+        const schema = decodeYAML<JSONSchemaObject>(await (await ResourceDescriptor.fromResource(validator.schema)).file.text());
+        if (!isUsableSchema(schema))
+          throw new Error(`Schema at '${validator.schema}' is not usable: must be an object or a boolean`);
+
+        const ajv = await getAjvForSchema(schema);
+        validator.compiledSchemaValidator = ajv.compile(schema);
+      }
+
+      if (!validator.compiledSchemaValidator(tracked.doc)) {
+        for (const error of validator.compiledSchemaValidator.errors || []) {
+          result.messages.push({
+            ...baseErrorRec,
+            ...tracked.getPositionForPointer(error.instancePath),
+            message: error.message || "Unknown error",
+          });
+        }
+      }
+
+      if (validator.contentValidator) {
+        const contentValidator = await importJSFunction<ContentValidationFunction<unknown>>(validator.contentValidator);
+        await contentValidator(resource, tracked, result);
+      }
+    } catch (e) {
+      result.messages.push({ ...baseErrorRec, message: (e as Error)?.message || "Unknown error" });
+    }
+
+    return;
+  }
+
+  // No matching validator, check if the document has a $schema property and attempt to validate against it
+  if (typeof tracked.doc === "object" && tracked.doc && "$schema" in tracked.doc && typeof tracked.doc.$schema === "string") {
+    try {
+      const $schema = tracked.doc.$schema;
+      const resourceResolved = resolveSchemaReference(resource, $schema);
+      if (!resourceResolved) {
+        result.messages.push({ ...baseErrorRec, type: "hint", message: `Ignoring external JSON schema reference '${$schema}'` });
+        return;
+      }
+
+      result.eventmasks.push(...getResourceEventMasks(resourceResolved));
+      const schema = decodeYAML<JSONSchemaObject>(await (await ResourceDescriptor.fromResource(resourceResolved)).file.text());
+      if (!isUsableSchema(schema))
+        throw new Error(`Schema at '${resourceResolved}' is not usable: must be an object or a boolean`);
 
       const ajv = await getAjvForSchema(schema);
-      validator.compiledSchemaValidator = ajv.compile(schema);
-    }
 
-    if (!validator.compiledSchemaValidator(tracked.doc)) {
-      for (const error of validator.compiledSchemaValidator.errors || []) {
-        result.messages.push({
-          type: "error",
-          resourcename: resource,
-          line: 0,
-          col: 0,
-          ...tracked.getPositionForPointer(error.instancePath),
-          message: error.message || "Unknown error",
-          source: "validation",
-          metadata: {}
-        });
+      try { //compile inside the try, a failed compile can leave the schema's $id registered too
+        const compiled = ajv.compile(schema);
+        delete tracked.doc.$schema;
+        if (!compiled(tracked.doc)) {
+          for (const error of compiled.errors || []) {
+            result.messages.push({
+              ...baseErrorRec,
+              ...tracked.getPositionForPointer(error.instancePath),
+              message: error.message || "Unknown error",
+            });
+          }
+        }
+      } finally {
+        ajv.removeSchema(schema);
       }
-    }
-
-    if (validator.contentValidator) {
-      const contentValidator = await importJSFunction<ContentValidationFunction<unknown>>(validator.contentValidator);
-      await contentValidator(resource, tracked, result);
+    } catch (e) {
+      result.messages.push({ ...baseErrorRec, message: (e as Error)?.message || "Unknown error" });
     }
     return;
   }
 
-  result.messages.push({ type: "hint", resourcename: resource, line: 0, col: 0, message: `No YAML validator available for '${resource}'`, source: "validation", metadata: {} });
+  // No validator and no schema, report unvalidated YAML file. No message for JSON, too many JSON files would trigger this otherwise
+  if (!options?.json)
+    result.messages.push({ ...baseErrorRec, type: "hint", message: `No YAML validator available for '${resource}'` });
   return;
 }
 

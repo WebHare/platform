@@ -81,9 +81,18 @@ async function testTypedClient() {
   initEnv("development", "http://127.0.0.1:65500/");
   await test.throws(/fetch failed/, () => noAuthJSService.validateEmail("nl", "pietje@webhare.dev"));
 
-  const myservice1 = noAuthJSService.withOptions({ baseUrl: backendConfig.backendURL });
+  const myservice1 = noAuthJSService.withOptions({ baseURL: backendConfig.backendURL });
   test.eq(true, await myservice1.validateEmail("nl", "pietje@webhare.dev"));
   test.eq(false, await myservice1.validateEmail("en", "klaasje@beta.webhare.net"));
+
+  //The deprecated baseUrl option should still work
+  const myservice1Deprecated = noAuthJSService.withOptions({ baseUrl: backendConfig.backendURL });
+  test.eq(true, await myservice1Deprecated.validateEmail("nl", "pietje@webhare.dev"));
+
+  //Unrelated options keep the base URL, an explicit undefined resets it (with either spelling)
+  test.eq(true, await myservice1.withOptions({ headers: { "X-Test": "1" } }).validateEmail("nl", "pietje@webhare.dev"));
+  await test.throws(/fetch failed/, () => myservice1.withOptions({ baseURL: undefined }).validateEmail("nl", "pietje@webhare.dev"));
+  await test.throws(/fetch failed/, () => myservice1Deprecated.withOptions({ baseUrl: undefined }).validateEmail("nl", "pietje@webhare.dev"));
 
   const myservice2 = createClient<MyService>(backendConfig.backendURL + "wh_services/webhare_testsuite/testnoauthjs");
   test.typeAssert<test.Equals<Promise<void>, ReturnType<typeof myservice2.serverCrash>>>();
