@@ -8,13 +8,13 @@ import * as $todd from "@mod-tollium/web/ui/js/support";
 import * as rteapi from '@mod-tollium/web/ui/components/richeditor';
 
 import { getTid } from "@webhare/gettid";
-import type { EditorBaseOptions } from '@mod-tollium/web/ui/components/richeditor/internal/editorbase';
+import type { EditorBaseOptions, UpdateTargetSettings } from '@mod-tollium/web/ui/components/richeditor/internal/editorbase';
 import type { ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
 import type { Borders } from '../base/tools';
 import type { ExternalStructureDef } from '@mod-tollium/web/ui/components/richeditor/internal/parsedstructure';
 import type { PreloadedCSS } from '@mod-tollium/web/ui/components/richeditor/internal/styleloader';
 import type { SelectionMatch } from '@mod-tollium/web/ui/js/types';
-import type { ActionState, GetPlainTextMethod, GetPlainTextOptions, RTEContextMenuEvent, RTEWidget } from '@mod-tollium/web/ui/components/richeditor/internal/types';
+import type { ActionState, GetPlainTextMethod, GetPlainTextOptions, RTEContextMenuEvent, RTEWidget, TargetInfo } from '@mod-tollium/web/ui/components/richeditor/internal/types';
 import type StructuredEditor from '@mod-tollium/web/ui/components/richeditor/internal/structurededitor';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -27,12 +27,7 @@ interface RTEAttributes extends ComponentStandardAttributes, ValueMessage {
   readonly: boolean | undefined;
   allowtags: string[];
   margins: string | undefined;
-  preloadedcss: {
-    addcss: Array<{
-      type: string;
-      src: string;
-    }>;
-  } | null | undefined;
+  preloadedcss: PreloadedCSS | null | undefined;
   cssinstance: string | null | undefined;
   htmlclass: string | undefined;
   bodyclass: string | undefined;
@@ -81,7 +76,7 @@ export default class ObjRTE extends ComponentBase {
   _pendingactiontargetseq = 0;
   _pendingactiontargets: Array<{
     id: number;
-    target: HTMLElement;
+    target: TargetInfo;
   }> = [];
 
   allowinspect: boolean;
@@ -301,7 +296,7 @@ export default class ObjRTE extends ComponentBase {
       event.detail.menuitems.push({ action: "webhare-inspect", title: getTid("tollium:components.rte.inspect") });
   }
 
-  onMsgUpdateProps2(data: { actionid: number; settings: object }) {
+  onMsgUpdateProps2(data: { actionid: number; settings: UpdateTargetSettings | null }) {
     const actiontargetidx = this._pendingactiontargets.findIndex(pendingtarget => pendingtarget.id === data.actionid);
     if (actiontargetidx === -1) {
       console.log("Received update for unknown actiontarget #" + data.actionid, data);
