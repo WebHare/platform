@@ -2402,43 +2402,41 @@ export class Locator {
   }
 
   //walks left to the last visible node or character, and puts the locator right from it.
-  movePastLastVisible(maxancestor: Node, stopatblock?: unknown, placeintext?: boolean) {
+  /** Move this locator to an end of its visual equivalence range
+      @param maxancestor - Ancestor to stay within
+      @param toend - Which end to move to: 'down' (past the last visible content before the locator) or 'up' (to
+          the first visible content after it)
+      @param placeintext - If the locator doesn't end up next to text, try to place it in the text on the other side
+      @returns Scan result for the end moved to
+  */
+  private moveToVisualEquivalenceEnd(maxancestor: Node, toend: "down" | "up", placeintext?: boolean) {
     if (!maxancestor.contains(this.element))
       throw new Error("Ancestor is not ancestor of this locator");
-    if (stopatblock)
-      throw new Error("Stopatblock not supported for movePastLastVisible");
 
     const range = getVisualEquivalenceRange(maxancestor, this);
-    this.assign(range.down);
+    const scanres = toend === "down" ? range.downres : range.upres;
+    this.assign(range[toend]);
 
-    if (placeintext && !['whitespace', 'char'].includes(range.downres.type)) {
+    if (placeintext && !['whitespace', 'char'].includes(scanres.type)) {
       const copy = this.clone();
-      const res = copy.scanForward(maxancestor, {});
+      const res = toend === "down" ? copy.scanForward(maxancestor, {}) : copy.scanBackward(maxancestor, {});
       if (['whitespace', 'char'].includes(res.type))
         this.assign(copy);
     }
 
-    return range.downres;
+    return scanres;
+  }
+
+  movePastLastVisible(maxancestor: Node, stopatblock?: unknown, placeintext?: boolean) {
+    if (stopatblock)
+      throw new Error("Stopatblock not supported for movePastLastVisible");
+    return this.moveToVisualEquivalenceEnd(maxancestor, "down", placeintext);
   }
 
   moveToFirstVisible(maxancestor: Node, stopatblock?: unknown, placeintext?: boolean) {
-    if (!maxancestor.contains(this.element))
-      throw new Error("Ancestor is not ancestor of this locator");
     if (stopatblock)
       throw new Error("Stopatblock not supported for moveToFirstVisible");
-
-    const range = getVisualEquivalenceRange(maxancestor, this);
-    //console.log('mtfv range', richdebug.getStructuredOuterHTML(maxancestor, { locator: this, range: range }, true));
-    this.assign(range.up);
-
-    if (placeintext && !['whitespace', 'char'].includes(range.upres.type)) {
-      const copy = this.clone();
-      const res = copy.scanBackward(maxancestor, {});
-      if (['whitespace', 'char'].includes(res.type))
-        this.assign(copy);
-    }
-
-    return range.upres;
+    return this.moveToVisualEquivalenceEnd(maxancestor, "up", placeintext);
   }
 
   moveLeft(maxancestor: Node, options: { checkblock?: (node: Node) => boolean } = {}) {
