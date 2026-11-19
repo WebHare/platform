@@ -73,78 +73,6 @@ function generateSnapshotRecursive(node: Node, resultlist: ParseResult[]) {
   }
 }
 
-// Make sure all attributes are set according to attrs, removes other attributes
-function restoreAttributes(node: HTMLElement, attrs: Record<string, string>) {
-  const current = domlevel.getAllAttributes(node);
-  let needset = false;
-
-  // Remove attributes that shouldn't be present, see if update is needed
-  for (const attr in current) {
-    if (!(attr in attrs))
-      node.removeAttribute(attr);
-    else if (current[attr] !== attrs[attr]) {
-      /* Don't overwrite src of img. At paste, the delay-loading will changes
-         them to the correct value *after* the creation of the snapshot.
-      */
-      if (attr === "src" && node.nodeName.toLowerCase() === "img")
-        attrs.src = current.src;
-      else
-        needset = true;
-    }
-  }
-
-  // See if any attributes need to be added
-  for (const attr in attrs)
-    if (!(attr in current))
-      needset = true;
-
-  // Use domlevel to set attributes
-  if (needset)
-    domlevel.setAttributes(node, attrs);
-}
-
-/// Restores text and attributes of a node (non-recursive)
-function restoreNode(doc: Document, item: ParseResult) {
-  let result = item.node;
-  if (item.attrs)
-    restoreAttributes(result as HTMLElement, item.attrs);
-  if (item.type === "text") {
-    try {
-      // IE sometimes transforms text nodes to EmptyTextNodes - can't change nodeValue, can't insert
-      if (result.nodeValue !== item.nodeValue)
-        result.nodeValue = item.nodeValue;
-    } catch (e) {
-      // If that happens, don't care about browser undo anymore
-      result = doc.createTextNode(item.nodeValue || "");
-    }
-  }
-
-  return result;
-}
-
-function restoreSnapshotRecursive(doc: Document, node: Node, resultlist: ParseResult[]) {
-  let lastinserted = null;
-
-  // Convert the nodes, insert them at the beginning of the node childlist
-  for (const item of resultlist) {
-    const subnode = restoreNode(doc, item);
-    if (item.childNodes)
-      restoreSnapshotRecursive(doc, subnode, item.childNodes);
-
-    const insertbefore = lastinserted ? lastinserted.nextSibling : node.firstChild;
-    lastinserted = subnode;
-
-    if (insertbefore === subnode)
-      continue;
-
-    node.insertBefore(subnode, insertbefore);
-  }
-
-  // Remove all nodes after the last inserted node
-  while (node.lastChild !== lastinserted)
-    node.lastChild?.remove();
-}
-
 /** Takes a snapshot of the current contents of rootnode
     @param rootnode - Rootnode to take the snapshot of
     @param range - Range to save (selection range)
@@ -161,23 +89,6 @@ export function generateSnapshot(rootnode: Node, range: domlevel.Range): Snapsho
   generateSnapshotRecursive(rootnode, snapshot.childNodes);
 
   return snapshot;
-}
-
-/** Restores a snapshot taken earlier
-    @param rootnode - Rootnode to restore the snapshot to
-    @param range - Range to save (selection range)
-    @returns Selection range to restore
-*/
-export function restoreSnapshot(rootnode: Node, snapshot: Snapshot) {
-  restoreSnapshotRecursive(rootnode.ownerDocument!, rootnode, snapshot.childNodes!);
-
-  const range = snapshot.range.clone();
-  if (range.start.element === snapshot.node)
-    range.start.element = rootnode;
-  if (range.end.element === snapshot.node)
-    range.end.element = rootnode;
-
-  return range;
 }
 
 export function compressSnapshotChildNodes(left: ParseResult, right: ParseResult): { left: ParseResult; right: ParseResult } | null;
@@ -276,7 +187,6 @@ export function snapshotsEqual(left: Snapshot, right: Snapshot) {
 
   if (!left.range.equals(right.range)) {
     console.log('range unequal', left.range, right.range);
-    //    return false;
   }
 
   const res = compressSnapshotChildNodes(left, right);

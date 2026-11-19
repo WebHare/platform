@@ -108,7 +108,6 @@ export function locateFirstDataCell(tablenode) {
   const dims = getTableDimensions(tablenode);
 
   // Look at the right column and bottom row to see what the last th is there
-  //var allscoped = true;
   iterateTableCells(tablenode, (td, row, col) => {
     if (td.nodeName.toUpperCase() === "TH") {
       if (row + td.rowSpan === dims.rows && bottomcols < col + td.colSpan)
