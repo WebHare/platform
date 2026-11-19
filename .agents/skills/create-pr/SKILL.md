@@ -1,6 +1,6 @@
 ---
 name: create-pr
-description: "Use when asked to create, open, prepare or draft a GitHub pull request for a WebHare platform feature branch. Pushes the branch to GitHub and creates a draft PR with a written title and description, then returns its link; with an explicit request to merge it immediately, creates a ready PR set to auto-merge instead."
+description: "Use when asked to create, open, prepare or draft a GitHub pull request for a WebHare platform feature branch. Pushes the branch to GitHub and creates a draft PR with a written title and description, then returns its link; with an explicit request to merge it immediately, creates a ready PR set to auto-merge instead. When the change must be backported, also requests the cherry-pick to the previous release with a PR comment."
 ---
 
 # Create a pull request (as a draft)
@@ -20,8 +20,10 @@ review themselves, after the build results and reviews are in and they've checke
    ```
 
    Don't switch branches for this; everything below works on a branch that isn't checked out.
-1. Pick the base branch: usually `main`, or a `release/x.nn` branch when the user asks for one (eg. for a backport).
-   Never create a PR against any other branch; if the user asks for one, explain and stop.
+1. Pick the base branch: usually `main`, or a `release/x.nn` branch when the user explicitly asks for a PR against it.
+   A backport doesn't need a PR against the release branch: create the PR as usual and request the backport with a
+   comment (see [section 7](#7-request-a-backport)). Never create a PR against any other branch; if the user asks for
+   one, explain and stop.
 1. `edge/...` branches are integration branches that are regularly force-pushed and never merged directly, so
    `origin/edge/...` is often far out of sync with the local `edge/...` branch. That's expected: whenever an edge
    branch matters (eg. the feature branch was created from or merged into one), look at the local `edge/...` branch
@@ -111,8 +113,36 @@ gh pr merge <url> --auto --merge
 Reply with the link and say that auto-merge is enabled but the PR still needs two approvals. A request for a PR
 alone is not a request to merge it.
 
+## 7. Request a backport
+
+Only when the user says the change must be backported (eg. "we need this in 6.1 too", "backport it"): after creating
+the PR, add a comment to it, never a line in the description, that asks for a cherry-pick to the previous release.
+The [cherry-pick workflow](../../../.github/workflows/cherry-pick.yml) picks up comments starting with
+`cherry-pick to`, and creates the cherry-pick PR once this PR is merged.
+
+1. Find the version of the PR's base branch, from `version=` in its `whtree/etc/platform.conf`:
+
+   ```bash
+   git show origin/<base>:whtree/etc/platform.conf | grep '^version='
+   ```
+
+   Its major.minor is the current range, eg. `version=6.2.1` is the "6.2" range.
+1. The previous version is the highest `release/x.y` branch below that range: for 6.2 that's `release/6.1`. List them
+   with `git branch -r --list 'origin/release/*'`; for a x.0 range (eg. 7.0) it's the last 6.x release. If the user
+   names another version, use theirs.
+1. Add the comment, with exactly `cherry-pick to release/<previous>` and nothing else (eg.
+   `cherry-pick to release/6.1`):
+
+   ```bash
+   gh pr comment <url> --repo WebHare/platform --body 'cherry-pick to release/<previous>'
+   ```
+
+Mention in your reply that the backport was requested and to which release branch.
+
 ## Verify
 
 - `git rev-parse <branch>` equals `git rev-parse origin/<branch>` after the push.
 - `gh pr view <url> --json isDraft,autoMergeRequest,baseRefName` shows a draft PR against `<base>`, or, when the user
   asked to merge it right away, a ready PR with `autoMergeRequest` set.
+- For a backport: `gh pr view <url> --json comments --jq '.comments[].body'` shows the
+  `cherry-pick to release/<previous>` comment, and the description doesn't mention the cherry-pick.
