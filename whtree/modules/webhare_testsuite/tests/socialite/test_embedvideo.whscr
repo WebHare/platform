@@ -166,12 +166,13 @@ MACRO TestVimeoProvider()
   TestEq("50788492", searchres[0].videoid);
   TestEQ(DEFAULT RECORD, searchres[0].location);
 
-  //Vimeo suddenly started repoter 720px heigh instead of the real 544 - stop testing height
-  TestEq(295, searchres[0].biggestthumbnail.width);
+  //We ask oEmbed for 1920x1080, Vimeo caps that at the video's own resolution
+  TestEq(TRUE, searchres[0].biggestthumbnail.width >= 640);
+
   //and vimeo started to drop the jpg extension. but for us all that matters is that we get something that looks like a url!
   TestEqLike('https://*', searchres[0].biggestthumbnail.url);
 
-  TestEq(295, searchres[0].thumbnail.width);
+  TestEq(TRUE, searchres[0].thumbnail.width >= 640);
   TestEqLike('https://*', searchres[0].thumbnail.url);
 
   RECORD describeres := prov->DescribeVideo("50788492");
