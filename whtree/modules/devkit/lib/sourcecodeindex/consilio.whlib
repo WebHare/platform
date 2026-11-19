@@ -10,6 +10,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -26,7 +27,11 @@ LOADLIB "mod::devkit/lib/sourcecodeindex/moduledefdocparser.whlib";
 LOADLIB "mod::devkit/lib/sourcecodeindex/sourcefiles.whlib";
 LOADLIB "mod::devkit/lib/sourcecodeindex/xsdparser.whlib";
 
+LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/contentproviders/customcontent.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
+
+LOADLIB "mod::devkit/lib/sourcecodeindex/settings.whlib";
 
 
 STRING ARRAY blacklist_paths :=
@@ -1094,3 +1099,47 @@ PUBLIC STATIC OBJECTTYPE SourceCodeConsilioIndex EXTEND CustomContentBase
   }
 
 >;
+
+/** Find source files whose index entries are out of date, eg. because they were changed while the source index service
+    wasn't running (and thus missed the file change events)
+    @return Outdated groups
+    @cell(string array) return.toreindex Groups that were modified after they were last indexed, or that are missing from the index
+    @cell(string array) return.todelete Groups in the index that no longer exist on disk
+*/
+PUBLIC RECORD FUNCTION GetOutdatedSourceGroups() {
+  OBJECT catalog := OpenConsilioCatalog(devconstants.catalog_sourcecode);
+  OBJECT contentsource := catalog->OpenContentSource(devconstants.contentsource_moduleresources);
+
+  // QueryIndexManager pages through all results (unlike RunConsilioSearch, which stops at 10000) and can return _indexed
+  RECORD queryresult := QueryIndexManager(catalog->id, CQMatch("_contentsource", "=", ToString(contentsource->id)), [
+    count := -1,
+    mapping := [ _indexed := DEFAULT DATETIME ]
+  ]);
+  IF(queryresult.status != SearchOk)
+    THROW NEW Exception(`Could not query the source code index (status ${queryresult.status})`);
+
+  // All objects in a group are indexed together, so take the latest index date per group
+  RECORD ARRAY indexed :=
+      SELECT groupid
+           , _indexed := Max(_indexed)
+           , ondisk := FALSE
+        FROM queryresult.results
+    GROUP BY groupid
+    ORDER BY groupid;
+
+  RECORD result := [ toreindex := STRING[], todelete := STRING[] ];
+  FOREVERY(RECORD diskgroup FROM (NEW SourceCodeConsilioIndex)->ListGroups(DEFAULT DATETIME).groups) {
+    RECORD pos := RecordLowerBound(indexed, [ groupid := diskgroup.id ], [ "GROUPID" ]);
+    IF(pos.found) {
+      indexed[pos.position].ondisk := TRUE;
+      IF(diskgroup.requiredindexdate > indexed[pos.position]._indexed)
+        INSERT diskgroup.id INTO result.toreindex AT END;
+    } ELSE IF(ToLowercase(GetExtensionFromPath(diskgroup.id)) IN [ ".whscr", ".whlib", ".shtml", ".whsock", ".xsd" ]) {
+      // These always generate a '#file' object, other files (eg. .xml or .css) may legitimately have no objects at all
+      INSERT diskgroup.id INTO result.toreindex AT END;
+    }
+  }
+
+  result.todelete := SELECT AS STRING ARRAY groupid FROM indexed WHERE NOT ondisk;
+  RETURN result;
+}
