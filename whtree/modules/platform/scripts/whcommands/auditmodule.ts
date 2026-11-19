@@ -1,11 +1,12 @@
 import { backendConfig } from "@webhare/services/src/config";
 import { join } from 'path';
-import { existsSync, readFileSync, readdirSync } from 'fs';
+import { existsSync, readdirSync } from 'fs';
 import { whconstant_builtinmodules } from '@mod-system/js/internal/webhareconstants';
 import { toResourcePath } from '@webhare/services';
 import { spawnSync } from 'node:child_process';
 import { storeDiskFile } from '@webhare/system-tools';
 import { runCli } from '@webhare/cli';
+import { readJSONFile } from '@mod-platform/js/cli/cli-tools';
 
 
 function getPackageDirs(module: string): string[] {
@@ -70,7 +71,13 @@ runCli({
     const pkgdirs = getPackageDirs(module);
     for (const dir of pkgdirs) {
       const reportDir = toResourcePath(dir, { keepUnmatched: true });
-      const directDependencies = (JSON.parse(readFileSync(join(dir, "package.json"), "utf8")).dependencies || {}) as Record<string, string>;
+      let directDependencies: Record<string, string>;
+      try {
+        directDependencies = readJSONFile<{ dependencies?: Record<string, string> }>(join(dir, "package.json")).dependencies || {};
+      } catch (e) { //report and continue with the other package dirs
+        retval.errors.push({ message: (e as Error).message, resource: reportDir });
+        continue;
+      }
       if (!Object.keys(directDependencies).length)
         continue; //no need to mention this dir, no modules
 

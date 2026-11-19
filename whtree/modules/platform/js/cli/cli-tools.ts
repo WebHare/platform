@@ -29,6 +29,20 @@ export async function readArgFile(filename: string): Promise<WebHareBlob> {
   return WebHareBlob.from(readFileSync(filename));
 }
 
+/** Reads and parses a JSON file. Throws a CLIRuntimeError naming the file if it isn't valid JSON
+ * @param path - Path of the file to read
+ * @returns The parsed contents
+ */
+export function readJSONFile<T = unknown>(path: string): T {
+  const text = readFileSync(path, "utf8");
+  try {
+    return JSON.parse(text) as T;
+  } catch (e) {
+    //V8's message already includes the position, eg "... in JSON at position 11 (line 3 column 1)"
+    throw new CLIRuntimeError(`Invalid JSON in '${path}': ${(e as Error)?.message || "Unknown error"}`);
+  }
+}
+
 /** Write a line of text, up to the terminal width.
  * @param text Text to write (truncated if needed)
  * @param suffix Either \r (stay on this line) or \n (next line)
