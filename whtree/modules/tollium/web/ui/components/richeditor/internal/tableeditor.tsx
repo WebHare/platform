@@ -655,16 +655,16 @@ export class TableEditor {
     return retval;
   }
 
-  mergeRight(cellnode) {
+  /// Merge a cell with its neighbouring cells to the right or below it
+  private mergeCells(cellnode, cellsprop: "mergerightcells" | "mergedowncells", spanprop: "colSpan" | "rowSpan") {
     const undolock = this.getUndoLock();
 
-    const mergedata = this._getSplitMergeData(cellnode);
-    const cells = mergedata.mergerightcells;
+    const cells = this._getSplitMergeData(cellnode)[cellsprop];
 
     for (const cell of cells)
       cellnode.append(...Array.from(cell.childNodes));
 
-    cellnode.colSpan += cells[0].colSpan;
+    cellnode[spanprop] += cells[0][spanprop];
 
     for (const cell of cells)
       cell.remove();
@@ -674,23 +674,12 @@ export class TableEditor {
     undolock.close();
   }
 
+  mergeRight(cellnode) {
+    this.mergeCells(cellnode, "mergerightcells", "colSpan");
+  }
+
   mergeDown(cellnode) {
-    const undolock = this.getUndoLock();
-
-    const mergedata = this._getSplitMergeData(cellnode);
-    const cells = mergedata.mergedowncells;
-
-    for (const cell of cells)
-      cellnode.append(...Array.from(cell.childNodes));
-
-    cellnode.rowSpan += cells[0].rowSpan;
-
-    for (const cell of cells)
-      cell.remove();
-    this.reset();
-    this._gotStateChange();
-
-    undolock.close();
+    this.mergeCells(cellnode, "mergedowncells", "rowSpan");
   }
 
   splitCols(cellnode) {
