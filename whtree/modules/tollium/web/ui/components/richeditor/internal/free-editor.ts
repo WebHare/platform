@@ -1,9 +1,8 @@
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-import EditorBase from './editorbase';
+import EditorBase, { type EditorBaseOptions } from './editorbase';
+import type Range from './dom/range';
 
 export default class FreeEditor extends EditorBase {
-  constructor(element, options) {
+  constructor(element: HTMLElement, options: Partial<EditorBaseOptions>) {
     options = { ...options, allowundo: false }; //free editor doesnt really support undo
     super(element, options);
     this._constructorTail();
@@ -32,7 +31,7 @@ export default class FreeEditor extends EditorBase {
   }
 
   //ADDME: Use our own function instead of having the browser make something up
-  _setAlignment(align) {
+  _setAlignment(align: string) {
     let cmd = '';
     switch (align) {
       case 'center':
@@ -52,13 +51,13 @@ export default class FreeEditor extends EditorBase {
     this.stateHasChanged();
   }
 
-  getAvailableListActions(range) {
+  getAvailableListActions(range: Range) {
     const insidelist = range.getAncestorClosest("ul,ol", this.getBody());
     const havelist = range.querySelectorAll("ul,ol,li").length;
 
     return {
-      canincrease: insidelist || havelist,
-      candecrease: insidelist || havelist
+      canincrease: Boolean(insidelist || havelist),
+      candecrease: Boolean(insidelist || havelist)
     };
   }
 

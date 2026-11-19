@@ -987,10 +987,10 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   }
 
 
-  execCommand(command, p1, p2) {
+  execCommand(command: string, showUI?: boolean, value?: string) {
     try {
       // execCommand should be called on the document, not the editable area (contenteditable/designmode)
-      this.bodydiv.ownerDocument.execCommand(command, p1, p2);
+      this.bodydiv.ownerDocument.execCommand(command, showUI, value);
     } catch (e) {
       if (this.options.log)
         console.log('ExecCommand exception', e);
@@ -1232,8 +1232,8 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
 
     // No Firefox, we don't want your fancy inline table editing or object resizing (can only be called _after_ editarea is
     // connected, i.e. contentEditable is set)
-    this.execCommand("enableInlineTableEditing", null, "false");
-    this.execCommand("enableObjectResizing", null, "false");
+    this.execCommand("enableInlineTableEditing", false, "false");
+    this.execCommand("enableObjectResizing", false, "false");
 
     this.stateHasChanged();
   }
