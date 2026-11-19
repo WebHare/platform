@@ -1,7 +1,7 @@
 import * as dompack from "@webhare/dompack";
 import { debugFlags } from "@webhare/env";
 
-type CSSRef =
+export type CSSRef =
   {
     type: "style" | "link";
     src: string;
