@@ -468,9 +468,6 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     //elements that respond to action-properties
     this.properties_selector = "img, a[href]";
 
-    //if(this.options.log) console.log('apply saved state');
-    //this.stateHasChanged(true);
-
     if (this.onload)
       this.onload();
 
@@ -486,7 +483,6 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     this.language = this.options.language;
     this.SetBreakupNodes(options && options.breakupnodes);
     this.setupUndoNode();
-    //    this.stateHasChanged();
     //Watch to implement change events. This observer is disabled during manual value sets
     this.allChangeObserver = new MutationObserver(() =>
       dompack.dispatchCustomEvent(this.bodydiv, "wh:richeditor-change", { bubbles: true, cancelable: false })
@@ -1338,15 +1334,6 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     this.stateHasChanged();
   }
 
-  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  //
-  //  New selection API
-  //
-  selectNodeContents(node) {
-    console.warn('selectNodeContents is deprecated, use selectNodeInner!'); console.trace();
-    this.selectRange(Range.withinNode(node));
-  }
-
   insertTextAtCursor(text) {
     //console.log('setselt: ', richdebug.getStructuredOuterHTML(this.getBody(), Range.fromDOMRange(this.GetSelectionObject().GetRange())));
 
@@ -1651,12 +1638,6 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     return insertlocator;
   }
 
-  appendNodeContentsAfterRemove(insertlocator: domlevel.Locator, contentnode: ParentNode) {
-    const nodes = domlevel.removeNodeContents(contentnode);
-    domlevel.insertNodesAtLocator(nodes, insertlocator, []);
-    return insertlocator;
-  }
-
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //
   //  Dom manipulation, unsorted/untranslated
@@ -1766,55 +1747,6 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   //  Dom manipulation, rest
   //
 
-  ReplaceSelection(splitparent, newnode) {
-    const range = this.getSelectionRange();
-    const undolock = this.getUndoLock();
-    const locators = range;
-
-    if (!splitparent)
-      splitparent = domlevel.Locator.findCommonAncestorElement(locators.start, locators.end);
-
-    // Split the splitparent at selection start (and end if selection isn't empty)
-    const splitlocators = [{ locator: locators.start, toward: 'start' }];
-    if (locators.start.element !== locators.end.element || locators.start.offset !== locators.end.offset)
-      splitlocators.push({ locator: locators.end, toward: 'end' });
-
-    //console.log('rs presplit: ', richdebug.getStructuredOuterHTML(this.getBody(), splitlocators.map(function (item){return item.locator;})));
-    const parts = domlevel.splitDom(splitparent, splitlocators, undolock.undoitem);
-    //console.log(parts);
-    //console.log('rs post: ', richdebug.getStructuredOuterHTML(this.getBody(), parts));
-
-    // Find last node before cursor position (highest ancestor of right element of first part)
-    let leftborder = parts[0].end.element;
-    while (leftborder.parentNode && leftborder.parentNode !== splitparent)
-      leftborder = leftborder.parentNode;
-
-    // Find first node after cursor position (highest ancestor of left element of last part)
-    let rightborder = parts[parts.length - 1].start.element;
-    while (rightborder.parentNode && rightborder.parentNode !== splitparent)
-      rightborder = rightborder.parentNode;
-
-    //console.log('rs post: ', richdebug.getStructuredOuterHTML(this.getBody(), { leftborder: leftborder, rightborder: rightborder, splitparent: splitparent }));
-
-    if (leftborder.parentNode !== splitparent || rightborder.parentNode !== splitparent)
-      return;
-
-    // Clear all nodes between border nodes
-    if (leftborder !== rightborder)
-      while (leftborder.nextSibling && leftborder.nextSibling !== rightborder)
-        leftborder.parentNode.removeChild(leftborder.nextSibling);
-
-    if (leftborder !== rightborder && leftborder.nextSibling !== rightborder)
-      return;
-
-    // Insert new node between border nodes
-    rightborder.parentNode.insertBefore(newnode, rightborder);
-
-    // Select new node (outer, may be a <br> or <img>)
-    this.selectNodeOuter(newnode);
-    undolock.close();
-  }
-
   insertImage(url, width, height) {
     const img = <img src={url} class="wh-rtd__img" />;
     if (width && height) {
@@ -1846,7 +1778,6 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     if (range.isCollapsed()) {
       // No selection: find the A node that is the parent of the cursor and select that one
       // ADDME: unselect and keep current cursor position
-      //var range = sel.GetRange();
       const path = (new domlevel.Locator(range.getAncestorElement())).getPathFromAncestor(this.getBody());
 
       let i;
@@ -1873,14 +1804,9 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
       return;
 
     const body = this.getBody();
-    //    var selobj = this.GetSelectionObject();
-    //    var range = selobj.GetRange();
-    //    if (!range)
-    //      return;
     const locators = this.getSelectionRange();
     if (!locators)
       return;
-    //$wh.Rich.Locator.getFromRange(range);
 
     const undolock = this.getUndoLock();
 
@@ -1917,14 +1843,6 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     undolock.close();
   }
 
-  _undo() {
-    //this.ExecCommand('undo');
-  }
-
-  _redo() {
-    //this.ExecCommand('redo');
-  }
-
   _clearFormatting() {
     //ADDME: Only clear formatting of selected contents?
     const body = this.getBody();
@@ -1957,7 +1875,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
         });
       this.bodydiv.addEventListener('keydown', this._gotKeyDown.bind(this));
       this.bodydiv.addEventListener('keypress', this._gotKeyPress.bind(this));
-      this.bodydiv.addEventListener('keyup', this._gotKeyUp.bind(this));//*/
+      this.bodydiv.addEventListener('keyup', this._gotKeyUp.bind(this));
       this.bodydiv.addEventListener('mousedown', this._gotMouseDown.bind(this));
       this.bodydiv.addEventListener('click', this._gotMouseClick.bind(this));
       this.bodydiv.addEventListener('paste', this._gotPaste.bind(this));
@@ -2243,9 +2161,6 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
 
     const anchornode = locator.element && locator.getNearestNode();
 
-    //    if(this.options.log)
-    //      console.log("Iterate parents");
-    //    var anchornode = sel.Node();
     for (let curnode: HTMLElement = anchornode; curnode && curnode !== this.bodydiv; curnode = curnode.parentNode) {
       switch (curnode.nodeName.toUpperCase()) {
         case 'B': case 'STRONG': /* FIXME shouldn't generate STRONGs! */
@@ -2541,15 +2456,6 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
       this.scheduleCallbackOnInputOrDelay(this.checkDomStructure.bind(this), 'checkdom');
   }
 
-  SubtreeModified(target) {
-    if (this.insubtreemod)
-      return;
-
-    this.insubtreemod = true;
-    this.CleanupChildren(target);
-    this.insubtreemod = false;
-  }
-
   /** Check DOM structure
       @param range - Range (optional, if range not set, use (& restore!) current selection)
   */
@@ -2799,7 +2705,6 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
 
         // Set cursor directly after inserted text
         this.collapseSelection();
-        //this.GetSelectionObject().Collapse();
 
         event.preventDefault();
         event.stopPropagation();
@@ -3082,12 +2987,6 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
       case 'align_justified':
         this._setAlignment(action.action.substr(6));
         break;
-      case 'undo':
-        this._undo();
-        break;
-      case 'redo':
-        this._redo();
-        break;
       case 'action-clearformatting':
         if (confirm(this.GetLanguageText("messages_confirmclearformatting")))
           this._clearFormatting();
@@ -3273,7 +3172,6 @@ export class TextFormattingState {
         return this.textstyles[i];
     return null;
   }
-
 }
 
 EditorBase.TextFormattingState = TextFormattingState;

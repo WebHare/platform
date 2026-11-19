@@ -43,7 +43,6 @@ abstract class ToolbarButtonBase extends GenericToolbarButton {
   updateButtonRendering() {
     // extension point for subclasses
   }
-
 }
 
 abstract class ToolbarSimpleButtonBase extends ToolbarButtonBase {
@@ -132,7 +131,6 @@ class SimpleToggleButton extends ToolbarSimpleButtonBase {
 }
 
 abstract class StyleButtonBase extends ToolbarButtonBase {
-  owngroup = true;
   optionlist: HTMLOptionElement[] = [];
   select: HTMLSelectElement;
   type: string;
@@ -173,14 +171,6 @@ abstract class StyleButtonBase extends ToolbarButtonBase {
 
     //FIXME what to do if we have no blockstyle?
     if (selstate) {
-      // this.optionlist[0].classList.toggle('wh-rtd__toolbaroption--unavailable', true);
-
-      //      for (var i = 0; i < this.optionlist.length; ++i)
-      //      {
-      //        var style = this.optionlist[i].blockstyle;
-      //        this.optionlist[i].classList.toggle('-wh-rtd-unavailable', selstate.blockstyle.listtype !== style.listtype)
-      //      }
-
       this.select.value = this.getCurrentStyle(selstate) || '';
     }
     this.select.disabled = !(this.available && this.toolbar.rte.isEditable() && this.optionlist.length);
@@ -476,11 +466,5 @@ export default class RTEToolbar {
     const selstate = this.rte.getSelectionState();
     for (let i = 0; i < this.buttons.length; ++i) //ADDME Perhaps we shouldn't have separators inside the button array, but separate button-layout from list-of-buttons
       this.buttons[i].updateState(selstate);
-  }
-
-  getButton(buttonname: string) {
-    for (let i = 0; i < this.buttons.length; ++i)
-      if (this.buttons[i].type === buttonname)
-        return this.buttons[i];
   }
 }

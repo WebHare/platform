@@ -557,14 +557,10 @@ export default class StructuredEditor extends EditorBase {
       br (always a simple range)
   */
   pointsToLastBlockBR(locator) {
-    //var block = this.getBlockAtNode(locator.getNearestNode());
-
     locator = locator.clone();
     const res = locator.scanForward(this.getBody(), {});
     if (res.type !== 'br')
       return null;
-    //    if ((!res.segmentbreak && !res.zerowidthspace) || res.blockboundary) // Segment break that is not a block boundary is a <br> or (not implemented) a visible '\n'
-    //      return null;
 
     const x = domlevel.getInvisibleSegmentBreakRange(locator, this.getBody());
     return x;
@@ -620,9 +616,6 @@ export default class StructuredEditor extends EditorBase {
 
       // If the locator points to the last br of the node. That node needs to be removed!
       if (segmentbreakrange) {
-        //        tempnode = lastbr.node;
-        //        locator = lastbr.next;
-
         //console.log('listinsert, last br: ', richdebug.getStructuredOuterHTML(block.blockroot, { node: block.node, locator: locator }));
       } else // Need a temporary node to keep block alive through splitdom
       {
@@ -920,10 +913,6 @@ export default class StructuredEditor extends EditorBase {
     this._reprocessEmbeddedAutoElements();
   }
 
-  compareTextStyleOrder(tagleft, tagright) {
-    return this.textstyletags.indexOf(tagleft) - this.textstyletags.indexOf(tagright);
-  }
-
   /** Creates a textstyle-record from a node
       Update: adds whitelisted attributes to the record
   */
@@ -1048,10 +1037,6 @@ export default class StructuredEditor extends EditorBase {
       if (locator.element !== breaknode) {
         // Got an element in our path we do not want in the final style
         // Calculate until which element (how deep) we need to split, then do the split
-        //        var splitparent = path.length ? path[0] : locator.element;
-        //        if (splitparent.nodeType !== 1)
-        //          splitparent = splitparent.parentNode;
-
         // console.log('IIFN pre split html: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
         const parts = domlevel.splitDom(breaknode, [{ locator: locator, toward: 'start' }], preservelocators, undoitem);
         // console.log('IIFN post split html: ', richdebug.getStructuredOuterHTML(this.getBody(), parts));
@@ -1127,7 +1112,6 @@ export default class StructuredEditor extends EditorBase {
   */
   getBlocksInRange(range, withinnerlists) {
     range = range.clone();
-    //var orgrange = range.clone();
 
     /* minimize the range, so we're inside a block (when outside a block, the following code
        range moving can go into embedded objects) */
@@ -1153,8 +1137,6 @@ export default class StructuredEditor extends EditorBase {
     const blocknodes = [];
 
     // FIXME: use something to limit maxancestor to nearest <body><td><th>
-    //var startblocknode = range.start.element;
-    //var endblocknode = range.end.element;
 
     const elts = range.querySelectorAll('*');
     for (let i = 0; i < elts.length; ++i) {
@@ -1834,19 +1816,6 @@ export default class StructuredEditor extends EditorBase {
         case 'listitem':
           {
             const subnodes = node.nodes;
-            /*            let j;
-                        for (j = subnodes.length - 1; j >= 0; --j)
-                        {
-                          if (subnodes[j].type === 'br') // bogus BR!
-                          {
-                            subnodes.pop();
-                            node.forcevisible = true;
-                            break;
-                          }
-                          else if (subnodes[j].type !== 'text' || !subnodes[j].value.match(/^[ \t\r\n]*$/))
-                            break;
-                        }
-            */
             if (subnodes.length)
               this.cleanupParsedExternalContent(subnodes);
 
@@ -2137,7 +2106,6 @@ export default class StructuredEditor extends EditorBase {
       range.start.assign(resultres.start);
     }
 
-    //range.end.assign(range.start);
     this.selectRange(range);
 
     undolock.close();
@@ -2455,16 +2423,6 @@ export default class StructuredEditor extends EditorBase {
     return true;
   }
 
-  addListNodeToNode(node, blockstyle) {
-    if (node.lastChild && node.lastChild.lastChild) {
-      const block = this.getBlockAtNode(node.lastChild.lastChild);
-      if (block && block.blockstyle)
-        blockstyle = block.blockstyle;
-    }
-
-    return this.insertBlockNode(new domlevel.Locator(node, "end"), blockstyle, true, null, null, null);
-  }
-
   areBothListRoots(left, right) {
     return ['ol', 'ul'].includes(left.nodeName.toLowerCase())
       && ['ol', 'ul'].includes(right.nodeName.toLowerCase());
@@ -2728,8 +2686,6 @@ export default class StructuredEditor extends EditorBase {
 
     this.selectRange(range);
 
-    //    if (undoitem)
-    //      undoitem.finish(this.getSelectionRange());
     undolock.close();
     this.stateHasChanged();
     this._reprocessEmbeddedAutoElements();
