@@ -1,5 +1,6 @@
 import * as tablesupport from "./tableeditor";
 import * as dompack from "@webhare/dompack";
+import { throwError } from '@webhare/std';
 import type { RTESettings, RTEWidget, TargetInfo } from "./types";
 import { queryEmbeddedObjects } from "./domlevel";
 
@@ -14,7 +15,7 @@ export function getTargetInfo(actiontarget: { __node: HTMLElement }): TargetInfo
     };
   } else if (node.matches('td,th,caption')) {
     const tablenode = node.closest('table')!; //these element *have* to be inside a table in the RTD
-    const editor = tablesupport.getEditorForNode(tablenode);
+    const editor = tablesupport.getEditorForNode(tablenode) ?? throwError("Table is not being edited");
     let targetinfo: TargetInfo = {
       tablecaption: editor.getCaption(),
       tablestyletag: tablenode.classList[0],
