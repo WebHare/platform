@@ -1,16 +1,15 @@
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
+import { throwError } from '@webhare/std';
 import Range from './dom/range';
 
-export function selectRange(range) {
+export function selectRange(range: Range): boolean {
   if (!range)
     throw new Error("No range specified");
   if (!range.start.element || !range.end.element)
     throw new Error("Range start or end are not valid nodes");
 
   const doc = range.start.element.ownerDocument;
-  const selection = doc.getSelection();
-  if (!selection) {
+  const selection = doc?.getSelection();
+  if (!doc || !selection) {
     if (Range.getLogLevel() & 1)
       console.log('have NO selection object');
     return false;
@@ -43,9 +42,10 @@ export default class SelectionInterface {
   // Initialize
   //
 
-  constructor(node) {
-    this.node = node;
-    this.doc = node.ownerDocument;
+  private readonly doc: Document;
+
+  constructor(node: Node) {
+    this.doc = node.ownerDocument ?? throwError("Node is not in a document");
   }
 
   // ---------------------------------------------------------------------------
@@ -61,7 +61,7 @@ export default class SelectionInterface {
   /** Returns the current selection in a Range object - if present. Even when having focus,
       it is not guaranteed that a selection exists.
   */
-  getSelectionRange() {
+  getSelectionRange(): Range | null {
     const selection = this.doc.getSelection();
     if (!selection || selection.rangeCount === 0)
       return null;
@@ -80,7 +80,7 @@ export default class SelectionInterface {
   /** Sets the current selection to the range in a Range object
       @param range - Range to select
   */
-  selectRange(range) {
+  selectRange(range: Range): boolean {
     return selectRange(range); //use the freestanding version, we can autoderive current node etc from the range
   }
 }
