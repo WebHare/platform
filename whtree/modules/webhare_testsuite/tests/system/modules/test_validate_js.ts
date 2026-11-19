@@ -1,4 +1,4 @@
-import { WebHareBlob } from "@webhare/services";
+import { getResourceEventMasks, WebHareBlob } from "@webhare/services";
 import * as test from "@webhare/test-backend";
 import { runJSBasedGlobalValidators, runJSBasedValidator, TrackedYAML } from "@mod-platform/js/devsupport/validation";
 import { findMCPToolCollisions } from "@mod-platform/js/devsupport/moduledefinition";
@@ -26,7 +26,7 @@ row:
   test.eq(null, res.getPosition(res.doc.row.objs[2].a), "verify that we don't accidentally track nulls as they're still objects");
 }
 
-async function testYAMLVAlidations() {
+async function testYAMLValidations() {
   { //verify YAML syntax errors properly being reported
     const res = await runJSBasedValidator(WebHareBlob.from(`\n    "`), "mod::webhare_testsuite/moduledefinition.yml");
     test.eq([
@@ -161,6 +161,126 @@ types:
   }
 }
 
+async function testJSONSchemaValidations() {
+  const schemaResName = "mod::webhare_testsuite/data/dummy.schema.json";
+
+  { //schemas without $schema are compiled as JSON Schema 2020-12
+    const yamlSchemaResName = "mod::webhare_testsuite/data/dummy.schema.yaml";
+    //prefixItems only exists since 2020-12, so a draft-07 compile would reject it as an unknown keyword
+    const prefixItemsSchema = `type: array\nprefixItems:\n  - type: string\nminItems: 1\nitems: false\n`;
+    test.eq([], (await runJSBasedValidator(WebHareBlob.from(prefixItemsSchema), yamlSchemaResName)).messages);
+    test.eqPartial([{ resourcename: yamlSchemaResName, message: /strict mode: unknown keyword.*prefixItems/, type: "error" }],
+      (await runJSBasedValidator(WebHareBlob.from(`$schema: "http://json-schema.org/draft-07/schema#"\n${prefixItemsSchema}`), yamlSchemaResName)).messages,
+      "prefixItems should be rejected by draft-07, or the test above proves nothing");
+
+    //and they're still validated in strict mode
+    const res = await runJSBasedValidator(WebHareBlob.from(`{ "type": "object", "disruption": 1 }`), schemaResName);
+    test.eqPartial([{ resourcename: schemaResName, message: /strict mode: unknown keyword.*disruption/, type: "error" }], res.messages);
+
+    //OpenAPI's 'example' is accepted, as our OpenAPI loader accepts it too
+    test.eq([], (await runJSBasedValidator(WebHareBlob.from(`{ "type": "string", "example": "hello" }`), schemaResName)).messages);
+  }
+
+  { //syntax errors
+    const res = await runJSBasedValidator(WebHareBlob.from(`{ "$schema": "https://json-schema.org/draft/2020-12/schema", `), schemaResName);
+    test.eqPartial([{ resourcename: schemaResName, type: "error", source: "validation" }], res.messages);
+  }
+
+  { //JSON syntax is checked strictly, even though YAML would accept it
+    const res = await runJSBasedValidator(WebHareBlob.from(`{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+}`), schemaResName);
+    test.eqPartial([{ resourcename: schemaResName, line: 4, col: 1, type: "error", source: "validation" }], res.messages);
+
+    const withcomment = await runJSBasedValidator(WebHareBlob.from(`{ "$schema": "https://json-schema.org/draft/2020-12/schema" } # comment`), schemaResName);
+    test.eqPartial([{ resourcename: schemaResName, type: "error", source: "validation" }], withcomment.messages);
+  }
+
+  { //valid schema against a known meta-schema
+    for (const metaschema of ["https://json-schema.org/draft/2020-12/schema", "https://json-schema.org/draft/2019-09/schema", "http://json-schema.org/draft-07/schema#", "http://json-schema.org/draft-06/schema#"]) {
+      const schema = `{ "$schema": "${metaschema}", "$id": "https://example.net/dummy.schema.json", "type": "object" }`;
+      test.eq([], (await runJSBasedValidator(WebHareBlob.from(schema), schemaResName)).messages);
+      test.eq([], (await runJSBasedValidator(WebHareBlob.from(schema), schemaResName)).messages, "revalidating a schema with an $id should work");
+    }
+  }
+
+  { //schema self-validation
+    const res = await runJSBasedValidator(WebHareBlob.from(`{ "$schema": "https://json-schema.org/draft/2020-12/schema", "type": "object", "disruption": 1 }`), schemaResName);
+    test.eqPartial([{ resourcename: schemaResName, message: /strict mode: unknown keyword.*disruption/, type: "error" }], res.messages);
+  }
+
+  { //unknown $schema
+    const res = await runJSBasedValidator(WebHareBlob.from(`{ "$schema": "https://example.net/schema" }`), schemaResName);
+    test.eqPartial([{ resourcename: schemaResName, message: /Unrecognized \$schema/, type: "error" }], res.messages);
+
+    //Ajv 8 doesn't support draft-04, so we don't claim to either
+    const draft04 = await runJSBasedValidator(WebHareBlob.from(`{ "$schema": "http://json-schema.org/draft-04/schema#", "type": "object" }`), schemaResName);
+    test.eqPartial([{ resourcename: schemaResName, message: /Unrecognized \$schema/, type: "error" }], draft04.messages);
+  }
+}
+
+async function testJSONValidations() {
+  const resName = "mod::webhare_testsuite/data/dummy.json";
+
+  { //invalid JSON
+    const res = await runJSBasedValidator(WebHareBlob.from(`invalid-json`), resName);
+    test.eqPartial([{ resourcename: resName, type: "error", source: "validation", message: /Unexpected token/ }], res.messages);
+  }
+
+  { //files without $schema are only syntax checked, and don't get a 'no validator' hint as most JSON files have no schema
+    const res = await runJSBasedValidator(WebHareBlob.from(`{ "disruption": 1 }`), resName);
+    test.eq([], res.messages);
+  }
+
+  { //validation against a schema referred to by resource path
+    const schemaref = "mod::webhare_testsuite/tests/system/nodejs/data/test.schema.json";
+    test.eq([], (await runJSBasedValidator(WebHareBlob.from(`{ "$schema": "${schemaref}", "a": 1, "b": "2" }`), resName)).messages);
+
+    const res = await runJSBasedValidator(WebHareBlob.from(`{
+  "$schema": "${schemaref}",
+  "a": "1",
+  "b": "2"
+}`), resName);
+    test.eqPartial([{ resourcename: resName, message: /must be number/, type: "error" }], res.messages);
+
+    const relresname = "mod::webhare_testsuite/tests/system/nodejs/dummy.json";
+    test.eq([], (await runJSBasedValidator(WebHareBlob.from(`{ "$schema": "data/test.schema.json", "a": 1, "b": "2" }`), relresname)).messages);
+    test.eq([], (await runJSBasedValidator(WebHareBlob.from(`{ "$schema": "../nodejs/data/test.schema.json", "a": 1, "b": "2" }`), relresname)).messages);
+    test.eqPartial([{ resourcename: relresname, message: /must be number/, type: "error" }],
+      (await runJSBasedValidator(WebHareBlob.from(`{ "$schema": "./data/test.schema.json", "a": "1", "b": "2" }`), relresname)).messages);
+    test.eqPartial([{ resourcename: relresname, message: /Invalid schema reference.*escape/, type: "error" }],
+      (await runJSBasedValidator(WebHareBlob.from(`{ "$schema": "../../../../../outside.schema.json" }`), relresname)).messages);
+
+    const missingref = "mod::webhare_testsuite/no/such/file.schema.json";
+    const missing = await runJSBasedValidator(WebHareBlob.from(`{ "$schema": "${missingref}" }`), resName);
+    test.eqPartial([{ resourcename: resName, message: /Cannot stat/, type: "error" }], missing.messages);
+    test.assert(getResourceEventMasks(missingref).every(mask => missing.eventmasks?.includes(mask)), "a schema that doesn't exist yet should still invalidate the result when it's created");
+
+    const nullschema = await runJSBasedValidator(WebHareBlob.from(`{ "$schema": "mod::webhare_testsuite/tests/system/nodejs/data/null.schema.json" }`), resName);
+    test.eqPartial([{ resourcename: resName, message: /is not usable.*must be an object or a boolean/, type: "error" }], nullschema.messages);
+
+    //a schema with an $id that fails to compile shouldn't stay registered, or the next validation reports 'already exists'
+    for (let i = 0; i < 2; ++i) {
+      const broken = await runJSBasedValidator(WebHareBlob.from(`{ "$schema": "mod::webhare_testsuite/tests/system/nodejs/data/broken-with-id.schema.json" }`), resName);
+      test.eqPartial([{ resourcename: resName, message: /can't resolve reference #\/nope/, type: "error" }], broken.messages, `attempt #${i + 1}`);
+    }
+  }
+
+  { //changes to the referenced schema should invalidate the validation result
+    const schemaref = "mod::webhare_testsuite/tests/system/nodejs/data/test.schema.json";
+    const res = await runJSBasedValidator(WebHareBlob.from(`{ "$schema": "${schemaref}", "a": 1, "b": "2" }`), resName);
+    test.assert(getResourceEventMasks(schemaref).every(mask => res.eventmasks?.includes(mask)));
+    test.assert(!getResourceEventMasks(resName).every(mask => getResourceEventMasks(schemaref).includes(mask)), "test needs the schema to live in a different folder than the validated file");
+  }
+
+  { //empty .schema.yml files are reported, not thrown
+    const res = await runJSBasedValidator(WebHareBlob.from(``), "mod::webhare_testsuite/data/empty.schema.yml");
+    test.eqPartial([{ message: /must be an object or a boolean/, type: "error" }], res.messages);
+  }
+}
+
+
 async function testMCPToolValidation() {
   { //inputSchemas must be usable JSON Schemas for an object, tool names must fit in what clients accept
     const res = await runJSBasedValidator(WebHareBlob.from(`
@@ -214,6 +334,8 @@ mcpTools:
 
 test.runTests([
   testTrackedYaml,
-  testYAMLVAlidations,
+  testYAMLValidations,
+  testJSONSchemaValidations,
+  testJSONValidations,
   testMCPToolValidation
 ]);
