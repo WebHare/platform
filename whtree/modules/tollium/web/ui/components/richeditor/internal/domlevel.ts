@@ -385,11 +385,6 @@ export class Range {
     return new Range(new Locator(range.startContainer, range.startOffset), new Locator(range.endContainer, range.endOffset));
   }
 
-  static withinNode(node: Node) {
-    console.warn('Range.withinNode is deprecated, use fromNodeInner!'); console.trace();
-    return new Range(new Locator(node), new Locator(node, "end"));
-  }
-
   static fromNodeInner(node: Node) {
     return new Range(new Locator(node), new Locator(node, "end"));
   }
