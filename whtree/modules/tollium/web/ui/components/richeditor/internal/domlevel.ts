@@ -1,5 +1,5 @@
 import * as browser from "dompack/extra/browser";
-import * as dompack from "dompack";
+import * as dompack from "@webhare/dompack";
 import { throwError } from "@webhare/std";
 
 export type PreservedLocatorList = Array<Locator | Range>;

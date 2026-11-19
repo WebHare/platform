@@ -1,8 +1,7 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import * as dompack from "dompack";
-import { qSA } from "dompack";
+import * as dompack from "@webhare/dompack";
 import * as movable from 'dompack/browserfix/movable';
 import * as domlevel from "./domlevel";
 
@@ -1255,9 +1254,9 @@ export function getEditorForNode(node) {
 }
 
 export function cleanupTree(tree) {
-  qSA(tree, 'div.wh-tableeditor-resize-holder').forEach(node => {
+  dompack.qSA(tree, 'div.wh-tableeditor-resize-holder').forEach(node => {
     // remove the tfoot holding the resizing columns
-    qSA(node.firstChild, 'tfoot.wh-tableeditor-resize-columns').forEach(tfoot => tfoot.remove());
+    dompack.qSA(node.firstChild, 'tfoot.wh-tableeditor-resize-columns').forEach(tfoot => tfoot.remove());
 
     // move the table out of the resize container
     node.parentNode.insertBefore(node.firstChild, node);
@@ -1266,11 +1265,11 @@ export function cleanupTree(tree) {
   });
 
   // Remove table style and colgroup classes
-  qSA(tree, ".wh-rtd__table").forEach(node => node.removeAttribute("style"));
-  qSA(tree, ".wh-rtd__table > colgroup").forEach(node => node.removeAttribute("class"));
+  dompack.qSA(tree, ".wh-rtd__table").forEach(node => node.removeAttribute("style"));
+  dompack.qSA(tree, ".wh-rtd__table > colgroup").forEach(node => node.removeAttribute("class"));
   // Remove the style from <tr>s, which are filled by Safari with their height, causing the editor to be marked as dirty when
   // nothing has actually changed
-  qSA(tree, ".wh-rtd__table tr[style]").forEach(node => node.removeAttribute("style"));
+  dompack.qSA(tree, ".wh-rtd__table tr[style]").forEach(node => node.removeAttribute("style"));
 }
 
 //Capture all load events, see if we need to resize tables

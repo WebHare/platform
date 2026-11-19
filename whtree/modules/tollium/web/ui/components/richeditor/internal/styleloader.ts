@@ -1,4 +1,5 @@
-import * as dompack from 'dompack';
+import * as dompack from "@webhare/dompack";
+import { debugFlags } from "@webhare/env";
 
 type CSSRef =
   {
@@ -35,7 +36,7 @@ function findCSSRule(addcss: CSSRef) {
 
 /// Register this in the list of active RTE's
 export function register(rte: CSSRefRequester) {
-  if (dompack.debugflags.rte)
+  if (debugFlags.rte)
     console.log('[wh.rich] Register new rte');
 
   const rules = [];
@@ -82,7 +83,7 @@ export function register(rte: CSSRefRequester) {
 
 /// Unregister this
 export function unregister(rte: CSSRefRequester) {
-  if (dompack.debugflags.rte)
+  if (debugFlags.rte)
     console.log('[wh.rich] Unregister new rte');
 
   for (let i = rte.addcss.length - 1; i >= 0; --i) {

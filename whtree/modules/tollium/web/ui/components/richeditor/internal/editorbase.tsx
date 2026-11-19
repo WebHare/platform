@@ -1,7 +1,8 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import * as dompack from 'dompack';
+import * as dompack from "@webhare/dompack";
+import { debugFlags } from "@webhare/env";
 import * as scrollmonitor from '@mod-tollium/js/internal/scrollmonitor';
 
 import RTEToolbar from './toolbar';
@@ -361,7 +362,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     const originalcontent = [...container.childNodes];
     super(container, options);
 
-    if (dompack.debugflags.rte)
+    if (debugFlags.rte)
       console.log("[rte] initializing rtd", this.container, this.options);
 
     //ADDME globally manage css loaded by instances
@@ -622,7 +623,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
 
     this.dirty = this.original_value !== this.getValue();
     if (this.dirty) {
-      if (dompack.debugflags.rte)
+      if (debugFlags.rte)
         console.log("[rte] Document got dirty, firing event");
 
       dompack.dispatchCustomEvent(this.container, "wh:richeditor-dirty", { bubbles: true, cancelable: false });
@@ -1380,7 +1381,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     this.getBody().focus();
     this.selectRange(item.postselection);
 
-    if (dompack.debugflags.rte)
+    if (debugFlags.rte)
       console.log('[rte] finished recording undo item', item);
   }
 
@@ -1401,7 +1402,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     this.undostack.splice(this.undopos, this.undostack.length - this.undopos, item);
     ++this.undopos;
 
-    if (dompack.debugflags.rte)
+    if (debugFlags.rte)
       console.warn('[rte] start recording undo item', item);
 
     item.onfinish = (finisheditem) => this._updateUndoNodeForNewUndoItem(finisheditem);
@@ -1901,7 +1902,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   }
 
   _gotPaste(event) {
-    if (dompack.debugflags.rte)
+    if (debugFlags.rte)
       console.log('[rte] paste', this, event);
 
     this.gotPaste(event);
@@ -1940,7 +1941,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
         replacementpromises.push(this._importPastedImage(downloadsrc)
           .then(result => this._handleUploadedRemoteImage(img, result))
           .catch(error => {
-            if (dompack.debugflags.rte)
+            if (debugFlags.rte)
               console.warn(`[rte] Unable to import pasted image ${downloadsrc.substring(0, 100)}`, error);
             this._handleUploadedRemoteImage(img, null);
           }));
@@ -2668,14 +2669,13 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
 
   _gotKeyPress(event) //ADDME generalize/configurable key mappings. should this really be part of the whrte core anyway?
   {
-    const eventdata = dompack.normalizeKeyboardEventData(event);
-    if (eventdata.ctrlKey)
+    if (event.ctrlKey)
       return;
 
     this._gotSelectionChange(event);
 
     // enters keep delayed surrounds intact
-    if (eventdata.key === "Enter")
+    if (event.key === "Enter")
       return;
 
     // Check the dom structure before applying the change. The cursor might be in an illegal place.
@@ -2686,12 +2686,12 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     //console.log('keypressed', richdebug.getStructuredOuterHTML(this.getBody(), range));
     //console.log(range.isCollapsed(), this.delayedsurrounds.length);
     if (this.delayedsurrounds.length) {
-      if (!range.isCollapsed() || eventdata.key.length !== 1)
+      if (!range.isCollapsed() || event.key.length !== 1)
         this.ClearDelayedSurrounds();
       else {
         // Insert the pressed character at the current cursor position
         //console.log('pre sst "' + String.fromCharCode(charCode) + '"', richdebug.getStructuredOuterHTML(this.getBody(), this.getSelectionRange()));
-        this.insertTextAtCursor(eventdata.key);
+        this.insertTextAtCursor(event.key);
         //console.log('post sst', richdebug.getStructuredOuterHTML(this.getBody(), this.getSelectionRange()));
 
         //console.log('onKeyPressed, delay, pre: ', this.getContentsHTML());
@@ -2716,10 +2716,9 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   }
 
   _gotKeyUp(event) {
-    const eventdata = dompack.normalizeKeyboardEventData(event);
 
     // Don't clear delayed surrounds on enter, so they'll be transferred to the next line
-    if (eventdata.key !== "Enter")
+    if (event.key !== "Enter")
       this.ClearDelayedSurrounds();
 
     this._gotSelectionChange(event);

@@ -6,7 +6,7 @@ import { debugFlags } from "@webhare/env";
 import * as rtesupport from "./support";
 import * as richdebug from "./richdebug";
 import { getFormService } from "@webhare/forms/src/formservice";
-import * as dompack from "dompack";
+import * as dompack from "@webhare/dompack";
 import * as browser from "dompack/extra/browser";
 import * as lists from './structured/lists';
 import ParsedStructure from "./parsedstructure";
@@ -162,7 +162,7 @@ export default class StructuredEditor extends EditorBase {
     if (clipboardData && clipboardData.getData) {
       const types = Array.from(clipboardData.types); //Edge compatibility - it's a DOMStringList there
 
-      if (dompack.debugflags.rte) {
+      if (debugFlags.rte) {
         console.log('[rte] paste', clipboardData, "types", types);
         if (clipboardData.files)
           console.log('[rte] Files', clipboardData.files, "length", clipboardData.files && clipboardData.files.length);
@@ -178,7 +178,7 @@ export default class StructuredEditor extends EditorBase {
 
       if (types.includes('text/html')) {
         const htmltext = clipboardData.getData('text/html');
-        if (dompack.debugflags.rte) {
+        if (debugFlags.rte) {
           console.log("[rte] Received clipboardData text/html:");
           console.log("[rte] [" + htmltext + "]");
           console.log("[rte] end of clipboardData");
@@ -207,7 +207,7 @@ export default class StructuredEditor extends EditorBase {
 
           // Only seen png pastes for now
           if (["image/png"].includes(item.type)) {
-            if (dompack.debugflags.rte)
+            if (debugFlags.rte)
               console.log("[rte] Got image file of type " + item.type);
 
             const pastecontent = document.createElement('div');
@@ -230,7 +230,7 @@ export default class StructuredEditor extends EditorBase {
         // Safari doesn't handle pastes of images well, it does pastes a 'webkit-fake-url://..../<urlpath>' url.
         // We can try to get the URL ourselves
 
-        if (dompack.debugflags.rte)
+        if (debugFlags.rte)
           console.log("[rte] Got a safari image paste");
 
         const url = clipboardData.getData('text/uri-list');
@@ -243,7 +243,7 @@ export default class StructuredEditor extends EditorBase {
         return;
       } else if (types.includes('text/plain')) {
         const text = clipboardData.getData('text/plain');
-        if (dompack.debugflags.rte) {
+        if (debugFlags.rte) {
           console.log("[rte] Received clipboardData text/plain:");
           console.log("[rte] [" + text + "]");
           console.log("[rte] end of clipboardData");
@@ -262,7 +262,7 @@ export default class StructuredEditor extends EditorBase {
           pastecontent.appendChild(document.createElement('br'));
         });
 
-        if (dompack.debugflags.rte) {
+        if (debugFlags.rte) {
           console.log("[rte] html to insert");
           console.log(pastecontent.innerHTML);
         }
@@ -874,7 +874,7 @@ export default class StructuredEditor extends EditorBase {
   async _pasteContentAt(pastecontent: HTMLDivElement, insertlocator: domlevel.Locator) {
     const undolock = this.getUndoLock();
 
-    if (dompack.debugflags.rte)
+    if (debugFlags.rte)
       console.log('[rte] parseContentAt, raw', pastecontent.innerHTML);
 
     // If we're at the start of a block, don't pass inblock so the first pasted block will replace the current block
@@ -882,13 +882,13 @@ export default class StructuredEditor extends EditorBase {
     const downres = down.scanBackward(this.getBody(), { whitespace: true });
     const atblockstart = ['innerblock', 'outerblock'].includes(downres.type);
 
-    if (dompack.debugflags.rte)
+    if (debugFlags.rte)
       console.log('[rte] paste at block start: ', atblockstart ? 'yes' : 'no', downres, richdebug.getStructuredOuterHTML(this.getBody(), { down: down, insertlocator: insertlocator }));
 
     const cleanupper = new PasteCleanup;
     const res = cleanupper.applyCleanup(pastecontent);
 
-    if (dompack.debugflags.rte)
+    if (debugFlags.rte)
       console.log('[rte] parseContentAt, cleaned', pastecontent.innerHTML);
 
     const preexistingstylenodes = this.qSA("style");
@@ -1865,7 +1865,7 @@ export default class StructuredEditor extends EditorBase {
     const initialblockstyle = options.inblock && block && block.blockstyle || null;
     const parsed = this.parseContainerContents(node, { ...options, initialblockstyle });
 
-    if (dompack.debugflags.rte)
+    if (debugFlags.rte)
       console.log('[rte] parsed container contents', parsed, { breakblock });
 
     if (breakblock) {
