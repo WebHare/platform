@@ -1965,13 +1965,6 @@ export class Locator {
   // Helper functions
   //
 
-  getMaxChildOffset(element: Node) {
-    if (testType(element, [NodeType.element, NodeType.documentFragment]))
-      return element.childNodes.length; // for element nodes, document fragments, etc
-    else
-      return element.nodeValue ? element.nodeValue.length : 0; // for text nodes
-  }
-
   // ---------------------------------------------------------------------------
   //
   // Public API
@@ -1982,7 +1975,7 @@ export class Locator {
     if (!element) throw new Error("No valid element in locator set");
     this.element = element;
     if (offset === 'end')
-      this.offset = this.getMaxChildOffset(element);
+      this.offset = getNodeChildCount(element);
     else
       this.offset = offset || 0;
   }
@@ -2012,7 +2005,7 @@ export class Locator {
   }
 
   pointsPastChildrenEnd() {
-    return this.offset >= this.getMaxChildOffset(this.element);
+    return this.offset >= getNodeChildCount(this.element);
   }
 
   /** Get the path through the dom tree from the ancestor to an element, not including the ancestor
@@ -2117,7 +2110,7 @@ export class Locator {
   }
 
   positionPastLastChild() {
-    this.offset = this.getMaxChildOffset(this.element);
+    this.offset = getNodeChildCount(this.element);
     return this;
   }
 
@@ -2160,7 +2153,7 @@ export class Locator {
   removeNode(preservelocators?: PreservedLocatorList) {
     if (!this.parentIsElementOrFragmentNode())
       throw new Error("Removing a node only allowed when parent is a node");
-    if (this.offset >= this.getMaxChildOffset(this.element))
+    if (this.offset >= getNodeChildCount(this.element))
       throw new Error("Locator does not point to an element");
 
     const removed = this.element.childNodes[this.offset];
@@ -2181,7 +2174,7 @@ export class Locator {
   replacePointedNode(newnode: Node, preservelocators: PreservedLocatorList) {
     if (!this.parentIsElementOrFragmentNode())
       throw new Error("Removing a node only allowed when parent is a node");
-    if (this.offset >= this.getMaxChildOffset(this.element))
+    if (this.offset >= getNodeChildCount(this.element))
       throw new Error("Locator does not point to an element");
     if (!newnode)
       throw new Error("No valid new node given");
@@ -2218,7 +2211,7 @@ export class Locator {
     if (!this.element) throw new Error("Element not valid");
     if (maxancestor && !maxancestor.contains(this.element)) throw new Error("Element is not child of maxancestor");
     if (this.offset < 0) throw new Error("Negative offset");
-    if (this.offset > this.getMaxChildOffset(this.element)) throw new Error("Offset too big");
+    if (this.offset > getNodeChildCount(this.element)) throw new Error("Offset too big");
   }
 
   isInDOM() {
