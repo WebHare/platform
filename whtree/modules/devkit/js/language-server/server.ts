@@ -15,29 +15,42 @@ import * as services from "./service";
 import type * as lspTypes from "@webhare/lsp-types";
 import { backendConfig, openBackendService } from "@webhare/services";
 import { mapHareScriptPath } from "@webhare/harescript/src/wasm-support";
+import { getRequestContext, handleRequestError, setWebHareConnected } from "./request-errors";
 import type { ShowResourceParams } from "./whservice";
 import { sleep } from "@webhare/std";
 import * as util from "node:util";
 
-//Kill the LS on exceptions (or perhaps only on out-of-date exceptions?)
+/// Whether we've logged that the connection to WebHare was lost (so we only log it once, and log when it's restored)
+let connectionLost = false;
+
+//Run requests in the request code context. Kill the LS on exceptions, unless we're not connected to WebHare
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO fix the wrapper to not require any?
 function wrapCheck<T extends (...args: any[]) => any>(cb: T): T {
   return function (...args: unknown[]): unknown {
+    const context = getRequestContext();
     try {
-      const result = cb(...args);
+      const result = context.run(() => cb(...args));
       if ((result as Promise<void>)?.then) {
         (result as Promise<void>).catch(e => {
-          console.error(`** Fatal rejection ${cb?.name ? `from ${cb.name} ` : ""}- will abort`, e);
-          setTimeout(() => process.exit(1), 50); //allow some time to send/report dying screams
-          throw e;
+          // The original promise is returned to the connection, which sends the error to the client. Only rethrow (as an
+          // uncaught rejection) if we're aborting.
+          if (handleRequestError(e, "rejection", cb?.name, context))
+            throw e;
         });
       }
       return result;
     } catch (e) {
-      console.error(`** Fatal exception ${cb?.name ? `from ${cb.name} ` : ""}- will abort`, e);
-      setTimeout(() => process.exit(1), 50); //allow some time to send/report dying screams
+      handleRequestError(e, "exception", cb?.name, context);
       throw e;
     }
+  } as T;
+}
+
+//Run requests in the request code context, without killing the LS on exceptions
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO fix the wrapper to not require any?
+function inRequestContext<T extends (...args: any[]) => any>(cb: T): T {
+  return function (...args: unknown[]): unknown {
+    return getRequestContext().run(() => cb(...args));
   } as T;
 }
 
@@ -45,7 +58,8 @@ async function runLspServiceCpnnection(clientName: string, signal: AbortSignal) 
   //TODO have openBackendService integrate abort signals
   const whClient = await openBackendService("devkit:lspservice", undefined, { linger: true, timeout: 5000 });
   const closed = new Promise<void>(resolve => whClient.addEventListener("close", () => resolve()));
-  onConnectionMessage((_) => void whClient.ping());
+  // Ignore ping errors, a lost connection is handled through the close event
+  onConnectionMessage((_) => void whClient.ping().catch(() => { }));
 
   const workspaceFolders = await connection.workspace.getWorkspaceFolders();
   whClient.addEventListener("showresource", (event: Event) => {
@@ -67,19 +81,36 @@ async function runLspServiceCpnnection(clientName: string, signal: AbortSignal) 
     console.log("showresource", detail, params);
     void connection.sendRequest("window/showDocument", params);
   });
-  await whClient.connect(workspaceFolders, clientName);
-  await closed;
+  try {
+    await whClient.connect(workspaceFolders, clientName);
+    setWebHareConnected(true, connectionLost);
+    if (connectionLost) {
+      connectionLost = false;
+      console.log("LSP connection restored");
+    }
+    await closed;
+  } finally {
+    setWebHareConnected(false);
+    onConnectionMessage(null);
+  }
 }
 
 async function lspServiceLoop(clientName: string, signal: AbortSignal) {
   for (; ;) {
     try {
       await runLspServiceCpnnection(clientName, signal);
+      if (!connectionLost) {
+        connectionLost = true;
+        console.log("LSP connection closed");
+      }
     } catch (e) {
       if (signal.aborted)
         break;
       //TODO exp. backoff if we disconnected too fast
-      console.log("LSP connection lost", (e as Error).message);
+      if (!connectionLost) {
+        connectionLost = true;
+        console.log("LSP connection lost", (e as Error).message);
+      }
       await sleep(100);
     }
   }
@@ -165,8 +196,8 @@ export async function runWebHareLSP() {
 }
 
 function setupCustomMessages() {
-  connection.onRequest(new RequestType<lspTypes.StackTraceParams, lspTypes.StackTraceResponse, void>("webHare/getStackTrace"), services.stackTraceRequest);
-  connection.onRequest(new RequestType<string, string, void>("webHare/getWebHareResource"), services.webHareResourceRequest);
-  connection.onRequest(new RequestType<string, string, void>("webHare/toFSPath"), services.toFSPathRequest);
-  connection.onRequest(new RequestType<string, string, void>("webHare/toResourcePath"), services.toResourcePathRequest);
+  connection.onRequest(new RequestType<lspTypes.StackTraceParams, lspTypes.StackTraceResponse, void>("webHare/getStackTrace"), inRequestContext(services.stackTraceRequest));
+  connection.onRequest(new RequestType<string, string, void>("webHare/getWebHareResource"), inRequestContext(services.webHareResourceRequest));
+  connection.onRequest(new RequestType<string, string, void>("webHare/toFSPath"), inRequestContext(services.toFSPathRequest));
+  connection.onRequest(new RequestType<string, string, void>("webHare/toResourcePath"), inRequestContext(services.toResourcePathRequest));
 }
