@@ -1030,97 +1030,6 @@ void DLv2_GetKMeansQuantizedPalette(HSVM *vm, HSVM_VariableId id_set)
 
 /*******************************************************************************
 *
-*  MARSHALLERS
-*
-*******************************************************************************/
-
-class DrawInfoObjectMarshallerData
-{
-    public:
-        DrawInfoObjectMarshallerData(DrawInfo const *drawinfo)
-        : drawinfo(drawinfo)
-        {
-        }
-
-        ~DrawInfoObjectMarshallerData()
-        {
-                drawinfo->DelRef();
-        }
-
-        bool RestoreTo(struct HSVM *vm, HSVM_VariableId var);
-
-    private:
-        DrawInfo const *drawinfo;
-};
-
-bool DrawInfoObjectMarshallerData::RestoreTo(struct HSVM *vm, HSVM_VariableId var)
-{
-        OPEN_WRAPPER
-
-        int32_t newid = context->RegisterDrawObject(drawinfo);
-
-        //Blex::ErrStream() << "Received as marshalled " << newid << " at " << (void*)drawinfo;
-
-        // Create the object in var
-        HSVM_OpenFunctionCall(vm, 1);
-        HSVM_IntegerSet(vm, HSVM_CallParam(vm, 0), newid);
-        const HSVM_VariableType args[1] = { HSVM_VAR_Integer };
-        HSVM_VariableId obj = HSVM_CallFunction(vm, "wh::graphics/canvas.whlib", "__CreateCanvasWithCanvasID", HSVM_VAR_Object, 1, args);
-        if (!obj)
-            return false;
-
-        HSVM_CopyFrom(vm, var, obj);
-        HSVM_CloseFunctionCall(vm);
-
-        return true;
-        CLOSE_WRAPPER
-        return false;
-}
-
-int DrawInfoObjectMarshaller(struct HSVM *vm, HSVM_VariableId sent_var, void **resultdata, HSVM_ObjectRestorePtr *restoreptr, HSVM_ObjectClonePtr *cloneptr)
-{
-        OPEN_WRAPPER
-
-        // Don't allow clone
-        if (cloneptr)
-            return false;
-
-        HSVM_ColumnId col_pvt_jobid = HSVM_GetColumnId(vm, "PVT_CANVASID");
-        HSVM_VariableId var_pvt_jobid = HSVM_ObjectMemberRef(vm, sent_var, col_pvt_jobid, true);
-        if (!var_pvt_jobid || HSVM_GetType(vm, var_pvt_jobid) != HSVM_VAR_Integer)
-        {
-                HSVM_ThrowException(vm, "Using canvas marshaller on a object that is not a canvas");
-                return 0;
-        }
-
-        int32_t id = var_pvt_jobid ? HSVM_IntegerGet(vm, var_pvt_jobid) : -1;
-
-        DrawInfo const &drawinfo = context->GetDrawInfoForRead(id);
-        //Blex::ErrStream() << "Prepare for marshall " << id << " at " << (void*)&drawinfo;
-        try
-        {
-                *restoreptr = &HSVM_ObjectMarshalRestoreWrapper< DrawInfoObjectMarshallerData >;
-                *resultdata = new DrawInfoObjectMarshallerData(&drawinfo);
-                context->drawinfos[id-1] = NULL; //no need to delref, the reference is now the marshaller's problem
-                HSVM_IntegerSet(vm, var_pvt_jobid, 0);
-                return 1;
-        }
-        catch (std::exception &)
-        {
-                drawinfo.DelRef();
-                return 0;
-        }
-        CLOSE_WRAPPER
-        return 0;
-}
-
-void DLv2_SetCanvasMarshaller(HSVM *vm)
-{
-        HSVM_ObjectSetMarshaller(vm, HSVM_Arg(0), &DrawInfoObjectMarshaller);
-}
-
-/*******************************************************************************
-*
 *  REGISTRATION OF DRAWLIB
 *
 *******************************************************************************/
@@ -1184,7 +1093,6 @@ extern "C" BLEXLIB_PUBLIC int HSVM_ModuleEntryPoint(HSVM_RegData *regdata, void*
 
         HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_COMPARECANVASES:WHMOD_GRAPHICS:F:II", DLv2_CompareCanvases);
 
-        HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_SETCANVASMARSHALLER:WHMOD_GRAPHICS::O", DLv2_SetCanvasMarshaller);
 
         HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_GETKMEANSQUANTIZEDPALETTE:WHMOD_GRAPHICS:RA:IIIIF", DLv2_GetKMeansQuantizedPalette);
 

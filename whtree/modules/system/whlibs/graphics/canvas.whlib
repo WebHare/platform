@@ -97,7 +97,6 @@ OBJECTTYPE GraphicsCanvas
     this->pvt_height := __DRAWLIB_V2_GetCanvasHeight(this->pvt_canvasid);
 
     INSERT PRIVATE this INTO allocated_canvasses AT END;
-    __DRAWLIB_V2_SETCANVASMARSHALLER(this);
   }
 
   // ---------------------------------------------------------------------------
@@ -637,11 +636,6 @@ PUBLIC OBJECT FUNCTION CreateEmptyCanvas(INTEGER width, INTEGER height, INTEGER 
 PUBLIC OBJECT FUNCTION Create2DPath()
 {
   RETURN NEW Path2D(DEFAULT RECORD ARRAY);
-}
-
-PUBLIC OBJECT FUNCTION __CreateCanvasWithCanvasID(INTEGER id) //entry point for canvas marshaller
-{
-  RETURN NEW GraphicsCanvas(id);
 }
 
 /** @short Resize an image with a given resizing method
