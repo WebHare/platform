@@ -406,6 +406,88 @@ ASYNC MACRO TestPublishInitialEmptyDocument() {
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+ASYNC MACRO TestClearedNameFollowsTitle() {
+  /* STORY https://gitlab.webhare.com/utwente/utwente_base/-/work_items/3289
+     A published document is renamed by clearing its file name and title and entering a new title. The file name field
+     shows a placeholder generated from the new title, and publishing should use that name instead of the original name */
+  testfw->BeginWork();
+  OBJECT testfile := GetTestsuiteJSTempFolder()->CreateFile(
+      [ name :=    "contact"
+      , typens :=  "platform:filetypes.richdocument"
+      , title :=   "Contact"
+      , publish := TRUE
+      ]);
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testfile->id) ]  ]));
+  TestEq("contact", TT(":File name")->value);
+  TestEq("Contact", TT(":Title")->value);
+
+  TT(":File name")->value := "";
+  TT(":File name")->SetDirty(); //pretend the client did it
+  TT(":Title")->value := "";
+  TT(":Title")->SetDirty();
+  TestEq("contact", TT(":File name")->placeholder, "Without a title the placeholder falls back to the current name");
+
+  TT(":Title")->value := "Something completely different";
+  TT(":Title")->SetDirty();
+  TestEq("something-completely-different", TT(":File name")->placeholder, "The placeholder should follow the new title");
+
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
+
+  testfile := OpenWHFSObject(testfile->id);
+  TestEq("Something completely different", testfile->title);
+  TestEq("something-completely-different", testfile->name, "Publishing should use the name the placeholder suggested");
+  TestEq("something-completely-different", TT(":File name")->value, "The editor should show the name it published with");
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+ASYNC MACRO TestClearedNameConflict() {
+  /* The name suggested from the title may already be in use in the folder. Publishing should report that conflict, as it
+     does for a typed name, instead of silently picking another name. The name field should keep following the title */
+  testfw->BeginWork();
+  GetTestsuiteJSTempFolder()->CreateFile(
+      [ name :=    "taken-name"
+      , typens :=  "platform:filetypes.richdocument"
+      , title :=   "Taken name"
+      , publish := TRUE
+      ]);
+  OBJECT testfile := GetTestsuiteJSTempFolder()->CreateFile(
+      [ name :=    "about"
+      , typens :=  "platform:filetypes.richdocument"
+      , title :=   "About"
+      , publish := TRUE
+      ]);
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testfile->id) ]  ]));
+  TT(":File name")->value := "";
+  TT(":File name")->SetDirty(); //pretend the client did it
+  TT(":Title")->value := "Taken name";
+  TT(":Title")->SetDirty();
+  TestEq("taken-name", TT(":File name")->placeholder);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("Publish")); //confirm save and publish
+  AWAIT ExpectScreenChange(0, PTR TTClick(":Yes")); //replaced by the error
+  AWAIT AnswerMessageBox("ok", [ messagemask := "*'taken-name' already exists*" ]);
+
+  TestEq("about", OpenWHFSObject(testfile->id)->name, "The conflicting publish should not have renamed the file");
+  TestEq("", TT(":File name")->value, "A failed publish should not leave the suggested name in the field");
+
+  TT(":Title")->value := "Another name";
+  TT(":Title")->SetDirty();
+  TestEq("another-name", TT(":File name")->placeholder, "The placeholder should still follow the title");
+
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
+
+  testfile := OpenWHFSObject(testfile->id);
+  TestEq("Another name", testfile->title);
+  TestEq("another-name", testfile->name, "Publishing should use the name suggested from the latest title");
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 RunTestFramework(
     [ PTR TestMetaTab
     , PTR TestRevert
@@ -415,6 +497,8 @@ RunTestFramework(
     , PTR TestReopenDeletedFile
     , PTR TestTSRenderedPreview
     , PTR TestPublishInitialEmptyDocument
+    , PTR TestClearedNameFollowsTitle
+    , PTR TestClearedNameConflict
     ],
     [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                    ]
