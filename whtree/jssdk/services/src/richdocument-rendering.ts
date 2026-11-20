@@ -1,5 +1,5 @@
 import { litty, rawLitty, type Litty } from "@webhare/litty";
-import { rtdBlockDefaultClass, rtdTextStyles, type RichTextDocument, type RTDAnonymousParagraph, type RTDBaseInlineImageItem, type RTDBaseTable, type RTDBaseTableCell, type RTDBlock, type RTDInlineItems } from "./richdocument";
+import { rtdBlockDefaultClass, rtdListTypes, rtdTextStyles, type RichTextDocument, type RTDAnonymousParagraph, type RTDBaseInlineImageItem, type RTDBaseTable, type RTDBaseTableCell, type RTDBlock, type RTDInlineItems } from "./richdocument";
 import { appendToArray, encodeString, maybePromiseAll } from "@webhare/std";
 import type { PagePartRequest } from "@webhare/router/src/siterequest";
 import { groupByLink } from "@webhare/hscompat/src/richdocument";
@@ -16,7 +16,7 @@ export type RTDRenderingOptions = {
   structure?: CSPRTDStructure | null;
 };
 
-const listTags = ["ul", "ol"];
+const listTags: readonly string[] = rtdListTypes;
 
 export async function renderRTD(partRequest: PagePartRequest, rtd: RichTextDocument, options?: RTDRenderingOptions): Promise<Litty> {
   /** Get the tag and class to render a paragraph or list with */

@@ -1,4 +1,5 @@
 import type { CSPRTDBlockStyle, CSPRTDStructure } from "@webhare/whfs/src/siteprofiles";
+import { rtdListTypes } from "./richdocument";
 
 /** Block level HTML elements. A block with one of these tags falls back to the default block style */
 const blockNodes = [
@@ -9,6 +10,9 @@ const blockNodes = [
 /** Tags that can also match a block style on the container tag alone */
 const tagMatchNodes = ["h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol"];
 
+/** Tags of lists. A class or tag match never turns a list into a non-list or vv */
+const listTags: readonly string[] = rtdListTypes;
+
 /** Find the block style an RTD type uses for a block. Mirrors LookupStyle in structuredef.whlib, which mirrors the matching in the structured editor
     @param structure - Structure of the RTD type
     @param containerTag - Tag of the block, eg 'p'
@@ -17,7 +21,7 @@ const tagMatchNodes = ["h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol"];
 */
 export function lookupRTDBlockStyle(structure: CSPRTDStructure, containerTag: string, className: string): CSPRTDBlockStyle | null {
   containerTag = containerTag.toLowerCase();
-  const isList = ["ul", "ol"].includes(containerTag);
+  const isList = listTags.includes(containerTag);
   const isTable = containerTag === "table";
   const classNames = className.toLowerCase().split(/\s+/).filter(Boolean);
 
@@ -35,7 +39,7 @@ export function lookupRTDBlockStyle(structure: CSPRTDStructure, containerTag: st
 
     // Match on class name, but don't change a list into a non-list or a table into a non-table (or vv)
     if (!classMatch
-      && ["ul", "ol"].includes(styleContainerTag) === isList
+      && listTags.includes(styleContainerTag) === isList
       && (styleContainerTag === "table") === isTable
       && classNames.includes(blockStyle.tag.toLowerCase()))
       classMatch = blockStyle;
