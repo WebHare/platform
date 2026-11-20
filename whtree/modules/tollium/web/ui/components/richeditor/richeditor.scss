@@ -226,15 +226,6 @@ div.wh-rtd--margins-active //active = either -compact or -wide (or other future 
     background: #ffffff;
     color: #000000;
 
-    /* Safari resets scroll positions when the contenteditable has a vertical margin (or doesn't fill the
-       entire height of its scroll container when refocusing. Setting the margin to 0 fixes.
-    */
-    &.wh-rtd__body--safariscrollfix
-    {
-      margin: 0px 9px;
-      padding: 2*$body-verticalmargin $body-standardmargin;
-    }
-
     &:has(.wh-rtd-embeddedobject--selected)
     {
       caret-color: transparent;

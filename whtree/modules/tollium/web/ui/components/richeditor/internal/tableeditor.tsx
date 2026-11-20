@@ -394,12 +394,13 @@ export class TableEditor {
       return;
 
     const undolock = this.getUndoLock();
-
-    modify();
-    this.reset();
-    this._gotStateChange();
-
-    undolock.close();
+    try {
+      modify();
+      this.reset();
+      this._gotStateChange();
+    } finally {
+      undolock.close();
+    }
   }
 
   /** Add one or more columns to the table
@@ -657,20 +658,21 @@ export class TableEditor {
   /// Merge a cell with its neighbouring cells to the right or below it
   private mergeCells(cellnode, cellsprop: "mergerightcells" | "mergedowncells", spanprop: "colSpan" | "rowSpan") {
     const undolock = this.getUndoLock();
+    try {
+      const cells = this._getSplitMergeData(cellnode)[cellsprop];
 
-    const cells = this._getSplitMergeData(cellnode)[cellsprop];
+      for (const cell of cells)
+        cellnode.append(...Array.from(cell.childNodes));
 
-    for (const cell of cells)
-      cellnode.append(...Array.from(cell.childNodes));
+      cellnode[spanprop] += cells[0][spanprop];
 
-    cellnode[spanprop] += cells[0][spanprop];
-
-    for (const cell of cells)
-      cell.remove();
-    this.reset();
-    this._gotStateChange();
-
-    undolock.close();
+      for (const cell of cells)
+        cell.remove();
+      this.reset();
+      this._gotStateChange();
+    } finally {
+      undolock.close();
+    }
   }
 
   mergeRight(cellnode) {

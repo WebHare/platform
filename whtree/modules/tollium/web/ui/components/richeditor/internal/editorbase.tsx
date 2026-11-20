@@ -15,7 +15,6 @@ import * as styleloader from './styleloader';
 
 import { getFormService } from "@webhare/forms/src/formservice"; //TODO should not require formservice in core RTD code, RTD integration should take care of it
 
-import { isMultiSelectKey, loadImage } from '@webhare/dompack';
 import * as KeyboardHandler from "dompack/extra/keyboard";
 import SelectionInterface from './selection';
 import * as tablesupport from "./tableeditor";
@@ -382,8 +381,6 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     });
     this.htmldiv.append(this.bodydiv);
 
-    if (dompack.getBrowser().name === "safari" && dompack.getBrowser().version < 13)
-      this.bodydiv.classList.add("wh-rtd__body--safariscrollfix");
 
     //Fixes a Firefox repositioning issue, tested by richdoc.teststructured-scroll - as of 2022-11-29 we still need this workaround
     this.scrollmonitor = new scrollmonitor.Monitor(this.container);
@@ -639,7 +636,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     const linkel = event.target.closest('a[href]');
     if (linkel
       && linkel.href.match(/^https?:/)
-      && (!this.isEditable() || isMultiSelectKey(event))) {
+      && (!this.isEditable() || dompack.isMultiSelectKey(event))) {
       window.open(linkel.href, '_blank');
     }
   }
@@ -2881,7 +2878,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     imgnode.removeAttribute("width");
     imgnode.removeAttribute("height");
 
-    await loadImage(imgnode.src); //don't return until the upload is done!
+    await dompack.loadImage(imgnode.src); //don't return until the upload is done!
   }
   //FIXME if we can select embeddedobjects, we can merge this into executeAction
   launchActionPropertiesForNode(node, subaction) {
