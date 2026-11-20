@@ -97,7 +97,6 @@ OBJECTTYPE GraphicsCanvas
     this->pvt_height := __DRAWLIB_V2_GetCanvasHeight(this->pvt_canvasid);
 
     INSERT PRIVATE this INTO allocated_canvasses AT END;
-    __DRAWLIB_V2_SETCANVASMARSHALLER(this);
   }
 
   // ---------------------------------------------------------------------------
@@ -177,23 +176,6 @@ OBJECTTYPE GraphicsCanvas
   // Public API
   //
 
-  /** @short Set the desired pixel to a color.
-      @long Sets the pixel at (x,y) to the desired color. The upperleft corner is (0,0). The color
-          consists of 3 levels, the level of red, the level of green, and the level of blue. These
-          levels may vary from 0 to 255. The value of <code>color</code> is calculate as follows:
-          <code>color = 65536 * red + 256 * green + blue You want to use
-          <link>Drawlib_MakeColor</link>
-      @param x The x coordinate of the pixel
-      @param y The y coordinate of the pixel
-      @param color The color to set the pixel to.
-      @see GfxCreateColor
-  */
-  PUBLIC MACRO DrawPixel(INTEGER x, INTEGER y, INTEGER color)
-  {
-    this->ValidateCanvas();
-    __DRAWLIB_V2_DrawPixel(this->canvasid, x, y, color);
-  }
-
   /** @short Draws the bitmap of another canvas on this canvas
       @param sourcecanvas The source canvas where to get the bitmap from
       @param offsetx The x offset (the upperleft corner where the source is pasted on this canvas)
@@ -222,44 +204,6 @@ OBJECTTYPE GraphicsCanvas
     RETURN NEW GraphicsCanvas(__DRAWLIB_V2_DuplicateCanvas(this->pvt_canvasid));
   }
 
-  /** @short Update the alpha channel on a canvas
-      @param multiply Alpha multiplication factor (<1 increases transparancy)
-  */
-  PUBLIC MACRO MultiplyAlpha(FLOAT multiply)
-  {
-    __DRAWLIB_V2_ALPHACANVAS(this->canvasid, multiply);
-  }
-
-
-  /** @short Add a value to the alpha channel on a canvas
-      @param toadd Value to add (positive values increase opacity, negative values increase transparancy)
-  */
-  PUBLIC MACRO AddAlpha(INTEGER toadd)
-  {
-    __DRAWLIB_V2_ALPHACANVASADD(this->canvasid, toadd);
-  }
-
-  /** @short Blur canvas.
-      @param hsize Horizontal blur size
-      @param vsize Vertical blur size
-  */
-  PUBLIC MACRO Blur(INTEGER hsize, INTEGER vsize)
-  {
-    this->ValidateCanvas();
-    IF(hsize<1 OR vsize < 1 OR (hsize=1 AND vsize=1))
-      RETURN; //no-op
-    __DRAWLIB_V2_BLURCANVAS(this->canvasid, hsize, vsize);
-  }
-
-  /** @short Grayscale the canvas */
-  PUBLIC MACRO Grayscale()
-  {
-    this->ValidateCanvas();
-    __DRAWLIB_V2_GRAYSCALECANVAS(this->canvasid);
-  }
-
-
-
   /** @short Create a cropped canvas from this canvas. Also copies the paint state.
       @param left
       @param top
@@ -280,22 +224,6 @@ OBJECTTYPE GraphicsCanvas
       THROW NEW Exception("CreateCroppedCanvas: trying to extract (" || left || "," || top || ")-(" || rightlimit || "," || bottomlimit || ") from a " || this->width || "x" || this->height || " canvas");
 
     RETURN NEW GraphicsCanvas(__DRAWLIB_V2_MakeCanvasFromCanvas(this->canvasid, left, top, rightlimit-left, bottomlimit-top));
-  }
-
-  /** @short Resize canvas, rescaling the image but keeping its aspect ratio
-      @param newwidth New canvas width in pixels. The new height is derived from the specified width
-  */
-  PUBLIC MACRO SetImageWidth(INTEGER newwidth)
-  {
-    this->SetImageSize(newwidth, INTEGER(this->height * FLOAT(newwidth) / this->width + 0.5));
-  }
-
-  /** @short Resize canvas, rescaling the image but keeping its aspect ratio
-      @param newheight New canvas height in pixels. The new width is derived from the specified height
-  */
-  PUBLIC MACRO SetImageHeight(INTEGER newheight)
-  {
-    this->SetImageSize(INTEGER(this->width * FLOAT(newheight) / this->height + 0.5), newheight);
   }
 
   /** @short Resize canvas, rescaling the image
@@ -419,28 +347,6 @@ OBJECTTYPE GraphicsCanvas
     this->pvt_height := __DRAWLIB_V2_GetCanvasHeight(this->pvt_canvasid);
   }
 
-  /** @short Mirror the canvas (horizontal flip)
-  */
-  PUBLIC MACRO Mirror()
-  {
-    __DRAWLIB_V2_MIRRORCANVAS(this->pvt_canvasid);
-  }
-
-  /** @short Get the current color and alpha of a pixel
-      @long Gets the color of the pixel at (x,y). The upperleft corner is (0,0). The color
-          consists of 3 levels, the level of red, the level of green, and the level of blue.
-          These levels may vary from 0 to 255. The value of <code>color</code> is calculated as
-          follows: <code>color = 65536 * red + 256 * green + blue
-      @param x The x coordinate of the pixel to get
-      @param y The y coordinate of the pixel to get
-      @return The color of the specified pixel.
-  */
-  PUBLIC INTEGER FUNCTION GetPixel(INTEGER x, INTEGER y)
-  {
-    this->ValidateCanvas();
-    RETURN __DRAWLIB_V2_Getpixel(this->pvt_canvasid, x, y);
-  }
-
   /** @short Set the color and alpha of a pixel
       @long Sets the pixel at (x,y) to the desired color. The upperleft corner is (0,0). The color
           consists of 3 levels, the level of red, the level of green, and the level of blue.
@@ -492,17 +398,9 @@ OBJECTTYPE Path2D
   //
 
   /** Path
-      @cell(string) type One of 'MOVETO', 'LINETO', 'BEZIERTO', 'ARCTO', 'ARCTOR'
+      @cell(string) type One of 'MOVETO', 'LINETO', 'CLOSEPATH'
       @cell x New x coordinate
       @cell y New y coordinate
-      @cell c1x FIXME ??? (bezierto only)
-      @cell c1y FIXME ??? (bezierto only)
-      @cell c2x FIXME ??? (bezierto only)
-      @cell c2y FIXME ??? (bezierto only)
-      @cell cx FIXME ??? (arcto/arctor only)
-      @cell cy FIXME ??? (arcto/arctor only)
-      @cell rx FIXME ??? (arcto/arctor only)
-      @cell ry FIXME ??? (arcto/arctor only)
   */
   RECORD ARRAY path;
 
@@ -589,24 +487,6 @@ OBJECTTYPE Path2D
   // Public API
   //
 
-  /** @short Clone the path
-      @long Duplicate the path and its state (does NOT duplicate the tetxures, both paths will point to the same textures, if any)
-      @return Cloned path
-  */
-  PUBLIC OBJECT FUNCTION Clone()
-  {
-    OBJECT newpath := NEW Path2D(this->path);
-    newpath->filltexture := this->filltexture;
-    newpath->filloffsetx := this->filloffsetx;
-    newpath->filloffsety := this->filloffsety;
-    newpath->fillcolor := this->fillcolor;
-    newpath->outlinecolor := this->outlinecolor;
-    newpath->outlinewidth := this->outlinewidth;
-    newpath->antialiasing := this->antialiasing;
-    newpath->translation := this->translation;
-    RETURN newpath;
-  }
-
   /** Adds a move to a coordinate to the path
       @param x New x coordinate
       @param y New y coordinate
@@ -625,67 +505,10 @@ OBJECTTYPE Path2D
     INSERT [type := "LINETO", x := x, y := y] INTO this->path AT END;
   }
 
-  /** Adds a bezier curve from the current coordinate to another coordinate to the path
-      @param c1x FIXME ???
-      @param c1y FIXME ???
-      @param c2x FIXME ???
-      @param c2y FIXME ???
-      @param x New x coordinate
-      @param y New y coordinate
-  */
-  PUBLIC MACRO BezierTo(FLOAT c1x, FLOAT c1y, FLOAT c2x, FLOAT c2y, FLOAT x, FLOAT y)
-  {
-    INSERT [type := "BEZIERTO", c1x := c1x, c1y := c1y, c2x := c2x, c2y := c2y, x := x, y := y] INTO this->path AT END;
-  }
-
-  /** Adds a FIXME ??? from the current coordinate to another coordinate to the path
-      @param cx FIXME ???
-      @param cy FIXME ???
-      @param rx FIXME ???
-      @param ry FIXME ???
-      @param x New x coordinate
-      @param y New y coordinate
-  */
-  PUBLIC MACRO ArcTo(FLOAT cx, FLOAT cy, FLOAT rx, FLOAT ry, FLOAT x, FLOAT y)
-  {
-    INSERT [type := "ARCTO", cx := cx, cy := cy, rx := rx, ry := ry, x := x, y := y] INTO this->path AT END;
-  }
-
-  /** Adds a FIXME ??? from the current coordinate to another coordinate to the path
-      @param cx FIXME ???
-      @param cy FIXME ???
-      @param rx FIXME ???
-      @param ry FIXME ???
-      @param x New x coordinate
-      @param y New y coordinate
-  */
-  PUBLIC MACRO ArcToR(FLOAT cx, FLOAT cy, FLOAT rx, FLOAT ry, FLOAT x, FLOAT y)
-  {
-    INSERT [type := "ARCTOR", cx := cx, cy := cy, rx := rx, ry := ry, x := x, y := y] INTO this->path AT END;
-  }
-
   /// Closes the path
   PUBLIC MACRO ClosePath()
   {
     INSERT [type := "CLOSEPATH"] INTO this->path AT END;
-  }
-
-  /** @short Add a smooth curve using the specified points
-      @long Create bezier curves from the current starting point (so use MoveTo first) through the
-          specified points, building a smooth graph
-      @param points A record array of points to paint the curve through
-      @cell(float) points.x X coordinate
-      @cell(float) points.Y Y coordinate
-  */
-  PUBLIC MACRO SmoothBezierCurve(RECORD ARRAY points)
-  {
-    points := [[ x := this->x, y := this-> y ]] CONCAT points;
-    RECORD res := GetCurveControlPoints(points);
-    FOREVERY(RECORD firstcp FROM res.firstcontrolpoints)
-    {
-      //Print("from " || FormatFloat(this->x,3) || "," || FormatFloat(this->y,3) || " c1 " || FormatFloat(firstcp.x,3) || "," || FormatFloat(firstcp.y,3) || " c2 " || FormatFloat(res.secondcontrolpoints[#firstcp].x,3) || "," || FormatFloat(res.secondcontrolpoints[#firstcp].y,3) || " to " || FormatFloat(points[#firstcp+1].x,3) || "," || FormatFloat(points[#firstcp+1].y,3) || '\n');
-      this->BezierTo(firstcp.x,firstcp.y,res.secondcontrolpoints[#firstcp].x,res.secondcontrolpoints[#firstcp].y,points[#firstcp+1].x,points[#firstcp+1].y);
-    }
   }
 
   /** @short Draws the path onto a canvas
@@ -705,7 +528,7 @@ OBJECTTYPE Path2D
       RECORD ARRAY finalpath := this->path;
       FOREVERY(RECORD elem FROM finalpath)
       {
-        FOREVERY(STRING multiplycell FROM ["x","y","cx","cy","rx","ry","c1x","c1y","c2x","c2y"])
+        FOREVERY(STRING multiplycell FROM ["x","y"])
           IF(CellExists(elem, multiplycell))
             elem := CellUpdate(elem, multiplycell, GetCell(elem, multiplycell) * this->antialiasing);
 
@@ -713,7 +536,6 @@ OBJECTTYPE Path2D
       }
 
       OBJECT tempfilltexture;
-      __DRAWLIB_V2_SetOutlineMode (tempcanvas->canvasid, 0); //solid color
       __DRAWLIB_V2_SetOutlineColor(tempcanvas->canvasid, this->outlinecolor);
       __DRAWLIB_V2_SetOutlineWidth(tempcanvas->canvasid, this->outlinewidth * this->antialiasing);
 
@@ -748,7 +570,6 @@ OBJECTTYPE Path2D
     }
     ELSE
     {
-      __DRAWLIB_V2_SetOutlineMode (canvas->canvasid, 0); //solid color
       __DRAWLIB_V2_SetOutlineColor(canvas->canvasid, this->outlinecolor);
       __DRAWLIB_V2_SetOutlineWidth(canvas->canvasid, this->outlinewidth);
 
@@ -775,30 +596,6 @@ OBJECTTYPE Path2D
 PUBLIC OBJECT FUNCTION CreateCanvasFromBlob(BLOB infile)
 {
   INTEGER canvas := __DRAWLIB_V2_CreateCanvasFromFile(infile);
-  IF(canvas=0)
-    RETURN DEFAULT OBJECT;
-  RETURN NEW GraphicsCanvas(canvas);
-}
-
-/** @short Create a canvas from raw image data
-    @param infile Data to read
-    @cell(string) inputformat.pixelformat Pixelformat (currently RGBA anD ARGB are supported)
-    @cell(integer) inputformat.width Input width
-    @cell(integer) inputformat.height Input height
-    @cell(boolean) inputformat.premultiplied If true, expect the input to have its color channels premultiplied with the alpha channel, and undo that */
-PUBLIC OBJECT FUNCTION CreateCanvasFromRawBlob(BLOB infile, RECORD inputformat)
-{
-  IF(inputformat.pixelformat NOT IN ["RGBA","ARGB"])
-    THROW NEW Exception("Only pixelformats RGBA and ARGB are currently supported");
-  IF(inputformat.width < 1 OR inputformat.height < 1)
-    THROW NEW Exception("Illegal canvas dimensions: " || inputformat.width || "x" || inputformat.height);
-
-  FOREVERY(RECORD cellrec FROM UnpackRecord(inputformat))
-    IF(cellrec.name NOT IN ["PIXELFORMAT", "WIDTH", "HEIGHT", "PREMULTIPLIED"])
-      THROW NEW Exception("Unexpected inputformat property '" || cellrec.name || "'");
-
-  BOOLEAN premultiplied := CellExists(inputformat,"premultiplied") AND inputformat.premultiplied;
-  INTEGER canvas := __DRAWLIB_V2_CREATECANVASFROMRAWBLOB(infile, inputformat.width, inputformat.height, inputformat.pixelformat, premultiplied);
   IF(canvas=0)
     RETURN DEFAULT OBJECT;
   RETURN NEW GraphicsCanvas(canvas);
@@ -839,11 +636,6 @@ PUBLIC OBJECT FUNCTION CreateEmptyCanvas(INTEGER width, INTEGER height, INTEGER 
 PUBLIC OBJECT FUNCTION Create2DPath()
 {
   RETURN NEW Path2D(DEFAULT RECORD ARRAY);
-}
-
-PUBLIC OBJECT FUNCTION __CreateCanvasWithCanvasID(INTEGER id) //entry point for canvas marshaller
-{
-  RETURN NEW GraphicsCanvas(id);
 }
 
 /** @short Resize an image with a given resizing method

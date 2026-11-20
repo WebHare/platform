@@ -5,9 +5,4 @@
     </test>
   </group>
 
-  <group name="pixeltest">
-    <test script="pixeltest.whscr">
-    </test>
-  </group>
-
 </group>

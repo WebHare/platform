@@ -304,7 +304,6 @@ void DIB_GraphicsReader::DecompressData()
 
 uint32_t inline DIB_GraphicsReader::GetWidth()  const {return width;}
 uint32_t inline DIB_GraphicsReader::GetHeight() const {return height;}
-bool DIB_GraphicsReader::IsUpsideDown() const {return bottomup;}
 bool inline DIB_GraphicsReader::LinesLeft() const
 {
         return lines>0;
@@ -661,13 +660,6 @@ bool inline PNG_GraphicsReader::LinesLeft() const
         return data->lines>0;
 }
 
-void PNG_GraphicsReader::SkipImageData()
-{
-        Scanline32 dummy(data->width,false); //ADDME - can't libpng just SKIP the IDAT chunk?
-        while (LinesLeft())
-            GetScanline32(dummy);
-}
-
 uint32_t inline PNG_GraphicsReader::GetWidth() const {return data->width;}
 uint32_t inline PNG_GraphicsReader::GetHeight() const {return data->height;}
 
@@ -984,132 +976,6 @@ Bitmap32Owning_GraphicsReader::Bitmap32Owning_GraphicsReader(DrawLib::Bitmap32 c
 Bitmap32Owning_GraphicsReader::~Bitmap32Owning_GraphicsReader()
 {
 }
-
-//---------------------------------------------------------------------------------
-// WBMP (wap wap wap ;-)
-//---------------------------------------------------------------------------------
-/*
-WBMP_GraphicsWriter::WBMP_GraphicsWriter(Blex::Stream *_stream, uint32_t _width, uint32_t _height)
-{
-        width = _width;
-        height = _height;
-        stream = _stream;
-
-        WriteHeader();
-}
-WBMP_GraphicsWriter::~WBMP_GraphicsWriter()
-{
-}
-
-void WBMP_GraphicsWriter::WriteHeader()
-{
-        //header:
-        //TypeField(s) 8..8*h
-        //FixHeaderField 8
-        //ExtHeaderField(s) 0..8*k
-        //Width 8..8*m
-        //Height 8..8*n
-
-        uint8_t headerlength = 4;
-        uint8_t * header;
-        header = new uint8_t[headerlength];
-        header[0] = 0;  //type 0
-        header[1] = 0;  //no extensions
-
-        header[2] = width; //must be multiple of 8
-        header[3] = height;//must be multiple of 8
-
-        stream->Write(header , headerlength);
-}
-
-void WBMP_GraphicsWriter::WriteLine(const uint8_t *rgba_line)
-{
-}
-
-void WBMP_GraphicsWriter::WriteBitmap(const uint8_t *rgba_buffer)
-{
-}
-
-
-
-RAW_GraphicsWriter::RAW_GraphicsWriter(Blex::Stream *_stream, uint32_t _width, uint32_t _height)
-{
-        width = _width;
-        height = _height;
-        stream = _stream;
-}
-
-RAW_GraphicsWriter::~RAW_GraphicsWriter()
-{
-}
-
-void RAW_GraphicsWriter::WriteLine(const uint8_t *rgba_line)
-{
-        for(uint32_t x=0; x<width; x++)
-        {
-                stream->Write(rgba_line+(x<<2), 3);
-        }
-}
-
-void RAW_GraphicsWriter::WriteBitmap(const uint8_t *rgba_buffer)
-{
-        for(uint32_t y=0; y<height; y++)
-        {
-                WriteLine(rgba_buffer+(width*4)*y);
-                printf("%u \n",y);
-        }
-}
-*/
-
-/******************************************************************************
- FRIGGING INSANITY HERE
- *****************************************************************************/
-/*
-HTMLTABLE_GraphicsWriter::HTMLTABLE_GraphicsWriter(Blex::Stream *_stream, uint32_t _width, uint32_t _height, bool _compressed)
-: stream(_stream)
-, compressed(_compressed)
-, width(_width)
-, height(_height)
-{
-        stream->WriteString("<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\">\n");
-}
-
-HTMLTABLE_GraphicsWriter::~HTMLTABLE_GraphicsWriter()
-{
-        stream->WriteString("</table>\n");
-}
-
-inline char HexChar(unsigned x) { return char(x<=9 ? (x+'0') : (x-10+'A')); }
-
-void HTMLTABLE_GraphicsWriter::WriteLine(const uint8_t *rgba_line)
-{
-        stream->WriteString("  <tr>\n");
-        for (unsigned i=0;i<width;++i)
-        {
-                //ADDME: Handle alpha channel by not printing any bgcolor
-                char cell[100];
-                strcpy(cell,"    <td width=\"1\" bgcolor=\"#");
-                char *cellptr=&cell[strlen(cell)];
-                *cellptr++ = HexChar((rgba_line[i*4] & 0xf0) >> 4);
-                *cellptr++ = HexChar((rgba_line[i*4] & 0xf));
-                *cellptr++ = HexChar((rgba_line[i*4+1] & 0xf0) >> 4);
-                *cellptr++ = HexChar((rgba_line[i*4+1] & 0xf));
-                *cellptr++ = HexChar((rgba_line[i*4+2] & 0xf0) >> 4);
-                *cellptr++ = HexChar((rgba_line[i*4+2] & 0xf));
-                strcpy(cellptr,"\"></td>\n");
-
-                stream->Write(cell,strlen(cell));
-        }
-        stream->WriteString("  </tr>\n");
-}
-
-void HTMLTABLE_GraphicsWriter::WriteBitmap(const uint8_t *rgba_buffer)
-{
-        for (unsigned i=0;i<height;++i)
-            WriteLine(rgba_buffer + i*width*4);
-}
-
-*/
 
 /*
 This is kinda tricky code. It build an octree, depeing on if the bitmap uses alpha;s.

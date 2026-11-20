@@ -60,7 +60,6 @@ class BLEXLIB_PUBLIC Canvas32
 
         void SetScanline32(uint32_t line, const Scanline32 *scanline);
 
-        Scanline32 GetScanline32(uint32_t line) const;
 
         /** Get box containing all painted pixels */
         IRect GetPaintedRectangle() const;
@@ -83,7 +82,6 @@ class BLEXLIB_PUBLIC Canvas32
         /** GetHeight() - Get the height of the canvas in pixels. */
         uint32_t    GetHeight() const {return bitmap->GetHeight();}
 
-        Bitmap32 *private_GetMyBitmap() { return bitmap; } //FIXME dangerous
 
         private:
         // not implement

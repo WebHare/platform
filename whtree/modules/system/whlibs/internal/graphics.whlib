@@ -9,32 +9,21 @@ INTEGER FUNCTION __DRAWLIB_V2_VALIDATEDRAWID(INTEGER id) __ATTRIBUTES__(EXTERNAL
 // Internal functions
 PUBLIC MACRO __DRAWLIB_V2_BLURCANVAS(INTEGER drawid, INTEGER xsize, INTEGER ysize) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC MACRO __DRAWLIB_V2_GRAYSCALECANVAS(INTEGER drawid) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
-PUBLIC MACRO __DRAWLIB_V2_ALPHACANVAS(INTEGER drawid, FLOAT multiply) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
-PUBLIC MACRO __DRAWLIB_V2_ALPHACANVASADD(INTEGER drawid, INTEGER toadd) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
-PUBLIC MACRO __DRAWLIB_V2_INVERTCANVAS(INTEGER drawid) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC MACRO __DRAWLIB_V2_MULTIPLYCANVAS(INTEGER drawid1, INTEGER drawid2) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
-PUBLIC MACRO __DRAWLIB_V2_APPLYCOLORMAPPING(INTEGER drawid1, RECORD ARRAY colormap) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC INTEGER FUNCTION __DRAWLIB_V2_MAKECANVAS(INTEGER width, INTEGER height, INTEGER color) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
-PUBLIC MACRO __DRAWLIB_V2_EASTEREGG(INTEGER drawid) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
-PUBLIC MACRO __DRAWLIB_V2_DRAWLINE(INTEGER drawid, INTEGER startx, INTEGER starty, INTEGER endx, INTEGER endy) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC MACRO __DRAWLIB_V2_DRAWRECTANGLE(INTEGER drawid, INTEGER leftx, INTEGER topy, INTEGER rightx, INTEGER bottomy) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
-PUBLIC MACRO __DRAWLIB_V2_DRAWRECTANGLEBORDER(INTEGER drawid, INTEGER leftx, INTEGER topy, INTEGER rightx, INTEGER bottomy) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC MACRO __DRAWLIB_V2_DRAWELLIPSE(INTEGER drawid, INTEGER centerx, INTEGER centery, INTEGER widthx, INTEGER heighty) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC MACRO __DRAWLIB_V2_DRAWELLIPSEBORDER(INTEGER drawid, INTEGER centerx, INTEGER centery, INTEGER widthx, INTEGER heighty) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC MACRO __DRAWLIB_V2_DRAWPIXEL(INTEGER drawid, INTEGER xpos, INTEGER ypos, INTEGER packedcolor) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC RECORD FUNCTION __DRAWLIB_V2_GETPAINTEDRECTANGLE(INTEGER drawid) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC MACRO __DRAWLIB_V2_DRAWPATH(INTEGER drawid, RECORD ARRAY path, BOOLEAN stroke, BOOLEAN fill, FLOAT ARRAY matrix) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
-PUBLIC INTEGER FUNCTION __DRAWLIB_V2_GETPIXEL(INTEGER drawid, INTEGER xpos, INTEGER ypos) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC MACRO __DRAWLIB_V2_DRAWCANVAS(INTEGER drawid, INTEGER drawfid, INTEGER xpos, INTEGER ypos) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 
 PUBLIC MACRO __DRAWLIB_V2_SETFILLCOLOR(INTEGER drawid, INTEGER packedcolor) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC MACRO __DRAWLIB_V2_SETFILLMODE(INTEGER drawid, INTEGER mode) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC MACRO __DRAWLIB_V2_SETFILLTEXTURE(INTEGER drawid, INTEGER textureid, INTEGER offsetx, INTEGER offsety) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
-PUBLIC MACRO __DRAWLIB_V2_SETFILLTHREEDTEXTURE(INTEGER drawid, INTEGER textureid, FLOAT sua, FLOAT sub, FLOAT suc, FLOAT sva, FLOAT svb, FLOAT svc, FLOAT sza, FLOAT szb, FLOAT szc) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC MACRO __DRAWLIB_V2_SETOUTLINECOLOR(INTEGER drawid, INTEGER packedcolor) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
-PUBLIC MACRO __DRAWLIB_V2_SETOUTLINEMODE(INTEGER drawid, INTEGER mode) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC MACRO __DRAWLIB_V2_SETOUTLINEWIDTH(INTEGER drawid, INTEGER width) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
-PUBLIC MACRO __DRAWLIB_V2_SETOUTLINETHREEDTEXTURE(INTEGER drawid, INTEGER textureid, FLOAT sua, FLOAT sub, FLOAT suc, FLOAT sva, FLOAT svb, FLOAT svc, FLOAT sza, FLOAT szb, FLOAT szc) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC MACRO __DRAWLIB_V2_SETALPHAMODE(INTEGER drawid, INTEGER alphamode) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC MACRO __DRAWLIB_V2_SETPIXELMODE(INTEGER drawid, INTEGER pixelmode) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC INTEGER FUNCTION __DRAWLIB_V2_GETALPHAMODE(INTEGER drawid) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
@@ -46,18 +35,13 @@ PUBLIC INTEGER FUNCTION __DRAWLIB_V2_GETCANVASHEIGHT(INTEGER drawid) __ATTRIBUTE
 PUBLIC INTEGER FUNCTION __DRAWLIB_V2_RESIZECANVAS(INTEGER drawid, INTEGER newwidth, INTEGER newheight) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC INTEGER FUNCTION __DRAWLIB_V2_ROTATECANVAS(INTEGER drawid, BOOLEAN rotate_right) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC INTEGER FUNCTION __DRAWLIB_V2_MIRRORCANVAS(INTEGER drawid) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
-PUBLIC INTEGER FUNCTION __DRAWLIB_V2_SHEARCANVAS(INTEGER drawid, FLOAT scale_x, FLOAT scale_y) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC INTEGER FUNCTION __DRAWLIB_V2_DUPLICATECANVAS(INTEGER drawid) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC INTEGER FUNCTION __DRAWLIB_V2_MAKECANVASFROMCANVAS(INTEGER drawid, INTEGER left, INTEGER top, INTEGER width, INTEGER height) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC MACRO __DRAWLIB_V2_DESTROYCANVAS(INTEGER drawid) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC BLOB FUNCTION __DRAWLIB_V2_CREATEPNGBLOBFROMCANVAS(INTEGER drawid, BOOLEAN palleted, BOOLEAN discard_alpha) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC BLOB FUNCTION __DRAWLIB_V2_CREATEJPGBLOBFROMCANVAS(INTEGER drawid, INTEGER quality) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC BLOB FUNCTION __DRAWLIB_V2_CREATEGIFBLOBFROMCANVAS(INTEGER drawid) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
-PUBLIC BLOB FUNCTION __DRAWLIB_V2_CREATERAWBLOBFROMCANVAS(INTEGER drawid, STRING format) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
-PUBLIC INTEGER FUNCTION __DRAWLIB_V2_CREATECANVASFROMRAWBLOB(BLOB raw, INTEGER width, INTEGER height, STRING FORMAT, BOOLEAN premultiplied) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
-PUBLIC INTEGER FUNCTION __DRAWLIB_V2_CREATEDIFFERENCECANVAS(INTEGER drawid1, INTEGER drawid2) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC FLOAT   FUNCTION __DRAWLIB_V2_COMPARECANVASES(INTEGER drawid1, INTEGER drawid2) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
-PUBLIC MACRO __DRAWLIB_V2_SETCANVASMARSHALLER(OBJECT canvasobj) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 
 /**
 @short          Count the number of colors and alpha values in the canvas
@@ -67,7 +51,6 @@ PUBLIC MACRO __DRAWLIB_V2_SETCANVASMARSHALLER(OBJECT canvasobj) __ATTRIBUTES__(E
 @cell return.alphas Number of transparant pixels
 @cell return.colors Number of counted colors
 */
-PUBLIC RECORD FUNCTION GfxCountCanvasColors(INTEGER canvas_id, INTEGER minalpha) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC RECORD ARRAY FUNCTION __DRAWLIB_V2_GETKMEANSQUANTIZEDPALETTE(INTEGER canvasid, INTEGER clustercount, INTEGER minalpha, INTEGER naxitercount, FLOAT initial) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 
 PUBLIC CONSTANT STRING ARRAY __alphamodes := [ "BLEND255", "COPYALPHA", "COPYALL", "MINALPHA", "MAXALPHA", "LINEARBURN"
@@ -567,21 +550,6 @@ FLOAT FUNCTION ParseHslColorPart(STRING part)
 }
 
 /**
-* Checks if width and height are in valid range
-*/
-PUBLIC  MACRO ValidateWidthHeight(INTEGER width, INTEGER height)
-{
-  IF (width * 1m * height >= 128*1024*1024 )
-    ABORT("Maximum canvas width exceeded. (max = 128 megapixels)");
-
-  IF (width < 1 )
-    ABORT("Canvas width is zero or negative.");
-
-  IF (height< 1 )
-    ABORT("Canvas height is zero or negative.");
-}
-
-/**
 * Checks the validity of the drawid. It should not be out of range or destroyed already.
 */
 PUBLIC  MACRO ValidateDrawID(INTEGER id)
@@ -841,185 +809,6 @@ RECORD FUNCTION GetResizeInstruction(RECORD baseinstruction, RECORD method)
   RETURN baseinstruction;
 }
 
-/** Return the intersection of the lines p1-p2 and p3-p4.
-    If the lines are parallel, returns DEFAULT RECORD/
-    @param p1 First point of line p1-p2
-    @cell(float) p1.x
-    @cell(float) p1.y
-    @param p2 Second point of line p1-p2
-    @cell(float) p2.x
-    @cell(float) p2.y
-    @param p3 First point of line p3-p4
-    @cell(float) p3.x
-    @cell(float) p3.y
-    @param p4 Second point of line p3-p4
-    @cell(float) p4.x
-    @cell(float) p4.y
-    @return Intersection point, DEFAULT RECORD if lines do not intersect.
-    @cell(float) return.x
-    @cell(float) return.y
-*/
-PUBLIC RECORD FUNCTION GetLineIntersection(RECORD p1, RECORD p2, RECORD p3, RECORD p4)
-{
-  // http://stackoverflow.com/questions/385305/efficient-maths-algorithm-to-calculate-intersections
-  RECORD d12 := [ x := FLOAT(p1.x) - p2.x, y := FLOAT(p1.y) - p2.y ];
-  RECORD d34 := [ x := FLOAT(p3.x) - p4.x, y := FLOAT(p3.y) - p4.y ];
-
-  FLOAT c :=  d12.x * d34.y - d12.y * d34.x;
-
-  IF (c < 0.00001 AND c > -0.00001)
-    RETURN DEFAULT RECORD;
-
-  FLOAT a := FLOAT(p1.x) * p2.y - FLOAT(p1.y) * p2.x;
-  FLOAT b := FLOAT(p3.x) * p4.y - FLOAT(p3.y) * p4.x;
-
-  RETURN
-      [ x := (a * d34.x - b * d12.x) / c
-      , y := (a * d34.y - b * d12.y) / c
-      ];
-}
-
-/** Generates a function f(z)= ax+by+c from three points (x,y,z)
-*/
-PUBLIC RECORD FUNCTION ComputeFunctionFromThreePoints(RECORD ARRAY pts, STRING resultcell)
-{
-  // See http://paulbourke.net/geometry/planeeq/ for the general idea of 3 points -> plane equation
-
-  // First, calculate the plane ax + by + cz + d = 0
-  // Then, z = (a/c)x + (b/c)y + (d/c) (allowed when (x,y) are different for all points)
-
-  RECORD d12 := [ x := pts[1].x - pts[0].x, y := pts[1].y - pts[0].y, z := GetCell(pts[1], resultcell) - GetCell(pts[0], resultcell) ];
-  RECORD d13 := [ x := pts[2].x - pts[0].x, y := pts[2].y - pts[0].y, z := GetCell(pts[2], resultcell) - GetCell(pts[0], resultcell) ];
-
-  FLOAT plane_a := d12.y * d13.z - d12.z * d13.y;
-  FLOAT plane_b := d12.z * d13.x - d12.x * d13.z;
-  FLOAT plane_c := d12.x * d13.y - d12.y * d13.x;
-
-  FLOAT eq_a := -plane_a / plane_c;
-  FLOAT eq_b := -plane_b / plane_c;
-
-  // It is cheaper to not calculate plane_d, and just use one of the points to calculate eq_c
-  RETURN
-      [ a :=      eq_a
-      , b :=      eq_b
-      , c :=      GetCell(pts[0], resultcell) - eq_a * pts[0].x - eq_b * pts[0].y
-      ];
-}
-
-/** Given a function ax+by+c, return the result value for a certain (x,y)
-*/
-FLOAT FUNCTION GetFunctionResult(RECORD func, RECORD pt)
-{
-  RETURN func.a * pt.x + func.b * pt.y + func.c;
-}
-
-/** Given a projected square (projected toward (0,0,0) on z=1) get the projection functions for perspective
-    correct
-    @param lt Left top
-    @cell (float) lt.x Projected x coordinate
-    @cell (float) lt.y Projected y coordinate
-    @cell (float) lt.u Texture x coordinate
-    @cell (float) lt.v Texture y coordinate
-    @param rt Right top
-    @cell (float) rt.x Projected x coordinate
-    @cell (float) rt.y Projected y coordinate
-    @cell (float) rt.u Texture x coordinate
-    @cell (float) rt.v Texture y coordinate
-    @param lb Left bottom
-    @cell (float) lb.x Projected x coordinate
-    @cell (float) lb.y Projected y coordinate
-    @cell (float) lb.u Texture x coordinate
-    @cell (float) lb.v Texture y coordinate
-    @param rb Right bottom
-    @cell (float) rb.x Projected x coordinate
-    @cell (float) rb.y Projected y coordinate
-    @cell (float) rb.u Texture x coordinate
-    @cell (float) rb.v Texture y coordinate
-    @return Projection functions, for use in threedtexture rendering
-    @cell(record) return.szfunc
-    @cell(record) return.sufunc
-    @cell(record) return.svfunc
-*/
-PUBLIC RECORD FUNCTION GetProjectionFunctionsFromProjectedSquare(RECORD lt, RECORD rt, RECORD lb, RECORD rb)
-{
-  INSERT CELL z := 1f INTO lt;
-  INSERT CELL sz := 1f INTO lt;
-  INSERT CELL su := lt.u INTO lt;
-  INSERT CELL sv := lt.v INTO lt;
-
-  // We assume the left-top point has z=1 (lt.x, lt.y, 1) (sz = 1/1 = 1)
-  // We know that at the vanishing points, z->+inf, so 1/z->+0
-  // In projection-space, z changes linearly with (x,y)
-
-  RECORD ARRAY zplane_pts := [ lt ];
-
-  /* Have intersection? If yes, add (inter.x, inter,y, inf) (sz = 1/inf = 0). If no, the
-     z does not change over this line, and is 1 at (rt.x, rt.y), so add (rt.x, rt.y, 1)
-  */
-  RECORD tb_intersect := GetLineIntersection(lt, rt, lb, rb);
-  IF (RecordExists(tb_intersect))
-  {
-    INSERT CELL sz := 0f INTO tb_intersect;
-    INSERT tb_intersect INTO zplane_pts AT END;
-  }
-  ELSE
-    INSERT CellInsert(rt, "SZ", 1f) INTO zplane_pts AT END;
-
-  // The same for the other lines
-  RECORD lr_intersect := GetLineIntersection(lt, lb, rt, rb);
-  IF (RecordExists(lr_intersect))
-  {
-    INSERT CELL sz := 0f INTO lr_intersect;
-    INSERT lr_intersect INTO zplane_pts AT END;
-  }
-  ELSE
-    INSERT CellInsert(lb, "SZ", 1f) INTO zplane_pts AT END;
-
-  // Get the linear function to calculate sz in screen coordinates
-  RECORD szfunc := ComputeFunctionFromThreePoints(zplane_pts, "SZ");
-
-  // Calculate the sz=(1/z), su(=u/z*sz) and sv(=v/z=v*sz) for all points
-  RECORD ARRAY pts := [ lt, rt, lb, rb ];
-  FOR (INTEGER i := 1; i < 4; i := i + 1)
-  {
-    // Just apply the sz function to get the sz for the projected (x, y)
-    FLOAT sz := GetFunctionResult(szfunc, pts[i]);
-    INSERT CELL sz := sz INTO pts[i];
-
-    // Then use that sz to calculate the su and sv
-    INSERT CELL su := pts[i].u * sz INTO pts[i];
-    INSERT CELL sv := pts[i].v * sz INTO pts[i];
-  }
-
-  // Calculate the su and sv functions & return them
-  RETURN
-      [ szfunc := szfunc
-      , sufunc := ComputeFunctionFromThreePoints(pts, "SU")
-      , svfunc := ComputeFunctionFromThreePoints(pts, "SV")
-      ];
-}
-
-PUBLIC RECORD FUNCTION GfxGetProjectionFunctionsFromProjectedCanvas(INTEGER canvas, RECORD lt, RECORD rt, RECORD lb, RECORD rb)
-{
-  FLOAT canvas_width := __DRAWLIB_V2_GETCANVASWIDTH(canvas);
-  FLOAT canvas_height := __DRAWLIB_V2_GETCANVASHEIGHT(canvas);
-
-  INSERT CELL u := 0f INTO lt;
-  INSERT CELL v := 0f INTO lt;
-
-  INSERT CELL u := canvas_width - 1f INTO rt;
-  INSERT CELL v := 0f INTO rt;
-
-  INSERT CELL u := 0f INTO lb;
-  INSERT CELL v := canvas_height - 1f INTO lb;
-
-  INSERT CELL u := canvas_width - 1f INTO rb;
-  INSERT CELL v := canvas_height - 1f INTO rb;
-
-  RETURN GetProjectionFunctionsFromProjectedSquare(lt, rt, lb, rb);
-}
-
-
 INTEGER FUNCTION GetTypeID(STRING type)
 {
   SWITCH (ToUpperCase(type))
@@ -1027,9 +816,6 @@ INTEGER FUNCTION GetTypeID(STRING type)
     CASE "CLOSEPATH" { RETURN 0; }
     CASE "MOVETO" { RETURN 1; }
     CASE "LINETO" { RETURN 2; }
-    CASE "BEZIERTO" { RETURN 3; }
-    CASE "ARCTO" { RETURN 4; }
-    CASE "ARCTOR" { RETURN 5; }
 
     CASE "DEFAULT" { RETURN -1; }
     DEFAULT { ABORT("Unknown path entry '" || type || "'"); }
@@ -1047,142 +833,4 @@ PUBLIC RECORD ARRAY FUNCTION fixuppath(RECORD ARRAY path)
     INSERT element INTO newpath AT END;
   }
   RETURN newpath;
-}
-
-PUBLIC INTEGER FUNCTION __DRAWLIB_V2_GETREFCOUNT(INTEGER drawid) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
-
-
-
-//source http://www.codeproject.com/KB/graphics/BezierSpline.aspx
-/** @short Get open-ended Bezier Spline Control Points.
-    @param knots Input Knot Bezier spline points. Must contain at least two points
-*/
-PUBLIC RECORD FUNCTION GetCurveControlPoints(RECORD ARRAY knots)
-{
-  //ADDME return or add to a path
-
-  RECORD ARRAY firstcontrolpoints;
-  RECORD ARRAY secondcontrolpoints;
-
-  INTEGER n := Length(knots)-1;
-  IF(n<1)
-    THROW NEW Exception("At least two knot points are required");
-
-  IF(n=1) // Special case: Bezier curve should be a straight line.
-  {
-    firstcontrolpoints := [[ x := (2 * knots[0].X + knots[1].X) / 3
-                           , y := (2 * knots[0].Y + knots[1].Y) / 3
-                           ]
-                          ];
-    secondcontrolpoints := [[ x := firstControlPoints[0].X - knots[0].X
-                            , y := secondControlPoints[0].Y = 2 * firstControlPoints[0].Y - knots[0].Y
-                            ]
-                           ];
-  }
-
-  // Calculate first Bezier control points
-  // Right hand side vector
-  FLOAT ARRAY rhs;
-  FOR(INTEGER i := 0; i < n; i:=i+1)
-    INSERT 0f INTO rhs AT END;
-
-  // Set right hand side X values
-  FOR(INTEGER i := 1; i < n - 1; i := i + 1)
-    rhs[i] := 4 * knots[i].x + 2 * knots[i + 1].x;
-  rhs[0] := knots[0].x + 2 * knots[1].x;
-  rhs[n-1] := (8 * knots[n-1].x + knots[n].x) / 2.0;
-
-  // Get first control points X-values
-  FLOAT ARRAY x := GetFirstControlPoints(rhs);
-
-  // Set right hand side Y values
-  FOR(INTEGER i := 1; i < n - 1; i := i + 1)
-    rhs[i] := 4 * knots[i].Y + 2 * knots[i + 1].Y;
-  rhs[0] := knots[0].Y + 2 * knots[1].Y;
-  rhs[n-1] := (8 * knots[n - 1].Y + knots[n].Y) / 2.0;
-
-  // Get first control points Y-values
-  FLOAT ARRAY y := GetFirstControlPoints(rhs);
-
-  // Fill output arrays.
-  FOR(INTEGER i := 0; i < n; i := i + 1)
-  {
-    // First control point
-    INSERT [ x := x[i], y := y[i] ] INTO firstcontrolpoints AT END;
-    IF(i < n - 1)
-    {
-      INSERT [ x := 2 * knots [i + 1].X - x[i + 1]
-             , y :=  2 * knots[i + 1].Y - y[i + 1]
-             ] INTO secondcontrolpoints AT END;
-    }
-    ELSE
-    {
-      INSERT [ x := (knots[n].X + x[n - 1]) / 2
-             , y := (knots[n].Y + y[n - 1]) / 2
-             ] INTO secondcontrolpoints AT END;
-    }
-  }
-  RETURN [ firstcontrolpoints := firstcontrolpoints
-         , secondcontrolpoints := secondcontrolpoints
-         ];
-}
-
-/// <summary>
-/// Solves a tridiagonal system for one of coordinates (x or y)
-/// of first Bezier control points.
-/// </summary>
-/// <param name="rhs">Right hand side vector.</param>
-/// <returns>Solution vector.</returns>
-FLOAT ARRAY FUNCTION GetFirstControlPoints(FLOAT ARRAY rhs)
-{
-  INTEGER n := Length(rhs);
-  FLOAT ARRAY x := rhs; // Solution vector.
-  FLOAT ARRAY tmp := rhs; // Temp workspace.
-
-  FLOAT b := 2;
-  x[0] := rhs[0] / b;
-  FOR(INTEGER i:=1;i<n;i:=i+1) // Decomposition and forward substitution.
-  {
-    tmp[i] := 1 / b;
-    b := (i < n - 1 ? 4.0 : 3.5) - tmp[i];
-    x[i] := (rhs[i] - x[i - 1]) / b;
-  }
-  FOR(INTEGER i := 1; i < n; i := i + 1)
-  {
-    x[n-i-1] := x[n-i-1] - tmp[n - i] * x[n - i]; // Backsubstitution.
-  }
-  RETURN x;
-}
-PUBLIC MACRO Gfx3dTextureFillPath(INTEGER canvas_id, INTEGER texture_id, RECORD projectionfuncs, RECORD ARRAY path)
-{
-  __DRAWLIB_V2_SetFillThreeDTexture(canvas_id, texture_id,
-      projectionfuncs.sufunc.a,
-      projectionfuncs.sufunc.b,
-      projectionfuncs.sufunc.c,
-      projectionfuncs.svfunc.a,
-      projectionfuncs.svfunc.b,
-      projectionfuncs.svfunc.c,
-      projectionfuncs.szfunc.a,
-      projectionfuncs.szfunc.b,
-      projectionfuncs.szfunc.c);
-  __DRAWLIB_V2_SetFillMode (canvas_id, 2); //3d texture fill
-
-    FLOAT ARRAY matrix :=
-      [ 1f, 0f, 0f
-      , 0f, 1f, 0f
-      , 0f, 0f, 1f];
-
-  RECORD ARRAY newpath;
-  FOREVERY (RECORD element FROM path)
-  {
-    INTEGER typenr := GetTypeID(element.type);
-    DELETE CELL type FROM element;
-    INSERT CELL type := typenr INTO element;
-
-    INSERT element INTO newpath AT END;
-  }
-
-  __DRAWLIB_V2_DrawPath(canvas_id, newpath, FALSE, TRUE, matrix); // no outline
-
-  __DRAWLIB_V2_SetFillMode (canvas_id, 0); //reset to solid fill
 }
