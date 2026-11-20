@@ -24,8 +24,7 @@ test.runTests(
         test.eq('450px', body.style.width, 'contentareawidth not applied!');
         const bodytop = body.getBoundingClientRect().top;
         const editareatop = body.closest('.wh-rtd__html').getBoundingClientRect().top;
-        if (!body.classList.contains("wh-rtd__body--safariscrollfix"))
-          test.assert((bodytop - editareatop) >= 8, "editareatop=" + editareatop + ", bodytop=" + bodytop + ", must be at least 8px margin");
+        test.assert((bodytop - editareatop) >= 8, "editareatop=" + editareatop + ", bodytop=" + bodytop + ", must be at least 8px margin");
         table = body.getElementsByTagName('table')[0];
       }
     },

@@ -9,18 +9,6 @@ export default class FreeEditor extends EditorBase {
     this._constructorTail();
   }
 
-  execCommand(command, p1, p2) {
-    try {
-      // execCommand should be called on the document, not the editable area (contenteditable/designmode)
-      this.bodydiv.ownerDocument.execCommand(command, p1, p2);
-    } catch (e) {
-      if (this.options.log)
-        console.log('ExecCommand exception', e);
-      return false;
-    }
-    return true;
-  }
-
   addListLevel() {
     this.execCommand('indent');
     this.stateHasChanged();

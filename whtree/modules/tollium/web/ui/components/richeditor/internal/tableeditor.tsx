@@ -1,8 +1,7 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import * as dompack from "dompack";
-import { qSA } from "dompack";
+import * as dompack from "@webhare/dompack";
 import * as movable from 'dompack/browserfix/movable';
 import * as domlevel from "./domlevel";
 
@@ -108,7 +107,6 @@ export function locateFirstDataCell(tablenode) {
   const dims = getTableDimensions(tablenode);
 
   // Look at the right column and bottom row to see what the last th is there
-  //var allscoped = true;
   iterateTableCells(tablenode, (td, row, col) => {
     if (td.nodeName.toUpperCase() === "TH") {
       if (row + td.rowSpan === dims.rows && bottomcols < col + td.colSpan)
@@ -386,6 +384,25 @@ export class TableEditor {
     return this.options.getUndoLock ? this.options.getUndoLock() : null;
   }
 
+  /** Run a modification of this table as one undoable action, then update the editor for the new table structure
+      @param td - The cell the modification applies to. Nothing is done if it's not a cell of this table
+      @param modify - Callback doing the actual modification
+  */
+  private modifyTableAt(td, modify: () => void) {
+    const table = td.closest("table");
+    if (table !== this.node)
+      return;
+
+    const undolock = this.getUndoLock();
+    try {
+      modify();
+      this.reset();
+      this._gotStateChange();
+    } finally {
+      undolock.close();
+    }
+  }
+
   /** Add one or more columns to the table
       @param td - The column to insert the new columns after
       @param before - Whether to add the columns before or after the td
@@ -395,20 +412,12 @@ export class TableEditor {
       \@cell options.newcell_callback Called with every new created table cell node
   */
   insertColumns(td, before, num, width, options) {
-    const table = td.closest("table");
-    if (table !== this.node)
-      return;
-
-    const undolock = this.getUndoLock();
-
-    let col = td.propWhPos.col;
-    if (!before)
-      col += (td.colSpan - 1);
-    this._insertColumnsAt("test", col, before, num, width, options || {});
-    this.reset();
-    this._gotStateChange();
-
-    undolock.close();
+    this.modifyTableAt(td, () => {
+      let col = td.propWhPos.col;
+      if (!before)
+        col += (td.colSpan - 1);
+      this._insertColumnsAt("test", col, before, num, width, options || {});
+    });
   }
 
   /** Add one or more rows to the table
@@ -420,20 +429,12 @@ export class TableEditor {
       \@cell options.newcell_callback Called with every new created table cell node
   */
   insertRows(td, before, num, width, options) {
-    const table = td.closest("table");
-    if (table !== this.node)
-      return;
-
-    const undolock = this.getUndoLock();
-
-    let row = td.propWhPos.row;
-    if (!before)
-      row += (td.rowSpan - 1);
-    this._insertRowsAt(row, before, num, width, options || {});
-    this.reset();
-    this._gotStateChange();
-
-    undolock.close();
+    this.modifyTableAt(td, () => {
+      let row = td.propWhPos.row;
+      if (!before)
+        row += (td.rowSpan - 1);
+      this._insertRowsAt(row, before, num, width, options || {});
+    });
   }
 
   /** Add one or more columns to the table
@@ -441,18 +442,7 @@ export class TableEditor {
       @param num - The number of columns to delete
   */
   deleteColumns(td, num) {
-    const table = td.closest("table");
-    if (table !== this.node)
-      return;
-
-    const undolock = this.getUndoLock();
-
-    const col = td.propWhPos.col;
-    this._deleteColumns(col, num);
-    this.reset();
-    this._gotStateChange();
-
-    undolock.close();
+    this.modifyTableAt(td, () => this._deleteColumns(td.propWhPos.col, num));
   }
 
   /** Add one or more columns to the table
@@ -460,18 +450,7 @@ export class TableEditor {
       @param num - The number of rowss to delete
   */
   deleteRows(td, num) {
-    const table = td.closest("table");
-    if (table !== this.node)
-      return;
-
-    const undolock = this.getUndoLock();
-
-    const row = td.propWhPos.row;
-    this._deleteRows(row, num);
-    this.reset();
-    this._gotStateChange();
-
-    undolock.close();
+    this.modifyTableAt(td, () => this._deleteRows(td.propWhPos.row, num));
   }
 
   _applyNewStyle(node, newstyle) {
@@ -676,42 +655,32 @@ export class TableEditor {
     return retval;
   }
 
-  mergeRight(cellnode) {
+  /// Merge a cell with its neighbouring cells to the right or below it
+  private mergeCells(cellnode, cellsprop: "mergerightcells" | "mergedowncells", spanprop: "colSpan" | "rowSpan") {
     const undolock = this.getUndoLock();
+    try {
+      const cells = this._getSplitMergeData(cellnode)[cellsprop];
 
-    const mergedata = this._getSplitMergeData(cellnode);
-    const cells = mergedata.mergerightcells;
+      for (const cell of cells)
+        cellnode.append(...Array.from(cell.childNodes));
 
-    for (const cell of cells)
-      cellnode.append(...Array.from(cell.childNodes));
+      cellnode[spanprop] += cells[0][spanprop];
 
-    cellnode.colSpan += cells[0].colSpan;
+      for (const cell of cells)
+        cell.remove();
+      this.reset();
+      this._gotStateChange();
+    } finally {
+      undolock.close();
+    }
+  }
 
-    for (const cell of cells)
-      cell.remove();
-    this.reset();
-    this._gotStateChange();
-
-    undolock.close();
+  mergeRight(cellnode) {
+    this.mergeCells(cellnode, "mergerightcells", "colSpan");
   }
 
   mergeDown(cellnode) {
-    const undolock = this.getUndoLock();
-
-    const mergedata = this._getSplitMergeData(cellnode);
-    const cells = mergedata.mergedowncells;
-
-    for (const cell of cells)
-      cellnode.append(...Array.from(cell.childNodes));
-
-    cellnode.rowSpan += cells[0].rowSpan;
-
-    for (const cell of cells)
-      cell.remove();
-    this.reset();
-    this._gotStateChange();
-
-    undolock.close();
+    this.mergeCells(cellnode, "mergedowncells", "rowSpan");
   }
 
   splitCols(cellnode) {
@@ -1287,9 +1256,9 @@ export function getEditorForNode(node) {
 }
 
 export function cleanupTree(tree) {
-  qSA(tree, 'div.wh-tableeditor-resize-holder').forEach(node => {
+  dompack.qSA(tree, 'div.wh-tableeditor-resize-holder').forEach(node => {
     // remove the tfoot holding the resizing columns
-    qSA(node.firstChild, 'tfoot.wh-tableeditor-resize-columns').forEach(tfoot => tfoot.remove());
+    dompack.qSA(node.firstChild, 'tfoot.wh-tableeditor-resize-columns').forEach(tfoot => tfoot.remove());
 
     // move the table out of the resize container
     node.parentNode.insertBefore(node.firstChild, node);
@@ -1298,11 +1267,11 @@ export function cleanupTree(tree) {
   });
 
   // Remove table style and colgroup classes
-  qSA(tree, ".wh-rtd__table").forEach(node => node.removeAttribute("style"));
-  qSA(tree, ".wh-rtd__table > colgroup").forEach(node => node.removeAttribute("class"));
+  dompack.qSA(tree, ".wh-rtd__table").forEach(node => node.removeAttribute("style"));
+  dompack.qSA(tree, ".wh-rtd__table > colgroup").forEach(node => node.removeAttribute("class"));
   // Remove the style from <tr>s, which are filled by Safari with their height, causing the editor to be marked as dirty when
   // nothing has actually changed
-  qSA(tree, ".wh-rtd__table tr[style]").forEach(node => node.removeAttribute("style"));
+  dompack.qSA(tree, ".wh-rtd__table tr[style]").forEach(node => node.removeAttribute("style"));
 }
 
 //Capture all load events, see if we need to resize tables

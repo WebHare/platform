@@ -1,5 +1,5 @@
 import * as tablesupport from "./tableeditor";
-import * as dompack from 'dompack';
+import * as dompack from "@webhare/dompack";
 import type { RTESettings, RTEWidget, TargetInfo } from "./types";
 import { queryEmbeddedObjects } from "./domlevel";
 

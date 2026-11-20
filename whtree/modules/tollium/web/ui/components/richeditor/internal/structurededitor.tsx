@@ -6,8 +6,7 @@ import { debugFlags } from "@webhare/env";
 import * as rtesupport from "./support";
 import * as richdebug from "./richdebug";
 import { getFormService } from "@webhare/forms/src/formservice";
-import * as dompack from "dompack";
-import * as browser from "dompack/extra/browser";
+import * as dompack from "@webhare/dompack";
 import * as lists from './structured/lists';
 import ParsedStructure from "./parsedstructure";
 import Range from './dom/range';
@@ -162,7 +161,7 @@ export default class StructuredEditor extends EditorBase {
     if (clipboardData && clipboardData.getData) {
       const types = Array.from(clipboardData.types); //Edge compatibility - it's a DOMStringList there
 
-      if (dompack.debugflags.rte) {
+      if (debugFlags.rte) {
         console.log('[rte] paste', clipboardData, "types", types);
         if (clipboardData.files)
           console.log('[rte] Files', clipboardData.files, "length", clipboardData.files && clipboardData.files.length);
@@ -178,7 +177,7 @@ export default class StructuredEditor extends EditorBase {
 
       if (types.includes('text/html')) {
         const htmltext = clipboardData.getData('text/html');
-        if (dompack.debugflags.rte) {
+        if (debugFlags.rte) {
           console.log("[rte] Received clipboardData text/html:");
           console.log("[rte] [" + htmltext + "]");
           console.log("[rte] end of clipboardData");
@@ -211,7 +210,7 @@ export default class StructuredEditor extends EditorBase {
 
           // Only seen png pastes for now
           if (["image/png"].includes(item.type)) {
-            if (dompack.debugflags.rte)
+            if (debugFlags.rte)
               console.log("[rte] Got image file of type " + item.type);
 
             const pastecontent = document.createElement('div');
@@ -230,11 +229,11 @@ export default class StructuredEditor extends EditorBase {
             }
           }
         }
-      } else if (browser.getName() === "safari" && types.includes("image/tiff") && types.includes("text/uri-list")) {
+      } else if (dompack.getBrowser().name === "safari" && types.includes("image/tiff") && types.includes("text/uri-list")) {
         // Safari doesn't handle pastes of images well, it does pastes a 'webkit-fake-url://..../<urlpath>' url.
         // We can try to get the URL ourselves
 
-        if (dompack.debugflags.rte)
+        if (debugFlags.rte)
           console.log("[rte] Got a safari image paste");
 
         const url = clipboardData.getData('text/uri-list');
@@ -247,7 +246,7 @@ export default class StructuredEditor extends EditorBase {
         return;
       } else if (types.includes('text/plain')) {
         const text = clipboardData.getData('text/plain');
-        if (dompack.debugflags.rte) {
+        if (debugFlags.rte) {
           console.log("[rte] Received clipboardData text/plain:");
           console.log("[rte] [" + text + "]");
           console.log("[rte] end of clipboardData");
@@ -266,7 +265,7 @@ export default class StructuredEditor extends EditorBase {
           pastecontent.appendChild(document.createElement('br'));
         });
 
-        if (dompack.debugflags.rte) {
+        if (debugFlags.rte) {
           console.log("[rte] html to insert");
           console.log(pastecontent.innerHTML);
         }
@@ -557,14 +556,10 @@ export default class StructuredEditor extends EditorBase {
       br (always a simple range)
   */
   pointsToLastBlockBR(locator) {
-    //var block = this.getBlockAtNode(locator.getNearestNode());
-
     locator = locator.clone();
     const res = locator.scanForward(this.getBody(), {});
     if (res.type !== 'br')
       return null;
-    //    if ((!res.segmentbreak && !res.zerowidthspace) || res.blockboundary) // Segment break that is not a block boundary is a <br> or (not implemented) a visible '\n'
-    //      return null;
 
     const x = domlevel.getInvisibleSegmentBreakRange(locator, this.getBody());
     return x;
@@ -620,9 +615,6 @@ export default class StructuredEditor extends EditorBase {
 
       // If the locator points to the last br of the node. That node needs to be removed!
       if (segmentbreakrange) {
-        //        tempnode = lastbr.node;
-        //        locator = lastbr.next;
-
         //console.log('listinsert, last br: ', richdebug.getStructuredOuterHTML(block.blockroot, { node: block.node, locator: locator }));
       } else // Need a temporary node to keep block alive through splitdom
       {
@@ -885,7 +877,7 @@ export default class StructuredEditor extends EditorBase {
   async _pasteContentAt(pastecontent: HTMLDivElement, insertlocator: domlevel.Locator) {
     const undolock = this.getUndoLock();
 
-    if (dompack.debugflags.rte)
+    if (debugFlags.rte)
       console.log('[rte] parseContentAt, raw', pastecontent.innerHTML);
 
     // If we're at the start of a block, don't pass inblock so the first pasted block will replace the current block
@@ -893,13 +885,13 @@ export default class StructuredEditor extends EditorBase {
     const downres = down.scanBackward(this.getBody(), { whitespace: true });
     const atblockstart = ['innerblock', 'outerblock'].includes(downres.type);
 
-    if (dompack.debugflags.rte)
+    if (debugFlags.rte)
       console.log('[rte] paste at block start: ', atblockstart ? 'yes' : 'no', downres, richdebug.getStructuredOuterHTML(this.getBody(), { down: down, insertlocator: insertlocator }));
 
     const cleanupper = new PasteCleanup;
     const res = cleanupper.applyCleanup(pastecontent);
 
-    if (dompack.debugflags.rte)
+    if (debugFlags.rte)
       console.log('[rte] parseContentAt, cleaned', pastecontent.innerHTML);
 
     const preexistingstylenodes = this.qSA("style");
@@ -918,10 +910,6 @@ export default class StructuredEditor extends EditorBase {
       undolock.close();
 
     this._reprocessEmbeddedAutoElements();
-  }
-
-  compareTextStyleOrder(tagleft, tagright) {
-    return this.textstyletags.indexOf(tagleft) - this.textstyletags.indexOf(tagright);
   }
 
   /** Creates a textstyle-record from a node
@@ -1048,10 +1036,6 @@ export default class StructuredEditor extends EditorBase {
       if (locator.element !== breaknode) {
         // Got an element in our path we do not want in the final style
         // Calculate until which element (how deep) we need to split, then do the split
-        //        var splitparent = path.length ? path[0] : locator.element;
-        //        if (splitparent.nodeType !== 1)
-        //          splitparent = splitparent.parentNode;
-
         // console.log('IIFN pre split html: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
         const parts = domlevel.splitDom(breaknode, [{ locator: locator, toward: 'start' }], preservelocators, undoitem);
         // console.log('IIFN post split html: ', richdebug.getStructuredOuterHTML(this.getBody(), parts));
@@ -1127,7 +1111,6 @@ export default class StructuredEditor extends EditorBase {
   */
   getBlocksInRange(range, withinnerlists) {
     range = range.clone();
-    //var orgrange = range.clone();
 
     /* minimize the range, so we're inside a block (when outside a block, the following code
        range moving can go into embedded objects) */
@@ -1153,8 +1136,6 @@ export default class StructuredEditor extends EditorBase {
     const blocknodes = [];
 
     // FIXME: use something to limit maxancestor to nearest <body><td><th>
-    //var startblocknode = range.start.element;
-    //var endblocknode = range.end.element;
 
     const elts = range.querySelectorAll('*');
     for (let i = 0; i < elts.length; ++i) {
@@ -1834,19 +1815,6 @@ export default class StructuredEditor extends EditorBase {
         case 'listitem':
           {
             const subnodes = node.nodes;
-            /*            let j;
-                        for (j = subnodes.length - 1; j >= 0; --j)
-                        {
-                          if (subnodes[j].type === 'br') // bogus BR!
-                          {
-                            subnodes.pop();
-                            node.forcevisible = true;
-                            break;
-                          }
-                          else if (subnodes[j].type !== 'text' || !subnodes[j].value.match(/^[ \t\r\n]*$/))
-                            break;
-                        }
-            */
             if (subnodes.length)
               this.cleanupParsedExternalContent(subnodes);
 
@@ -1900,7 +1868,7 @@ export default class StructuredEditor extends EditorBase {
     const initialblockstyle = options.inblock && block && block.blockstyle || null;
     const parsed = this.parseContainerContents(node, { ...options, initialblockstyle });
 
-    if (dompack.debugflags.rte)
+    if (debugFlags.rte)
       console.log('[rte] parsed container contents', parsed, { breakblock });
 
     if (breakblock) {
@@ -2137,7 +2105,6 @@ export default class StructuredEditor extends EditorBase {
       range.start.assign(resultres.start);
     }
 
-    //range.end.assign(range.start);
     this.selectRange(range);
 
     undolock.close();
@@ -2455,16 +2422,6 @@ export default class StructuredEditor extends EditorBase {
     return true;
   }
 
-  addListNodeToNode(node, blockstyle) {
-    if (node.lastChild && node.lastChild.lastChild) {
-      const block = this.getBlockAtNode(node.lastChild.lastChild);
-      if (block && block.blockstyle)
-        blockstyle = block.blockstyle;
-    }
-
-    return this.insertBlockNode(new domlevel.Locator(node, "end"), blockstyle, true, null, null, null);
-  }
-
   areBothListRoots(left, right) {
     return ['ol', 'ul'].includes(left.nodeName.toLowerCase())
       && ['ol', 'ul'].includes(right.nodeName.toLowerCase());
@@ -2728,13 +2685,12 @@ export default class StructuredEditor extends EditorBase {
 
     this.selectRange(range);
 
-    //    if (undoitem)
-    //      undoitem.finish(this.getSelectionRange());
     undolock.close();
     this.stateHasChanged();
     this._reprocessEmbeddedAutoElements();
   }
-  removeEmbeddedObject(node) {
+  /// Remove a node (eg. an embedded object or a table) as an undoable action, preserving the selection
+  private removeNodeWithUndo(node: Node) {
     const range = this.getSelectionRange();
     const undolock = this.getUndoLock();
 
@@ -2744,6 +2700,10 @@ export default class StructuredEditor extends EditorBase {
 
     undolock.close();
     this.stateHasChanged();
+  }
+
+  removeEmbeddedObject(node) {
+    this.removeNodeWithUndo(node);
   }
 
   _createTableNode(data) {
@@ -2812,15 +2772,7 @@ export default class StructuredEditor extends EditorBase {
   }
 
   removeTable(node) {
-    const range = this.getSelectionRange();
-    const undolock = this.getUndoLock();
-
-    domlevel.Locator.newPointingTo(node).removeNode([range], undolock.undoitem);
-
-    this.selectRange(range);
-
-    undolock.close();
-    this.stateHasChanged();
+    this.removeNodeWithUndo(node);
   }
 
   requireBottomParagraph() {

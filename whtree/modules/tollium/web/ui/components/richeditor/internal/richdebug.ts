@@ -198,7 +198,6 @@ function unstructureDom(node: Node, locators?: domlevel.Locator[]) {
     let result = null;
     let quoted = false;
     let locator = new domlevel.Locator(node, i);
-    //var hadlocator = false;
     for (let a = 0; a < text.length;) {
       if (text.substr(a, 2) === '(*') {
         const endpos = text.indexOf('*)', a);
@@ -350,7 +349,6 @@ function cloneNodeWithTextQuotesAndMarkedLocators(node, locators) {
     return document.createTextNode(text + '"');
   }
 
-  //  var nodes = [];
   const copy = node.cloneNode(false);
   if (domlevel.isEmbeddedObject(copy)) {
     copy.removeAttribute("contenteditable");
