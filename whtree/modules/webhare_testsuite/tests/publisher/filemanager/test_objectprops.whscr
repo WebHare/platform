@@ -274,6 +274,35 @@ ASYNC MACRO TestClearedNameFollowsTitle() {
   TestEq("", keepfolder->title);
   TestEq("keep-name", keepfolder->name);
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //close filemgr
+
+  /* A suggested name that's already in use by a sibling is reported as a conflict, just like typing that name would be
+     (and like the document editor does) - we shouldn't silently save a different name than the placeholder showed */
+  GetPrimary()->BeginWork();
+  OBJECT conflictfolder := GetTestsuiteTempFolder()->CreateFolder([ name := "conflict-source", title := "Conflict source" ]);
+  GetPrimary()->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ conflictfolder->whfspath ] ]));
+  topscreen->frame->focused := TT("foldertree");
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+  TT(":Folder name")->value := "";
+  TT(":Title")->value := "Organisation";
+  TT(":Title")->SetDirty();
+  TestEq("organisation", TT(":Folder name")->placeholder);
+
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Ok"), [ messagemask := "*organisation*exists*" ]);
+  TestEq("", TT(":Folder name")->value, "A failed save should leave the name cleared");
+
+  //The name should still follow the title, so fixing the title is enough to save
+  TT(":Title")->value := "Organisation two";
+  TT(":Title")->SetDirty();
+  TestEq("organisation-two", TT(":Folder name")->placeholder);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  conflictfolder := OpenWHFSObject(conflictfolder->id);
+  TestEq("Organisation two", conflictfolder->title);
+  TestEq("organisation-two", conflictfolder->name);
+  TestEq("organisation", OpenWHFSObject(testfolder->id)->name);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //close filemgr
 }
 
 ASYNC MACRO TestObjectPropsThroughObjectEditor()
