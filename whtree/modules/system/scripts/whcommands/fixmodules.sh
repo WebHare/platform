@@ -41,34 +41,58 @@ wh apply --offline --nodb config.base
 if [ "$#" == 1 ] && [ "$1" == "*" ]; then
   # this list changes too rarely to bother with the only 'wh getinstalledmodules' call
   # once we port fixmodules to TS we can read webhareconstant_builtinmodules
-  MODULESLIST="consilio platform publisher socialite system tollium wrd"
+  MODULESLIST=(consilio platform publisher socialite system tollium wrd)
 elif [ "$#" != 0 ]; then
   MODULESLIST=("$@")
 else
   MODULESLIST=($(wh_runwhscr mod::system/scripts/internal/listbrokenmodules.whscr))
 fi
 
+# Run the npm installs in parallel, at most MAXNPMJOBS at a time. Each install writes its output to its own logfile
+# so we can print it in order once all installs are done. (no `wait -n`, macOS ships with bash 3.2)
+MAXNPMJOBS=8
+NPMLOGDIR="$(mktemp -d)"
+trap 'rm -rf "$NPMLOGDIR"' EXIT
+NPMROOTS=()
+
 for MODULENAME in "${MODULESLIST[@]}"; do
   getmoduledir MODULEDIR $MODULENAME
-  cd "$MODULEDIR" || exit 1
   # TODO the locations we check need to be in sync with what `listNodePackageRoots` looks for
   for Q in "$MODULEDIR" "$MODULEDIR/webdesigns"/?* ; do
-    if cd "$Q" 2>/dev/null ; then
-      if [ -f package.json ]; then
-        echo "Installing npm modules for $Q"
-        $DRYRUNPREFIX npm install $NPMOPTIONS
-        RETVAL=$?
-        if [ "$RETVAL" != "0" ]; then
-          echo NPM FAILED with errorcode $RETVAL
-          FAILED=1
-        fi
-      elif [ -d node_modules ]; then
-        echo "Found node_modules in $Q but no package.json, removing node_modules"
-        $DRYRUNPREFIX rm -rf "$Q/node_modules"
-      fi
+    [ -d "$Q" ] || continue
+    if [ -f "$Q/package.json" ]; then
+      echo "Installing npm modules for $Q"
+      LOGFILE="$NPMLOGDIR/${#NPMROOTS[@]}"
+      NPMROOTS+=("$Q")
+      while [ "$(jobs -rp | wc -l)" -ge "$MAXNPMJOBS" ]; do
+        sleep 0.1
+      done
+      ( cd "$Q" && $DRYRUNPREFIX npm install $NPMOPTIONS > "$LOGFILE.out" 2>&1; echo $? > "$LOGFILE.exit" ) &
+    elif [ -d "$Q/node_modules" ]; then
+      echo "Found node_modules in $Q but no package.json, removing node_modules"
+      $DRYRUNPREFIX rm -rf "$Q/node_modules"
     fi
   done
+done
 
+wait
+
+for IDX in "${!NPMROOTS[@]}"; do
+  LOGFILE="$NPMLOGDIR/$IDX"
+  RETVAL="$(cat "$LOGFILE.exit" 2>/dev/null)"
+  if [ -s "$LOGFILE.out" ] || [ "$RETVAL" != "0" ]; then
+    echo "npm output for ${NPMROOTS[$IDX]}:"
+    cat "$LOGFILE.out"
+  fi
+  if [ "$RETVAL" != "0" ]; then
+    echo "NPM FAILED for ${NPMROOTS[$IDX]} with errorcode ${RETVAL:-unknown}"
+    FAILED=1
+  fi
+done
+
+# Run the module plugins after all npm installs, as they may depend on the installed packages
+for MODULENAME in "${MODULESLIST[@]}"; do
+  getmoduledir MODULEDIR $MODULENAME
   if [ -x "$MODULEDIR/scripts/fixmodules-plugin.sh" ]; then
     cd "${MODULEDIR}" || exit 1
     $DRYRUNPREFIX "$MODULEDIR/scripts/fixmodules-plugin.sh"
