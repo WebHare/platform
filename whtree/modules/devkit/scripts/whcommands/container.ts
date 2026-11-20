@@ -7,7 +7,7 @@
 import { runCli, CLIRuntimeError, type CLIArgumentType } from "@webhare/cli";
 import { backendConfig } from "@webhare/services";
 import { regExpFromWildcards } from "@webhare/std";
-import { containerBinary, containerPrefix, getContainer, getWatcherFiles, isWatcherRunning, labelPrefix, listContainers, modulesRootInContainer, runGit, runPodman, sendWatcherCommand, sourceRootInContainer, type DevkitContainer, type MountedModule } from "@mod-devkit/js/containers/support";
+import { containerBinary, containerPrefix, getContainer, getFindWatcherHint, getWatcherFiles, getWatcherState, isWatcherRunning, labelPrefix, listContainers, modulesRootInContainer, runGit, runPodman, sendWatcherCommand, sourceRootInContainer, type DevkitContainer, type MountedModule } from "@mod-devkit/js/containers/support";
 import { spawn } from "node:child_process";
 import { closeSync, existsSync, openSync, realpathSync, rmSync } from "node:fs";
 import * as path from "node:path";
@@ -62,7 +62,10 @@ const buildRootVolume = `${containerPrefix}buildroot`;
 /** Start the watcher that forwards file changes on the host to the container, and wait for it to listen. It exits by
     itself when the container stops */
 async function startWatcher(name: string) {
-  if (await isWatcherRunning(name))
+  const state = await getWatcherState(name);
+  if (state === "unresponsive") //don't start a second one, it would take over the socket of a watcher that may just be very busy
+    console.warn(`Warning: the file watcher for '${name}' is not responding, changes on the host may not reach the container. If this doesn't go away, kill it (find it with: ${getFindWatcherHint(name)}) and run 'wh devkit:container start ${name}' again`);
+  if (state !== "stopped")
     return;
   const { logFile } = getWatcherFiles(name);
   const logFd = openSync(logFile, "a");
@@ -82,7 +85,9 @@ async function startWatcher(name: string) {
 }
 
 async function stopWatcher(name: string) {
-  await sendWatcherCommand(name, "stop");
+  const reply = await sendWatcherCommand(name, "stop");
+  if (reply !== null && reply !== "ok") //null: there was no watcher to stop
+    console.warn(`Warning: the file watcher for '${name}' did not respond to the request to stop. If it's still running, kill it (find it with: ${getFindWatcherHint(name)})`);
 }
 
 /** The podman VM's clock can fall behind after the host sleeps. Files in the checkout then get host timestamps and files in
@@ -234,7 +239,7 @@ runCli({
       async main({ opts }) {
         const containers = await Promise.all(listContainers().map(async container => ({
           ...container,
-          watcher: await isWatcherRunning(container.name) ? "running" : "stopped",
+          watcher: await getWatcherState(container.name),
           rescueURL: `http://127.0.0.1:${container.hostPort}/`,
         })));
         if (opts.json) {

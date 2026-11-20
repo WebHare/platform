@@ -11,7 +11,7 @@
 */
 
 import { runCli, CLIRuntimeError } from "@webhare/cli";
-import { containerBinary, getContainer, getWatcherFiles, isWatcherRunning, modulesRootInContainer, runGit, sourceRootInContainer, type DevkitContainer } from "@mod-devkit/js/containers/support";
+import { containerBinary, getContainer, getWatcherFiles, isWatcherRunning, modulesRootInContainer, runAsync, runGit, sourceRootInContainer, type DevkitContainer } from "@mod-devkit/js/containers/support";
 import { spawn } from "node:child_process";
 import { rmSync, statSync, watch } from "node:fs";
 import { createServer, type Server } from "node:net";
@@ -22,20 +22,6 @@ const ignoreChangesUnder = ["whtree/node_modules/", "whtree/currentinstall/"];
 
 function log(message: string) {
   console.log(`${new Date().toISOString()} ${message}`);
-}
-
-/** Run a command without blocking the event loop (unlike spawnSync), so the watcher's socket keeps answering while it runs */
-function run(command: string, args: string[], { input }: { input?: string } = {}): Promise<{ status: number | null; stdout: string; stderr: string }> {
-  return new Promise(resolve => {
-    let stdout = "", stderr = "";
-    const proc = spawn(command, args, { stdio: [input === undefined ? "ignore" : "pipe", "pipe", "pipe"] });
-    proc.stdout.setEncoding("utf-8").on("data", (data: string) => stdout += data);
-    proc.stderr.setEncoding("utf-8").on("data", (data: string) => stderr += data);
-    proc.on("error", e => resolve({ status: null, stdout, stderr: e.message }));
-    proc.on("close", status => resolve({ status, stdout, stderr }));
-    if (input !== undefined)
-      proc.stdin?.on("error", () => { }).end(input); //ignore EPIPE if the command exits without reading everything
-  });
 }
 
 /** Listen on the watcher socket, failing if another watcher for this container is already listening */
@@ -85,7 +71,10 @@ function watchMount(container: DevkitContainer, { hostRoot, containerRoot, ignor
     const inMain = relPaths.filter(relPath => !inSubmodule.includes(relPath));
     if (!inMain.length)
       return inSubmodule;
-    const result = await run("git", ["-C", hostRoot, "check-ignore", "--stdin", "-z"], { input: inMain.join("\0") });
+    // We run our commands asynchronously (with runAsync) so the watcher's socket keeps answering while they run
+    const result = await runAsync("git", ["-C", hostRoot, "check-ignore", "--stdin", "-z"], { input: inMain.join("\0") });
+    if (result.status === null)
+      log(`Cannot check which changes are ignored by git, forwarding all of them: ${result.stderr}`);
     if (result.status !== 0 && result.status !== 1) //eg. a module that isn't in a git repository
       return relPaths;
     const ignored = new Set(result.stdout.split("\0"));
@@ -111,11 +100,14 @@ function watchMount(container: DevkitContainer, { hostRoot, containerRoot, ignor
       return;
 
     // A WebHare that isn't running doesn't need to be told. Also, `wh event` can't connect to WebHare during a build
-    if ((await run(containerBinary, ["exec", container.containerName, "wh", "isrunning"])).status !== 0)
+    const isRunning = await runAsync(containerBinary, ["exec", container.containerName, "wh", "isrunning"]);
+    if (isRunning.status === null) //we couldn't find out, eg. podman isn't in our PATH or didn't answer in time
+      log(`Cannot check whether WebHare is running, not forwarding ${files.length} changed file(s) in ${hostRoot}: ${isRunning.stderr}`);
+    if (isRunning.status !== 0)
       return;
 
     log(`Changed in ${hostRoot}: ${files.join(", ")}`);
-    const result = await run(containerBinary, ["exec", container.containerName, "wh", "event", "invalidate-file", ...files.map(toContainerPath)]);
+    const result = await runAsync(containerBinary, ["exec", container.containerName, "wh", "event", "invalidate-file", ...files.map(toContainerPath)]);
     if (result.status !== 0)
       log(`Failed to forward changes: ${result.stderr.trim() || result.stdout.trim()}`);
   }
