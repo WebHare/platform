@@ -2,3 +2,4 @@
 .gitignore export-ignore
 **/changelogs/?.??.md merge=union
 **/installation/?.??.md merge=union
+doc/release-notes/*.md merge=union
