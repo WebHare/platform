@@ -876,6 +876,37 @@ async function testPromises() {
   test.eq([3, 3, 3, 5, 5], await Promise.all(coalesce));
   test.eq(2, tester.coalesceCalls);
 
+  //test createConcurrencyLimiter with parallel jobs
+  test.throws(/positive integer/, () => std.createConcurrencyLimiter(0));
+  {
+    const run = std.createConcurrencyLimiter(2);
+    let active = 0, maxActive = 0;
+    const started: number[] = [];
+    const job = async (id: number, delay: number) => {
+      started.push(id);
+      maxActive = Math.max(maxActive, ++active);
+      try {
+        await std.sleep(delay);
+        if (id === 3)
+          throw new Error("Job 3 failed");
+        return id;
+      } finally {
+        --active;
+      }
+    };
+    const results = [1, 2, 3, 4, 5].map(id => run(() => job(id, id === 1 ? 50 : 10)));
+    await test.throws(/Job 3 failed/, results[2]);
+    test.eq([1, 2, 4, 5], await Promise.all([results[0], results[1], results[3], results[4]]));
+    test.eq(2, maxActive);
+    test.eq(0, active);
+    test.eq([1, 2, 3, 4, 5], started);
+
+    //a synchronously throwing callback must not leak a job slot
+    await test.throws(/sync throw/, run(() => { throw new Error("sync throw"); }));
+    await test.throws(/sync throw/, run(() => { throw new Error("sync throw"); }));
+    test.eq(42, await run(async () => 42));
+  }
+
   //test attempt
   test.eq(undefined, std.attempt(() => new URL('invalid')));
   test.eq(null, std.attempt(() => new URL('invalid'), null));
