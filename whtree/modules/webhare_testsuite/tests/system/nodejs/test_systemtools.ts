@@ -287,7 +287,7 @@ async function testTempFileCleanup() {
   try {
     const helper = path.join(__dirname, "data", "tempfile-signals.ts");
     const signalExitCodes: Record<string, number> = { SIGINT: 130, SIGTERM: 143, SIGHUP: 129 };
-    for (const how of ["SIGINT", "SIGTERM", "SIGHUP", "exit", "throw", "handled-sigint"]) {
+    for (const how of ["SIGINT", "SIGTERM", "SIGHUP", "exit", "throw", "handled-sigint", "early-handled-sigint"]) {
       const result = spawnSync("wh", ["run", helper, tempdir, how], { encoding: "utf-8", stdio: ['ignore', 'pipe', 'pipe'] });
       const [tempPath, ...rest] = result.stdout.trim().split("\n");
       test.eq(tempdir, path.dirname(tempPath), `${how}: ${result.stderr}`);

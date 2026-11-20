@@ -183,8 +183,8 @@ function onCleanupSignal(signal: NodeJS.Signals) {
 /** Only keep our handlers installed while there are temporary files, so we don't change signal handling otherwise */
 function setCleanupHandlers(install: boolean) {
   for (const signal of cleanupSignals)
-    if (install)
-      process.on(signal, onCleanupSignal);
+    if (install) //prepend, so we run (and count listeners) before earlier 'once' handlers remove themselves
+      process.prependListener(signal, onCleanupSignal);
     else
       process.off(signal, onCleanupSignal);
 
