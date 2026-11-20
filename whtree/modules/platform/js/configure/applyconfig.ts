@@ -104,6 +104,9 @@ export interface ApplyConfigurationOptions {
 export async function executeApply(options: ApplyConfigurationOptions & { offline?: boolean }): Promise<{
   messages: ValidationMessageWithType[];
 }> {
+  if (!options.subsystems.length) //an empty list would silently do nothing
+    throw new Error(`No subsystems specified to apply (source: '${options.source}')`);
+
   // The mutex prevents 'wh apply' and backend service from aplying configuration at the same time
   using mutex = options.offline ? null : await lockMutex("platform:applyconfig");
   void (mutex);
