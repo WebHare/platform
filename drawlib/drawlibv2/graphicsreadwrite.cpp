@@ -100,8 +100,8 @@ void DIB_GraphicsReader::ProcessHeader(bool has_palette)
         header.reserve(44);
         header.resize(4);
 
-        stream->Read(&header[0], 4);
-        headerlength = Blex::getu32lsb(&header[0]);
+        stream->Read(header.data(), 4);
+        headerlength = Blex::getu32lsb(header.data());
         if(headerlength<40)
              throw std::runtime_error("Not a proper DIB header");
 
@@ -197,7 +197,7 @@ void DIB_GraphicsReader::ProcessHeader(bool has_palette)
                     throw std::runtime_error("Unknown paletted DIB format");
 
                 std::vector<uint8_t> palette_buf( 4 * colorsused );
-                stream->Read(&palette_buf[0], palette_buf.size()); //FIXME: Check I/O errors
+                stream->Read(palette_buf.data(), palette_buf.size()); //FIXME: Check I/O errors
                 for(unsigned i=0; i<colorsused; i++)
                     palette.push_back(Pixel32 (palette_buf[2 + i*4],palette_buf[1+ i*4],palette_buf[0+ i*4],255));
         }
@@ -314,26 +314,27 @@ void DIB_GraphicsReader::GetScanline32(Scanline32& newscanline)
         if (!LinesLeft())
              throw std::runtime_error("No lines left to read");
 
-        // get some temporary space..
-        pixelbuffer.resize(bytes_per_scanline);
-
-        uint8_t const *ptr = &pixelbuffer[0];
+        uint8_t const *ptr;
         //Which line on disk to read?
         unsigned diskline = bottomup ? lines - 1 : height - lines;
 
         if(compression==1) //RLE
         {
-                ptr = &pixelbuffer[diskline*width]; //8bit data is already in pixelbuffer
+                //8bit data is already in pixelbuffer (height*width bytes, see DecompressData), so don't resize it here
+                ptr = pixelbuffer.data() + std::size_t(diskline) * width;
         }
         else
         {
-                uint32_t result = stream->DirectRead(start_scanlines + diskline * bytes_per_scanline, &pixelbuffer[0], bytes_per_scanline);
+                // get some temporary space..
+                pixelbuffer.resize(bytes_per_scanline);
+
+                uint32_t result = stream->DirectRead(start_scanlines + Blex::FileOffset(diskline) * bytes_per_scanline, pixelbuffer.data(), bytes_per_scanline);
                 if (result != bytes_per_scanline)
                 {
                         DEBUGPRINT("Bitmap corrupted");
-                        std::fill_n(&pixelbuffer[0], bytes_per_scanline, 0); //zero-pad
+                        std::fill_n(pixelbuffer.data(), bytes_per_scanline, 0); //zero-pad
                 }
-                ptr = &pixelbuffer[0];
+                ptr = pixelbuffer.data();
         }
 
 
@@ -680,7 +681,7 @@ void PNG_GraphicsReader::GetScanline32(Scanline32 &scanline)
                         for (unsigned i=0;i<row_pointers.size();++i)
                             row_pointers[i] = &data->interlaced_img_buffer[i * data->width * 4];
 
-                        png_read_image(data->png_ptr, &row_pointers[0]);
+                        png_read_image(data->png_ptr, row_pointers.data());
                 }
 
                 //Copy the scanline from the rowbuffer;

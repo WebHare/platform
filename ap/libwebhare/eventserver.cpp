@@ -597,7 +597,7 @@ void EventServer::HandleRequest(WebServer::Connection *webcon, std::string const
                         unsigned pos = 0;
                         while (len)
                         {
-                                std::size_t bytes_read = stream->Read(&rawdata[pos], len);
+                                std::size_t bytes_read = stream->Read(rawdata.data() + pos, len);
                                 if (bytes_read <= 0)
                                 {
                                         webcon->FailRequest(WebServer::StatusInternalError, "Could not read POST body");

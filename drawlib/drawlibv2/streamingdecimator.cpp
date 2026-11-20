@@ -179,7 +179,7 @@ void YDecimationFilter::Write(Scanline32 &output, int d)
                 throw(std::runtime_error("Illegal decimation factor"));
 
         Pixel32 *dest = output.GetRawPixels();
-        uint32_t *in = &accu_rgba[0];
+        uint32_t *in = accu_rgba.data();
 
         unsigned limit=tempscanline->GetWidth();
         for(unsigned int x=0; x<limit; ++x)
@@ -199,7 +199,7 @@ void YDecimationFilter::AccuInputLine()
         const Pixel32 *src = tempscanline->GetRawPixels();
 
         uint8_t *in = (uint8_t*)src;
-        uint32_t *out = &accu_rgba[0];
+        uint32_t *out = accu_rgba.data();
 
         unsigned limit=tempscanline->GetWidth()*4;
         for(unsigned int x=0; x<limit; ++x)

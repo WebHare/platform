@@ -528,7 +528,7 @@ void StringObject::WriteObject(PDFOutputStream &outstream) const
         Blex::EncodeJava(value.begin(), value.end(), std::back_inserter(obj));
         obj.push_back(')');
 
-        outstream.CurStream().Write(&obj[0], obj.size());
+        outstream.CurStream().Write(obj.data(), obj.size());
 }
 void KeywordObject::WriteObject(PDFOutputStream &outstream) const
 {

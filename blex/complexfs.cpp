@@ -96,7 +96,7 @@ template < typename A >
 {
         if (pos + sizeof(A) > msg.size())
             throw std::runtime_error("ComplexFileStream: Message format error");
-        *value = GetLsb< A >(&msg[pos]);
+        *value = GetLsb< A >(msg.data() + pos);
         pos += sizeof(A);
 }
 

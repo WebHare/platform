@@ -229,7 +229,7 @@ class BLEXLIB_PUBLIC IOBuffer
         {
                 unsigned addpos=iobuffer.size();
                 iobuffer.resize(addpos+len);
-                return &iobuffer[addpos];
+                return iobuffer.data() + addpos;
         }
         /** Frees unused data after a Reserve
             @param len Bytes to free */
@@ -241,7 +241,7 @@ class BLEXLIB_PUBLIC IOBuffer
         /** Get the length the buffer claims to have (should only be used by
             I/O code filling this buffer, that cannot rely on GetRawLength() ) */
         unsigned GetClaimedLength() const
-        { return Blex::getu32lsb(&iobuffer[0])&0xFFFFFF; }
+        { return Blex::getu32lsb(iobuffer.data())&0xFFFFFF; }
 
         /** Finish the buffer for transmission by setting up the length bytes
             properly (should only be used by I/O code filling this buffer) */
@@ -400,17 +400,17 @@ class TCPConnection
 template <> inline void IOBuffer::ReadIn<std::string>(std::string *out)
 {
         uint32_t len = Read<uint32_t>();
-        if (&iobuffer[readpos] + len > GetRawLimit())
+        if ((iobuffer.data() + readpos) + len > GetRawLimit())
             InvalidRPCData();
         readpos += len;
         out->reserve(len);
-        out->assign(reinterpret_cast<const char*>(&iobuffer[readpos-len]),
-                    reinterpret_cast<const char*>(&iobuffer[readpos]));
+        out->assign(reinterpret_cast<const char*>(iobuffer.data() + (readpos-len)),
+                    reinterpret_cast<const char*>(iobuffer.data() + readpos));
 }
 
 template <> inline void IOBuffer::Write<std::string>(std::string const &srcdata)
 {
-        WriteBinary(srcdata.size(),reinterpret_cast<uint8_t const*>(&srcdata[0]));
+        WriteBinary(srcdata.size(),reinterpret_cast<uint8_t const*>(srcdata.data()));
 }
 
 //specialise Read and Write to support bools
@@ -430,11 +430,11 @@ template<> void IOBuffer::Write< std::vector<uint8_t> >(std::vector<uint8_t> con
 template <typename ReadType> inline void IOBuffer::ReadIn(ReadType *store)
 {
         //Verify that the data is there
-        if (&iobuffer[readpos] + sizeof(ReadType) > GetRawLimit())
+        if ((iobuffer.data() + readpos) + sizeof(ReadType) > GetRawLimit())
             InvalidRPCData();
 
         //Get the data, increase our position and return the data
-        *store = Blex::GetLsb<ReadType>(&iobuffer[readpos]);
+        *store = Blex::GetLsb<ReadType>(iobuffer.data() + readpos);
         readpos += sizeof(ReadType);
 }
 template <typename WriteType> inline void IOBuffer::Write(WriteType const &val)

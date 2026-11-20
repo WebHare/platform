@@ -133,7 +133,7 @@ BtreeIndex::BtreeIndex(DBIndexFileSystem &_filesystem, Blex::Stream &indata)
 
         uint32_t namelen = indata.ReadLsb<uint32_t>();
         indexname.resize(namelen);
-        indata.Read(&indexname[0],namelen);
+        indata.Read(indexname.data(),namelen);
 
         if (indata.ReadLsb<uint32_t>() != BtreeMagic)
 //            throw Exception(ErrorIO,"Index metadata terminator does not match expected version");
@@ -156,7 +156,7 @@ void BtreeIndex::SaveState(Blex::Stream &metadatafile)
         lockedadmin->statistics.Write(metadatafile);
 
         metadatafile.WriteLsb<uint32_t>(indexname.size());
-        metadatafile.Write(&indexname[0],indexname.size());
+        metadatafile.Write(indexname.data(),indexname.size());
 
         metadatafile.WriteLsb<uint32_t>(BtreeMagic); //terminator
 }

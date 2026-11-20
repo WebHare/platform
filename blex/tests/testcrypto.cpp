@@ -237,15 +237,15 @@ BLEX_TEST_FUNCTION(TestRC4)
 std::string QuickMD5Crypt(std::string const &key, std::string const &salt)
 {
         std::vector<uint8_t> result;
-        Blex::GetMD5Crypt(&key[0], key.length(), &salt[0], salt.length(), &result);
-        return std::string(&result[0], &result[result.size()]);
+        Blex::GetMD5Crypt(key.data(), key.length(), salt.data(), salt.length(), &result);
+        return std::string(result.data(), result.data() + result.size());
 }
 
 std::string QuickDESCrypt(std::string const &key, std::string const &salt)
 {
         std::vector<uint8_t> result;
-        Blex::GetDESCrypt(&key[0], key.length(), &salt[0], salt.length(), &result);
-        return std::string(&result[0], &result[result.size()]);
+        Blex::GetDESCrypt(key.data(), key.length(), salt.data(), salt.length(), &result);
+        return std::string(result.data(), result.data() + result.size());
 }
 
 BLEX_TEST_FUNCTION(TestSomeDeprecatedAlgorithms)

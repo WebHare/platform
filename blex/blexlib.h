@@ -492,7 +492,7 @@ struct StringPair
 inline bool operator==(Blex::StringPair const &lhs, Blex::StringPair const &rhs)
 { return lhs.size()==rhs.size() && std::equal(lhs.begin, lhs.end, rhs.begin); }
 inline bool operator==(Blex::StringPair const &lhs, std::string const &rhs)
-{ return lhs.size()==rhs.size() && std::equal(lhs.begin, lhs.end, &rhs[0]); }
+{ return lhs.size()==rhs.size() && std::equal(lhs.begin, lhs.end, rhs.data()); }
 inline bool operator==(std::string const &lhs, Blex::StringPair const &rhs)
 { return rhs==lhs; }
 

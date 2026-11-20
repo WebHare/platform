@@ -687,7 +687,7 @@ namespace SocketUser //taken from our socket_user.c proof-of-concept (and soon t
     invec.iov_len = 5+strlen(address);
     msg.msg_iov = &invec;
     msg.msg_iovlen = 1;
-    msg.msg_control = &buf[0];
+    msg.msg_control = buf.data();
     msg.msg_controllen = buf.size();
     cmsg = CMSG_FIRSTHDR(&msg);
     cmsg->cmsg_level = SOL_SOCKET;

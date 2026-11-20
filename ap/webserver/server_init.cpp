@@ -68,7 +68,7 @@ struct LogLineBuilder
         void Append(std::string const &str)
         {
                 if (!str.empty())
-                    data.insert(data.end(), &str[0], &str[0] + str.size());
+                    data.insert(data.end(), str.data(), str.data() + str.size());
         }
 
         /// Append a string constant

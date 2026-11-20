@@ -55,7 +55,7 @@ class BLEXLIB_PUBLIC Stream
             @return Number of bytes written*/
         std::size_t WriteString (std::string const &s)
         {
-                return Write(&s[0],s.size());
+                return Write(s.data(),s.size());
         }
 
         /** Write to the stream in LSB order
@@ -194,7 +194,7 @@ class BLEXLIB_PUBLIC RandomStream : public virtual Stream
             @return Number of bytes written*/
         std::size_t DirectWriteString (FileOffset startpos,std::string const &s)
         {
-                return DirectWrite(startpos, &s[0],s.size());
+                return DirectWrite(startpos, s.data(),s.size());
         }
 
         /** Write a single byte to the stream in LSB order

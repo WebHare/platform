@@ -410,7 +410,7 @@ bool RequestParser::TryParseRequestLine(std::string const &requestline)
 
         protocolmethod_string.assign(requestline.begin(), first_space);
         Blex::ToUppercase(protocolmethod_string);
-        protocolmethod = LookupMethod(protocolmethod_string.size(), &protocolmethod_string[0]);
+        protocolmethod = LookupMethod(protocolmethod_string.size(), protocolmethod_string.data());
 
         //Find the protocol seperator space (first_space+1 is safe, because *first_space is guaranteed to be a ' ')
         std::string::const_iterator proto=std::find(first_space+1,requestline.end(),' ');
@@ -876,7 +876,7 @@ void RequestParser::BodyReceive(char const *start, char const *limit)
                                 return;
                         }
 
-                        if (outstream->Write(&tempstore[0], tempstore.size())!=unsigned(tempstore.size()))
+                        if (outstream->Write(tempstore.data(), tempstore.size())!=unsigned(tempstore.size()))
                         {
                                 state = ParsingFailed;
                                 errorcode = ErrorIO;
@@ -925,7 +925,7 @@ Blex::RandomStream * RequestParser::OpenFile(std::string const &name) const
         else if(outstream.get())
             return new Blex::LimitedStream(itr->second.bodystart, itr->second.bodylimit, *outstream);
         else
-            return new Blex::MemoryReadStream(&tempstore[itr->second.bodystart], itr->second.bodylimit - itr->second.bodystart);
+            return new Blex::MemoryReadStream(tempstore.data() + itr->second.bodystart, itr->second.bodylimit - itr->second.bodystart);
 }
 
 void RequestParser::ParseEncodedVars(const char* variable_start, const char* variables_end, bool ispost)
@@ -1014,7 +1014,7 @@ std::string RequestParser::GetHeaderValue(const char *headername) const
 Blex::RandomStream * RequestParser::OpenBody() const
 {
         if (!outstream.get())
-            return new Blex::MemoryReadStream(&tempstore[0], tempstore.size());
+            return new Blex::MemoryReadStream(tempstore.data(), tempstore.size());
         else
             return new Blex::LimitedStream(0, outstream->GetFileLength(), *outstream);
 }

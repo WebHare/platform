@@ -175,7 +175,7 @@ unsigned OptionParser::ParseShortOptions(const char *current, const char *next)
 
         while (!arg.empty()) //parse one or more short options
         {
-                std::string optname(&arg[0], &arg[1]);
+                std::string optname(arg.data(), &arg[1]);
                 Option const *opt = FindOption(optname, Option::PAny);
                 if (!opt || !opt->OptionIsReferencable())
                 {
@@ -223,7 +223,7 @@ bool OptionParser::Parse(std::vector<std::string> const &args)
         std::vector<char const*> argptrs;
         for (unsigned i=0;i<args.size();++i)
             argptrs.push_back(args[i].c_str());
-        return Parse(args.size(), args.size() ? &argptrs[0] : NULL);
+        return Parse(args.size(), args.size() ? argptrs.data() : NULL);
 }
 
 bool OptionParser::Parse(int argc, char const * const argv[])

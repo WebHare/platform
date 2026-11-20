@@ -111,13 +111,13 @@ Bitmap32* GifDecompressor::ReadImage()
                             {
                                     for (j = InterlacedOffset[i]; j < Height; j += InterlacedJumps[i])
                                     {
-                                            if (DGifGetLine(gif, &screenbuffer[0], Width) == GIF_ERROR)
+                                            if (DGifGetLine(gif, screenbuffer.data(), Width) == GIF_ERROR)
                                             {
                                                     DEBUGPRINT("DGifGetLine failure, i " << i << " j " << j);
                                                     return 0;
                                             }
                                             //now write screenbuffer to the output image
-                                            WriteLine(j, &screenbuffer[0]);
+                                            WriteLine(j, screenbuffer.data());
                                     }
                             }
                     }
@@ -125,12 +125,12 @@ Bitmap32* GifDecompressor::ReadImage()
                     {
                             for (int i = 0; i < Height; i++)
                             {
-                                    if (DGifGetLine(gif, &screenbuffer[0], Width) == GIF_ERROR)
+                                    if (DGifGetLine(gif, screenbuffer.data(), Width) == GIF_ERROR)
                                     {
                                             DEBUGPRINT("DGifGetLine failure on line #" << i);
                                             return 0;
                                     }
-                                    WriteLine(i, &screenbuffer[0]);
+                                    WriteLine(i, screenbuffer.data());
                             }
                     }
                     return newbitmap.release();
@@ -307,7 +307,7 @@ void GifCompressor::WriteImage(Bitmap32 const &bitmap)
                         rowbuffer[x] = palette_index;
                 }
 
-                if (EGifPutLine(gif, &rowbuffer[0], width) == GIF_ERROR)
+                if (EGifPutLine(gif, rowbuffer.data(), width) == GIF_ERROR)
                         throw std::runtime_error("GIF row encode error");
         }
 

@@ -1644,7 +1644,7 @@ void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool ma
         {
                 if (make_blob && dest.size() > 16384)
                 {
-                        HSVM_PrintTo(vm, stream, dest.size(), &dest[0]);
+                        HSVM_PrintTo(vm, stream, dest.size(), dest.data());
                         dest.clear();
                 }
 
@@ -2159,13 +2159,13 @@ void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool ma
 
         if (make_blob)
         {
-                HSVM_PrintTo(vm, stream, dest.size(), &dest[0]);
+                HSVM_PrintTo(vm, stream, dest.size(), dest.data());
                 dest.clear();
                 HSVM_MakeBlobFromStream(vm, id_set, stream);
         }
         else
         {
-                const char *start = dest.empty() ? 0 : &dest[0];
+                const char *start = dest.empty() ? 0 : dest.data();
                 HSVM_StringSet(vm, id_set, start, start + dest.size());
         }
 }

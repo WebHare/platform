@@ -171,7 +171,7 @@ void LibraryImporter::Execute(LineColumn position, Blex::Stream &libstream, std:
 
         Blex::ReadStreamIntoVector(libstream,&data);
 
-        Blex::MemoryReadStream mstream(&data[0], data.size());
+        Blex::MemoryReadStream mstream(data.data(), data.size());
 
         lib.ReadLibrary(liburi, &mstream);
 
@@ -237,7 +237,7 @@ void LibraryImporter::Execute(LineColumn position, Blex::Stream &libstream, std:
                                         if (!it->null_default.empty())
                                         {
                                                 VarId var = context.stackm.NewHeapVariable();
-                                                context.marshaller->Read(var, &it->null_default[0], &it->null_default[0] + it->null_default.size());
+                                                context.marshaller->Read(var, it->null_default.data(), it->null_default.data() + it->null_default.size());
                                                 col.null_default_value = coder->ImConstant(position, var);
                                         }
                                         symbol->variabledef->tabledef.columnsdef.push_back(col);
@@ -248,7 +248,7 @@ void LibraryImporter::Execute(LineColumn position, Blex::Stream &libstream, std:
                                              throw std::runtime_error("Expected non-empty view value");
                                         SymbolDefs::TableDef::ViewColumn col(*it);
                                         VarId var = context.stackm.NewHeapVariable();
-                                        context.marshaller->Read(var, &it->view_value[0], &it->view_value[0] + it->view_value.size());
+                                        context.marshaller->Read(var, it->view_value.data(), it->view_value.data() + it->view_value.size());
                                         col.view_value_expr = coder->ImConstant(position, var);
                                         symbol->variabledef->tabledef.viewcolumnsdef.push_back(col);
                                 }
@@ -263,7 +263,7 @@ void LibraryImporter::Execute(LineColumn position, Blex::Stream &libstream, std:
                                                 if (!it2->null_default.empty())
                                                 {
                                                         VarId var = context.stackm.NewHeapVariable();
-                                                        context.marshaller->Read(var, &it2->null_default[0], &it2->null_default[0] + it2->null_default.size());
+                                                        context.marshaller->Read(var, it2->null_default.data(), it2->null_default.data() + it2->null_default.size());
                                                         col.null_default_value = coder->ImConstant(position, var);
                                                 }
                                                 tabledef.tabledef.columnsdef.push_back(col);
@@ -274,7 +274,7 @@ void LibraryImporter::Execute(LineColumn position, Blex::Stream &libstream, std:
                                                      throw std::runtime_error("Expected non-empty view value");
                                                 SymbolDefs::TableDef::ViewColumn col(*it2);
                                                 VarId var = context.stackm.NewHeapVariable();
-                                                context.marshaller->Read(var, &it2->view_value[0], &it2->view_value[0] + it2->view_value.size());
+                                                context.marshaller->Read(var, it2->view_value.data(), it2->view_value.data() + it2->view_value.size());
                                                 col.view_value_expr = coder->ImConstant(position, var);
                                                 tabledef.tabledef.viewcolumnsdef.push_back(col);
                                         }

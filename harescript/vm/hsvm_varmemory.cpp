@@ -131,7 +131,7 @@ VarMemory::~VarMemory()
 
 void VarMemory::Reset()
 {
-        VALGRIND_MAKE_MEM_DEFINED(&heapstore[0], sizeof(heapstore[0]) * heapstore.size());
+        VALGRIND_MAKE_MEM_DEFINED(heapstore.data(), sizeof(heapstore[0]) * heapstore.size());
 
 //        DEBUGPRINT("Destroying blobs");
         // Destroy all blobs and objects in stack

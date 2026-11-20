@@ -102,11 +102,11 @@ void SendBlobTo(VarId id_set, VirtualMachine *vm)
         bool success=true;
         while(success)
         {
-                unsigned bytes=data.Read(&tempbuf[0],16384);
+                unsigned bytes=data.Read(tempbuf.data(),16384);
                 if (bytes==0)
                     break; //EOF
 
-                success=HSVM_PrintTo(*vm, print_id, bytes, &tempbuf[0]);
+                success=HSVM_PrintTo(*vm, print_id, bytes, tempbuf.data());
         }
         HSVM_BooleanSet(*vm, id_set, success);
 }

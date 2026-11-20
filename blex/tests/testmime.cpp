@@ -48,7 +48,7 @@ std::string MimePart::HexHash()
         std::string axx(data.begin(), data.end());
 //        std::cout << "<DATA>" << axx << "</DATA>" << std::endl;
 
-        Blex::MemoryReadStream temp(&data[0],data.size());
+        Blex::MemoryReadStream temp(data.data(),data.size());
         return Blex::Test::MD5Stream(temp);
 }
 
@@ -300,7 +300,7 @@ BLEX_TEST_FUNCTION(CharsetMimeTest)
         SimpleMimeReceiver receiver;
         Blex::Mime::Decoder decoder(receiver, "text/plain");
         decoder.Start("text/plain; charset=ISO-8859-1","8bit","","","", 0, 0, 0);
-        decoder.ProcessData(&srcdata[0],srcdata.size());
+        decoder.ProcessData(srcdata.data(),srcdata.size());
         decoder.Finish();
 
         //Now parse it..
@@ -324,7 +324,7 @@ BLEX_TEST_FUNCTION(QPMimeTest)
         SimpleMimeReceiver receiver;
         Blex::Mime::Decoder decoder(receiver, "text/plain");
         decoder.Start("multipart/alternative; boundary=\"----=_NextPart_000_0000_01C3C625.70F10880\"","","","","", 0, 0, 0);
-        decoder.ProcessData(&srcdata[0],srcdata.size());
+        decoder.ProcessData(srcdata.data(),srcdata.size());
         decoder.Finish();
 
         //Now parse it..
@@ -347,14 +347,14 @@ BLEX_TEST_FUNCTION(QPMimeTest)
 std::string DecodeMIMEEncodedWords(std::string const &input)
 {
         std::string output;
-        Blex::Mime::DecodeEncodedWords(input.size(),&input[0],&output);
+        Blex::Mime::DecodeEncodedWords(input.size(),input.data(),&output);
         return output;
 }
 
 std::string EncodeMIMEWords(std::string const &input)
 {
         std::string output;
-        Blex::Mime::EncodeWords(input.size(),&input[0],&output);
+        Blex::Mime::EncodeWords(input.size(),input.data(),&output);
         return output;
 }
 

@@ -54,7 +54,7 @@ class BLEXLIB_PUBLIC Logfile
             @param text Text to timestamp and log without newlines */
         void StampedLog(const char *textstart, const char *textlimit);
         inline void StampedLog(std::string const &text)
-        { StampedLog(&text[0], &text[text.size()]); }
+        { StampedLog(text.data(), text.data() + text.size()); }
 
         /** Write directly to the log file
             @param text Raw text, _with_ newlines */

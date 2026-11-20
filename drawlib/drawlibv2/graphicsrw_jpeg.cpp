@@ -245,7 +245,7 @@ void JPG_GraphicsReader::GetScanline32(Scanline32 &scanline)
             return;
 
         Pixel32 *d = scanline.GetRawPixels();
-        JSAMPLE *s = &data->linebuffer[0];
+        JSAMPLE *s = data->linebuffer.data();
         jpeg_read_scanlines(&data->cinfo, &s, 1);
 
         if (data->cinfo.out_color_space == JCS_CMYK)

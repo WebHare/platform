@@ -50,7 +50,7 @@ class SegmentedBuffer
 
         ///Add data to buffer
         void StoreData(const void* start, unsigned length);
-        void Store(std::string const &str) { StoreData(&str[0],str.size()); }
+        void Store(std::string const &str) { StoreData(str.data(),str.size()); }
         void Store(const char *str)        { StoreData(str,strlen(str)); }
 
     private:

@@ -144,7 +144,7 @@ std::unique_ptr< QueryResult > PGSQLNativeTransactionDriver::ExecQuery(Query &qu
         Blex::SHA1 sha1;
         sha1.Process(query.querystr.c_str(), query.querystr.size() + 1);
         if (query.params.types.size())
-            sha1.Process(&query.params.types[0], query.params.types.size() * sizeof(query.params.types[0]));
+            sha1.Process(query.params.types.data(), query.params.types.size() * sizeof(query.params.types[0]));
         std::string hash = sha1.FinalizeHash().stl_str();
 
         PreparedStatement &prep = prepared_statements[hash];
@@ -546,7 +546,7 @@ void PGSQL_Connect(HSVM *hsvm, HSVM_VariableId id_set)
         params.push_back(nullptr);
         values.push_back(nullptr);
 
-        PGconn *conn = PQconnectdbParams(&params[0], &values[0], true);
+        PGconn *conn = PQconnectdbParams(params.data(), values.data(), true);
 
         if (PQstatus(conn) != CONNECTION_OK)
         {

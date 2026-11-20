@@ -259,11 +259,11 @@ void Environment::LoadLibraryData(Blex::ContextKeeper &/*keeper*/, Library *lib,
         if (length)
         {
                 data.resize(length);
-                indata->DirectRead(0, &data[0], length); // ADDME: check if entire file read
+                indata->DirectRead(0, data.data(), length); // ADDME: check if entire file read
         }
 
         // Read id's, returns stream at offset 0
-        Blex::MemoryReadStream mstream(&data[0], data.size());
+        Blex::MemoryReadStream mstream(data.data(), data.size());
         WrappedLibrary::ReadLibraryIds(&mstream, &lib->clib_ids);
 
         // Read the library into memory

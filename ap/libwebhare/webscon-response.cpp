@@ -468,7 +468,7 @@ void Connection::AddHeader(const char *fieldname, unsigned fieldlen,const char *
 void Connection::RedirectRequest(std::string const &newurl, StatusCodes statuscode)
 {
         protocol.status_so_far = statuscode;
-        AddHeader("Location",8,&newurl[0],newurl.size(),false);
+        AddHeader("Location",8,newurl.data(),newurl.size(),false);
 }
 
 } //end namespace WebServer

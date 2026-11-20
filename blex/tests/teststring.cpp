@@ -102,7 +102,7 @@ BLEX_TEST_FUNCTION(TestUTF8_UCS4)
         BLEX_TEST_CHECK(utf8_output.size() == 18);
         BLEX_TEST_CHECK(std::equal(HiddenTextkorper_utf8 ,
                                  HiddenTextkorper_utf8 + 18,
-                                 &utf8_output[0]));
+                                 utf8_output.data()));
 
         Blex::UTF8Decode(reinterpret_cast<uint8_t*>(HiddenTextkorper_utf8),
                          reinterpret_cast<uint8_t*>(HiddenTextkorper_utf8 + 18),
@@ -111,7 +111,7 @@ BLEX_TEST_FUNCTION(TestUTF8_UCS4)
         BLEX_TEST_CHECK(ucs4_output.size() == HiddenTextkorper_ucs4_size);
         BLEX_TEST_CHECK(std::equal(HiddenTextkorper_ucs4 ,
                                  HiddenTextkorper_ucs4 + HiddenTextkorper_ucs4_size,
-                                 &ucs4_output[0]));
+                                 ucs4_output.data()));
 }
 
 BLEX_TEST_FUNCTION(TestValidUTF8)

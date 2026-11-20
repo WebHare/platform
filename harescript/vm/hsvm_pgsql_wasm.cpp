@@ -514,7 +514,7 @@ std::unique_ptr< QueryResult > PGSQLWasmTransactionDriver::ExecQuery(Query &quer
                 Blex::SHA1 sha1;
                 sha1.Process(query.querystr.c_str(), query.querystr.size() + 1);
                 if (query.params.types.size())
-                    sha1.Process(&query.params.types[0], query.params.types.size() * sizeof(query.params.types[0]));
+                    sha1.Process(query.params.types.data(), query.params.types.size() * sizeof(query.params.types[0]));
                 std::string hash = sha1.FinalizeHash().stl_str();
 
                 PreparedStatement &prep = prepared_statements[hash];
@@ -639,7 +639,7 @@ std::unique_ptr< QueryResult > PGSQLWasmTransactionDriver::ExecQuery(Query &quer
                 if (idx != buffersize)
                     throw std::runtime_error("Internal error: query buffer size mismatch");
 
-                supportSendPgQuery(this->sqllib_transid, &fullquerybuf[0], idx);
+                supportSendPgQuery(this->sqllib_transid, fullquerybuf.data(), idx);
         }
 
         std::unique_ptr< QueryResult > retval;

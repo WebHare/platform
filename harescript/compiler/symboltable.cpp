@@ -692,7 +692,7 @@ std::string GetMangledFunctionName(Symbol *function_symbol)
                 function_symbol->functiondef->dllmodule.c_str(),
                 function_symbol->functiondef->returntype,
                 paramtypes.size(),
-                (VariableTypes::Type*)&paramtypes[0]); // BCB bug: automatic cast from enum to unbderlying type...
+                (VariableTypes::Type*)paramtypes.data()); // BCB bug: automatic cast from enum to unbderlying type...
 
         return mangledname;
 }

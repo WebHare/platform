@@ -18,12 +18,12 @@ std::pair<int32_t, uint8_t *> WrappedLibrary::SetConstantBuffer(unsigned length)
 
         resident.c_values.resize(resident.c_values.size() + length);
         resident.c_indexes.push_back(index);
-        return std::make_pair(id, &resident.c_values[index]);
+        return std::make_pair(id, resident.c_values.data() + index);
 }
 
 uint8_t const * WrappedLibrary::GetConstantBuffer(int32_t id) const
 {
-        return &resident.c_values[resident.c_indexes[id]];
+        return resident.c_values.data() + (resident.c_indexes[id]);
 }
 
 uint32_t WrappedLibrary::GetConstantBufferLength(int32_t id) const
@@ -40,8 +40,8 @@ Blex::StringPair SectionLinkInfo::GetName(unsigned idx) const
 
         if (idx>nameidx.size())
             throw std::runtime_error("Name index out of range");
-        return Blex::StringPair(&names[nameidx[idx-1]],
-                                idx == nameidx.size() ? &names[names.size()] : &names[nameidx[idx]]);
+        return Blex::StringPair(names.data() + (nameidx[idx-1]),
+                                idx == nameidx.size() ? (names.data() + names.size()) : names.data() + (nameidx[idx]));
 }
 unsigned SectionLinkInfo::SetName(std::string const &newname)
 {
@@ -342,7 +342,7 @@ void WrappedLibrary::ReadSectionCode(Blex::RandomStream *stream, unsigned start)
         uint32_t length = stream->ReadLsb<uint32_t>();
         resident.code.resize(length);
         unsigned pos = (unsigned)stream->GetOffset();
-        if (stream->DirectRead(pos, &resident.code[0], length) != length)
+        if (stream->DirectRead(pos, resident.code.data(), length) != length)
             throw std::runtime_error("Could not read in code section");
         stream->SetOffset(pos + length);
 }
@@ -357,7 +357,7 @@ unsigned WrappedLibrary::WriteSectionCode(Blex::RandomStream *stream, unsigned s
 
         unsigned pos = (unsigned)stream->GetOffset();
         unsigned length = resident.code.size();
-        if (stream->DirectWrite(pos, &resident.code[0], length) != length)
+        if (stream->DirectWrite(pos, resident.code.data(), length) != length)
             throw std::runtime_error("Could not write code section");
         stream->SetOffset(pos + length);
         return (unsigned)stream->GetOffset() - start;
@@ -436,7 +436,7 @@ void WrappedLibrary::ReadSectionConstants(Blex::RandomStream *stream, unsigned s
         unsigned pos = (unsigned)stream->GetOffset();
         resident.c_values.resize(values_length);
         resident.c_indexes.push_back(values_length);
-        if (stream->Read(&resident.c_values[0], resident.c_values.size()) != resident.c_values.size())
+        if (stream->Read(resident.c_values.data(), resident.c_values.size()) != resident.c_values.size())
             throw std::runtime_error("Cannot read constants");
 
         stream->SetOffset(pos + resident.c_values.size());
@@ -460,7 +460,7 @@ unsigned WrappedLibrary::WriteSectionConstants(Blex::RandomStream *stream, unsig
 
         stream->WriteLsb<uint32_t>(resident.c_values.size());
         unsigned pos = (unsigned)stream->GetOffset();
-        if (stream->Write(&resident.c_values[0], resident.c_values.size()) != resident.c_values.size())
+        if (stream->Write(resident.c_values.data(), resident.c_values.size()) != resident.c_values.size())
             throw std::runtime_error("Cannot write constants");
         stream->SetOffset(pos + resident.c_values.size());
 
@@ -578,7 +578,7 @@ void SectionLinkInfo::ReadNames(Blex::RandomStream *stream, unsigned start)
         }
 
         names.resize(datasize);
-        if (stream->Read(&names[0], datasize) != datasize)
+        if (stream->Read(names.data(), datasize) != datasize)
             throw std::runtime_error("Cannot read names linkinfo section");
 
         if (stream->GetOffset() != start + length)
@@ -600,7 +600,7 @@ unsigned SectionLinkInfo::WriteNames(Blex::RandomStream *stream, unsigned start)
             stream->WriteLsb<uint32_t>(nameidx[i]);
         for (unsigned i=0;i<columnidx.size();++i)
             stream->WriteLsb<uint32_t>(columnidx[i]);
-        if (stream->Write(&names[0], names.size()) != names.size())
+        if (stream->Write(names.data(), names.size()) != names.size())
             throw std::runtime_error("Cannot write names linkinfo section");
 
         // Patch length
@@ -963,11 +963,11 @@ void WrappedLibrary::ReadSectionTypes(Blex::RandomStream *stream, unsigned start
 
                                 uint32_t namelen = stream->ReadLsb<uint32_t>();
                                 table.name.resize(namelen);
-                                stream->Read(&table.name[0],namelen);
+                                stream->Read(table.name.data(),namelen);
 
                                 uint32_t dbnamelen = stream->ReadLsb<uint32_t>();
                                 table.dbase_name.resize(dbnamelen);
-                                stream->Read(&table.dbase_name[0],dbnamelen);
+                                stream->Read(table.dbase_name.data(),dbnamelen);
 
                                 ReadSectionTypes_Columns(stream, table.columnsdef);
                                 ReadSectionTypes_Columns(stream, table.viewcolumnsdef);
@@ -996,13 +996,13 @@ void WrappedLibrary::ReadSectionTypes_Column(Blex::RandomStream *stream, DBTypeI
         uint32_t namelen = stream->ReadLsb<uint32_t>();
 
         column.name.resize(namelen);
-        stream->Read(&column.name[0],namelen);
+        stream->Read(column.name.data(),namelen);
 
         uint32_t dbasenamelen = stream->ReadLsb<uint32_t>();
         if (dbasenamelen)
         {
                 column.dbase_name.resize(dbasenamelen);
-                stream->Read(&column.dbase_name[0],dbasenamelen);
+                stream->Read(column.dbase_name.data(),dbasenamelen);
         }
         else
         {
@@ -1013,10 +1013,10 @@ void WrappedLibrary::ReadSectionTypes_Column(Blex::RandomStream *stream, DBTypeI
         column.flags = (ColumnFlags::_type)stream->ReadLsb<uint32_t>();
         column.null_default.resize(stream->ReadLsb<uint32_t>());
         if (column.null_default.size())
-            stream->Read(&column.null_default[0], column.null_default.size());
+            stream->Read(column.null_default.data(), column.null_default.size());
         column.view_value.resize(stream->ReadLsb<uint32_t>());
         if (column.view_value.size())
-            stream->Read(&column.view_value[0], column.view_value.size());
+            stream->Read(column.view_value.data(), column.view_value.size());
 }
 
 
@@ -1109,7 +1109,7 @@ void WrappedLibrary::ReadSectionDebugInfo(Blex::RandomStream *stream, unsigned s
         unsigned pos = (unsigned)stream->GetOffset();
         if (length)
         {
-                if (stream->DirectRead(pos, &debuginfo.data[0], length) != length)
+                if (stream->DirectRead(pos, debuginfo.data.data(), length) != length)
                     throw std::runtime_error("Could not read in debuginfo section");
         }
         stream->SetOffset(pos + length);
@@ -1126,7 +1126,7 @@ unsigned WrappedLibrary::WriteSectionDebugInfo(Blex::RandomStream *stream, unsig
 
         unsigned pos = (unsigned)stream->GetOffset();
         unsigned length = debuginfo.data.size();
-        if (stream->DirectWrite(pos, &debuginfo.data[0], length) != length)
+        if (stream->DirectWrite(pos, debuginfo.data.data(), length) != length)
             throw std::runtime_error("Could not write debuginfo section");
         stream->SetOffset(pos + length);
         return (unsigned)stream->GetOffset() - start;

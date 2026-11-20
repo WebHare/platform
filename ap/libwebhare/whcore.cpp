@@ -215,12 +215,12 @@ void Connection::ReloadPluginConfig() const
 
         Blex::FileOffset len = infile->GetFileLength();
         std::vector<char> data(len + 1); //add room for \0 terminator
-        if(infile->Read(&data[0], len) != len)
+        if(infile->Read(data.data(), len) != len)
                 throw std::runtime_error("Unable to read configuration");
 
         data[len] = 0; //zero-terminate it for the JSON reader
         rapidjson::Document indoc;
-        indoc.ParseInsitu(&data[0]);
+        indoc.ParseInsitu(data.data());
 
         if (indoc.HasParseError())
         {
