@@ -133,6 +133,11 @@ async function testRenderRTDType() {
   test.eq(`<div class="jsrtdwidget"><h3 class="heading3">Level 2</h3></div>`,
     await littyToString(await sitereq.renderWidget(await buildWidget("webhare_testsuite:base_test.jsrtdwidget", { contents: await buildRTD([{ "h3.heading3": "Level 2" }]) }))),
     "A widget rendered directly by the page should use the page's RTD type");
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: The RTD type's b= and i= settings choose the tags for bold and italic text
+  test.eq(`<p class="normal"><strong>B</strong><em>I</em></p>`,
+    await littyToString(await sitereq.renderRTD(await buildRTD([{ p: [{ text: "B", bold: true }, { text: "I", italic: true }] }]), { rtdType: "http://www.webhare.net/xmlns/webhare_testsuite/rtd/strong-em" })));
 }
 
 async function testPaths() {
