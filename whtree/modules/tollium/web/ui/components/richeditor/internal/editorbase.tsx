@@ -381,7 +381,6 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     });
     this.htmldiv.append(this.bodydiv);
 
-
     //Fixes a Firefox repositioning issue, tested by richdoc.teststructured-scroll - as of 2022-11-29 we still need this workaround
     this.scrollmonitor = new scrollmonitor.Monitor(this.container);
     scrollmonitor.saveScrollPosition(this.container);
