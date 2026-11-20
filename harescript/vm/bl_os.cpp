@@ -413,9 +413,9 @@ std::string OSContext::ReadProcessOutput(int processid)
         if (proc && proc->output.get())
         {
                 Blex::PodVector<uint8_t> data(2048);
-                std::pair< Blex::SocketError::Errors, unsigned > readres = proc->output->Read(data.size(), &data[0]);
+                std::pair< Blex::SocketError::Errors, unsigned > readres = proc->output->Read(data.size(), data.data());
                 if (readres.first == Blex::SocketError::NoError && readres.second > 0)
-                    return std::string(reinterpret_cast<char*>(&data[0]), reinterpret_cast<char*>(&data[readres.second]));
+                    return std::string(reinterpret_cast<char*>(data.data()), reinterpret_cast<char*>(data.data() + readres.second));
         }
         return std::string();
 }
@@ -427,9 +427,9 @@ std::string OSContext::ReadProcessErrors(int processid)
         if (proc && proc->errors.get())
         {
                 Blex::PodVector<uint8_t> data(2048);
-                std::pair< Blex::SocketError::Errors, unsigned > readres = proc->errors->Read(data.size(), &data[0]);
+                std::pair< Blex::SocketError::Errors, unsigned > readres = proc->errors->Read(data.size(), data.data());
                 if (readres.first == Blex::SocketError::NoError && readres.second > 0)
-                    return std::string(reinterpret_cast<char*>(&data[0]), reinterpret_cast<char*>(&data[readres.second]));
+                    return std::string(reinterpret_cast<char*>(data.data()), reinterpret_cast<char*>(data.data() + readres.second));
         }
         return std::string();
 }
@@ -1132,7 +1132,7 @@ void HS_ParseArguments(VarId id_set, VirtualMachine *vm)
 
         // Parse arguments and store variables
         HSVM_SetDefault(*vm, id_set, HSVM_VAR_Record);
-        Blex::OptionParser parser(&optionlist[0]);
+        Blex::OptionParser parser(optionlist.data());
         if (parser.Parse(args))
         {
                 HSVM_RecordSetEmpty(*vm, id_set);

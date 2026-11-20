@@ -221,12 +221,12 @@ Bitmap32 * CreateBitmap32FromRaw(Blex::Stream &stream, unsigned width, unsigned 
         Scanline32 tempscanline(width,false);
         for(uint32_t y=0; y<height; y++)
         {
-                if (readbuffer.Read(&scanlinedata[0], width*4) != width*4)
+                if (readbuffer.Read(scanlinedata.data(), width*4) != width*4)
                     return NULL;
 
-                ConvertScanline(&scanlinedata[0], width, format, false, premultiplied);
+                ConvertScanline(scanlinedata.data(), width, format, false, premultiplied);
 
-                tempscanline.ImportScanline(&scanlinedata[0]);
+                tempscanline.ImportScanline(scanlinedata.data());
                 bitmap->SetScanline32(y, tempscanline);
         }
         return bitmap.release();

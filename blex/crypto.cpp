@@ -279,14 +279,14 @@ void MemBioWrapper::SendToString(std::string *str)
 {
         std::vector<uint8_t> tmp;
         SendToVector(&tmp);
-        str->append(reinterpret_cast<const char*>(&tmp[0]), reinterpret_cast<const char*>(&tmp[tmp.size()]));
+        str->append(reinterpret_cast<const char*>(tmp.data()), reinterpret_cast<const char*>(tmp.data() + tmp.size()));
 }
 void MemBioWrapper::ReadFromStream(Blex::Stream &instr)
 {
         std::vector<uint8_t> tmp(16384);
-        while(int inbytes = instr.Read(&tmp[0],16384))
+        while(int inbytes = instr.Read(tmp.data(),16384))
         {
-                if (BIO_write(bio,&tmp[0],inbytes)!=inbytes)
+                if (BIO_write(bio,tmp.data(),inbytes)!=inbytes)
                     throw std::bad_alloc();
         }
 }
@@ -404,7 +404,7 @@ void EVPKey::GenerateKeypair(KeyType::Type keytype, unsigned numbits, std::strin
                 }
                 else if (keytype == KeyType::EC)
                 {
-                        int nid = OBJ_sn2nid(&curve[0]);
+                        int nid = OBJ_sn2nid(curve.c_str());
                         if (nid == NID_undef)
                             throw std::runtime_error("Keygen failure - parameter error");
 
@@ -634,7 +634,7 @@ bool EVPKey::Verify(unsigned datalen, const void *data, std::vector< uint8_t > c
                     throw std::runtime_error("Verification failure - update failed");
 
                 // Finalise the DigestVerify operation
-                result = EVP_DigestVerifyFinal(mdctx, &signature[0], signature.size());
+                result = EVP_DigestVerifyFinal(mdctx, signature.data(), signature.size());
 
                 EVP_MD_CTX_destroy(mdctx);
         }
@@ -920,8 +920,8 @@ std::size_t RC4CryptingStream::Read(void *buf,std::size_t maxbufsize)
 std::size_t RC4CryptingStream::Write(const void *buf, std::size_t maxbufsize)
 {
         std::vector<uint8_t> temp(static_cast<const char*>(buf), static_cast<const char*>(buf) + maxbufsize);
-        crypt.CryptBuffer(&temp[0],maxbufsize);
-        return in.Write(&temp[0],maxbufsize);
+        crypt.CryptBuffer(temp.data(),maxbufsize);
+        return in.Write(temp.data(),maxbufsize);
 }
 bool RC4CryptingStream::EndOfStream()
 {
@@ -1905,7 +1905,7 @@ void GenerateWebHareBlowfishPassword(uint8_t *encoded_password, const void *plai
         std::string input = GenerateUFS128BitId();
 
         char tempsalt[BlowfishSaltLen + 1];
-        if(!_crypt_gensalt_blowfish_rn("$2yx$", iterations, &input[0], input.size(), tempsalt, sizeof tempsalt))
+        if(!_crypt_gensalt_blowfish_rn("$2yx$", iterations, input.data(), input.size(), tempsalt, sizeof tempsalt))
                 throw std::runtime_error("_crypt_gensalt_blowfish_rn failed");
 
         std::string inkey = PreparePasswordForBlowfish(plaintext, plaintextsize);
@@ -1991,7 +1991,7 @@ bool CheckWebHarePassword(unsigned encoded_size, void const *encoded_data, unsig
 
                 //SHA1 hash the seed and the UCS2 password
                 uint8_t sha1hash[SHA1HashLen];
-                GetSHA1Hash(&hashdata[0], hashdata.size(), sha1hash);
+                GetSHA1Hash(hashdata.data(), hashdata.size(), sha1hash);
                 return std::equal(pwddata.begin(), pwddata.end(), sha1hash);
         }
         else if (encoded_size >= 4 && std::equal(static_cast<const char*>(encoded_data), static_cast<const char*>(encoded_data) + 4, "LCR:")) //linux crypt??

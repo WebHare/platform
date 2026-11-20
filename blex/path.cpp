@@ -443,8 +443,8 @@ std::string GetCurrentDir()
         std::vector<char> path(128);
         while (true)
         {
-                if (getcwd(&path[0],path.size()-1))
-                    return std::string(&path[0]);
+                if (getcwd(path.data(),path.size()-1))
+                    return std::string(path.data());
                 //failed, expand buffer and retry
                 path.resize(path.size()*2);
         }
@@ -698,11 +698,11 @@ std::string ReadSoftLink(std::string const &path)
                 return std::string();
 
         std::vector<char> linkreceiver(sb.st_size);
-        int len = readlink(path.c_str(), &linkreceiver[0], sb.st_size);
+        int len = readlink(path.c_str(), linkreceiver.data(), sb.st_size);
         if(len==-1)
                 return std::string();
 
-        return std::string(&linkreceiver[0], &linkreceiver[len]);
+        return std::string(linkreceiver.data(), linkreceiver.data() + len);
 }
 
 std::string GetRealPath(std::string const &path)

@@ -1336,7 +1336,7 @@ void XMLDoc___C14N2(HSVM *hsvm, HSVM_VariableId id_set)
         inclusive_ns_prefixes.push_back(NULL);
 
         xmlChar *doc_txt_ptr = NULL;
-        int byteswritten = xmlC14NDocDumpMemory(xmlnode->realdoc->GetDocPtr(), xpathresult ? xpathresult->nodesetval : 0, mode, &inclusive_ns_prefixes[0], withcomments, &doc_txt_ptr);
+        int byteswritten = xmlC14NDocDumpMemory(xmlnode->realdoc->GetDocPtr(), xpathresult ? xpathresult->nodesetval : 0, mode, inclusive_ns_prefixes.data(), withcomments, &doc_txt_ptr);
         if(byteswritten>0)
             HSVM_StringSet(hsvm, id_set, reinterpret_cast<char*>(doc_txt_ptr), reinterpret_cast<char*>(doc_txt_ptr)+byteswritten);
         xmlFree(doc_txt_ptr);

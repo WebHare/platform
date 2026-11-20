@@ -275,9 +275,9 @@ void MarshalPacket::Read(uint8_t const *start, uint8_t const *end, GlobalBlobMan
         data.resize(datasize);
 
         if (columnsize)
-            std::copy(start + 20, start + 20 + columnsize, &columndata[0]);
+            std::copy(start + 20, start + 20 + columnsize, columndata.data());
         if (datasize)
-            std::copy(start + 20 + columnsize, start + 20 + columnsize + datasize, &data[0]);
+            std::copy(start + 20 + columnsize, start + 20 + columnsize + datasize, data.data());
         if (blobsectionsize)
         {
                 if (!blobmgr)
@@ -1073,7 +1073,7 @@ MarshalPacket * Marshaller::WriteToNewPacket(VarId var)
 
         AnalyzeInternal(var, true);
         packet->data.resize(data_size);
-        uint8_t *begin = data_size == 0 ? (uint8_t*)0 : &packet->data[0];
+        uint8_t *begin = data_size == 0 ? (uint8_t*)0 : packet->data.data();
         WriteInternal(var, begin, begin + data_size, packet.get());
 
         return packet.release();
@@ -1491,7 +1491,7 @@ void Marshaller::ReadInternal(VarId var, uint8_t const *begin, uint8_t const *li
             ReadColumnData(&ptr, &size, &columns);
         else
         {
-                uint8_t const *colptr = &packet->columndata[0];
+                uint8_t const *colptr = packet->columndata.data();
                 size_t colsize = packet->columndata.size();
                 if (colsize)
                 {
@@ -1521,7 +1521,7 @@ void Marshaller::ReadFromVector(VarId var, std::vector< uint8_t > const &data)
 {
         if (data.empty())
             ThrowInternalError("Malformed marshal data");
-        uint8_t const *begin = &data[0];
+        uint8_t const *begin = data.data();
         Read(var, begin, begin + data.size());
 }
 
@@ -1529,7 +1529,7 @@ void Marshaller::ReadFromVector(VarId var, Blex::PodVector< uint8_t > const &dat
 {
         if (data.empty())
             ThrowInternalError("Malformed marshal data");
-        uint8_t const *begin = &data[0];
+        uint8_t const *begin = data.data();
         Read(var, begin, begin + data.size());
 }
 

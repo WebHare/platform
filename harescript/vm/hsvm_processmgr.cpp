@@ -2338,7 +2338,7 @@ void SetArguments(VirtualMachine *vm)
         for(unsigned i=0;i<numargs;++i)
             argsptrs[i] = args[i].c_str();
 
-        HSVM_SetConsoleArguments(*target, numargs, &argsptrs[0]);
+        HSVM_SetConsoleArguments(*target, numargs, argsptrs.data());
         jobmgr->UnlockVMGroup(it->second->GetVMGroup());
 }
 void GetExitCode(VarId id_set, VirtualMachine *vm)

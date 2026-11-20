@@ -275,7 +275,7 @@ void HS_SQL_DescribeTableTypeInfo(VarId id_set, VirtualMachine *vm)
                 {
                         HSVM_VariableId var_nulldefault = HSVM_RecordCreate(*vm, var, vm->cn_cache.col_nulldefault);
 
-                        marshaller.Read(var_nulldefault, &itr.null_default[0], &itr.null_default[0] + itr.null_default.size());
+                        marshaller.Read(var_nulldefault, itr.null_default.data(), itr.null_default.data() + itr.null_default.size());
                 }
         }
 }
@@ -1510,7 +1510,7 @@ void HS_SQL_RegisterTableTypeInfo(VarId id_set, VirtualMachine *vm)
                 {
                         unsigned size = marshaller.Analyze(var_nulldefault);
                         col.null_default.resize(size);
-                        marshaller.Write(var_nulldefault, &col.null_default[0], (&col.null_default[0]) + size);
+                        marshaller.Write(var_nulldefault, col.null_default.data(), (col.null_default.data()) + size);
                         col.flags |= ColumnFlags::TranslateNulls;
                 }
                 else

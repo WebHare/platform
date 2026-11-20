@@ -119,14 +119,14 @@ class BLEXLIB_PUBLIC LocalMapper
             @return Id corresponding with name (unique per globalColumnNameMapper)
         */
         ColumnNameId GetMapping(std::string_view name)
-        { return GetMapping(name.size(), &name[0]); }
+        { return GetMapping(name.size(), name.data()); }
 
         /** Retrieves a mapping (creates one if neccessary)
             @param name Name of column
             @return Id corresponding with name (unique per globalColumnNameMapper)
         */
         ColumnNameId GetMapping(std::string const &name)
-        { return GetMapping(name.size(), &name[0]); }
+        { return GetMapping(name.size(), name.data()); }
 
         /** Retrieves a mapping (creates one if neccessary)
             @param name Name of column

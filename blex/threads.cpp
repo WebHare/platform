@@ -1658,9 +1658,9 @@ bool Process::Start(std::string const &applicationfilename,
 
                 //Now try to boot the new process
                 if (environment)
-                    execve(path,&args[0],environment_ptrs);
+                    execve(path,args.data(),environment_ptrs);
                 else
-                    execv(path,&args[0]);
+                    execv(path,args.data());
 
                 //Failed! :-(
                 _exit(255);
@@ -1734,14 +1734,14 @@ void Process::SetEnvironment(Environment const &newenvironment)
                 environment_ptrs[totalvars++] = &environment[totalsize];
 
                 //Add variable name
-                memcpy(&environment[totalsize],&itr->first[0],itr->first.size());
+                memcpy(&environment[totalsize],itr->first.data(),itr->first.size());
                 totalsize += itr->first.size();
 
                 //Add '=' separator
                 environment[totalsize++]='=';
 
                 //Add variable contents
-                memcpy(&environment[totalsize],&itr->second[0],itr->second.size());
+                memcpy(&environment[totalsize],itr->second.data(),itr->second.size());
                 totalsize += itr->second.size();
 
                 //Add '\0' separator

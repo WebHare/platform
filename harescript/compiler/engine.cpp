@@ -90,7 +90,7 @@ void EngineImpl::Compile(Blex::ContextKeeper &keeper, std::string const &library
         std::vector<uint8_t> buffer;
         unsigned file_length = inlib.GetFileLength();
         buffer.resize(file_length + 1);
-        inlib.DirectRead(0, &buffer[0], file_length);
+        inlib.DirectRead(0, buffer.data(), file_length);
         *(buffer.end() - 1) = 0;
 
         Blex::FastTimer timer;
@@ -98,7 +98,7 @@ void EngineImpl::Compile(Blex::ContextKeeper &keeper, std::string const &library
         uint64_t currenttime = 0;
         timer.Start();
 
-        HareScript::Compiler::Parser parser(&buffer[0], buffer.size(), context, symboltable, coder );
+        HareScript::Compiler::Parser parser(buffer.data(), buffer.size(), context, symboltable, coder );
         TypeStorage typestorage;
         SemanticChecker checker(typestorage, coder, context);
         Opt_ConstantsArithmatic::Opt_ConstantsArithmatic opt_constarithm(&coder, typestorage, context);
@@ -551,12 +551,12 @@ std::vector<LoadlibInfo> EngineImpl::GetLoadLibs(Blex::ContextKeeper &keeper, st
         std::vector<uint8_t> buffer;
         unsigned file_length = inlib.GetFileLength();
         buffer.resize(file_length + 1);
-        inlib.DirectRead(0, &buffer[0], file_length);
+        inlib.DirectRead(0, buffer.data(), file_length);
         *(buffer.end() - 1) = 0;
 
         std::vector<LoadlibInfo> loadlibs;
 
-        HareScript::Compiler::Parser parser(&buffer[0], buffer.size(), context, symboltable, coder );
+        HareScript::Compiler::Parser parser(buffer.data(), buffer.size(), context, symboltable, coder );
 
         std::vector<LoadlibInfo> parserloadlibs = parser.GetLoadLibs();
         std::copy(parserloadlibs.begin(), parserloadlibs.end(), std::back_inserter(loadlibs));

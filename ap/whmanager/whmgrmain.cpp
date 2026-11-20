@@ -958,7 +958,7 @@ Database::RPCResponse::Type EventTask::HookExecuteTask(Database::IOBuffer *iobuf
 {
         iobuf->ResetForSending();
         iobuf->Write(eventname);
-        iobuf->WriteBinary(msg.size(), &msg[0]);
+        iobuf->WriteBinary(msg.size(), msg.data());
         iobuf->FinishForRequesting(WHMResponseOpcode::IncomingEvent);
 
         DEBUGPRINT("Task, conn " << target << " Sending RPC IncomingEvent, eventname: '" << eventname << "'");
@@ -1084,7 +1084,7 @@ Database::RPCResponse::Type MessageTask::HookExecuteTask(Database::IOBuffer *iob
         iobuf->Write(msgid);
         iobuf->Write(replyto);
         iobuf->Write(lastpart);
-        iobuf->WriteBinary(msg.size(), &msg[0]);
+        iobuf->WriteBinary(msg.size(), msg.data());
         iobuf->FinishForRequesting(WHMResponseOpcode::IncomingMessage);
 
         DEBUGPRINT("Task, conn " << target << " Sending RPC IncomingMessage, target_linkid: " << targetlinkid << ", msgid: " << msgid << ", replyto: " << replyto);

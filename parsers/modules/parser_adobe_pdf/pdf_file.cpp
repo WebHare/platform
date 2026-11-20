@@ -67,10 +67,10 @@ bool PDFfile::GenerateFileKey(DictObject const &trailer, unsigned revision, unsi
         std::vector<uint8_t> testbuffer(32);
         if (revision==2)
         {
-                Blex::RC4 decryptor(&file_encryption_key[0], file_encryption_key.size());
+                Blex::RC4 decryptor(file_encryption_key.data(), file_encryption_key.size());
                 std::copy(pdf_padbytes, pdf_padbytes+32, testbuffer.begin());
-                decryptor.CryptBuffer(&testbuffer[0], testbuffer.size());
-                return memcmp(&userkey[0], &testbuffer[0], 32) == 0;
+                decryptor.CryptBuffer(testbuffer.data(), testbuffer.size());
+                return memcmp(userkey.data(), testbuffer.data(), 32) == 0;
         }
         else
         {
@@ -87,9 +87,9 @@ bool PDFfile::GenerateFileKey(DictObject const &trailer, unsigned revision, unsi
                         for (unsigned j=0;j<file_encryption_key.size();++j)
                             inkey[j] = file_encryption_key[j] ^ uint8_t(i);
                         Blex::RC4 decryptor(inkey, file_encryption_key.size());
-                        decryptor.CryptBuffer(&testbuffer[0], testbuffer.size());
+                        decryptor.CryptBuffer(testbuffer.data(), testbuffer.size());
                 }
-                return memcmp(digest_so_far, &testbuffer[0], 16) == 0;
+                return memcmp(digest_so_far, testbuffer.data(), 16) == 0;
 
                 /*Take the output from the previous invocation of the
                   RC4 function and pass it as input to a new invocation of the function; use an encryption
@@ -105,7 +105,7 @@ bool PDFfile::GenerateFileKey(DictObject const &trailer, unsigned revision, unsi
                         RC4 decryptor(inkey, file_encryption_key.size());
                         decryptor.DecryptBuffer(digest_so_far, sizeof(digest_so_far));
                 }
-                memcpy(&testbuffer[0], digest_so_far, sizeof(digest_so_far));*/
+                memcpy(testbuffer.data(), digest_so_far, sizeof(digest_so_far));*/
         }
 }
 

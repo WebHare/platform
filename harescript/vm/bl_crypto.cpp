@@ -145,7 +145,7 @@ void HS_GetCertificateData(HSVM *vm, HSVM_VariableId id_set)
         if (publickey.empty())
             HSVM_StringSet(vm, var_pubkey, 0, 0);
         else
-            HSVM_StringSet(vm, var_pubkey, &publickey[0], &publickey[0] + publickey.size());
+            HSVM_StringSet(vm, var_pubkey, publickey.data(), publickey.data() + publickey.size());
 }
 
 void HS_DoEvpCrypt(HSVM *vm, HSVM_VariableId id_set)
@@ -188,12 +188,12 @@ void HS_DoEvpCrypt(HSVM *vm, HSVM_VariableId id_set)
                 if (EVP_CIPHER_iv_length(cipher) != signed(iv.size()))
                     throw std::runtime_error("Encryption iv length is wrong, expected " + Blex::AnyToString(EVP_CIPHER_iv_length(cipher)) + " bytes, got " + Blex::AnyToString(iv.size()) + " bytes");
 
-                if(!EVP_CipherInit_ex(ctx, NULL, NULL, reinterpret_cast<const uint8_t*>(&key[0]), reinterpret_cast<const uint8_t*>(&iv[0]), encrypt ? 1 : 0))
+                if(!EVP_CipherInit_ex(ctx, NULL, NULL, reinterpret_cast<const uint8_t*>(key.data()), reinterpret_cast<const uint8_t*>(iv.data()), encrypt ? 1 : 0))
                     throw std::runtime_error("EVP_CipherInit #2 failed");
 
                 if(tag.size() && !encrypt)
                 {
-                        if(!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, tag.size(), reinterpret_cast<uint8_t*>(&tag[0])))
+                        if(!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, tag.size(), reinterpret_cast<uint8_t*>(tag.data())))
                                 throw std::runtime_error("EVP_CIPHER_CTX_ctrl failed");
                 }
 
@@ -201,9 +201,9 @@ void HS_DoEvpCrypt(HSVM *vm, HSVM_VariableId id_set)
                 outbuffer.resize(data.size() + EVP_CIPHER_block_size(cipher));
 
                 int numbytes = 0, numbytes2 = 0;
-                if(!EVP_CipherUpdate(ctx, &outbuffer[0], &numbytes, reinterpret_cast<const uint8_t*>(&data[0]), data.size()))
+                if(!EVP_CipherUpdate(ctx, outbuffer.data(), &numbytes, reinterpret_cast<const uint8_t*>(data.data()), data.size()))
                     throw std::runtime_error("EVP_CipherUpdate failed");
-                if(!EVP_CipherFinal(ctx, &outbuffer[numbytes], &numbytes2))
+                if(!EVP_CipherFinal(ctx, outbuffer.data() + numbytes, &numbytes2))
                     throw std::runtime_error("EVP_CipherFinal failed");
 
                 char tagholder[16];
@@ -213,7 +213,7 @@ void HS_DoEvpCrypt(HSVM *vm, HSVM_VariableId id_set)
                         taglen = 16;
 
                 HSVM_SetDefault(vm, id_set, HSVM_VAR_Record);
-                HSVM_StringSet(vm, HSVM_RecordCreate(vm, id_set, HSVM_GetColumnId(vm, "DATA")), reinterpret_cast<char*>(&outbuffer[0]), reinterpret_cast<char*>(&outbuffer[numbytes + numbytes2]));
+                HSVM_StringSet(vm, HSVM_RecordCreate(vm, id_set, HSVM_GetColumnId(vm, "DATA")), reinterpret_cast<char*>(outbuffer.data()), reinterpret_cast<char*>(outbuffer.data() + (numbytes + numbytes2)));
                 HSVM_StringSet(vm, HSVM_RecordCreate(vm, id_set, HSVM_GetColumnId(vm, "TAG")), reinterpret_cast<char*>(&tagholder[0]), reinterpret_cast<char*>(&tagholder[taglen]));
         }
         catch(std::exception &e)
@@ -352,7 +352,7 @@ void HS_EncryptEVP(HSVM *vm, HSVM_VariableId id_set)
                     HSVM_StringSet(vm, id_set, 0, 0);
                 else
                 {
-                        const char *start = reinterpret_cast< char * >(&encrypted[0]);
+                        const char *start = reinterpret_cast< char * >(encrypted.data());
                         HSVM_StringSet(vm, id_set, start, start + encrypted.size());
                 }
         }
@@ -381,7 +381,7 @@ void HS_DecryptEVP(HSVM *vm, HSVM_VariableId id_set)
                     HSVM_StringSet(vm, id_set, 0, 0);
                 else
                 {
-                        const char *start = reinterpret_cast< char * >(&decrypted[0]);
+                        const char *start = reinterpret_cast< char * >(decrypted.data());
                         HSVM_StringSet(vm, id_set, start, start + decrypted.size());
                 }
         }
@@ -414,7 +414,7 @@ void HS_SignEVP(HSVM *vm, HSVM_VariableId id_set)
                     HSVM_StringSet(vm, id_set, 0, 0);
                 else
                 {
-                        const char *start = reinterpret_cast< char * >(&signature[0]);
+                        const char *start = reinterpret_cast< char * >(signature.data());
                         HSVM_StringSet(vm, id_set, start, start + signature.size());
                 }
         }
@@ -586,7 +586,7 @@ void HS_GenerateCSR(HSVM *vm, HSVM_VariableId id_set)
                 }
                 (*key)->GenerateCertificateRequest(&req, parts, HSVM_StringGetSTD(vm, HSVM_Arg(2)));
 
-                HSVM_StringSet(vm, id_set, reinterpret_cast<char*>(&req[0]), reinterpret_cast<char*>(&req[req.size()]));
+                HSVM_StringSet(vm, id_set, reinterpret_cast<char*>(req.data()), reinterpret_cast<char*>(req.data() + req.size()));
         }
         catch(std::exception &e)
         {

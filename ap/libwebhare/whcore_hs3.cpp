@@ -924,7 +924,7 @@ void SetSystemConfig(HSVM *vm)
         Blex::PodVector< uint8_t > data;
         marshaller.WriteToPodVector(HSVM_Arg(0), &data);
 
-        scriptcontext->SetSystemConfig(&data[0], data.size());
+        scriptcontext->SetSystemConfig(data.data(), data.size());
 }
 
 void FenceEvents(HSVM *vm)

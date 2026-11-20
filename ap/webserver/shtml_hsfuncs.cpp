@@ -153,8 +153,8 @@ void ShtmlContextData::AllVariables(HSVM *vm, HSVM_VariableId id_set)
              ++itr)
         {
                 HSVM_VariableId newrecord = HSVM_ArrayAppend(vm, id_set);
-                HSVM_StringSet(vm, HSVM_RecordCreate(vm, newrecord, nameid), &itr->first[0], &itr->first[itr->first.size()]);
-                HSVM_StringSet(vm, HSVM_RecordCreate(vm, newrecord, valueid), &itr->second.contents[0], &itr->second.contents[itr->second.contents.size()]);
+                HSVM_StringSet(vm, HSVM_RecordCreate(vm, newrecord, nameid), itr->first.data(), itr->first.data() + itr->first.size());
+                HSVM_StringSet(vm, HSVM_RecordCreate(vm, newrecord, valueid), itr->second.contents.data(), itr->second.contents.data() + itr->second.contents.size());
                 HSVM_BooleanSet(vm, HSVM_RecordCreate(vm, newrecord, ispostid), itr->second.ispost);
 
                 HSVM_VariableId data = HSVM_RecordCreate(vm, newrecord, dataid);
@@ -189,12 +189,12 @@ void ShtmlContextData::AllHeaders(HSVM *vm, HSVM_VariableId id_set)
              ++itr)
         {
                 // Skip x-wh-proxy header
-                if (Blex::StrCaseCompare(&itr->first[0], &itr->first[itr->first.size()], xwhproxy, xwhproxy+sizeof xwhproxy-1)==0)
+                if (Blex::StrCaseCompare(itr->first.data(), itr->first.data() + itr->first.size(), xwhproxy, xwhproxy+sizeof xwhproxy-1)==0)
                     continue;
 
                 HSVM_VariableId newrecord = HSVM_ArrayAppend(vm, id_set);
-                HSVM_StringSet(vm, HSVM_RecordCreate(vm, newrecord, fieldid), &itr->first[0], &itr->first[itr->first.size()]);
-                HSVM_StringSet(vm, HSVM_RecordCreate(vm, newrecord, valueid), &itr->second[0], &itr->second[itr->second.size()]);
+                HSVM_StringSet(vm, HSVM_RecordCreate(vm, newrecord, fieldid), itr->first.data(), itr->first.data() + itr->first.size());
+                HSVM_StringSet(vm, HSVM_RecordCreate(vm, newrecord, valueid), itr->second.data(), itr->second.data() + itr->second.size());
 
         }
 }

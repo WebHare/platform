@@ -276,7 +276,7 @@ bool Connection::PullAndSendOutgoingData()
 
         if (!final_senddata.empty()) //send all data in final_senddata queue
         {
-                AsyncQueueSend(final_senddata.size(),&final_senddata[0]);
+                AsyncQueueSend(final_senddata.size(),final_senddata.data());
                 final_senddata.clear();
                 //Blex::ErrStream() << "PullOutgoingData: return true";
                 return true;

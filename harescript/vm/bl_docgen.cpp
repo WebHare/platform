@@ -41,15 +41,15 @@ void OpenHareScriptFile(HSVM *vm, HSVM_VariableId id_set)
         int bloblength = HSVM_BlobLength(vm, HSVM_Arg(0));
         newfile->filedata.resize(bloblength+1,0); //add space for '0' byte
 
-        if (HSVM_BlobRead(vm, blobhandle, bloblength, &newfile->filedata[0]) != bloblength)
+        if (HSVM_BlobRead(vm, blobhandle, bloblength, newfile->filedata.data()) != bloblength)
         {
                 HSVM_ReportCustomError(vm, "I/O error reading library");
                 return;
         }
         HSVM_BlobClose(vm, blobhandle);
 
-        newfile->lexer.StartLexer(reinterpret_cast<uint8_t*>(&newfile->filedata[0]),newfile->filedata.size()-1);
-        newfile->rawtokenstart = &newfile->filedata[0];
+        newfile->lexer.StartLexer(reinterpret_cast<uint8_t*>(newfile->filedata.data()),newfile->filedata.size()-1);
+        newfile->rawtokenstart = newfile->filedata.data();
         newfile->lexer.MovetoNextToken();
 
         //Create a handle

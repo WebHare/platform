@@ -207,7 +207,7 @@ void VirtualMachine::PushFrame(unsigned locals)
 
 void VirtualMachine::SetStateShortcuts(bool is_hit)
 {
-        executionstate.code = &executionstate.library->GetWrappedLibrary().resident.code[0];
+        executionstate.code = executionstate.library->GetWrappedLibrary().resident.code.data();
         var_marshaller.SetLibraryColumnNameDecoder(&executionstate.library->GetLinkedLibrary().resolvedcolumnnames);
 
         if (profiledata.profile_memory)
@@ -4046,19 +4046,12 @@ HSVM *VMGroup::CreateVirtualMachine()
 void VMGroup::SetupConsole(HSVM *vm, std::vector<std::string> const &args) //ADDME: SHouldn't this be a VMGroup-wide resource?
 {
         HareScript::SetupConsole(*GetVirtualMachine(vm));
-        /* With
-           Apple clang version 14.0.3 (clang-1403.0.22.14.1)
-           we need to do this silly check - and explcitly mention args.size() in the exception. Or it'll start SEGV-ing
-           testprocessmgr.cpp (which doesn't even set any arguments)
-        */
-        if(args.size() > 9999)
-                throw std::invalid_argument("Too many arguments: " + Blex::AnyToString(args.size()));
-
         std::vector<const char*> argsptrs(args.size());
         for(unsigned i=0;i<args.size();++i)
             argsptrs[i] = args[i].c_str();
 
-        HSVM_SetConsoleArguments(vm, args.size(), &argsptrs[0]);
+        // Don't use &argsptrs[0]: that's undefined behavior if args is empty, and lets the optimizer assume the loop above runs at least once
+        HSVM_SetConsoleArguments(vm, args.size(), argsptrs.data());
 }
 
 uint8_t VMGroup::GetConsoleExitCode(HSVM *vm)

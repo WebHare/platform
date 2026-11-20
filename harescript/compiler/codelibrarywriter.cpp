@@ -845,7 +845,7 @@ void CodeLibraryWriter::AddDebugInfo(HareScript::WrappedLibrary &wrapper, std::m
         compressed.reset();
 
         wrapper.debuginfo.data.resize(targetstream.GetFileLength());
-        targetstream.DirectRead(0, &wrapper.debuginfo.data[0], targetstream.GetFileLength());
+        targetstream.DirectRead(0, wrapper.debuginfo.data.data(), targetstream.GetFileLength());
 }
 
 void CodeLibraryWriter::ProcessTypeInfo(HareScript::WrappedLibrary &wrapper)

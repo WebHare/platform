@@ -92,14 +92,14 @@ PNGPredictionDecodeStream::PNGPredictionDecodeStream(Blex::Stream &originalstrea
         unsigned numrows = temp.size() / (columns+1);
         decompresseddata.resize(numrows*columns);
 
-        uint8_t const *inptr = &temp[0];
-        uint8_t *outptr = &decompresseddata[0];
+        uint8_t const *inptr = temp.data();
+        uint8_t *outptr = decompresseddata.data();
 
         //http://www.w3.org/TR/PNG-Filters.html
         for (unsigned y=0;y<numrows;++y)
         {
                 uint8_t rowtype = *inptr++;
-                DEBUGPRINT("rowtype " << (int)rowtype << " offset " << int(inptr-1-&temp[0]) << " cols " << columns);
+                DEBUGPRINT("rowtype " << (int)rowtype << " offset " << int(inptr-1-temp.data()) << " cols " << columns);
                 DEBUGONLY(if(rowtype > 2) DEBUGPRINT("Unrecognized rowtype " << (int)rowtype << " in png prediction filter"));
 
                 for(unsigned x=0;x<columns;++x)
@@ -131,7 +131,7 @@ std::size_t PNGPredictionDecodeStream::Read(void *buf,std::size_t maxbufsize)
         maxbufsize = std::min(maxbufsize, decompresseddata.size() - dataoffset);
         if(maxbufsize>0)
         {
-                memcpy(buf, &decompresseddata[dataoffset], maxbufsize);
+                memcpy(buf, decompresseddata.data() + dataoffset, maxbufsize);
                 dataoffset += maxbufsize;
         }
         else
@@ -169,7 +169,7 @@ void Ascii85DecodeStream::FillReadBuffers()
         if (corrupted)
             return;
 
-        uint32_t bytesread=coded_stream.Read(&indata[0],ASCII85STREAM_BUFSIZE);
+        uint32_t bytesread=coded_stream.Read(indata.data(),ASCII85STREAM_BUFSIZE);
 
         avail_in = bytesread;
         indataptr = 0;
@@ -326,10 +326,10 @@ std::size_t Ascii85DecodeStream::Read(void *buf,std::size_t maxbufsize)
                         //yes, send it!
                         std::size_t tosend = std::min<std::size_t>(outdatalen,maxbufsize);
 
-                        memcpy(buf,&outdata[0],tosend);
+                        memcpy(buf,outdata.data(),tosend);
                         buf = static_cast<uint8_t*>(buf) + tosend;
                         if (tosend < outdatalen) //still bytes left in buffer, move them backwards
-                            memmove(&outdata[0], &outdata[tosend], outdatalen-tosend);
+                            memmove(outdata.data(), outdata.data() + tosend, outdatalen-tosend);
                         maxbufsize -= tosend;
                         totalbytesread += tosend;
                         outdatalen -= tosend;
@@ -372,7 +372,7 @@ std::size_t DynamicDecodingStream::Read(void *buf,std::size_t maxbufsize)
                 if (outbuffer.size())
                 {
                         std::size_t toread = std::min(outbuffer.size(), maxbufsize);
-                        memcpy(buf, &outbuffer[0], toread);
+                        memcpy(buf, outbuffer.data(), toread);
 
                         buf = static_cast<char*>(buf) + toread;
                         outbuffer.erase(outbuffer.begin(), outbuffer.begin() + toread);
