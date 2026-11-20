@@ -3,6 +3,7 @@
 
 #include <blex/path.h>
 #include <blex/utils.h>
+#include <limits>
 #include "requestparser.h"
 
 //ADDME: DO we need character set tranformations on post multipart and/or urlencoded data?
@@ -17,6 +18,28 @@ namespace WebServer
 const unsigned MaxVarLength = 4096;
 
 const unsigned MaxMemoryTempStore=32768; //start flushing to disk after 32K
+
+namespace
+{
+// Framing sizes must consume every digit and must not wrap before validation.
+bool ParseFramingSize(std::string::const_iterator begin, std::string::const_iterator end, unsigned base, uint64_t *value)
+{
+        if (begin == end)
+            return false;
+        uint64_t result = 0;
+        for (; begin != end; ++begin)
+        {
+                unsigned digit = *begin >= '0' && *begin <= '9' ? *begin - '0'
+                               : *begin >= 'a' && *begin <= 'f' ? *begin - 'a' + 10
+                               : *begin >= 'A' && *begin <= 'F' ? *begin - 'A' + 10 : base;
+                if (digit >= base || result > (std::numeric_limits<uint64_t>::max() - digit) / base)
+                    return false;
+                result = result * base + digit;
+        }
+        *value = result;
+        return true;
+}
+}
 
 /** Parse a HTTP token, returning the end of the parse */
 char const*  ParseToken(char const*  begin, char const*  end, std::string *output)
@@ -199,6 +222,10 @@ char const* RequestParser::ParseHTTP(char const *start, char const *limit, Heade
                                 //Let the header parser take as much bytes
                                 //as he can, and we'll handle the remainder
                                 start = static_cast<const char*>(request_headers_parser.ParseHeader(start,limit));
+                                // Header callbacks can fail. Never replace that terminal state
+                                // with a body state or invoke request dispatch after that failure.
+                                if (state == ParsingFailed)
+                                    return start;
                                 if (request_headers_parser.IsDone())
                                 {
                                         //ADDME: shouldn't expect a body on a HEAD request no matter what content-length says? see rfc 2616 4.4 1
@@ -210,15 +237,28 @@ char const* RequestParser::ParseHTTP(char const *start, char const *limit, Heade
                                 continue;
                         }
 
-                        case ExpectCRLF: //Expect \r\n - tolerant of missing \r or \n
+                        case ExpectCRLF:
                         {
-                                if(*start=='\r')
+                                if (*start != '\r')
                                 {
-                                        ++start;
-                                        continue;
+                                        errorcode = ErrorBadRequest;
+                                        state = ParsingFailed;
+                                        return start;
                                 }
-                                if(*start=='\n')
-                                    ++start;
+                                ++start;
+                                state = ExpectLF;
+                                continue;
+                        }
+
+                        case ExpectLF:
+                        {
+                                if (*start != '\n')
+                                {
+                                        errorcode = ErrorBadRequest;
+                                        state = ParsingFailed;
+                                        return start;
+                                }
+                                ++start;
                                 state = nextstate;
                                 continue;
                         }
@@ -236,17 +276,17 @@ char const* RequestParser::ParseHTTP(char const *start, char const *limit, Heade
                                         }
                                         if(*start=='\r' || *start=='\n')
                                         {
-                                                std::pair<uint64_t, std::string::iterator> retval = Blex::DecodeUnsignedNumber<uint64_t>(chunkheader.begin(), chunkheader.end(), 16);
-                                                if(retval.second != chunkheader.end())
+                                                if (*start != '\r' || !ParseFramingSize(chunkheader.begin(), chunkheader.end(), 16, &chunksize))
                                                 {
                                                         DEBUGPRINT("Method_Parsing: Corrupt chunk header");
                                                         errorcode = ErrorBadRequest;
                                                         state = ParsingFailed;
                                                         break;
                                                 }
-                                                chunksize = retval.first;
                                                 state = ExpectCRLF;
                                                 nextstate = chunksize==0 ? ParsingChunkTrailer : ParsingChunkPart;
+                                                if (chunksize == 0)
+                                                    request_headers_parser.Reset();
                                                 break;
                                         }
                                         chunkheader += *start++;
@@ -257,8 +297,10 @@ char const* RequestParser::ParseHTTP(char const *start, char const *limit, Heade
                         case ParsingChunkPart:
                         {
                                 //How much to pass to the body parser?
-                                unsigned to_pass = std::min<unsigned>(chunksize - content_received, limit - start);
+                                std::size_t to_pass = std::min<uint64_t>(chunksize, limit - start);
                                 BodyReceive(start, start + to_pass);
+                                if (state == ParsingFailed)
+                                    return start;
 
                                 //Update the number of bytes passed to the parser and our counter
                                 body_bytes_received += to_pass;
@@ -279,8 +321,7 @@ char const* RequestParser::ParseHTTP(char const *start, char const *limit, Heade
                                 start = static_cast<const char*>(request_headers_parser.ParseHeader(start,limit));
                                 if (request_headers_parser.IsDone())
                                 {
-                                        //ADDME: Send the second stream of headers to the user too, but how?
-                                        //       Should we have delayed after seeing 'trailers' ?
+                                        BodyFinished();
                                         state = ParsingDone;
                                 }
                                 break;
@@ -289,10 +330,12 @@ char const* RequestParser::ParseHTTP(char const *start, char const *limit, Heade
                         case ParsingBody:
                         {
                                 //How much to pass to the body parser?
-                                unsigned to_pass = content_length ? std::min<unsigned>(content_length - content_received, limit - start) : limit-start;
+                                std::size_t to_pass = std::min<uint64_t>(content_length - content_received, limit-start);
                                 if(to_pass > 0)
                                 {
                                         BodyReceive(start, start + to_pass);
+                                        if (state == ParsingFailed)
+                                            return start;
 
                                         //Update the number of bytes passed to the parser and our counter
                                         body_bytes_received += to_pass;
@@ -448,6 +491,10 @@ bool RequestParser::TryParseRequestLine(std::string const &requestline)
 
 void RequestParser::ParseHeaderFields(std::string const &headerline)
 {
+        // Trailers do not replace routing, identity, framing or content metadata.
+        // They are consumed to find the next request boundary, but not exposed.
+        if (state == ParsingChunkTrailer || state == ParsingFailed)
+            return;
         static const char accept[] = "Accept";
         static const char contenttype[] = "Content-Type";
         static const char contentlength[] = "Content-Length";
@@ -469,12 +516,30 @@ void RequestParser::ParseHeaderFields(std::string const &headerline)
         //special handling of content-length
         if (Blex::StrCaseCompare(&*headerline.begin(),&*colon, contentlength,contentlength+sizeof contentlength-1)==0)
         {
-                content_length = Blex::DecodeUnsignedNumber<unsigned>(remaining_data,headerline.end()).first;
+                auto value_end = headerline.end();
+                while (value_end != remaining_data && (value_end[-1] == ' ' || value_end[-1] == '\t'))
+                    --value_end;
+                uint64_t length;
+                if (!ParseFramingSize(remaining_data, value_end, 10, &length)
+                    || (headers.find(contentlength) != headers.end() && length != content_length)
+                    || headers.find(transferencoding) != headers.end())
+                {
+                        errorcode = ErrorBadRequest;
+                        state = ParsingFailed;
+                        return;
+                }
+                content_length = length;
         }
 
         //special handler of transfer-encoding
         else if (Blex::StrCaseCompare(&*headerline.begin(),&*colon, transferencoding, transferencoding + sizeof transferencoding-1)==0)
         {
+                if (headers.find(transferencoding) != headers.end() || headers.find(contentlength) != headers.end())
+                {
+                        errorcode = ErrorBadRequest;
+                        state = ParsingFailed;
+                        return;
+                }
                 HTTPHeader_TransferEncoding(&*remaining_data,&*headerline.end());
         }
 
@@ -701,17 +766,11 @@ void RequestParser::HTTPHeader_ParseWHProxyKeyValue(char const *begin, char cons
 
 void RequestParser::HTTPHeader_TransferEncoding(const char* begin, const char* end)
 {
-        static const char identity[]="identity";
         static const char chunked[]="chunked";
 
-        const char* type_end = std::find(begin,end,';');
-
-        if (Blex::StrCaseCompare(begin, type_end, identity, identity + sizeof identity-1)==0)
-        {
-                //This is the standard encoding, ignore
-                return;
-        }
-        else if (Blex::StrCaseCompare(begin, type_end, chunked, chunked + sizeof chunked-1)==0)
+        while (end != begin && (end[-1] == ' ' || end[-1] == '\t'))
+            --end;
+        if (Blex::StrCaseCompare(begin, end, chunked, chunked + sizeof chunked-1)==0)
         {
                 body_chunked = true;
         }
