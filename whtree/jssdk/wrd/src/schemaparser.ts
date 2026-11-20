@@ -3,7 +3,7 @@ import { readFile, stat } from "node:fs/promises";
 import type { Node, Element } from "@xmldom/xmldom";
 import { elements, getAttr, parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 import { Money, throwError } from "@webhare/std";
-import { maxDateTime } from "@webhare/hscompat";
+import { defaultDateTime, maxDateTime } from "@webhare/hscompat";
 import { isNodeApplicableToThisWebHare } from "@mod-system/js/internal/generation/shared";
 
 export const wrd_baseschemaresource = "mod::wrd/data/wrdschemas/base.wrdschema.xml";
@@ -370,6 +370,20 @@ class ParsedSchemaDef {
         val[cellname] = BigInt(fieldnode.textContent || '0') || 0n;
       } else if (attr?.attributetypename === "BOOLEAN") {
         val[cellname] = ["TRUE", "1"].includes(fieldnode.textContent?.toUpperCase() || '');
+      } else if (attr?.attributetypename === "DATE" || attr?.attributetypename === "DATETIME") {
+        const text = fieldnode.textContent?.trim() || '';
+        if (!text)
+          val[cellname] = defaultDateTime;
+        else {
+          const isdate = attr.attributetypename === "DATE";
+          try { //Temporal rejects impossible dates such as 2023-02-30, which new Date() would move to the next month
+            if (isdate && !/^\d{4}-\d{2}-\d{2}$/.test(text)) //PlainDate.from would also accept (and truncate) a datetime
+              throw new Error("Not a plain date");
+            val[cellname] = new Date((isdate ? Temporal.PlainDate.from(text).toZonedDateTime("UTC") : Temporal.Instant.from(text)).epochMilliseconds);
+          } catch {
+            throw new Error(`Invalid ${isdate ? "date (expected YYYY-MM-DD)" : "datetime (expected eg. YYYY-MM-DDTHH:MM:SSZ)"} '${text}' for '${cellname}' in value #${idx} for type ${type.tag}`);
+          }
+        }
       } else if (attr?.attributetypename === "MONEY") {
         val[cellname] = new Money(fieldnode.textContent || '0');
       } else if (attr?.attributetypename === "DOMAINARRAY" || attr?.attributetypename === "ENUMARRAY") {
