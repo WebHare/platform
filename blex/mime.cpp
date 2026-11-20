@@ -177,15 +177,15 @@ void Decoder::HeadersCallback(std::string const &hdr)
 
         //Which header line is being parsed?
         std::string *interested_string = NULL;
-        if (datastart-hdr.begin() == HDR_type_size && Blex::StrCaseCompare(&hdr[0],&hdr[HDR_type_size],HDR_type,HDR_type+HDR_type_size)==0)
+        if (datastart-hdr.begin() == HDR_type_size && Blex::StrCaseCompare(hdr.data(),&hdr[HDR_type_size],HDR_type,HDR_type+HDR_type_size)==0)
             interested_string = &last_type;
-        else if (datastart-hdr.begin() == HDR_t_e_size && Blex::StrCaseCompare(&hdr[0],&hdr[HDR_t_e_size],HDR_t_e,HDR_t_e+HDR_t_e_size)==0)
+        else if (datastart-hdr.begin() == HDR_t_e_size && Blex::StrCaseCompare(hdr.data(),&hdr[HDR_t_e_size],HDR_t_e,HDR_t_e+HDR_t_e_size)==0)
             interested_string = &last_encoding;
-        else if (datastart-hdr.begin() == HDR_desc_size && Blex::StrCaseCompare(&hdr[0],&hdr[HDR_desc_size],HDR_desc,HDR_desc+HDR_desc_size)==0)
+        else if (datastart-hdr.begin() == HDR_desc_size && Blex::StrCaseCompare(hdr.data(),&hdr[HDR_desc_size],HDR_desc,HDR_desc+HDR_desc_size)==0)
             interested_string = &last_description;
-        else if (datastart-hdr.begin() == HDR_disp_size && Blex::StrCaseCompare(&hdr[0],&hdr[HDR_disp_size],HDR_disp,HDR_disp+HDR_disp_size)==0)
+        else if (datastart-hdr.begin() == HDR_disp_size && Blex::StrCaseCompare(hdr.data(),&hdr[HDR_disp_size],HDR_disp,HDR_disp+HDR_disp_size)==0)
             interested_string = &last_disposition;
-        else if (datastart-hdr.begin() == HDR_cid_size && Blex::StrCaseCompare(&hdr[0],&hdr[HDR_cid_size],HDR_cid,HDR_cid+HDR_cid_size)==0)
+        else if (datastart-hdr.begin() == HDR_cid_size && Blex::StrCaseCompare(hdr.data(),&hdr[HDR_cid_size],HDR_cid,HDR_cid+HDR_cid_size)==0)
             interested_string = &last_content_id;
 
         if (!interested_string)
@@ -481,7 +481,7 @@ void Decoder::ReturnData(const void *databuffer, unsigned buflen)
                 if (data_encoding == Passthrough)
                     receiver.ReceiveData(databuffer,buflen);
                 else
-                    receiver.ReceiveData(&decode_temp[0],decode_temp.size());
+                    receiver.ReceiveData(decode_temp.data(),decode_temp.size());
                 return;
         }
 
@@ -509,7 +509,7 @@ void Decoder::ReturnData(const void *databuffer, unsigned buflen)
                         utf8enc(in_ch == 0 ? 0 : data_charset[in_ch] == 0 ? '?' : data_charset[in_ch]);
                 }
         }
-        receiver.ReceiveData(&utf8_temp[0],utf8_temp.size());
+        receiver.ReceiveData(utf8_temp.data(),utf8_temp.size());
 }
 
 void Decoder::ProcessData(const void *databuffer, unsigned buflen)
@@ -714,7 +714,7 @@ void Decoder::ProcessData(const void *databuffer, unsigned buflen)
                 // Clear out the boundary buffer (no CRLF in there)
                 if (!boundary_buffer.empty())
                 {
-                        const char *buf_start = &boundary_buffer[0];
+                        const char *buf_start = boundary_buffer.data();
                         const char *buf_end = buf_start + boundary_buffer.size();
 
                         const char *new_start = ProcessBodyData(start_offset - boundary_buffer.size(), buf_start, buf_end);

@@ -352,8 +352,8 @@ std::string GetExecutablePath()
         if(_NSGetExecutablePath(NULL, &neededspace) == -1 && neededspace >= 1)
         {
                 std::vector<char> pathstore(neededspace,0);
-                if(_NSGetExecutablePath(&pathstore[0], &neededspace) == 0 && neededspace>=1)
-                        return std::string(&pathstore[0], &pathstore[neededspace-1]);
+                if(_NSGetExecutablePath(pathstore.data(), &neededspace) == 0 && neededspace>=1)
+                        return std::string(pathstore.data(), pathstore.data() + (neededspace-1));
         }
 #endif
         //ADDME Cache it, but keep it thread safe?

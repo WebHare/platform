@@ -362,20 +362,20 @@ char *ParamsEncoder::RegisterParameter(OID type, signed len)
 
                         if (len > 0)
                             alldata.resize(curdatalen + len);
-                        return &alldata[curdatalen];
+                        return alldata.data() + curdatalen;
                 }
                 case Array:
                 {
                         alldata.resize(curdatalen + (len > 0 ? len : 0) + 4);
-                        Blex::puts32msb(&alldata[curdatalen], len);
-                        return &alldata[curdatalen + 4];
+                        Blex::puts32msb(alldata.data() + curdatalen, len);
+                        return alldata.data() + (curdatalen + 4);
                 }
                 case Record:
                 {
                         alldata.resize(curdatalen + (len > 0 ? len : 0) + 8);
-                        Blex::puts32msb(&alldata[curdatalen], static_cast< int32_t >(type));
-                        Blex::puts32msb(&alldata[curdatalen + 4], len);
-                        return &alldata[curdatalen + 8];
+                        Blex::puts32msb(alldata.data() + curdatalen, static_cast< int32_t >(type));
+                        Blex::puts32msb(alldata.data() + (curdatalen + 4), len);
+                        return alldata.data() + (curdatalen + 8);
                 }
         }
         throw std::logic_error("Unknown buildmode");
@@ -568,7 +568,7 @@ std::string ParamsEncoder::AddVariableParameter(VirtualMachine *vm, VarId var, P
 
 #ifdef DUMP_BINARY_ENCODING
         PQ_PRINT("Encoded $" + Blex::AnyToString(lengths.size()) << " from a " << GetTypeName(stackm.GetType(var)));
-        PQ_ONLY(Blex::DumpPacket(alldata.size() - startdatalen, &alldata[startdatalen]));
+        PQ_ONLY(Blex::DumpPacket(alldata.size() - startdatalen, alldata.data() + startdatalen));
 #endif
 
         return "$" + Blex::AnyToString(lengths.size());
@@ -603,7 +603,7 @@ std::string ParamsEncoder::AddParameter(VirtualMachine *, std::string_view str, 
 
 #ifdef DUMP_BINARY_ENCODING
         PQ_PRINT("Encoded $" + Blex::AnyToString(lengths.size()) << " from a string parameter");
-        PQ_ONLY(Blex::DumpPacket(alldata.size() - startdatalen, &alldata[startdatalen]));
+        PQ_ONLY(Blex::DumpPacket(alldata.size() - startdatalen, alldata.data() + startdatalen));
 #endif
 
         return "$" + Blex::AnyToString(lengths.size());

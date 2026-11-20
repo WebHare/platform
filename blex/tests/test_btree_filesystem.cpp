@@ -124,8 +124,8 @@ class RawTreeIterator
 
 bool equal(DBIndexFileSystem::Session &session, int32_t blockid, ContainerList const &list)
 {
-        const IndexBlockEntryContainer* listit = &list[0];
-        const IndexBlockEntryContainer* listend = &list[0] + list.size();
+        const IndexBlockEntryContainer* listit = list.data();
+        const IndexBlockEntryContainer* listend = list.data() + list.size();
         RawTreeIterator it = RawTreeIterator::GetBegin(session, blockid);
         RawTreeIterator end = RawTreeIterator::GetEnd(session);
         while (it != end && listit != listend)
@@ -142,7 +142,7 @@ void FillBlock(IndexBlock& block, signed firstlen, signed lastlen, signed totall
         assert(totallen <= signed(C_Block::MaxData) && (totallen == signed(IndexBlockEntry::EOBSize) || totallen >= signed(IndexBlockEntry::EOBSize + IndexBlockEntry::HeaderSize)));
         // Fills block base with entries until exact length of totallen (when possible)
         std::string s(64, '_');
-        const uint8_t* text = reinterpret_cast<const uint8_t*>(&s[0]);
+        const uint8_t* text = reinterpret_cast<const uint8_t*>(s.data());
         IndexBlockEntryContainer thing;
 #ifdef WHBUILD_DEBUG
         signed oldtotallen = totallen;
@@ -345,7 +345,7 @@ BLEX_TEST_FUNCTION(Index_RedistributesTest)
         // 4 boundtested blocks available (block_2, block_4, block_6, block_8)
 
         std::string test_str(64, ' ');
-        const uint8_t* text = reinterpret_cast<const uint8_t*>(&test_str[0]);
+        const uint8_t* text = reinterpret_cast<const uint8_t*>(test_str.data());
         BI::IndexBlockEntryContainer thing;thing.ConstructDataEntry(text,64,20);
 
         AllocateBlocks(session, &base, &left, &middle, &right);

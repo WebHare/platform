@@ -771,7 +771,7 @@ void BinaryLogFile::SendAllMessagesInternal(MessageReceiver const &receiver, std
                         msgdata.resize(length);
 
                         // Read the message, and send it out
-                        DirectRead(section, *clock, ofs + 4, &msgdata[0], length);
+                        DirectRead(section, *clock, ofs + 4, msgdata.data(), length);
 
                         receiver(std::ref(msgdata));
 

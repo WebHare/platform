@@ -57,7 +57,7 @@ void CompileScript(VarId id_set, VirtualMachine *vm)
         }
 
         std::vector<uint8_t> data(temp.GetFileLength());
-        temp.DirectRead(0, &data[0], data.size());
+        temp.DirectRead(0, data.data(), data.size());
 
         varmem.RecordInitializeEmpty(id_set);
 

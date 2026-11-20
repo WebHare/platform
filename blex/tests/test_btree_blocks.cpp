@@ -66,7 +66,7 @@ BLEX_TEST_FUNCTION(Btree_EntryTest)
 
         IndexBlockEntryContainer maxm1_string;
         std::string maxmin1_str(IndexBlockEntry::MaxDataSize - 1, 'b');
-        maxm1_string.ConstructDataEntry((const uint8_t*)&maxmin1_str[0], IndexBlockEntry::MaxDataSize - 1, 10);
+        maxm1_string.ConstructDataEntry((const uint8_t*)maxmin1_str.data(), IndexBlockEntry::MaxDataSize - 1, 10);
         maxm1_string.SetChildBlockID(30);
         BLEX_TEST_CHECK(!maxm1_string.IsEOB());
         BLEX_TEST_CHECK(maxm1_string.GetEntryLength() == IndexBlockEntry::HeaderSize + maxm1_string.GetDataLength());
@@ -77,7 +77,7 @@ BLEX_TEST_FUNCTION(Btree_EntryTest)
 
         IndexBlockEntryContainer max_string;
         std::string max_str(IndexBlockEntry::MaxDataSize, 'b');
-        max_string.ConstructDataEntry((const uint8_t*)&max_str[0], IndexBlockEntry::MaxDataSize, 10);
+        max_string.ConstructDataEntry((const uint8_t*)max_str.data(), IndexBlockEntry::MaxDataSize, 10);
         max_string.SetChildBlockID(30);
         BLEX_TEST_CHECK(!max_string.IsEOB());
         BLEX_TEST_CHECK(max_string.GetEntryLength() == IndexBlockEntry::HeaderSize + max_string.GetDataLength());

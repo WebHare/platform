@@ -1713,7 +1713,7 @@ void Debugger::RetrieveVariable(VirtualMachine *vm, VarId id_set, VirtualMachine
                             for (int64_t idx = minmax.first; idx < minmax.second;)
                             {
                                     unsigned toread = std::min< int64_t >(minmax.second - idx, 16384);
-                                    std::size_t read = openblob->DirectRead(idx, toread, &data[idx - minmax.first]);
+                                    std::size_t read = openblob->DirectRead(idx, toread, data.data() + (idx - minmax.first));
                                     if (!read)
                                         break;
 

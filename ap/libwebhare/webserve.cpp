@@ -153,7 +153,7 @@ bool Server::ApplyConfig(ServerConfigPtr newconfig, std::vector<Blex::Dispatcher
 
         ServerConfigPtrHolder::WriteRef currentconfigptr(currentconfig);
         *currentconfigptr = newconfig;
-        dispatcher.UpdateListenPorts(addresses.size(),&addresses[0]);
+        dispatcher.UpdateListenPorts(addresses.size(),addresses.data());
         return dispatcher.RebindSockets(broken_listeners);
 }
 
@@ -396,7 +396,7 @@ void HandleSendAsIs(WebServer::Connection *webcon, std::string const &path)
                 webcon->SetLastModified(modtime);
         }
 
-        webcon->AddHeader("Content-Type",12,&webcon->contenttype->contenttype[0],webcon->contenttype->contenttype.size(),false);
+        webcon->AddHeader("Content-Type",12,webcon->contenttype->contenttype.data(),webcon->contenttype->contenttype.size(),false);
         if (webcon->protocol.status_so_far != StatusNotModified)
             webcon->SendFile(path);
 }

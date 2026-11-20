@@ -211,7 +211,7 @@ bool Connection::RedirectAlternativePath(std::string const &inpath)
                                 std::copy(urlextpos + stripextensions[i].size(), newlocation.end(), urlextpos);
                                 newlocation.resize(newlocation.size() - stripextensions[i].size());
 
-                                AddHeader("Location",8,&newlocation[0],newlocation.size(),false);
+                                AddHeader("Location",8,newlocation.data(),newlocation.size(),false);
                                 protocol.status_so_far = StatusMovedPermanently;
                                 return true;
                         }
@@ -321,7 +321,7 @@ void Connection::RedirectIntoDirectory()
         //insert a slash at the URL variables position
         newlocation.insert(reqparser.GetReceivedUrlVarSeparator() - reqparser.GetReceivedUrl().begin(), 1, '/');
 
-        AddHeader("Location",8,&newlocation[0],newlocation.size(),false);
+        AddHeader("Location",8,newlocation.data(),newlocation.size(),false);
         protocol.status_so_far = StatusMovedPermanently;
 }
 
@@ -701,7 +701,7 @@ void Connection::PostProcessAfterHandler()
         }
 
         if (!IsHeaderSet("Content-Type",12) && contenttype && GetRequestParser().GetProtocolMethod() != Methods::Options)
-            AddHeader("Content-Type",12,&contenttype->contenttype[0],contenttype->contenttype.size(),true);
+            AddHeader("Content-Type",12,contenttype->contenttype.data(),contenttype->contenttype.size(),true);
         DecodeStatusHeader(disk_file_path);
 }
 

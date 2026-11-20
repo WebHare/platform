@@ -235,7 +235,7 @@ void DllInterfaceExternalOutputContextData::FlushOutputBuffer()
 
         // Write buffer to write function and clear buffer
         int error_code;
-        output_func(output_opaque_ptr, writebuffer.size(), &writebuffer[0], false, &error_code);
+        output_func(output_opaque_ptr, writebuffer.size(), writebuffer.data(), false, &error_code);
         writebuffer.clear();
 }
 

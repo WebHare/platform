@@ -396,7 +396,7 @@ void doConvertDateTime(HSVM *hsvm, HSVM_VariableId id_set, UBool local)
 void formatPart(HSVM *hsvm, HSVM_VariableId record, std::string const &cell, std::string const &style, std::string const &display, Locale locid, UErrorCode &status, UnicodeString &str)
 {
         // Read the value
-        HSVM_VariableId valueref = HSVM_RecordGetRef(hsvm, record, HSVM_GetColumnId(hsvm, &cell[0]));
+        HSVM_VariableId valueref = HSVM_RecordGetRef(hsvm, record, HSVM_GetColumnId(hsvm, cell.data()));
         int value = 0;
         if (valueref)
             value = HSVM_IntegerGet(hsvm, valueref);
@@ -930,7 +930,7 @@ void FormatDuration(HSVM *hsvm, HSVM_VariableId id_set)
         if (U_FAILURE(status) || !lf.get())
             return;
         str = "";
-        lf->format(&parts[0], parts.size(), str, status);
+        lf->format(parts.data(), parts.size(), str, status);
         if (time_part != "")
             str.append(time_part);
         if (U_SUCCESS(status))

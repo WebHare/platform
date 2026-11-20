@@ -182,7 +182,7 @@ void ReceiveFrom(HSVM_VariableId id_set, VirtualMachine *vm)
 
                 //Add bytes and read, then correct the buffer size
                 obj->readbuffer.resize(curbufsize + maxreadnow);
-                std::pair< Blex::SocketError::Errors, unsigned > res = obj->Read(maxreadnow, &obj->readbuffer[curbufsize]);
+                std::pair< Blex::SocketError::Errors, unsigned > res = obj->Read(maxreadnow, obj->readbuffer.data() + curbufsize);
                 //DEBUGPRINT("Read result: " << res.first << ":" << res.second << ", data: '" << std::string(&obj->readbuffer[curbufsize], &obj->readbuffer[curbufsize + res.second]) << "'");
 
                 unsigned bytesread = res.second;
@@ -252,7 +252,7 @@ void ReceiveFrom(HSVM_VariableId id_set, VirtualMachine *vm)
               lineend = end; //don't return more than requested
         }
 
-        HSVM_StringSet(*vm, datavar, &obj->readbuffer[0], &*lineend);
+        HSVM_StringSet(*vm, datavar, obj->readbuffer.data(), &*lineend);
         obj->readbuffer.erase(obj->readbuffer.begin(), end);
 
         // Set status
@@ -1429,14 +1429,14 @@ void DecodePacket(VarId id_set, VirtualMachine *vm)
         //HSVM_StringGet(*vm, HSVM_Arg(0), &indata.begin, &indata.end);
         //HSVM_StringGet(*vm, HSVM_Arg(1), &data.begin, &data.end);
         std::string indatastore = HSVM_StringGetSTD(*vm, HSVM_Arg(0));
-        indata.begin = &indatastore[0];
-        indata.end = &indatastore[indatastore.size()];
+        indata.begin = indatastore.data();
+        indata.end = indatastore.data() + indatastore.size();
 
         PACKET_PRINT("Decodepacket '" << indatastore << "'");
 
         std::string datastore = HSVM_StringGetSTD(*vm, HSVM_Arg(1));
-        data.begin = &datastore[0];
-        data.end = &datastore[datastore.size()];
+        data.begin = datastore.data();
+        data.end = datastore.data() + datastore.size();
 
 
         HSVM_RecordSetEmpty(*vm, id_set);
@@ -1747,8 +1747,8 @@ void EncodePacket(VarId id_set, VirtualMachine *vm)
         //SPEEDUP: Without a reallocating VM, we could restore the original stringpairs here
         //HSVM_StringGet(*vm, HSVM_Arg(0), &indata.begin, &indata.end);
         std::string indatastore = HSVM_StringGetSTD(*vm, HSVM_Arg(0));
-        indata.begin = &indatastore[0];
-        indata.end = &indatastore[indatastore.size()];
+        indata.begin = indatastore.data();
+        indata.end = indatastore.data() + indatastore.size();
 
         for (Blex::TokenIterator<Blex::StringPair> tok(indata.begin, indata.end, ',');tok;++tok)
         {
@@ -1764,7 +1764,7 @@ void EncodePacket(VarId id_set, VirtualMachine *vm)
                 }
         }
 
-        HSVM_StringSet(*vm, id_set, reinterpret_cast<const char*>(&retval[0]), reinterpret_cast<const char*>(&retval[retval.size()]));
+        HSVM_StringSet(*vm, id_set, reinterpret_cast<const char*>(retval.data()), reinterpret_cast<const char*>(retval.data() + retval.size()));
 }
 
 void UnmangleFunctionName(VarId id_set, VirtualMachine *vm)
@@ -1871,7 +1871,7 @@ void MakeFunctionPtr(VarId id_set, VirtualMachine *vm)
                             ,HSVM_Arg(1)
                             ,returntype
                             ,args.size()
-                            ,&args[0]
+                            ,args.data()
                             ,var_errors);
         }
 
@@ -2043,8 +2043,8 @@ void RebindFunctionPtr(VarId id_set, VirtualMachine *vm)
                               ,HSVM_Arg(0)
                               ,size
                               ,0
-                              ,size == 0 ? 0 : &passthroughs[0]
-                              ,size == 0 ? 0 : &args[0]
+                              ,size == 0 ? 0 : passthroughs.data()
+                              ,size == 0 ? 0 : args.data()
                               ,0
                               ,false);
 }
@@ -2096,7 +2096,7 @@ void RebindFunctionPtr2(VarId id_set, VirtualMachine *vm)
         int32_t rest_args_start = stackm.GetInteger(HSVM_Arg(2));
         bool keep_vararg = stackm.GetBoolean(HSVM_Arg(3));
 
-        HSVM_RebindFunctionPtr(*vm, id_set, HSVM_Arg(0), argcount, &types[0], &passthroughs[0], &bound_params[0], rest_args_start, keep_vararg);
+        HSVM_RebindFunctionPtr(*vm, id_set, HSVM_Arg(0), argcount, types.data(), passthroughs.data(), bound_params.data(), rest_args_start, keep_vararg);
 }
 
 //int HSVM_RebindFunctionPtr(struct HSVM *vm, HSVM_VariableId id_set, HSVM_VariableId functionptr, int numargs, int const *passthroughs, HSVM_VariableId const *bound_params)
@@ -2112,7 +2112,7 @@ void MarshalWriteTo(VirtualMachine *vm)
         size_t size = data.size();
         if (size)
         {
-                const uint8_t *ptr = &data[0];
+                const uint8_t *ptr = data.data();
                 while (size)
                 {
                         unsigned towrite = std::min< size_t>(size, 16384);
@@ -2135,7 +2135,7 @@ void MarshalPacketWriteTo(VirtualMachine *vm)
         size_t size = data.size();
         if (size)
         {
-                const uint8_t *ptr = &data[0];
+                const uint8_t *ptr = data.data();
                 while (size)
                 {
                         unsigned towrite = std::min< size_t>(size, 16384);
@@ -2156,7 +2156,7 @@ void MarshalReadFromBlob(VarId id_set, VirtualMachine *vm)
         if (size == 0)
             throw HareScript::VMRuntimeError(Error::InternalError, "Cannot decode an empty blob");
 
-        uint8_t *ptr = &data[0];
+        uint8_t *ptr = data.data();
         while (size)
         {
                 unsigned toread = std::min< size_t >(size, 65536);
@@ -2180,7 +2180,7 @@ void MarshalPacketReadFromBlob(VarId id_set, VirtualMachine *vm)
         if (size == 0)
             throw HareScript::VMRuntimeError(Error::InternalError, "Cannot decode an empty blob");
 
-        uint8_t *ptr = &data[0];
+        uint8_t *ptr = data.data();
         size_t orgsize = size;
         while (size)
         {
@@ -2193,7 +2193,7 @@ void MarshalPacketReadFromBlob(VarId id_set, VirtualMachine *vm)
         HSVM_BlobClose (*vm, blobhandle);
 
         std::unique_ptr< MarshalPacket >packet(new MarshalPacket);
-        packet->Read(&data[0], &data[0] + orgsize, &vm->blobmanager);
+        packet->Read(data.data(), data.data() + orgsize, &vm->blobmanager);
 
         Marshaller marshaller(vm, MarshalMode::All);
         marshaller.ReadMarshalPacket(id_set, &packet);
@@ -2530,7 +2530,7 @@ void EncodeQP(VarId id_set, VirtualMachine *vm)
             HSVM_StringSet(*vm, id_set, 0, 0);
         else
         {
-                const char *begin = &scratchpad[0];
+                const char *begin = scratchpad.data();
                 HSVM_StringSet(*vm, id_set, begin, begin + scratchpad.size());
         }
 }
@@ -2551,7 +2551,7 @@ void DecodeQP(VarId id_set, VirtualMachine *vm)
             HSVM_StringSet(*vm, id_set, 0, 0);
         else
         {
-                const char *begin = &scratchpad[0];
+                const char *begin = scratchpad.data();
                 HSVM_StringSet(*vm, id_set, begin, begin + scratchpad.size());
         }
 }

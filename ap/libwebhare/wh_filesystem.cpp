@@ -308,7 +308,7 @@ int HTTPConnection::DoRequest(std::string const &requesttype, std::string const 
         std::pair<Blex::SocketError::Errors, int32_t> retval;
         sock.SetBlocking(false);
         sock.SetNagle(false);
-        retval = sock.TimedSend(&msg[0], msg.size(), Blex::DateTime::Max());
+        retval = sock.TimedSend(msg.data(), msg.size(), Blex::DateTime::Max());
         if(retval.first != Blex::SocketError::NoError || retval.second!=static_cast<int32_t>(msg.size()))
         {
                 lasterror = retval.first;
@@ -1052,7 +1052,7 @@ WHFileSystem::RecompileResult WHFileSystem::RecompileInternal(Blex::ContextKeepe
         if (result==200 || result==403)
         {
                 std::vector<char> response(static_cast<uint32_t>(httpconn->GetRemainingBodyLength()));
-                if (httpconn->ReadBody(&response[0], response.size()) != response.size())
+                if (httpconn->ReadBody(response.data(), response.size()) != response.size())
                 {
                         errorhandler->AddInternalError("Unable to grab response from the compilation server: " + std::string(Blex::SocketError::GetErrorText(httpconn->GetLastError())));
                         return RecompileError;

@@ -400,8 +400,8 @@ bool TCPIPContext::CreateSecureSocket(int connectionid, bool initiate, std::stri
         info->sslcontext.reset(new Blex::SSLContext(initiate==false, ciphersuite, securitylevel, ssloptions));
         if(!info->ssl_cert_key.empty())
         {
-                if (!info->sslcontext->LoadCertificateChain(&info->ssl_cert_key[0], info->ssl_cert_key.size())
-                    || !info->sslcontext->LoadPrivateKey(&info->ssl_cert_key[0], info->ssl_cert_key.size())
+                if (!info->sslcontext->LoadCertificateChain(info->ssl_cert_key.data(), info->ssl_cert_key.size())
+                    || !info->sslcontext->LoadPrivateKey(info->ssl_cert_key.data(), info->ssl_cert_key.size())
                    )
                 {
                         info->sslcontext.reset();

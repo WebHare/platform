@@ -837,10 +837,10 @@ void ParseBlob(HSVM *hsvm, HSVM_VariableId id_set)
 
         std::vector<char> content(HSVM_BlobLength(hsvm, HSVM_Arg(0)));
         int handle = HSVM_BlobOpen(hsvm, HSVM_Arg(0));
-        HSVM_BlobRead(hsvm, handle, content.size(), &content[0]);
+        HSVM_BlobRead(hsvm, handle, content.size(), content.data());
         HSVM_BlobClose(hsvm, handle);
 
-        HSVM_IntegerSet(hsvm, id_set, context.ParseXmlTemplate(&content[0], content.size(), encoding, gettidmodule));
+        HSVM_IntegerSet(hsvm, id_set, context.ParseXmlTemplate(content.data(), content.size(), encoding, gettidmodule));
 }
 
 void GetWittyMessage(Error const &in, std::string *error)
@@ -945,7 +945,7 @@ HSVM_VariableId FindCellInStack(WittyExecutionState *wes, std::string const &cel
                 HSVM_VariableId colvar = 0;
 
                 //Look up the first cell name in ALL cells.
-                HSVM_ColumnId colid = HSVM_GetColumnIdRange(hsvm, &cellname[0], &*dot);
+                HSVM_ColumnId colid = HSVM_GetColumnIdRange(hsvm, cellname.data(), &*dot);
                 for (unsigned i=(*itr)->varstack.size();i>0 && colvar == 0;--i)
                 {
                         VarStackElement *elem = &(*itr)->varstack[i-1];
@@ -1040,7 +1040,7 @@ void WittyExecutionState::PrintEncoded(Blex::StringPair data,ContentEncoding enc
                 default:
                         break;
                 }
-                HSVM_Print(hsvm, scratchpad.size(), &scratchpad[0]);
+                HSVM_Print(hsvm, scratchpad.size(), scratchpad.data());
         }
 }
 
@@ -1324,7 +1324,7 @@ std::pair< bool/*finished*/, bool/*success*/ > ParsedFile::SM_Run(WittyExecution
                 {
                 case ParsedPart::Content:
                         if (elt.itr->content_len)
-                            HSVM_Print(hsvm, elt.itr->content_len, &printdata[elt.itr->content_pos]);
+                            HSVM_Print(hsvm, elt.itr->content_len, printdata.data() + elt.itr->content_pos);
                         ++elt.itr;
                         break;
                 case ParsedPart::Data:
@@ -1906,7 +1906,7 @@ void GetWittyTidRawData(HSVM *hsvm, HSVM_VariableId id_set)
                 {
                         HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, rec, col_type), "content");
 
-                        Blex::StringPair content = Blex::StringPair(&parsedfile.printdata[itr.content_pos], &parsedfile.printdata[itr.content_pos] + itr.content_len);
+                        Blex::StringPair content = Blex::StringPair(parsedfile.printdata.data() + itr.content_pos, (parsedfile.printdata.data() + itr.content_pos) + itr.content_len);
                         HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, rec, col_data), content.stl_stringview());
                 }
                 else

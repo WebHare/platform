@@ -68,7 +68,7 @@ class BLEXLIB_PUBLIC DateTime
         /** Construct a datetime from a text string */
         static DateTime FromText(char const* begin, char const* end);
         static DateTime FromText(std::string const &date)
-        { return FromText(&date[0],&date[date.size()]); }
+        { return FromText(date.data(),date.data() + date.size()); }
 
         /** Construct a datetime from a text string, doesn't take JS date limits into account */
         static DateTime FromTextRaw(char const* begin, char const* end);

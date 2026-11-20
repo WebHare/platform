@@ -77,7 +77,7 @@ Version Lexer::ParseVersion()
 {
         std::string buffer;
         buffer.resize(1024);
-        current_parser_ctxt.stream->DirectRead(0, &buffer[0], buffer.size());
+        current_parser_ctxt.stream->DirectRead(0, buffer.data(), buffer.size());
 
         size_t version_begin = buffer.find("PDF-");
         if (version_begin == std::string::npos)
@@ -99,7 +99,7 @@ Blex::FileOffset Lexer::GetLastCrossRef()
 //        size_t buffer_size = (size_t)std::min(stream.GetFileLength(), (Blex::FileOffset)2048);
 
         std::string buffer(buffer_size, ' ');
-        current_parser_ctxt.stream->DirectRead(current_parser_ctxt.stream->GetFileLength() - buffer_size, &buffer[0], buffer_size);
+        current_parser_ctxt.stream->DirectRead(current_parser_ctxt.stream->GetFileLength() - buffer_size, buffer.data(), buffer_size);
 
         size_t eof_str_offset = buffer.rfind("%%EOF");
         if(eof_str_offset == std::string::npos)
@@ -122,7 +122,7 @@ Blex::FileOffset Lexer::GetLastCrossRef()
 unsigned Lexer::GetKey(uint8_t *output_key, unsigned objnum, unsigned objgen)
 {
         uint8_t key[21];
-        memcpy(key, &filekey[0], filekey.size());
+        memcpy(key, filekey.data(), filekey.size());
         Blex::putu32lsb(&key[filekey.size()], objnum);
         Blex::putu16lsb(&key[filekey.size()]+3, uint16_t(objgen)); //intentional overlap between bytes!
 
@@ -376,7 +376,7 @@ StringObjectPtr Lexer::ParseString(unsigned obj, unsigned gen)
                 unsigned keylen = GetKey(key, obj, gen);
                 decryptor.InitKey(key, keylen);
 
-                decryptor.CryptBuffer(&string->value[0], string->value.size());
+                decryptor.CryptBuffer(string->value.data(), string->value.size());
         }
 
         return string;
@@ -689,11 +689,11 @@ ObjectPtr Lexer::ResolveIndirect(std::pair<uint32_t, uint32_t> object)
                 std::vector<uint8_t> streamoffsetdata;
                 unsigned datastart = objstream->GetDictionary()["First"].GetNumericInt();
                 streamoffsetdata.resize(datastart);
-                streamoffsetdata.resize(objseekablestream.Read(&streamoffsetdata[0], streamoffsetdata.size()));
+                streamoffsetdata.resize(objseekablestream.Read(streamoffsetdata.data(), streamoffsetdata.size()));
 
                 //Tokenize the integers
-                uint8_t *parsepos = &streamoffsetdata[0];
-                uint8_t *parseend = &streamoffsetdata[streamoffsetdata.size()];
+                uint8_t *parsepos = streamoffsetdata.data();
+                uint8_t *parseend = streamoffsetdata.data() + streamoffsetdata.size();
 
                 std::vector< std::pair<unsigned, unsigned> > streamoffsets;
                 while(parsepos < parseend)
@@ -750,8 +750,8 @@ ObjectPtr Lexer::ResolveIndirect(std::pair<uint32_t, uint32_t> object)
                     throw std::runtime_error("Truncated object stream");
 
                 //Tokenize the integers
-                uint8_t *parsepos = &streamdata[0];
-                uint8_t *parseend = &streamdata[datastart];
+                uint8_t *parsepos = streamdata.data();
+                uint8_t *parseend = streamdata.data() + datastart;
 
                 std::vector< std::pair<unsigned, unsigned> > streamoffsets;
                 while(parsepos < parseend)

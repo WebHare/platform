@@ -48,6 +48,10 @@ template < typename Pod >
         { return buffer[pos]; }
         Pod const& operator[](size_type pos) const
         { return buffer[pos]; }
+        Pod* data()
+        { return buffer; }
+        Pod const* data() const
+        { return buffer; }
         Pod& front()
         { return buffer[0]; }
         Pod const & front() const

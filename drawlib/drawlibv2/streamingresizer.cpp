@@ -243,10 +243,10 @@ ResizeFilter::VerticalResizer::~VerticalResizer()
 
 void ResizeFilter::VerticalResizer::GetScanline32(Scanline32 &output_scanline)
 {
-        std::fill_n(&r[0], inwidth, 0);
-        std::fill_n(&g[0], inwidth, 0);
-        std::fill_n(&b[0], inwidth, 0);
-        std::fill_n(&a[0], inwidth, 0);
+        std::fill_n(r.data(), inwidth, 0);
+        std::fill_n(g.data(), inwidth, 0);
+        std::fill_n(b.data(), inwidth, 0);
+        std::fill_n(a.data(), inwidth, 0);
 
         Pixel32 const *inbufferptr = inbuffer.GetRawPixels();
         uint32_t kernel_offset = ((ypos >> (16-KernelShift)) & (KernelShiftSize-1)) * KernelWidth;

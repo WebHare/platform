@@ -25,11 +25,11 @@ void Receiver(Blex::PodVector< uint8_t > const &vect)
 
 void WriteMessageStr(Blex::BinaryLogFile &log, std::string const &str)
 {
-        log.WriteMessage((uint8_t*)&str[0], str.size(), false);
+        log.WriteMessage((uint8_t*)str.data(), str.size(), false);
 }
 void WriteRewriteMessageStr(Blex::BinaryLogFile &log, std::string const &str)
 {
-        log.WriteRewriteMessage((uint8_t*)&str[0], str.size());
+        log.WriteRewriteMessage((uint8_t*)str.data(), str.size());
 }
 
 

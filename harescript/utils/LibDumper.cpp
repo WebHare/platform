@@ -148,7 +148,7 @@ void DumpTypeInfoColumn(StackMachine &stackm, Marshaller &marshaller, DBTypeInfo
                         if (!column.null_default.empty())
                         {
                                 VarId var = stackm.NewHeapVariable();
-                                marshaller.Read(var, &column.null_default[0], &column.null_default[0] + column.null_default.size());
+                                marshaller.Read(var, column.null_default.data(), column.null_default.data() + column.null_default.size());
                                 std::cout << " NULL:=";
                                 PrintVariable(std::cout, stackm, var);
                                 stackm.DeleteHeapVariable(var);
@@ -164,7 +164,7 @@ void DumpTypeInfoColumn(StackMachine &stackm, Marshaller &marshaller, DBTypeInfo
                 if (!column.view_value.empty())
                 {
                       VarId var = stackm.NewHeapVariable();
-                      marshaller.Read(var, &column.view_value[0], &column.view_value[0] + column.view_value.size());
+                      marshaller.Read(var, column.view_value.data(), column.view_value.data() + column.view_value.size());
                       PrintVariable(std::cout, stackm, var);
                       stackm.DeleteHeapVariable(var);
                 }
@@ -668,7 +668,7 @@ int UTF8Main(std::vector<std::string> const &args)
                 Blex::MemoryRWStream compressed;
                 if (!wlib.debuginfo.data.empty())
                 {
-                        compressed.DirectWrite(0, &wlib.debuginfo.data[0], wlib.debuginfo.data.size());
+                        compressed.DirectWrite(0, wlib.debuginfo.data.data(), wlib.debuginfo.data.size());
                         compressed.SetOffset(0);
 
                         std::unique_ptr< Blex::ZlibDecompressStream > decompressor(Blex::ZlibDecompressStream::OpenGzip(compressed));

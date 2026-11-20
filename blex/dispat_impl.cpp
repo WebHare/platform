@@ -148,7 +148,7 @@ int Poller::DoPoll(Blex::DateTime until)
                         }
                 }
 
-                retval = poll(&poll_data[0], poll_data.size(),delay);
+                retval = poll(poll_data.data(), poll_data.size(),delay);
 #ifdef DEBUGPOLL
                 for (unsigned i=0; i<poll_data.size(); ++i)
                 {
@@ -1430,7 +1430,7 @@ void Main::UpdateListenPorts(unsigned numports, ListenAddress const ports[])
                                         //Try to open a keyfile - FIXME restore errors but how?
                                         new_ssl.reset(new SSLContext(true, itr->ciphersuite, 1, 0));
 
-                                        if (!new_ssl->LoadPrivateKey(&itr->privatekey[0], itr->privatekey.size()))
+                                        if (!new_ssl->LoadPrivateKey(itr->privatekey.data(), itr->privatekey.size()))
                                         {
                                                 Blex::ErrStream() << "Cannot load private key for existing port " << itr->sockaddr;
                                                 DEBUGPRINT("Cannot load private key for existing port" << std::endl << itr->privatekey);
@@ -1441,7 +1441,7 @@ void Main::UpdateListenPorts(unsigned numports, ListenAddress const ports[])
                                                 create_ports.erase(itr);
                                                 continue; //close the port!
                                         }
-                                        else if (!new_ssl->LoadCertificateChain(&itr->certificatechain[0], itr->certificatechain.size()))
+                                        else if (!new_ssl->LoadCertificateChain(itr->certificatechain.data(), itr->certificatechain.size()))
                                         {
                                                 Blex::ErrStream() << "Cannot load certificate chain for existing port " << itr->sockaddr;
                                                 DEBUGPRINT("Cannot load certificate chain for existing port" << std::endl << itr->certificatechain);
@@ -1474,14 +1474,14 @@ void Main::UpdateListenPorts(unsigned numports, ListenAddress const ports[])
                         //Try to open a keyfile - FIXME restore errors but how?
                         newport->ssl.reset(new SSLContext(true, itr->ciphersuite, 1, 0));
 
-                        if (!newport->ssl->LoadPrivateKey(&itr->privatekey[0], itr->privatekey.size()))
+                        if (!newport->ssl->LoadPrivateKey(itr->privatekey.data(), itr->privatekey.size()))
                         {
                                 DEBUGPRINT("Cannot read private key for new port" << std::endl << itr->privatekey);
                                 //errorlog.StampedLog("Cannot read key file " + keypath);
                                 continue; //don't open the port!
                         }
 
-                        if (!newport->ssl->LoadCertificateChain(&itr->certificatechain[0], itr->certificatechain.size()))
+                        if (!newport->ssl->LoadCertificateChain(itr->certificatechain.data(), itr->certificatechain.size()))
                         {
                                 DEBUGPRINT("Cannot read certificate chain for new port" << std::endl << itr->certificatechain);
                                 //errorlog.StampedLog("Cannot read certificate file " + certpath);
@@ -2093,7 +2093,7 @@ unsigned Conn::OS_TryOutgoingSend() //locks: itcqueue
                 }
         }
 
-        int bytessent=writev(socket.GetFd(),&out_buffers[0],out_buffers.size());
+        int bytessent=writev(socket.GetFd(),out_buffers.data(),out_buffers.size());
         if (bytessent==-1)
         {
                 if (errno == EAGAIN)

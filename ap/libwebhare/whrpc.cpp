@@ -113,11 +113,11 @@ std::pair<uint8_t const*,uint8_t const *> IOBuffer::ReadBinary()
         unsigned len = Read<uint32_t>();
 
         //Verify that the data is there
-        if (&iobuffer[readpos] + len > GetRawLimit())
+        if ((iobuffer.data() + readpos) + len > GetRawLimit())
             InvalidRPCData();
 
         readpos += len;
-        return std::make_pair(&iobuffer[readpos]-len,&iobuffer[readpos]);
+        return std::make_pair((iobuffer.data() + readpos)-len,iobuffer.data() + readpos);
 }
 
 std::ostream& operator<<(std::ostream &lhs, IOBuffer const &rhs)
@@ -185,7 +185,7 @@ void TCPConnection::TrySendOutgoing(LockedAData::WriteRef &lock)
             return;
 
         // Send over the socket
-        int32_t retval = sock.Send(&lock->outgoing[0], lock->outgoing.size());
+        int32_t retval = sock.Send(lock->outgoing.data(), lock->outgoing.size());
 
         if (retval <= 0 && retval != Blex::SocketError::WouldBlock)
         {
@@ -242,14 +242,14 @@ unsigned TCPConnection::TryReceiveIncoming(LockedAData::WriteRef &lock)
             return 0;
 
         lock->incoming.resize(newbufsize); //ADDME: Use read-ahead estimation from the buffer length prefixing the message!
-        int32_t retval = sock.Receive(&lock->incoming[curbuflen], newbufsize - curbuflen);
+        int32_t retval = sock.Receive(lock->incoming.data() + curbuflen, newbufsize - curbuflen);
         if (retval > 0 && GetFirstBufferLength(&lock->incoming) > newbufsize)
         {
                 // got data, but it is a partial packet - try to get the rest of the packet too
                 curbuflen += retval;
                 newbufsize = GetFirstBufferLength(&lock->incoming) + 4096;
                 lock->incoming.resize(newbufsize);
-                retval = sock.Receive(&lock->incoming[curbuflen], newbufsize - curbuflen);
+                retval = sock.Receive(lock->incoming.data() + curbuflen, newbufsize - curbuflen);
         }
 
         if(retval == Blex::SocketError::WouldBlock)
@@ -280,8 +280,8 @@ void TCPConnection::PopPacket(LockedAData::WriteRef &lock, IOBuffer *iobuf)
         assert(IsComplete(&lock->incoming));
 
         //Pop a message into the I/O buffer
-        unsigned msglen = Blex::getu32lsb(&lock->incoming[0])&0xFFFFFF;
-        iobuf->GetInternalIOBuffer()->assign(&lock->incoming[0],&lock->incoming[msglen]);
+        unsigned msglen = Blex::getu32lsb(lock->incoming.data())&0xFFFFFF;
+        iobuf->GetInternalIOBuffer()->assign(lock->incoming.data(),lock->incoming.data() + msglen);
         lock->incoming.erase(lock->incoming.begin(), lock->incoming.begin() + msglen);
 
         IOCLIENTDEBUGPRINT("TCP conn " << this << ": Received packet " << WHMResponseOpcode::GetName((WHMResponseOpcode::Type)iobuf->GetOpcode()) << ", len: " << iobuf->GetRawLength());
