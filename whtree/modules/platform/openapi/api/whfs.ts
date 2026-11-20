@@ -1,7 +1,7 @@
 import type { TypedRestRequest } from "@mod-platform/generated/openapi/platform/api";
 import type { AuthorizedWRDAPIUser, HTTPErrorCode, HTTPSuccessCode, OpenAPIResponse, OpenAPIResponseType } from "@webhare/openapi-service";
 import { getAuthorizationInterface } from "@webhare/auth";
-import { listInstances, lookupURL, openFileOrFolder, WHFSError, whfsType, type WHFSObject } from "@webhare/whfs";
+import { listInstances, lookupURL, openFileOrFolder, WHFSError, whfsType, type WHFSObject, type WHFSFile } from "@webhare/whfs";
 import { getVirtualObjectData } from "@webhare/whfs/src/export";
 import { runInWork } from "@webhare/whdb";
 import { getType } from "@webhare/whfs/src/describe";
@@ -24,11 +24,16 @@ export async function resolvePath(req: { params: { path?: string }; authorizatio
 }
 
 async function getInstances(obj: WHFSObject, exportOptions: ExportOptions) {
+  const objectData = await getVirtualObjectData(obj, { includeData: false }, exportOptions);
+  const typeInfo = await obj.describeType();
+  const fileData = obj.isFile && typeInfo.metaType === "fileType" && typeInfo.hasData
+    ? { data: await (obj as WHFSFile).data?.export(exportOptions) ?? null }
+    : {};
   const instanceList: OpenAPIResponseType<TypedRestRequest<AuthorizedWRDAPIUser, "get /whfs/object">, typeof HTTPSuccessCode.Ok>["instances"] = [
     {
       whfsType: 'platform:virtual.objectdata',
       clone: 'onCopy',
-      data: await getVirtualObjectData(obj, { includeData: true })
+      data: { ...objectData, ...fileData }
     }
   ];
 
