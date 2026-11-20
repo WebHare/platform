@@ -11,8 +11,8 @@
 */
 
 import { runCli, CLIRuntimeError } from "@webhare/cli";
-import { containerBinary, getContainer, getWatcherFiles, isWatcherRunning, modulesRootInContainer, runGit, sourceRootInContainer, type DevkitContainer } from "@mod-devkit/js/containers/support";
-import { spawn, spawnSync } from "node:child_process";
+import { containerBinary, getContainer, getWatcherFiles, isWatcherRunning, modulesRootInContainer, runAsync, runGit, sourceRootInContainer, type DevkitContainer } from "@mod-devkit/js/containers/support";
+import { spawn } from "node:child_process";
 import { rmSync, statSync, watch } from "node:fs";
 import { createServer, type Server } from "node:net";
 import * as path from "node:path";
@@ -65,13 +65,16 @@ function watchMount(container: DevkitContainer, { hostRoot, containerRoot, ignor
   // Like watchsourcefiles, skip hidden files and directories (including .git) and editor backups
   const isRelevant = (relPath: string) => !relPath.split("/").some(part => part.startsWith(".")) && !relPath.endsWith("~") && !ignoreUnder.some(prefix => relPath.startsWith(prefix));
 
-  function filterIgnored(relPaths: string[]): string[] {
+  async function filterIgnored(relPaths: string[]): Promise<string[]> {
     // git check-ignore refuses paths inside submodules, so only pass it paths from the main repository
     const inSubmodule = relPaths.filter(relPath => submodules.some(sub => relPath.startsWith(sub)));
     const inMain = relPaths.filter(relPath => !inSubmodule.includes(relPath));
     if (!inMain.length)
       return inSubmodule;
-    const result = spawnSync("git", ["-C", hostRoot, "check-ignore", "--stdin", "-z"], { input: inMain.join("\0"), encoding: "utf-8" });
+    // We run our commands asynchronously (with runAsync) so the watcher's socket keeps answering while they run
+    const result = await runAsync("git", ["-C", hostRoot, "check-ignore", "--stdin", "-z"], { input: inMain.join("\0") });
+    if (result.status === null)
+      log(`Cannot check which changes are ignored by git, forwarding all of them: ${result.stderr}`);
     if (result.status !== 0 && result.status !== 1) //eg. a module that isn't in a git repository
       return relPaths;
     const ignored = new Set(result.stdout.split("\0"));
@@ -79,8 +82,9 @@ function watchMount(container: DevkitContainer, { hostRoot, containerRoot, ignor
   }
 
   async function flush() {
-    const relPaths = filterIgnored([...pending]);
+    const toFlush = [...pending];
     pending = new Set;
+    const relPaths = await filterIgnored(toFlush);
     if (!relPaths.length)
       return;
 
@@ -96,11 +100,14 @@ function watchMount(container: DevkitContainer, { hostRoot, containerRoot, ignor
       return;
 
     // A WebHare that isn't running doesn't need to be told. Also, `wh event` can't connect to WebHare during a build
-    if (spawnSync(containerBinary, ["exec", container.containerName, "wh", "isrunning"]).status !== 0)
+    const isRunning = await runAsync(containerBinary, ["exec", container.containerName, "wh", "isrunning"]);
+    if (isRunning.status === null) //we couldn't find out, eg. podman isn't in our PATH or didn't answer in time
+      log(`Cannot check whether WebHare is running, not forwarding ${files.length} changed file(s) in ${hostRoot}: ${isRunning.stderr}`);
+    if (isRunning.status !== 0)
       return;
 
     log(`Changed in ${hostRoot}: ${files.join(", ")}`);
-    const result = spawnSync(containerBinary, ["exec", container.containerName, "wh", "event", "invalidate-file", ...files.map(toContainerPath)], { encoding: "utf-8" });
+    const result = await runAsync(containerBinary, ["exec", container.containerName, "wh", "event", "invalidate-file", ...files.map(toContainerPath)]);
     if (result.status !== 0)
       log(`Failed to forward changes: ${result.stderr.trim() || result.stdout.trim()}`);
   }

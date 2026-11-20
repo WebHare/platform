@@ -1,7 +1,7 @@
 /* Shared between `wh devkit:container` and the file watcher it starts (scripts/libexec/container-watcher.ts) */
 
 import { CLIRuntimeError } from "@webhare/cli";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { connect } from "node:net";
@@ -43,6 +43,23 @@ export function runGit(checkout: string, args: string[]): string {
   if (result.status !== 0)
     throw new CLIRuntimeError(`git ${args[0]} failed in ${checkout}: ${result.stderr.trim()}`);
   return result.stdout.trim();
+}
+
+/** Run a command without blocking the event loop (unlike spawnSync). Never rejects: if the command can't be started or
+    is killed (eg. because it didn't finish within the timeout) status is null and stderr explains why
+    @param options.input - Data to send to the command's stdin
+    @param options.timeout - Kill the command if it runs longer than this, in milliseconds */
+export function runAsync(command: string, args: string[], { input, timeout = 60_000 }: { input?: string; timeout?: number } = {}): Promise<{ status: number | null; stdout: string; stderr: string }> {
+  return new Promise(resolve => {
+    let stdout = "", stderr = "";
+    const proc = spawn(command, args, { stdio: [input === undefined ? "ignore" : "pipe", "pipe", "pipe"], timeout });
+    proc.stdout?.setEncoding("utf-8").on("data", (data: string) => stdout += data);
+    proc.stderr?.setEncoding("utf-8").on("data", (data: string) => stderr += data);
+    proc.on("error", e => resolve({ status: null, stdout, stderr: `Could not run ${command}: ${e.message}` }));
+    proc.on("close", (status, signal) => resolve({ status, stdout, stderr: status === null ? `${command} ${args[0]} was killed by ${signal} (it may have run longer than ${timeout}ms). ${stderr}`.trim() : stderr }));
+    if (input !== undefined)
+      proc.stdin?.on("error", () => { }).end(input); //ignore EPIPE if the command exits without reading everything
+  });
 }
 
 export function listContainers(): DevkitContainer[] {
@@ -101,6 +118,22 @@ export function sendWatcherCommand(name: string, command: "ping" | "stop", { tim
   });
 }
 
+export type WatcherState = "running" | "unresponsive" | "stopped";
+
+/** Get the state of a container's watcher. A watcher that accepts the connection but doesn't answer the ping in time is
+    'unresponsive': it's still there, but it's stuck (a healthy watcher answers right away, even while forwarding changes) */
+export async function getWatcherState(name: string): Promise<WatcherState> {
+  const reply = await sendWatcherCommand(name, "ping");
+  return reply === null ? "stopped" : reply === "pong" ? "running" : "unresponsive";
+}
+
+/** Whether a watcher is listening on the container's socket. An unresponsive watcher still counts as running, so we never
+    start a second watcher that takes over its socket */
 export async function isWatcherRunning(name: string): Promise<boolean> {
-  return await sendWatcherCommand(name, "ping") === "pong";
+  return await getWatcherState(name) !== "stopped";
+}
+
+/** How to find a watcher that has to be killed by hand, for use in warnings */
+export function getFindWatcherHint(name: string): string {
+  return `pgrep -fl 'container-watcher.ts ${name}$'`;
 }

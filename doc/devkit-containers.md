@@ -91,6 +91,10 @@ removed, and listens on a unix socket in the user's temporary directory (`$TMPDI
 `echo stop | nc -U $TMPDIR/wh-devkit/<name>.sock` and run
 `wh run mod::devkit/scripts/libexec/container-watcher.ts <name>` in the foreground.
 
+`list` shows a watcher as `unresponsive` if it accepts connections on its socket but doesn't answer. Such a watcher is
+stuck: it's never replaced by a second watcher, and `stop` can't reach it. Find it with
+`pgrep -fl 'container-watcher.ts <name>$'`, kill it, and run `wh devkit:container start <name>` to start a new one.
+
 Changes made inside the container (eg. by `wh devkit:container exec`) don't need the watcher.
 
 ## Troubleshooting
