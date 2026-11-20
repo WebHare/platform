@@ -664,6 +664,14 @@ async function testNewAPI() {
   await test.throws(/cannot be deleted/, schema.close("whuserUnit", unit_id, { mode: "delete-denyreferred" }));
   await test.throws(/cannot be closed/, schema.close("whuserUnit", unit_id, { mode: "close-denyreferred" }));
 
+  //Closing an already closed entity should not move its close date. Closing an entity that will be closed in the future should
+  const pastClose = Temporal.Instant.from("2026-02-01T00:00:00Z"), futureClose = Temporal.Instant.from("2999-01-01T00:00:00Z");
+  const closedUnitId = await schema.insert("whuserUnit", { wrdTitle: "Closed unit", wrdTag: "CLOSED_UNIT", wrdCreated: Temporal.Instant.from("2026-01-01T00:00:00Z"), wrdClosed: pastClose });
+  const futureUnitId = await schema.insert("whuserUnit", { wrdTitle: "Future closed unit", wrdTag: "FUTURE_CLOSED_UNIT", wrdClosed: futureClose });
+  await schema.close("whuserUnit", [closedUnitId, futureUnitId]);
+  test.eq(pastClose, await schema.getFields("whuserUnit", closedUnitId, "wrdClosed", { historyMode: "all" }));
+  test.assert(Temporal.Instant.compare(await schema.getFields("whuserUnit", futureUnitId, "wrdClosed", { historyMode: "all" }) ?? futureClose, futureClose) < 0);
+
   const unreferencedUnitId = await schema.insert("whuserUnit", { wrdTitle: "Unreferenced unit", wrdTag: "UNREFERENCED" });
   await schema.close("whuserUnit", [unit_id, unreferencedUnitId], { mode: "delete-closereferred" });
   test.assert((await schema.getFields("whuserUnit", unit_id, { wrdClosed: "wrdClosed" }, { historyMode: 'all' })).wrdClosed);

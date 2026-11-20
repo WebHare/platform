@@ -1,6 +1,8 @@
-import { ansiCmd, enumOption } from "@webhare/cli";
+import { ansiCmd, CLIRuntimeError, enumOption } from "@webhare/cli";
 import { WebHareBlob } from "@webhare/services";
 import { openFileOrFolder, type WHFSObject } from "@webhare/whfs";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import { kill } from "node:process";
 import { createInterface } from "node:readline";
@@ -38,10 +40,18 @@ export function writeClamped(text: string, suffix: "\r" | "\n") {
   process.stdout.write(`${clamped}${ansiCmd("eraseline-right")}${suffix}`);
 }
 
+/** Ask a question on the terminal. Rejects with a CLIRuntimeError if the user presses Ctrl-C, so cleanup (eg. 'using' disposers) still runs */
 export function prompt(question: string): Promise<string> {
   process.stdin.setEncoding("utf8"); //and I guess we can just leave it at that?  can't restore original encoding anyway
   const rl = createInterface({ input: process.stdin, output: process.stdout });
-  return new Promise(resolve => rl.question(question, answer => { rl.close(); resolve(answer); }));
+  return new Promise((resolve, reject) => {
+    rl.on("SIGINT", () => {
+      rl.close();
+      process.stdout.write("\n");
+      reject(new CLIRuntimeError("Aborted", { exitCode: 130 }));
+    });
+    rl.question(question, answer => { rl.close(); resolve(answer); });
+  });
 }
 
 export async function promptPassword(question: string): Promise<string> {
@@ -82,4 +92,26 @@ export async function resolveWHFSPathArgument(path: string, options?: { allowRoo
 
 export async function resolveWHFSPathArrayArgument(paths: string[], options?: { allowRoot?: boolean }): Promise<WHFSObject[]> {
   return Promise.all(paths.map(path => openFileOrFolder(parseInt(path) > 0 ? parseInt(path) : path, { allowHistoric: true, ...options })));
+}
+
+/** Edit a file using $VISUAL, $EDITOR or vi. Throws if the editor failed */
+export async function runEditor(path: string): Promise<void> {
+  const editor = process.env.VISUAL || process.env.EDITOR || "vi";
+
+  //Run through the shell so editors with arguments (eg. 'code --wait') work. The path is passed as a separate argument to avoid quoting issues
+  const child = spawn("/bin/sh", ["-c", `${editor} "$1"`, "sh", path], { stdio: "inherit" });
+
+  //Ctrl-C reaches both us and the editor. Leave it to the editor (like git does), and pass on SIGTERM, so we stay alive to clean up after it exits
+  const ignoreSignal = () => { };
+  const forwardSignal = (signal: NodeJS.Signals) => child.kill(signal);
+  process.on("SIGINT", ignoreSignal);
+  process.on("SIGTERM", forwardSignal);
+  try {
+    const [code, signal] = await once(child, "exit") as [number | null, NodeJS.Signals | null];
+    if (code !== 0)
+      throw new CLIRuntimeError(`Editor '${editor}' exited with ${signal ? `signal ${signal}` : `code ${code}`}`);
+  } finally {
+    process.off("SIGINT", ignoreSignal);
+    process.off("SIGTERM", forwardSignal);
+  }
 }

@@ -3,14 +3,16 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { createWRDTestSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import type { Combine, WRDInsertable } from "@webhare/wrd/src/types";
 import { buildRTD, ResourceDescriptor } from "@webhare/services";
-import { beginWork, commitWork } from "@webhare/whdb";
+import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 import { spawnSync } from "node:child_process";
 import type { RTDExport } from "@webhare/services/src/richdocument";
 import { omit } from "@webhare/std";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { YAML } from "@webhare/deps";
+import { storeTempFile } from "@webhare/system-tools";
+import { exportEntitySource, importEntitySource } from "@mod-wrd/js/internal/entitysource";
 
 async function testWRDSettingsCli() {
   await createWRDTestSchema();
@@ -148,8 +150,117 @@ async function testWRDCli() { //  tests
   test.eq("null\n", missingResult.stdout);
 }
 
+async function testWRDCloseDeleteCli() {
+  type TestSchemaType = Combine<[WRDSchemaLike["wrd:testschema"], CustomExtensions]>;
+  const wrdschema = wrd<TestSchemaType>(testSchemaTag);
+  await createWRDTestSchema();
+
+  await beginWork();
+  const testunit = await wrdschema.insert("whuserUnit", { wrdTitle: "Root unit", wrdTag: "TESTFW_ROOT_UNIT" });
+  const ids = [];
+  for (const name of ["Close1", "Close2", "Delete1", "Delete2"])
+    ids.push(await wrdschema.insert("wrdPerson", { wrdFirstName: name, wrdLastName: "Test", wrdContactEmail: `${name.toLowerCase()}@beta.webhare.net`, whuserUnit: testunit, wrdauthAccountStatus: { status: "active" } }));
+  await commitWork();
+  const [close1, close2, delete1, delete2] = ids;
+
+  //Missing entity should abort without changing anything
+  const missingResult = spawnSync("wh", ["wrd", "close-entity", String(close1), "999999999"], { shell: false, encoding: "utf-8", stdio: ['inherit', 'pipe', 'pipe'] });
+  test.eq(1, missingResult.status);
+  test.eq(/999999999/, missingResult.stderr);
+  test.eq(close1, await wrdschema.search("wrdPerson", "wrdId", close1));
+
+  const closeResult = spawnSync("wh", ["wrd", "close-entity", "--json", String(close1), String(close2)], { shell: false, encoding: "utf-8", stdio: ['inherit', 'pipe', 'inherit'] });
+  test.eq(0, closeResult.status);
+  test.eq({ wrdIds: [close1, close2] }, JSON.parse(closeResult.stdout));
+  test.eq(null, await wrdschema.search("wrdPerson", "wrdId", close1));
+  test.eq(null, await wrdschema.search("wrdPerson", "wrdId", close2));
+  test.eq(close1, await wrdschema.search("wrdPerson", "wrdId", close1, { historyMode: "all" }));
+
+  const deleteResult = spawnSync("wh", ["wrd", "delete-entity", String(delete1), String(delete2), String(close1)], { shell: false, encoding: "utf-8", stdio: ['inherit', 'pipe', 'inherit'] });
+  test.eq(0, deleteResult.status);
+  test.eq(`Deleted #${delete1}, #${delete2}, #${close1}\n`, deleteResult.stdout);
+  for (const id of [delete1, delete2, close1])
+    test.eq(null, await wrdschema.search("wrdPerson", "wrdId", id, { historyMode: "unfiltered" }));
+  test.eq(close2, await wrdschema.search("wrdPerson", "wrdId", close2, { historyMode: "all" }));
+}
+
+async function testWRDEditEntityCli() {
+  type TestSchemaType = Combine<[WRDSchemaLike["wrd:testschema"], CustomExtensions]>;
+  const wrdschema = wrd<TestSchemaType>(testSchemaTag);
+  await createWRDTestSchema();
+
+  await beginWork();
+  const testunit = await wrdschema.insert("whuserUnit", { wrdTitle: "Root unit", wrdTag: "TESTFW_ROOT_UNIT" });
+  const personId = await wrdschema.insert("wrdPerson", { wrdFirstName: "Edit", wrdLastName: "Test", wrdContactEmail: "edit@beta.webhare.net", whuserUnit: testunit, wrdauthAccountStatus: { status: "active" } });
+  await commitWork();
+
+  //Our 'editor' saves the path and contents of the file it got, and replaces it with the contents of 'newSource' (if not empty)
+  await using editPath = await storeTempFile("editpath.txt", "");
+  await using originalSource = await storeTempFile("original.yml", "");
+  await using newSource = await storeTempFile("newsource.yml", "");
+  await using editorScript = await storeTempFile("editor.sh", `#!/bin/sh\necho "$1" > "${editPath.path}"\ncp "$1" "${originalSource.path}"\n[ -s "${newSource.path}" ] && cp "${newSource.path}" "$1"\nexit 0\n`, { mode: "700" });
+
+  const runEdit = (env: Record<string, string | undefined>) => spawnSync("wh", ["wrd", "edit-entity", String(personId)], {
+    shell: false, encoding: "utf-8", stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, VISUAL: undefined, EDITOR: undefined, ...env }
+  });
+
+  //Unmodified file
+  const unmodifiedResult = runEdit({ EDITOR: editorScript.path });
+  test.eq(0, unmodifiedResult.status);
+  test.eq(`Entity #${personId} not modified\n`, unmodifiedResult.stdout);
+  const original = readFileSync(originalSource.path, "utf-8");
+  test.eq(/^wrdFirstName: Edit$/m, original);
+  test.eq(/^# wrdModified: /m, original);
+  test.assert(!existsSync(readFileSync(editPath.path, "utf-8").trim()), "temporary file should be removed");
+
+  //VISUAL takes precedence over EDITOR
+  writeFileSync(newSource.path, original.replace(/^wrdFirstName: Edit$/m, "wrdFirstName: Edited"));
+  const editResult = runEdit({ VISUAL: editorScript.path, EDITOR: "false" });
+  test.eq(0, editResult.status, editResult.stderr);
+  test.eq(`Updated entity #${personId}: wrdFirstName\n`, editResult.stdout);
+  test.eq("Edited", await wrdschema.getFields("wrdPerson", personId, "wrdFirstName"));
+
+  //Invalid source fails without updating (and doesn't offer to retry as stdin isn't a terminal)
+  writeFileSync(newSource.path, "- not an object\n");
+  const invalidResult = runEdit({ EDITOR: editorScript.path });
+  test.eq(1, invalidResult.status);
+  test.eq(/must be a YAML object/, invalidResult.stderr);
+  test.eq("Edited", await wrdschema.getFields("wrdPerson", personId, "wrdFirstName"));
+
+  //Only fields changed compared to the original export are applied, so concurrent changes to other fields survive
+  const { yaml: exported } = await exportEntitySource(personId);
+  await runInWork(() => wrdschema.update("wrdPerson", personId, { wrdLastName: "Changed elsewhere" }));
+  test.eq({ error: "", changedFields: [] }, await importEntitySource(personId, exported, exported));
+  test.eq({ error: "", changedFields: ["wrdFirstName"] }, await importEntitySource(personId, exported.replace(/^wrdFirstName: Edited$/m, "wrdFirstName: Again"), exported));
+  test.eqPartial({ wrdFirstName: "Again", wrdLastName: "Changed elsewhere" }, await wrdschema.getFields("wrdPerson", personId, ["wrdFirstName", "wrdLastName"]));
+
+  //A failed edit compared with the original export still fails instead of being reported as unmodified
+  test.eq(/must be a YAML object/, (await importEntitySource(personId, "- not an object\n", exported)).error);
+  const invalidEmail = exported.replace(/^wrdContactEmail: .*$/m, "wrdContactEmail: not-an-email");
+  test.assert((await importEntitySource(personId, invalidEmail, exported)).error);
+  test.eq("edit@beta.webhare.net", await wrdschema.getFields("wrdPerson", personId, "wrdContactEmail"));
+
+  const jsonResult = spawnSync("wh", ["wrd", "edit-entity", "--json", String(personId)], { shell: false, encoding: "utf-8", stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, EDITOR: editorScript.path } });
+  test.eq(1, jsonResult.status);
+  test.eq(/does not support --json/, jsonResult.stderr);
+
+  //When wh is terminated while the editor runs, the editor should be stopped and the temporary file still removed
+  await using killerScript = await storeTempFile("killer.sh", `#!/bin/sh\necho "$1" > "${editPath.path}"\nP=$PPID\nwhile [ "$P" -gt 1 ] && ! ps -o command= -p $P | grep -q node; do P=$(ps -o ppid= -p $P | tr -d ' '); done\nkill -TERM $P\nexec sleep 30\n`, { mode: "700" });
+  const killedResult = runEdit({ EDITOR: killerScript.path });
+  test.eq(1, killedResult.status, killedResult.stderr);
+  test.eq(/exited with/, killedResult.stderr);
+  test.assert(!existsSync(readFileSync(editPath.path, "utf-8").trim()), "temporary file should be removed after SIGTERM");
+
+  const failingEditorResult = runEdit({ EDITOR: "false" });
+  test.eq(1, failingEditorResult.status);
+  test.eq(/exited with code 1/, failingEditorResult.stderr);
+}
+
 test.runTests([
   //basic exports to get typings right
   testWRDSettingsCli,
   testWRDCli,
+  testWRDCloseDeleteCli,
+  testWRDEditEntityCli,
 ]);

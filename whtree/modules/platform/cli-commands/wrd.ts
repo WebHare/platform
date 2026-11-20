@@ -4,11 +4,14 @@ import { wrd, describeEntity, listSchemas, type AnySchemaType, type WRDEntityMat
 import { regExpFromWildcards, throwError } from '@webhare/std';
 import { decodeHSON } from '@webhare/hscompat';
 import { beginWork, runInWork } from '@webhare/whdb';
-import { CLIRuntimeError, intOption, runCli } from "@webhare/cli";
+import { CLIRuntimeError, CLISyntaxError, intOption, runCli } from "@webhare/cli";
 import { parseSchema } from '@webhare/wrd/src/schemaparser';
 import { checkWRDSchema, type WRDIssue } from '@webhare/wrd/src/check';
 import YAML from 'yaml';
-import { commonFlags, commonOptions, readArgFile } from '@mod-platform/js/cli/cli-tools';
+import { commonFlags, commonOptions, prompt, readArgFile, runEditor } from '@mod-platform/js/cli/cli-tools';
+import { exportEntitySource, importEntitySource } from '@mod-wrd/js/internal/entitysource';
+import { storeTempFile } from '@webhare/system-tools';
+import { readFile } from 'node:fs/promises';
 import { exportFileAsFetch } from '@webhare/services/src/descriptor';
 
 async function exportEntity(entitySchema: WRDSchemaType<AnySchemaType>, entityType: string, entityMatch: WRDEntityMatch<WRDSchemaType<AnySchemaType>, string>, opts: { json: boolean; resources: string }, field?: string) {
@@ -36,6 +39,49 @@ async function updateEntity(entitySchema: WRDSchemaType<AnySchemaType>, entityTy
   if (!opts.dryRun)
     await work.commit();
   console.log(opts.json ? JSON.stringify({ wrdId: entityId }) : `Updated entity #${entityId}`);
+}
+
+async function closeEntities(ids: number[], mode: "close" | "delete", opts: { json: boolean }) {
+  //Look up all entities first, so we don't modify anything if one of them is missing
+  const byType = new Map<string, { schema: string; type: string; ids: number[] }>();
+  for (const id of new Set(ids)) {
+    const entityInfo = await describeEntity(id);
+    if (!entityInfo)
+      throw new CLIRuntimeError(`Entity #${id} not found`);
+
+    const key = `${entityInfo.schemaId}:${entityInfo.typeId}`;
+    if (!byType.has(key))
+      byType.set(key, { schema: entityInfo.schema, type: entityInfo.type, ids: [] });
+    byType.get(key)!.ids.push(id);
+  }
+
+  await runInWork(async () => {
+    for (const { schema, type, ids: typeIds } of byType.values())
+      await wrd<AnySchemaType>(schema).close(type, typeIds, { mode });
+  });
+
+  const processed = [...byType.values()].flatMap(_ => _.ids);
+  console.log(opts.json ? JSON.stringify({ wrdIds: processed }) : `${mode === "close" ? "Closed" : "Deleted"} ${processed.map(id => `#${id}`).join(", ")}`);
+}
+
+async function editEntity(entityId: number): Promise<number> {
+  const { yaml } = await exportEntitySource(entityId);
+  //storeTempFile makes the file only readable by us, which is important as the export may contain personal data
+  await using tempFile = await storeTempFile(`entity-${entityId}.yml`, yaml);
+
+  for (; ;) {
+    await runEditor(tempFile.path);
+    //Always compare with the original export, so edits from an earlier failed attempt aren't lost if the file is closed unchanged
+    const { error, changedFields } = await importEntitySource(entityId, await readFile(tempFile.path, "utf-8"), yaml);
+    if (!error) {
+      console.log(changedFields.length ? `Updated entity #${entityId}: ${changedFields.join(", ")}` : `Entity #${entityId} not modified`);
+      return 0;
+    }
+
+    console.error(`Error updating entity #${entityId}: ${error}`);
+    if (!process.stdin.isTTY || !(await prompt("Edit again? [Y/n] ")).match(/^(y|yes|)$/i))
+      throw new CLIRuntimeError(`Entity #${entityId} was not updated`);
+  }
 }
 
 runCli({
@@ -123,7 +169,7 @@ runCli({
       ],
       main: async ({ opts, args }) => {
         const wrdschema = wrd<AnySchemaType>(args.schema);
-        const importData: Record<string, unknown> = YAML.parse(await (await readArgFile(args.source)).text());
+        const importData: Record<string, unknown> & { wrdGuid?: string } = YAML.parse(await (await readArgFile(args.source)).text());
 
         const attrs = await wrdschema.getType(args.type).listAttributes();
         for (const attr of attrs)
@@ -140,6 +186,15 @@ runCli({
         console.log(opts.json ? JSON.stringify({ wrdId: result, wrdGuid: importData.wrdGuid }) : `Inserted entity #${result} (${importData.wrdGuid})`);
       }
     },
+    "edit-entity": {
+      description: "Edit an entity's source in $VISUAL, $EDITOR or vi and update it if modified",
+      arguments: [{ name: "<id>", description: "Entity ID", type: intOption() }],
+      main: async ({ opts, args }) => {
+        if (opts.json) //we're interactive, and our prompts would end up in the JSON output
+          throw new CLISyntaxError("edit-entity does not support --json");
+        return editEntity(args.id);
+      }
+    },
     "update-entity": {
       description: "Update an entity from imported data",
       flags: {
@@ -153,6 +208,20 @@ runCli({
         const entityId = args.id;
         const entityInfo = await describeEntity(entityId) ?? throwError(`Entity #${entityId} not found`);
         await updateEntity(wrd<AnySchemaType>(entityInfo.schema), entityInfo.type, entityId, args.source, opts);
+      }
+    },
+    "close-entity": {
+      description: "Close one or more entities",
+      arguments: [{ name: "<ids...>", description: "Entity IDs", type: intOption() }],
+      main: async ({ opts, args }) => {
+        await closeEntities(args.ids, "close", opts);
+      }
+    },
+    "delete-entity": {
+      description: "Permanently delete one or more entities",
+      arguments: [{ name: "<ids...>", description: "Entity IDs", type: intOption() }],
+      main: async ({ opts, args }) => {
+        await closeEntities(args.ids, "delete", opts);
       }
     },
     "update-setting": {

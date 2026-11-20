@@ -2,5 +2,5 @@
 declare module "@webhare/system-tools" {
 }
 
-export { listDirectory, storeDiskFile, deleteRecursive, type ListDirectoryEntry, type StoreDiskFileSource } from "./fs";
+export { listDirectory, storeDiskFile, storeTempFile, deleteRecursive, type TempFile, type ListDirectoryEntry, type StoreDiskFileSource, type StoreTempFileOptions } from "./fs";
 export { getScriptName } from "./node";

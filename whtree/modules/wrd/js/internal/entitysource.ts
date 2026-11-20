@@ -4,6 +4,7 @@ import { wrd, describeEntity, type AnySchemaType } from "@webhare/wrd";
 import { exportFileAsFetch } from "@webhare/services";
 import { runInWork } from "@webhare/whdb";
 import YAML from "yaml";
+import { isDeepStrictEqual } from "node:util";
 
 async function getEntityContext(entityId: number) {
   const descr = await describeEntity(entityId);
@@ -44,22 +45,40 @@ export async function exportEntitySource(entityId: number): Promise<{ yaml: stri
   return { yaml: YAML.stringify(entity) + (comments.length ? "\n" + comments.map(_ => _ + "\n").join("") : "") };
 }
 
-export async function importEntitySource(entityId: number, source: string): Promise<{ error: string }> {
+function parseEntitySource(source: string): Record<string, unknown> {
+  const data: unknown = YAML.parse(source);
+  if (!data || typeof data !== "object" || Array.isArray(data))
+    throw new Error("The source must be a YAML object with the entity's fields");
+  return data as Record<string, unknown>;
+}
+
+/** Update an entity from edited source
+    @param entityId - Entity to update
+    @param source - The edited source
+    @param originalSource - The source as originally exported by exportEntitySource. Only top level fields that differ
+                            from it are updated, so fields changed by others since the export aren't overwritten
+    @returns The fields that were updated (empty if nothing changed), or an error message
+*/
+export async function importEntitySource(entityId: number, source: string, originalSource: string): Promise<{ error: string; changedFields: string[] }> {
   try {
     const { schema, type, attrs } = await getEntityContext(entityId);
-    const importData: unknown = YAML.parse(source);
-    if (!importData || typeof importData !== "object" || Array.isArray(importData))
-      throw new Error("The source must be a YAML object with the entity's fields");
+    const original = parseEntitySource(originalSource);
+    const fields = parseEntitySource(source);
 
-    const fields = importData as Record<string, unknown>;
+    for (const [key, value] of Object.entries(fields))
+      if (key in original && isDeepStrictEqual(original[key], value))
+        delete fields[key];
+
     delete fields.wrdId;
     for (const attr of attrs)
       if (attr.isReadOnly)
         delete fields[attr.tag];
 
-    await runInWork(() => schema.update(type, entityId, fields));
-    return { error: "" };
+    const changedFields = Object.keys(fields);
+    if (changedFields.length)
+      await runInWork(() => schema.update(type, entityId, fields));
+    return { error: "", changedFields };
   } catch (err) {
-    return { error: (err as Error).message };
+    return { error: (err as Error).message, changedFields: [] };
   }
 }

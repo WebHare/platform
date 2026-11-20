@@ -1,7 +1,8 @@
 import { appendToArray, generateRandomId, regExpFromWildcards } from "@webhare/std";
-import type { Dirent } from "node:fs";
-import { mkdir, open, type FileHandle, rename, unlink, readdir, rmdir, writeFile, readFile, stat } from "node:fs/promises";
-import { isAbsolute, join, parse } from "node:path";
+import { constants, unlinkSync, type Dirent } from "node:fs";
+import { copyFile, link, mkdir, open, type FileHandle, rename, unlink, readdir, rmdir, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { basename, isAbsolute, join, parse } from "node:path";
 import type Stream from "node:stream";
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 
@@ -40,6 +41,17 @@ export interface StoreDiskFileOptions {
   mkdir?: boolean;
   /** Update only if the file has changed. This takes a bit more time but prevents triggering watchers or updating timestamps. Currently only supported for strings */
   onlyIfChanged?: boolean;
+  /** File mode (permissions) to set as an octal string, eg "600" or "0644". Applied to the file handle before any data
+   *  is written, and not limited by the process umask. If not set, new files get the default mode and existing files
+   *  overwritten in place keep their mode. Note that an existing file overwritten with inPlace: true may already be
+   *  open by others, so don't combine mode with inPlace when protecting sensitive data */
+  mode?: string;
+}
+
+function parseFileMode(mode: string): number {
+  if (!/^0?[0-7]{3}$/.test(mode))
+    throw new Error(`Invalid file mode '${mode}', expected an octal string such as '600' or '0644'`);
+  return parseInt(mode, 8);
 }
 
 export type StoreDiskFileSource = string | ArrayBuffer | Uint8Array | Buffer | Stream.Readable | ReadableStream<Uint8Array<ArrayBuffer>> | Blob;
@@ -54,18 +66,30 @@ export type StoreDiskFileSource = string | ArrayBuffer | Uint8Array | Buffer | S
     @returns \{ skipped: true \} if onlyIfChanged was set and the file was already up-to-date
 */
 export async function storeDiskFile(path: string, data: StoreDiskFileSource, options?: StoreDiskFileOptions): Promise<{ skipped: boolean }> {
+  const mode = options?.mode !== undefined ? parseFileMode(options.mode) : undefined;
   const usetemp = parse(path).base.length < 230 && !options?.inPlace;
   let writepath = usetemp ? path + ".tmp" + generateRandomId() : null;
   if (options?.onlyIfChanged) { //we'll check the content of any existing target first
     if (typeof data !== "string")
       throw new Error("onlyIfChanged is currently only supported for string data");
+    let current: FileHandle | null = null;
     try {
-      const curdata = await readFile(path, 'utf-8');
-      if (curdata === data)
-        return { skipped: true }; //done!
+      current = await open(path, "r");
     } catch (err) {
       if ((err as { code: string })?.code !== "ENOENT")
         throw err;
+    }
+    if (current) {
+      try {
+        if (await current.readFile('utf-8') === data) {
+          //Content is up-to-date, but the mode may not be. Fix it through the same handle we verified the content with
+          if (mode !== undefined && ((await current.stat()).mode & 0o7777) !== mode)
+            await current.chmod(mode);
+          return { skipped: true }; //done!
+        }
+      } finally {
+        await current.close();
+      }
     }
   }
 
@@ -78,7 +102,7 @@ export async function storeDiskFile(path: string, data: StoreDiskFileSource, opt
       await mkdir(parse(path).dir, { recursive: true });
 
     if (usetemp && !options?.overwrite) {
-      reservefile = await open(path, "ax"); //ax = append exclusive (prevent truncation)
+      reservefile = await open(path, "ax", mode); //ax = append exclusive (prevent truncation). it stays empty and is replaced by the rename
     }
 
     const writeData =
@@ -87,7 +111,18 @@ export async function storeDiskFile(path: string, data: StoreDiskFileSource, opt
           : data instanceof Uint8Array ? Buffer.from(data)
             : typeof data === "string" ? data
               : data as unknown as NodeReadableStream<Uint8Array>; //workaround for recent TS type incompatibility
-    await writeFile(writepath ?? path, writeData, { flag: options?.overwrite ? "w" : "wx" });
+    /* Passing mode to open() makes the file get created with (mode & ~umask), which is never more permissive than mode,
+       so there's no window in which others can open it with broader permissions. We then chmod the handle (not the path,
+       which could have been swapped) to get the exact mode, and to fix existing files overwritten in place.
+       The temporary file is always created exclusively, so we never write into a file someone else created (and may have open) */
+    const fh = await open(writepath ?? path, writepath || !options?.overwrite ? "wx" : "w", mode);
+    try {
+      if (mode !== undefined)
+        await fh.chmod(mode);
+      await fh.writeFile(writeData);
+    } finally {
+      await fh.close();
+    }
 
     if (writepath) {
       await rename(writepath, path);
@@ -111,6 +146,196 @@ export async function storeDiskFile(path: string, data: StoreDiskFileSource, opt
       unlink(writepath).catch(function () {/*ignore*/ });
   }
   return { skipped: false };
+}
+
+export interface StoreTempFileOptions {
+  /** Directory to create the file in. Defaults to the system's temporary directory */
+  dir?: string;
+  /** File mode (permissions) as an octal string. Defaults to "600" (only readable and writable by the current user) */
+  mode?: string;
+}
+
+/** Temporary files that haven't been removed yet */
+const liveTempFiles = new Set<TempFile>();
+/** Signals that terminate the process by default, and after which we should clean up */
+const cleanupSignals = ["SIGINT", "SIGTERM", "SIGHUP"] as const;
+
+function removeLiveTempFiles() {
+  for (const file of liveTempFiles)
+    try {
+      file[Symbol.dispose]();
+    } catch {
+      //ignore, we're terminating and can't do anything about it
+    }
+}
+
+function onCleanupSignal(signal: NodeJS.Signals) {
+  /* If someone else also handles this signal, they decide whether the process ends (and our exit handler will clean up
+     if it does). Otherwise the signal would have terminated us: clean up and let it terminate us anyway */
+  if (process.listenerCount(signal) > 1)
+    return;
+
+  removeLiveTempFiles();
+  setCleanupHandlers(false);
+  process.kill(process.pid, signal);
+}
+
+/** Only keep our handlers installed while there are temporary files, so we don't change signal handling otherwise */
+function setCleanupHandlers(install: boolean) {
+  for (const signal of cleanupSignals)
+    if (install) //prepend, so we run (and count listeners) before earlier 'once' handlers remove themselves
+      process.prependListener(signal, onCleanupSignal);
+    else
+      process.off(signal, onCleanupSignal);
+
+  if (install)
+    process.on("exit", removeLiveTempFiles);
+  else
+    process.off("exit", removeLiveTempFiles);
+}
+
+function trackTempFile(file: TempFile) {
+  if (!liveTempFiles.size)
+    setCleanupHandlers(true);
+  liveTempFiles.add(file);
+}
+
+function untrackTempFile(file: TempFile) {
+  if (liveTempFiles.delete(file) && !liveTempFiles.size)
+    setCleanupHandlers(false);
+}
+
+/** A temporary file created by storeTempFile. Removed when disposed, or when the process exits or is terminated by SIGINT, SIGTERM or SIGHUP */
+export class TempFile implements AsyncDisposable, Disposable {
+  #removed = false;
+  #path: string;
+
+  constructor(path: string) {
+    this.#path = path;
+  }
+
+  /** Full path to the temporary file (or its final location after moveTo) */
+  get path(): string {
+    return this.#path;
+  }
+
+  /** Move the file to its final location. It's then no longer a temporary file: it won't be removed on dispose or exit
+      @param destination - New path for the file, including its name
+      @param options - overwrite: Replace an existing file at the destination (otherwise we throw if it exists)
+  */
+  async moveTo(destination: string, options?: { overwrite?: boolean }): Promise<void> {
+    if (this.#removed)
+      throw new Error(`Temporary file '${this.#path}' has already been removed or moved`);
+
+    if (options?.overwrite) {
+      try {
+        await rename(this.#path, destination); //atomically replaces any existing file
+      } catch (err) {
+        if ((err as { code?: string })?.code !== "EXDEV")
+          throw err;
+        await copyFile(this.#path, destination); //different filesystem
+        await unlink(this.#path);
+      }
+    } else {
+      try {
+        await link(this.#path, destination); //fails if the destination exists, unlike rename
+      } catch (err) {
+        if ((err as { code?: string })?.code !== "EXDEV")
+          throw err;
+        await copyFile(this.#path, destination, constants.COPYFILE_EXCL); //different filesystem
+      }
+      await unlink(this.#path);
+    }
+
+    this.#path = destination;
+    this.#removed = true; //no longer ours to remove
+    untrackTempFile(this);
+  }
+
+  /** Remove the temporary file now. Does nothing if it was already removed */
+  async unlink(): Promise<void> {
+    if (this.#removed)
+      return;
+    let error: Error | null = null;
+    try {
+      await unlink(this.#path);
+    } catch (err) {
+      error = err as Error;
+    }
+    this.#markRemoved(error);
+  }
+
+  async [Symbol.asyncDispose]() {
+    await this.unlink();
+  }
+
+  [Symbol.dispose]() {
+    if (this.#removed)
+      return;
+    let error: Error | null = null;
+    try {
+      unlinkSync(this.#path);
+    } catch (err) {
+      error = err as Error;
+    }
+    this.#markRemoved(error);
+  }
+
+  /** Process the result of an unlink attempt. Only consider the file removed if the unlink worked (or it was already gone), so a failed removal can be retried */
+  #markRemoved(error: Error | null) {
+    if (error && (error as Error & { code?: string }).code !== "ENOENT")
+      throw error;
+    this.#removed = true;
+    untrackTempFile(this);
+  }
+}
+
+/** Build a unique filename by inserting a random part before the first dot (not counting a leading dot) */
+function getTempFileName(name: string): string {
+  const randomPart = generateRandomId();
+  if (!name)
+    return randomPart;
+  const dotPos = name.indexOf(".", 1);
+  return dotPos < 0 ? `${name}-${randomPart}` : `${name.substring(0, dotPos)}-${randomPart}${name.substring(dotPos)}`;
+}
+
+/** Store data in a new temporary file, which is removed when the returned object is disposed
+ *
+ * The file is created exclusively (never reusing an existing file) and with its permissions already set, so no one else
+ * can open it before or while it's written. Use it with `await using` (or `using`) to have the file removed automatically.
+ *
+ * Files that haven't been removed yet are also removed when the process exits, or when it's terminated by SIGINT, SIGTERM
+ * or SIGHUP. While temporary files exist, a handler is installed for these signals. If no other handler exists for the
+ * signal, it removes the files and then lets the signal terminate the process as it would have. If another handler exists,
+ * that handler decides whether the process exits, and the files are removed when it does. Files aren't removed if the
+ * process is killed with SIGKILL or crashes.
+ *
+ *
+ * ```typescript
+ * await using tempFile = await storeTempFile("entity-1.yml", yaml);
+ * spawnSync("vi", [tempFile.path], { stdio: "inherit" });
+ * ```
+ *
+    @param name - Filename to base the temporary file's name on. A random part is inserted before the first dot,
+                  so `test.screens.yml` becomes eg. `test-<random>.screens.yml`. It may not contain a directory
+    @param data - Data to write
+    @returns The temporary file. Its `path` is the full path to the file, `unlink()` removes it immediately and `moveTo()`
+             moves it to its final location (after which it's no longer removed automatically)
+*/
+export async function storeTempFile(name: string, data: StoreDiskFileSource, options?: StoreTempFileOptions): Promise<TempFile> {
+  if (basename(name) !== name || name === "." || name === "..")
+    throw new Error(`Invalid temporary file name '${name}', it should not contain a directory`);
+
+  const tempFile = new TempFile(join(options?.dir ?? tmpdir(), getTempFileName(name)));
+  trackTempFile(tempFile); //before writing, so we also clean up if we're terminated while writing
+  try {
+    //storeDiskFile removes the file itself if writing fails, and won't overwrite an existing file
+    await storeDiskFile(tempFile.path, data, { mode: options?.mode ?? "600" });
+  } catch (err) {
+    untrackTempFile(tempFile);
+    throw err;
+  }
+  return tempFile;
 }
 
 async function doReadDir(basepath: string, subpath: string, allowMissing: boolean, recursive: boolean, mask: RegExp | undefined, skip: RegExp | undefined): Promise<ListDirectoryEntry[]> {
