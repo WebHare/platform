@@ -1064,6 +1064,21 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
   }
 
   INTEGER FUNCTION Submit() {
+    /* A cleared name field shows a name suggested from the title (or the current name if there's no title) as its
+       placeholder. Save with that name, as the name field is required for existing objects. We use the same name as
+       the placeholder (not one made unique) so a conflict is reported like it would be for a typed name */
+    BOOLEAN usesuggestedname := NOT this->isnew AND this->namefollowstitle AND ^name->enabled AND NOT ^name->readonly AND ^name->value = "";
+    IF(usesuggestedname)
+      ^name->value := this->GetSuggestedSlug(0);
+
+    INTEGER objid := this->SubmitWithName();
+    IF(objid = 0 AND usesuggestedname) //save didn't go ahead, so clear the name again to keep it following the title
+      ^name->value := "";
+
+    RETURN objid;
+  }
+
+  INTEGER FUNCTION SubmitWithName() {
     // Auto-check for required fields
     OBJECT quickfeedback := this->BeginFeedback();
     IF(^name->value = "" AND ^title->value = "")

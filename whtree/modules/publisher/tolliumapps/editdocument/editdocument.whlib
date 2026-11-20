@@ -408,6 +408,26 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
 
   BOOLEAN FUNCTION ExecuteSave(RECORD options DEFAULTSTO DEFAULT RECORD) {
     options := ValidateOptions(CELL[ finalize := FALSE, schedule_dialog := FALSE ], options);
+
+    /* A cleared name field shows a name suggested from the title as its placeholder. Publish with that name, as
+       the workflow would otherwise keep the current name for a file that has been published before. We use the
+       same name as the placeholder (not one made unique) so a conflict is reported like it would be for a typed name.
+       A file that was never published doesn't need this: the workflow then generates a (unique) name from the title */
+    BOOLEAN usesuggestedname := options.finalize AND this->namefollowstitle AND ^name->enabled AND ^name->value = "" AND ^title->value != ""
+                                AND this->workflowmgr->IsNameExplicit();
+    IF(usesuggestedname) {
+      ^name->value := this->GetSuggestedSlug(0);
+      ^dirtylistener->SetDirty();
+    }
+
+    BOOLEAN success := this->ExecuteSaveWithName(options);
+    IF(NOT success AND usesuggestedname) //publish didn't go ahead, so clear the name again to keep it following the title
+      ^name->value := "";
+
+    RETURN success;
+  }
+
+  BOOLEAN FUNCTION ExecuteSaveWithName(RECORD options) {
     BOOLEAN publish := options.finalize;
 
     IF(NOT this->UpdateAutosave()) { //NOTE Flushes to an autosave if needed but may also clear unneeded autosave objects and set this->currentautosave to DEFAULT OBJECT
