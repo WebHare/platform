@@ -85,6 +85,52 @@ test.runTests(
         `<p class="normal">"2(*0*)(*1*)"</p>` +
         `<p class="normal">"a"</p>`);
     },
+    "Pasted HTML must stay inert",
+    async function () {
+      const win = test.getWin();
+      const rte = win.rte.getEditor();
+      rte.getBody().focus();
+
+      test.subtest("event handlers in pasted HTML must not run");
+      {
+        //An image that fails to load without needing the network. Parsing it in the editor's document would fire its onerror
+        const brokenimg = "data:image/png;base64,AAAA";
+        win.__rtepastexss = false;
+
+        rtetest.setStructuredContent(win, `<p class="normal">(*0*)(*1*)<br data-wh-rte="bogus"></p>`);
+        await rtetest.paste(rte,
+          {
+            typesdata: { "text/html": `<p class="normal">before<img src="${brokenimg}" onerror="window.__rtepastexss = true">after</p>` },
+            files: [],
+            items: []
+          });
+
+        //Wait for an image we start loading after the paste to fail: the pasted image would have failed by then too
+        await new Promise(resolve => {
+          const probe = new win.Image;
+          probe.onerror = resolve;
+          probe.src = brokenimg;
+        });
+        await test.wait('ui'); //the paste tries to import the image, and removes it when that fails
+
+        test.eq(false, win.__rtepastexss, "The onerror handler of a pasted image should never run");
+        test.eq(null, rte.getBody().querySelector("[onerror]"));
+        test.eq("beforeafter", rte.getBody().textContent);
+      }
+
+      test.subtest("only the body of a pasted document is used");
+      {
+        rtetest.setStructuredContent(win, `<p class="normal">(*0*)(*1*)<br data-wh-rte="bogus"></p>`);
+        await rtetest.runWithUndo(rte, () => rtetest.paste(rte,
+          {
+            typesdata: { "text/html": `<html><head><title>pastetitle</title><style>p { color: red; }</style></head><body><p class="normal">pastebody</p></body></html>` },
+            files: [],
+            items: []
+          }), { waits: 1 });
+
+        rtetest.testEqSelHTMLEx(win, `<p class="normal">"pastebody(*0*)(*1*)"</p>`);
+      }
+    },
     "Paste in list",
     async function () {
       const rte = test.getWin().rte.getEditor();
