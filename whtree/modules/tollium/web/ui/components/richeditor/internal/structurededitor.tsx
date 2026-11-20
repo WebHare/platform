@@ -185,8 +185,12 @@ export default class StructuredEditor extends EditorBase {
         }
         event.preventDefault();
 
-        const pastecontent = document.createElement('div');
-        pastecontent.innerHTML = htmltext;
+        /* Parse the clipboard HTML in an inert document: setting innerHTML on an element owned by our document
+           would already load images and run event handlers (eg <img src=x onerror=...>) before paste cleanup runs */
+        const parsed = new DOMParser().parseFromString(htmltext, "text/html");
+        const pastecontent = parsed.createElement('div');
+        while (parsed.body.firstChild) //not append(...childNodes): a large flat paste would exceed the engine's argument limit
+          pastecontent.append(parsed.body.firstChild);
 
         /* 'Copy image' in a browser offers both the HTML (with the remote image URL) and the image itself. Prefer the
            image data, as we can't download the remote URL if its server doesn't send CORS headers */
