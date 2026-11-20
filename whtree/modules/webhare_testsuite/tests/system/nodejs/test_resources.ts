@@ -103,6 +103,43 @@ async function testPaths() {
   test.eq(services.backendConfig.dataRoot + "storage/system/xyz/", services.toFSPath("storage::system/xyz/"));
   test.eq(services.backendConfig.dataRoot + "storage/system/", services.toFSPath("storage::system"));
 
+  //Path traversal: '.' and '..' segments are not allowed without a root
+  const sysroot = services.backendConfig.module.system.root;
+  test.throws(/not allowed/, () => services.toFSPath("mod::system/../webhare_testsuite/"));
+  test.throws(/not allowed/, () => services.toFSPath("mod::system/lib/../../"));
+  test.throws(/not allowed/, () => services.toFSPath("mod::system/./lib/"));
+  test.throws(/not allowed/, () => services.toFSPath("mod::system/lib/.."));
+  test.throws(/not allowed/, () => services.toFSPath("@mod-system/../x"));
+  test.throws(/not allowed/, () => services.toFSPath("storage::system/../x"));
+  test.throws(/not allowed/, () => services.toFSPath("@webhare/../modules/"));
+  test.throws(/not allowed/, () => services.toFSPath("mod::system/../x", { allowUnmatched: true }));
+  test.eq(sysroot + "lib/..x/.y", services.toFSPath("mod::system/lib/..x/.y")); //not dot segments
+
+  //Dot segments are rejected even if the module doesn't exist
+  test.throws(/not allowed/, () => services.toFSPath("mod::nosuchmodule/../x", { keepUnmatched: true }));
+  test.throws(/not allowed/, () => services.toFSPath("mod::nosuchmodule/../x", { allowUnmatched: true }));
+  //Non-resource input is still passed through as-is
+  test.eq("/tmp/a/../b", services.toFSPath("/tmp/a/../b", { keepUnmatched: true }));
+  //An unmatched path can't be verified against a root
+  test.throws(/inside the root/, () => services.toFSPath("/etc/passwd", { keepUnmatched: true, root: "mod::system/lib/" }));
+  test.throws(/inside the root/, () => services.toFSPath("mod::nosuchmodule/x", { keepUnmatched: true, root: "mod::system/lib/" }));
+  test.eq(null, services.toFSPath("/etc/passwd", { allowUnmatched: true, root: "mod::system/lib/" }));
+
+  //With a root, dot segments are allowed as long as we stay inside both the root and the module
+  test.eq(sysroot + "lib/database.whlib", services.toFSPath("mod::system/lib/./x/../database.whlib", { root: "mod::system/" }));
+  test.eq(sysroot + "lib/", services.toFSPath("mod::system/lib/x/..", { root: "mod::system/lib/" }));
+  test.eq(sysroot + "lib/", services.toFSPath("mod::system/lib/x/..", { root: "mod::system/lib" }));
+  test.eq(sysroot + "lib/database.whlib", services.toFSPath("mod::system/lib/database.whlib", { root: "mod::system/lib/" }));
+  test.eq(sysroot, services.toFSPath("mod::system/lib/..", { root: "mod::system" }));
+  test.throws(/escapes the root/, () => services.toFSPath("mod::system/lib/../js/", { root: "mod::system/lib/" }));
+  test.throws(/escapes the root/, () => services.toFSPath("mod::system/lib/../lib2/", { root: "mod::system/lib/" }));
+  test.throws(/escapes the root/, () => services.toFSPath("mod::system/js/", { root: "mod::system/lib/" }));
+  test.throws(/escapes the root/, () => services.toFSPath("mod::webhare_testsuite/", { root: "mod::system/" }));
+  test.throws(/escapes its base folder/, () => services.toFSPath("mod::system/../webhare_testsuite/", { root: "mod::system/" }));
+  test.throws(/escapes its base folder/, () => services.toFSPath("storage::system/../../", { root: "storage::system/" }));
+  test.throws(/not allowed/, () => services.toFSPath("mod::system/lib/", { root: "mod::system/lib/../" }));
+  test.throws(/No such resource/, () => services.toFSPath("mod::system/lib/", { root: "mod::nosuchmodule/" }));
+
   test.eq(/^https?:.*/, services.backendConfig.backendURL);
 
   const systempath = services.backendConfig.module.system.root;

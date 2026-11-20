@@ -63,6 +63,8 @@ class BLEXLIB_PUBLIC WHFileSystem : public HareScript::FileSystem
 
         RecompileResult RecompileInternal(Blex::ContextKeeper &keeper, std::string const &_liburi, bool allow_manual_recompilation, bool force, HareScript::ErrorHandler *errorhandler);
 
+        std::string CheckedCollapsePath(std::string const &tocollapse) const;
+
     public:
 
 #ifndef __EMSCRIPTEN__

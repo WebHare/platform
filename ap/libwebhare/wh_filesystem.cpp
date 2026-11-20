@@ -657,7 +657,9 @@ Type GetPrefix(std::string const &liburi)
         else if (prefix == Blex::StringPair::FromStringConstant("relative"))
             return FSRelative;
 
-        throw HareScript::VMRuntimeError(HareScript::Error::UnknownFilePrefix, prefix.stl_str(), liburi);
+        if (it != liburi.end())
+            throw HareScript::VMRuntimeError(HareScript::Error::UnknownFilePrefix, prefix.stl_str(), liburi);
+        throw HareScript::VMRuntimeError(HareScript::Error::InvalidLoadlib, liburi);
 }
 
 const char * GetPrefixString(Type type)
@@ -730,13 +732,13 @@ std::string WHFileSystem::TranslateLibraryURI(Blex::ContextKeeper &keeper, std::
                                             && Blex::StrCaseCompare<std::string::const_iterator>
                                                                   (whfolder.begin(),whfolder.end()
                                                                   ,directuri.begin()+8,directuri.begin()+8+whfolder.size()) == 0)
-                                            return "wh::" + std::string(directuri.begin() + 8 + whfolder.size(), directuri.end());
+                                            return "wh::" + CheckedCollapsePath(std::string(directuri.begin() + 8 + whfolder.size(), directuri.end()));
                                 }
 
                                 // Folders ends with '/'
                                 int32_t match_amount = folder.size();
                                 std::string subpath = std::string(directuri.begin() + 8 + match_amount, directuri.end());
-                                return "mod::" + *it + "/" + subpath;
+                                return "mod::" + *it + "/" + CheckedCollapsePath(subpath);
                         }
                 }
 
@@ -747,10 +749,24 @@ std::string WHFileSystem::TranslateLibraryURI(Blex::ContextKeeper &keeper, std::
         return directuri;
 }
 
-void WHFileSystem::ResolveAbsoluteLibrary(Blex::ContextKeeper &keeper, std::string const &rawloader, std::string *libname) const
+std::string WHFileSystem::CheckedCollapsePath(std::string const &tocollapse) const {
+        auto with_canary = Blex::MergePath("__with_canary__/", tocollapse);
+        auto collapsed = Blex::CollapsePathString(tocollapse, true);
+        if (Blex::MergePath("__with_canary__/", collapsed) != with_canary)
+            throw HareScript::VMRuntimeError(HareScript::Error::RelativePathMayNotEscape);
+
+        // Callers append the result to a prefix that already ends with a '/', so strip leading slashes
+        // (eg 'mod::x//lib' or '/' would otherwise yield a double slash)
+        auto firstnonslash = collapsed.find_first_not_of('/');
+        return firstnonslash == std::string::npos ? std::string() : collapsed.substr(firstnonslash);
+}
+
+
+void WHFileSystem::ResolveAbsoluteLibrary(Blex::ContextKeeper &keeper, std::string const &rawloader, std::string *remote_libname) const
 {
-        Type type = GetPrefix(*libname);
-        *libname = StripPrefix(*libname, type != FSRelative);
+        std::string libname(*remote_libname);
+        Type type = GetPrefix(libname);
+        libname = StripPrefix(libname, type != FSRelative);
 
         if (type == FSRelative)
         {
@@ -782,7 +798,9 @@ void WHFileSystem::ResolveAbsoluteLibrary(Blex::ContextKeeper &keeper, std::stri
                 default:
                     {
                             std::string::iterator it = std::find(loader.begin(), loader.end(), ':');
-                            throw HareScript::VMRuntimeError(HareScript::Error::UnknownFilePrefix, std::string(loader.begin(), it), loader);
+                            if (it != loader.end())
+                                throw HareScript::VMRuntimeError(HareScript::Error::UnknownFilePrefix, std::string(loader.begin(), it), loader);
+                            throw HareScript::VMRuntimeError(HareScript::Error::InvalidLoadlib, loader);
                     }
                 }
 
@@ -803,44 +821,47 @@ void WHFileSystem::ResolveAbsoluteLibrary(Blex::ContextKeeper &keeper, std::stri
                 std::string oldpath = Blex::GetDirectoryFromPath(std::string(prefixend, loader.end()));
 
                 // relative::/ goes back to base of current module/site
-                std::string stripped = StripPrefix(*libname, false);
+                std::string stripped = StripPrefix(libname, false);
                 if (allowreset && !stripped.empty() && stripped[0] == '/')
                     oldpath.clear();
 
-                std::string merged = Blex::MergePath(oldpath, *libname);
-                if (Blex::MergePath("/canary/", merged) != Blex::MergePath("/canary/" + oldpath, *libname))
+
+                std::string merged = Blex::MergePath(oldpath, libname);
+                if (Blex::MergePath("/canary/", merged) != Blex::MergePath("/canary/" + oldpath, libname))
                     throw HareScript::VMRuntimeError(HareScript::Error::RelativePathMayNotEscape);
 
                 type = loaderprefix;
-                *libname = std::string(loader.begin(), prefixend) + Blex::MergePath(oldpath, *libname);
-                *libname = StripPrefix(*libname, type != FSRelative);
+                libname = std::string(loader.begin(), prefixend) + Blex::MergePath(oldpath, libname);
+                libname = StripPrefix(libname, type != FSRelative);
         }
 
-        *libname = Blex::CollapsePathString(*libname, true);
-
-        if (type == FSModule || type == FSModuleData || type == FSModuleScript || type == FSModuleRoot) //module:: should be rewritten to mod:: /lib/
+        if (type == FSModule || type == FSModuleData || type == FSModuleScript || type == FSModuleRoot ||
+            type == FSMod || type == FSSite || type == FSStorage) //module:: should be rewritten to mod:: /lib/
         {
-
-                std::string::iterator firstslash = std::find(libname->begin(), libname->end(), '/');
-                if (firstslash == libname->end())
+                std::string::iterator firstslash = std::find(libname.begin(), libname.end(), '/');
+                if (firstslash == libname.end())
                     return;
 
-                std::string modulename = std::string(libname->begin(),firstslash);
-                std::string subpart;
+                std::string modulename = std::string(libname.begin(),firstslash);
+                std::string subpath = CheckedCollapsePath(std::string(firstslash+1,libname.end()));
+                std::string subpart = "/";
 
                 if(type==FSModuleData)
                 {
                         subpart = "/data/";
+                        type = FSMod;
                 }
                 else if(type==FSModuleScript)
                 {
                         subpart = "/scripts/";
+                        type = FSMod;
                 }
                 else if(type==FSModuleRoot)
                 {
                         subpart = "/";
+                        type = FSMod;
                 }
-                else
+                else if (type==FSModule)
                 {
                         //See if /include/ exists, otherwise we'll go for lib (lib is considered default)
                         bool useinclude = false;
@@ -849,20 +870,23 @@ void WHFileSystem::ResolveAbsoluteLibrary(Blex::ContextKeeper &keeper, std::stri
                         std::string modroot = context->whconn->GetModuleFolder(modulename);
                         if (!modroot.empty())
                         {
-                                std::string trylib = modroot + "include/" + std::string(firstslash+1,libname->end());
+                                std::string trylib = modroot + "include/" + subpath;
                                 useinclude = Blex::PathStatus(trylib).Exists();
                         }
                         subpart = useinclude ? "/include/" : "/lib/";
+                        type = FSMod;
                 }
-                *libname = "mod::" + modulename + subpart + std::string(firstslash+1,libname->end());
+                libname = std::string(GetPrefixString(type)) + "::" + modulename + subpart + subpath;
         }
         else
         {
-                *libname = std::string(GetPrefixString(type)) + (type == FSDirect || type == FSDirectClib ? "::/" : "::") + *libname;
+                libname = std::string(GetPrefixString(type)) + (type == FSDirect || type == FSDirectClib ? "::/" : "::") + CheckedCollapsePath(libname);
         }
 
-        if (Blex::StrStartsWith(*libname, "mod::system/whlibs/"))
-            *libname = "wh::" + std::string(libname->begin() + 19, libname->end());
+        if (Blex::StrStartsWith(libname, "mod::system/whlibs/"))
+            libname = "wh::" + std::string(libname.begin() + 19, libname.end());
+
+        *remote_libname = libname;
 }
 
 #pragma GCC diagnostic push
@@ -878,11 +902,13 @@ HareScript::FileSystem::FilePtr WHFileSystem::OpenLibrary(Blex::ContextKeeper &k
 
         // Determine file type and strip the prefix, if any, from the file
         Type type = GetPrefix(liburi);
-        if (type == FSModule || type == FSModuleData || type == FSModuleScript || type == FSModuleRoot) //rewrite all to mod::
-        {
-                ResolveAbsoluteLibrary(keeper, _liburi, &liburi);
-                type = GetPrefix(liburi);
-        }
+        if (type == FSStorage) // storage:: can still be resolved as a resource path, but libraries may not be loaded from it
+            throw HareScript::VMRuntimeError(HareScript::Error::UnknownFilePrefix, GetPrefixString(type), liburi);
+        // Rewrite module:: etc to mod::, collapse the path and verify it doesn't escape its module/site.
+        // This may change the prefix (eg mod::system/whlibs/ becomes wh::), so redetermine the type
+        ResolveAbsoluteLibrary(keeper, "", &liburi);
+        type = GetPrefix(liburi);
+
         liburi = StripPrefix(liburi,type == FSCurrentSite);
 
         HareScript::FileSystem::FilePtr file;
@@ -917,18 +943,6 @@ HareScript::FileSystem::FilePtr WHFileSystem::OpenLibrary(Blex::ContextKeeper &k
 
                         templatepath = Blex::MergePath(templatepath, std::string(firstslash+1,liburi.end()));
 
-                        file = GetDirectFile(keeper, templatepath);
-                        break;
-                }
-
-        case FSStorage:
-                {
-                        std::string::iterator firstslash=std::find(liburi.begin(),liburi.end(),'/');
-                        if (firstslash == liburi.end())
-                            return FilePtr();
-
-                        std::string templatepath = context->whconn->GetBaseDataRoot() + "storage";
-                        templatepath += std::string(firstslash,liburi.end());
                         file = GetDirectFile(keeper, templatepath);
                         break;
                 }
@@ -1081,7 +1095,11 @@ WHFileSystem::RecompileResult WHFileSystem::RecompileInternal(Blex::ContextKeepe
 #else // __EMSCRIPTEN__
 
 EM_JS(char*, supportGetOpenLibraryPath, (const char *uri), {
-  return Module.getOpenLibraryPath(uri);
+  try {
+    return Module.getOpenLibraryPath(uri);
+  } catch(e) {
+    return Module.stringToNewUTF8("///exception:" + e.message);
+  }
 });
 
 EM_JS(char*, supportTranslateLibraryURI, (const char *uri), {
@@ -1099,6 +1117,11 @@ EM_JS(char*, supportResolveAbsoluteLibrary, (const char *rawloader, const char *
 HareScript::FileSystem::FilePtr WHFileSystem::OpenLibrary(Blex::ContextKeeper &keeper, std::string const &_liburi) const
 {
         auto path = ConvertCharPtrAndDelete(supportGetOpenLibraryPath(_liburi.c_str()));
+        if (path.starts_with("///exception:"))
+            throw HareScript::VMRuntimeError(HareScript::Error::InvalidLoadlib, _liburi);
+        if (path.starts_with("storage::")) // storage:: can still be resolved as a resource path, but libraries may not be loaded from it
+            throw HareScript::VMRuntimeError(HareScript::Error::UnknownFilePrefix, "storage", _liburi);
+
         if (path.rfind("clib:", 0) == 0)
             return GetDirectClibFile(keeper, path.substr(5));
         else

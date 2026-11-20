@@ -131,7 +131,7 @@ void Parser::P_Export_List(SymbolDefs::Library* imported_lib)
                         }
                         else
                         {
-                                if (std::find(symbol->exportlibraries.begin(), symbol->exportlibraries.end(), imported_lib) == symbol->exportlibraries.end())
+                                if (imported_lib && std::find(symbol->exportlibraries.begin(), symbol->exportlibraries.end(), imported_lib) == symbol->exportlibraries.end())
                                 {
                                         lexer.AddError(Error::UnknownVariable, symbol->name);
                                 }
@@ -143,7 +143,7 @@ void Parser::P_Export_List(SymbolDefs::Library* imported_lib)
                                 }
                         }
 
-                        if (!symbol)
+                        if (!symbol && imported_lib)
                             lexer.AddError(Error::ExpectedExportName, imported_lib->liburi);
 
 
@@ -163,7 +163,8 @@ void Parser::P_Export_List(SymbolDefs::Library* imported_lib)
                 }
                 else
                 {
-                        lexer.AddError(Error::ExpectedExportName, imported_lib->liburi);
+                        if (imported_lib)
+                            lexer.AddError(Error::ExpectedExportName, imported_lib->liburi);
                         EatTillClosure(true);
                         break;
                 }
@@ -224,24 +225,27 @@ void Parser::P_Loadlib_Statement(bool only_report)
         bool libname_ok = CheckLoadlibPath(libname, !only_report);
 
         SymbolDefs::Library* currentlib = NULL;
-        std::pair<SymbolDefs::Library*, LoadlibInfo> loadlibres;
-
-        //Allow the filesystem to rewrite relative library names
-        //ADDME: cleanup - the loadlib functions  shouldn't throw, but leave that up to the caller..
-        try
-        {
-                context.filesystem->ResolveAbsoluteLibrary(*context.keeper, context.currentlibrary, &libname);
-                //FIXME: Volgens mij is de return value van LoadLib dubbelop - LibraryURI staat immers al in een LibraryPTR (Arnold)
-                loadlibres = coder->LoadLib(lexer.GetPosition(), context.currentlibrary, libname, !only_report, false);
-                currentlib = loadlibres.first;
-        }
-        catch (HareScript::Message &e)
-        {
-                lexer.AddError((Error::Codes)e.code,e.msg1,e.msg2);
-        }
+        std::pair<SymbolDefs::Library*, LoadlibInfo> loadlibres{};
 
         if (libname_ok)
-            loadlibs.push_back(loadlibres.second);
+        {
+                //Allow the filesystem to rewrite relative library names
+                //ADDME: cleanup - the loadlib functions  shouldn't throw, but leave that up to the caller..
+                try
+                {
+                        context.filesystem->ResolveAbsoluteLibrary(*context.keeper, context.currentlibrary, &libname);
+                        //FIXME: Volgens mij is de return value van LoadLib dubbelop - LibraryURI staat immers al in een LibraryPTR (Arnold)
+                        loadlibres = coder->LoadLib(lexer.GetPosition(), context.currentlibrary, libname, !only_report, false);
+                        currentlib = loadlibres.first;
+
+                        loadlibs.push_back(loadlibres.second);
+                }
+                catch (HareScript::Message &e)
+                {
+                        lexer.AddError((Error::Codes)e.code,e.msg1,e.msg2);
+                }
+
+        }
 
         // Eat the library-name
         NextToken();

@@ -202,7 +202,7 @@ ERRORDEF(180, NonEllipsisValueRequired,  "At least one non-ellipsis value is req
 ERRORDEF(181, NoCounterAvailable,        "Variable '%0' has no associated loop counter.")
 ERRORDEF(182, CustomError,               "Custom error message: '%0'.")
 ERRORDEF(183, NoConsoleAvailable,        "No console available.")
-ERRORDEF(184, InvalidLoadlib,            "Invalid LOADLIB library name - library names must be absolute.")
+ERRORDEF(184, InvalidLoadlib,            "Invalid LOADLIB library name '%0'.")
 ERRORDEF(185, InvalidFileId,             "Invalid output id (%0).")
 ERRORDEF(186, InvalidFunctionDeclaration,"Invalid function declaration.")
 ERRORDEF(187, IllegalUseOfPublicPrivate, "PUBLIC and PRIVATE can only be used for declarations of FUNCTIONs, MACROs and global variables.")
