@@ -8,8 +8,11 @@ import { createWRDTestSchema, getLegacyWRDSchema } from "@mod-webhare_testsuite/
 import { buildInstance, type RTDBlock, type RTDInlineItem, type RTDSource, type RTDExport, type Instance } from "@webhare/services/src/richdocument";
 import { isResourceDescriptor, type ExportedResource } from "@webhare/services/src/descriptor";
 import { fetchPreviewAsDoc } from "@mod-webhare_testsuite/js/whfs";
-import { xmlToJS } from "@mod-system/js/internal/generation/xmlhelpers";
+import { xmlToJS, type XMLToJSElement } from "@mod-system/js/internal/generation/xmlhelpers";
 import { getSignedWHDebugOptions } from "@webhare/router/src/debug";
+import { lookupRTDBlockStyle } from "@webhare/services/src/richdocument-styles";
+import type { CSPRTDBlockStyle, CSPRTDStructure } from "@webhare/whfs/src/siteprofiles";
+import { pick } from "@webhare/std";
 
 // An exportable RTD should always be a valid input source
 ({} as RTDExport) satisfies RTDSource;
@@ -384,20 +387,26 @@ async function testBuilder() {
   {
     const doc = await buildRTD([
       { h1: ["Heading 1"] },
+      { h6: ["Heading 6"] },
       { tag: "p", items: [] }, //empty line without items
       { "p.superpara": [{ text: "Hi <> everybody!" }] },
-      { "p.normal": [{ text: "default p" }] }
+      { "p.normal": [{ text: "default p" }] },
+      { "div.mycustomstyle": [{ text: "custom div" }] }, //RTD types can set containertag="div" for a block style
+      { div: [{ text: "default div" }] }
     ]);
     test.assert(!doc.isEmpty());
 
     test.eq([
       { tag: "h1", items: [{ text: "Heading 1" }] },
+      { tag: "h6", items: [{ text: "Heading 6" }] },
       { tag: "p", items: [] }, //empty line
       { tag: "p", className: "superpara", items: [{ text: "Hi <> everybody!" }] },
-      { tag: "p", items: [{ text: "default p" }] }
+      { tag: "p", items: [{ text: "default p" }] },
+      { tag: "div", className: "mycustomstyle", items: [{ text: "custom div" }] },
+      { tag: "div", items: [{ text: "default div" }] }
     ], doc.blocks);
     //<br data-wh-rte="bogus"/> is required by the current RTD in fully empty paragraphs
-    test.eq('<html><body><h1 class="heading1">Heading 1</h1><p class="normal"><br data-wh-rte="bogus"/></p><p class="superpara">Hi &lt;&gt; everybody!</p><p class="normal">default p</p></body></html>', await exportRTDToRawHTML(doc));
+    test.eq('<html><body><h1 class="heading1">Heading 1</h1><h6 class="heading6">Heading 6</h6><p class="normal"><br data-wh-rte="bogus"/></p><p class="superpara">Hi &lt;&gt; everybody!</p><p class="normal">default p</p><div class="mycustomstyle">custom div</div><div class="normal">default div</div></body></html>', await exportRTDToRawHTML(doc));
 
     await verifyRoundTrip(doc);
   }
@@ -1341,6 +1350,127 @@ async function testRTDOutput() {
   }
 }
 
+//The renderer gives a block the tag and class of its block style in the RTD type. Verify we find the same block styles as LookupStyle in structuredef.whlib
+function testRTDBlockStyleLookup() {
+  const baseStyle: Omit<CSPRTDBlockStyle, "tag" | "containertag"> = { type: "text", textstyles: [], tabledefaultblockstyle: "", hidden: false, title: "", importfrom: [], nextblockstyle: "", allowstyles: [] };
+  const structure: CSPRTDStructure = {
+    blockstyles: [
+      { ...baseStyle, tag: "HEADING2", containertag: "h2" },
+      { ...baseStyle, tag: "NORMAL", containertag: "p" },
+      { ...baseStyle, tag: "MYCUSTOMSTYLE", containertag: "div" },
+      { ...baseStyle, tag: "CONTENTTAB", containertag: "p", importfrom: ["h2.tab"] },
+      { ...baseStyle, tag: "UNORDERED", containertag: "ul" },
+      { ...baseStyle, tag: "FANCYLIST", containertag: "ol" },
+      { ...baseStyle, type: "table", tag: "MYTABLE", containertag: "table" }
+    ],
+    cellstyles: [],
+    defaultblockstyle: "NORMAL",
+    contentareawidth: "",
+    tag_b: "b",
+    tag_i: "i"
+  };
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: A block matches the block style named by its class, whatever its stored tag
+  test.eq("MYCUSTOMSTYLE", lookupRTDBlockStyle(structure, "p", "mycustomstyle")?.tag);
+  test.eq("MYCUSTOMSTYLE", lookupRTDBlockStyle(structure, "div", "mycustomstyle")?.tag);
+  test.eq("NORMAL", lookupRTDBlockStyle(structure, "div", "normal")?.tag);
+  test.eq("MYCUSTOMSTYLE", lookupRTDBlockStyle(structure, "P", "other MyCustomStyle")?.tag, "Tags and classes are case insensitive and any of the classes can match");
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Blocks without a matching class fall back to a style for their tag (headings and lists) or the default style
+  test.eq("NORMAL", lookupRTDBlockStyle(structure, "p", "unknownstyle")?.tag);
+  test.eq("HEADING2", lookupRTDBlockStyle(structure, "h2", "unknownstyle")?.tag);
+  test.eq("NORMAL", lookupRTDBlockStyle(structure, "h3", "unknownstyle")?.tag, "There is no h3 style, so the heading becomes a normal paragraph");
+  test.eq("FANCYLIST", lookupRTDBlockStyle(structure, "ol", "")?.tag);
+  test.eq("MYTABLE", lookupRTDBlockStyle(structure, "table", "unknownstyle")?.tag);
+  test.eq(null, lookupRTDBlockStyle(structure, "span", "mystyle"), "Inline elements don't fall back to the default style");
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: A class can't turn a paragraph into a list or a table (or vv), but importfrom can
+  test.eq("NORMAL", lookupRTDBlockStyle(structure, "p", "unordered")?.tag);
+  test.eq("FANCYLIST", lookupRTDBlockStyle(structure, "ul", "fancylist")?.tag);
+  test.eq("NORMAL", lookupRTDBlockStyle(structure, "p", "mytable")?.tag);
+  test.eq("CONTENTTAB", lookupRTDBlockStyle(structure, "h2", "tab")?.tag, "importfrom has priority over matching the tag");
+  test.eq("HEADING2", lookupRTDBlockStyle(structure, "h2", "")?.tag, "importfrom requires all classes of the selector");
+}
+
+//HareScript and TypeScript webdesigns should both render blocks using the tag and class of their block style in the RTD type
+async function testRTDOutputBlockStyles() {
+  //Both temp folders use the basetestjs RTD type for files named *blockstyles*. It has a MYCUSTOMSTYLE style using a div
+  const rtd = await buildRTD([
+    { "p.mycustomstyle": "Stored as p" },
+    { "div.mycustomstyle": "Stored as div" },
+    { div: "Default div" },
+    { "p.unknownstyle": "Unknown class" },
+    { "h3.unknownstyle": "Heading with unknown class" },
+    { "h2.heading3": "Heading with the class of another heading" }
+  ]);
+
+  for (const tmp of [await test.getTestSiteHSTemp(), await test.getTestSiteJSTemp()]) {
+    await beginWork();
+    const file = await tmp.ensureFile("blockstyles.rtd", { type: "platform:filetypes.richdocument" });
+    await whfsType("platform:filetypes.richdocument").set(file.id, { data: rtd });
+    await commitWork();
+
+    const preview = await fetchPreviewAsDoc(file.id);
+    test.eq([
+      { tag: "div", attributes: { class: "mycustomstyle" }, children: ["Stored as p"] },
+      { tag: "div", attributes: { class: "mycustomstyle" }, children: ["Stored as div"] },
+      { tag: "p", attributes: { class: "normal" }, children: ["Default div"] },
+      { tag: "p", attributes: { class: "normal" }, children: ["Unknown class"] },
+      { tag: "h3", attributes: { class: "heading3" }, children: ["Heading with unknown class"] },
+      { tag: "h3", attributes: { class: "heading3" }, children: ["Heading with the class of another heading"] }
+    ], preview.contentElements.map(el => typeof el === "object" ? pick(el, ["tag", "attributes", "children"]) : el), tmp.whfsPath);
+  }
+}
+
+//HareScript and TypeScript webdesigns should both leave out the text styles, links and images a block style doesn't allow
+async function testRTDOutputTextStyles() {
+  //Summarize rendered HTML as tags, classes and text, so we can compare HS and TS output (which differ in attribute quoting and image URLs)
+  function summarize(node: XMLToJSElement | string): string {
+    if (typeof node === "string")
+      return node;
+    const className = node.attributes.class ? `.${node.attributes.class}` : "";
+    return `<${node.tag}${className}>${node.children.map(summarize).join("")}</${node.tag}>`;
+  }
+
+  const fish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getHash: true, getImageMetadata: true, getDominantColor: true });
+  const allStyles = [
+    { text: "B", bold: true },
+    { text: "I", italic: true },
+    { text: "U", underline: true },
+    { text: "S", strikeThrough: true },
+    { text: "SUB", subScript: true },
+    { text: "SUP", superScript: true },
+    { text: "L", link: new IntExtLink("https://example.com/") },
+    { image: fish, alt: "ALT" }
+  ];
+
+  //In the basetestjs RTD type NORMAL allows all of these, HEADING2 only 'i u', MYCUSTOMSTYLE 'b i u' and UNORDERED none at all
+  const rtd = await buildRTD([
+    { "p.normal": allStyles },
+    { "h2.heading2": allStyles },
+    { "div.mycustomstyle": allStyles },
+    { tag: "ul", listItems: [{ li: [{ items: [{ text: "LB", bold: true }, { text: "LI", italic: true }] }] }] }
+  ]);
+
+  for (const tmp of [await test.getTestSiteHSTemp(), await test.getTestSiteJSTemp()]) {
+    await beginWork();
+    const file = await tmp.ensureFile("textstyles-blockstyles.rtd", { type: "platform:filetypes.richdocument" });
+    await whfsType("platform:filetypes.richdocument").set(file.id, { data: rtd });
+    await commitWork();
+
+    const preview = await fetchPreviewAsDoc(file.id);
+    test.eq([
+      `<p.normal><b>B</b><i>I</i><u>U</u><strike>S</strike><sub>SUB</sub><sup>SUP</sup><a>L</a><img.wh-rtd__img></img></p>`,
+      `<h2.heading2>B<i>I</i><u>U</u>SSUBSUPLALT</h2>`,
+      `<div.mycustomstyle><b>B</b><i>I</i><u>U</u>SSUBSUPLALT</div>`,
+      `<ul.unordered><li>LBLI</li></ul>`
+    ], preview.contentElements.map(summarize), tmp.whfsPath);
+  }
+}
+
 async function testExcerpt() {
   test.eq("", new RichTextDocument().getExcerpt());
   test.eq("", new RichTextDocument().getExcerpt({ maxLength: 10 }));
@@ -1435,5 +1565,8 @@ test.runTests(
     testBuildingRTDsWithInstances,
     testWRDRoundTrips,
     testRegressions,
-    testRTDOutput
+    testRTDOutput,
+    testRTDBlockStyleLookup,
+    testRTDOutputBlockStyles,
+    testRTDOutputTextStyles
   ]);

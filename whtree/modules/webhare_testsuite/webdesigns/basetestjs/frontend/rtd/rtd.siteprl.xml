@@ -9,6 +9,7 @@
       <textstyle tag="HEADING2" containertag="h2" textstyles="i u" />
       <textstyle tag="HEADING3" containertag="h3" textstyles="i u" />
       <textstyle tag="NORMAL" textstyles="b i u sub sup a-href strike img" />
+      <textstyle tag="MYCUSTOMSTYLE" containertag="div" textstyles="b i u" />
       <textstyle tag="UNORDERED" containertag="ul" textstyles="" />
       <textstyle tag="ORDERED" containertag="ol" textstyles="" />
       <tablestyle tag="TABLE" />

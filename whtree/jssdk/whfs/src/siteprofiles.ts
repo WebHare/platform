@@ -492,6 +492,7 @@ export type CSPWebRule = {
 
 export interface CachedSiteProfiles {
   contenttypes: CSPContentType[];
+  rtdtypes: CSPContentType[];
   applies: CSPApplyRule[];
   webrules: Array<CSPWebRule & { siteprofileids: number[]; sitefilter: CSPSiteFilter | null }>;
   addtocatalogs: Array<CSPAddToCatalog & { siteprofileids: number[]; sitefilter: CSPSiteFilter | null }>;

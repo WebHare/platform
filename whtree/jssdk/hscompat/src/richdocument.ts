@@ -396,7 +396,7 @@ class HSRTDImporter {
           tag: tag as typeof rtdListTypes[number],
           listItems: await this.getListItems(child)
         };
-        if (setClass && setClass !== rtdBlockDefaultClass[tag]) //only set if not default
+        if (setClass && setClass !== rtdBlockDefaultClass[newblock.tag]) //only set if not default
           newblock.className = setClass;
         blocks.push(newblock);
       } else if (tag === "table") {

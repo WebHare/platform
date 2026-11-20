@@ -29,6 +29,10 @@ export async function renderJSWidget1(partReq: PagePartRequest, data: TypedInsta
   return litty`<div>${data.field1}</div>`;
 }
 
+export async function renderJSRTDWidget(partReq: PagePartRequest, data: TypedInstanceData<"webhare_testsuite:base_test.jsrtdwidget">) {
+  return litty`<div class="jsrtdwidget">${data.contents ? await partReq.renderRTD(data.contents) : ""}</div>`;
+}
+
 export async function renderWidgetBlock(partReq: PagePartRequest, data: TypedInstanceData<"http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock">) {
   const subwidgets = [];
   for (const widget of data.widgets) {
