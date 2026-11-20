@@ -315,20 +315,21 @@ void DIB_GraphicsReader::GetScanline32(Scanline32& newscanline)
         if (!LinesLeft())
              throw std::runtime_error("No lines left to read");
 
-        // get some temporary space..
-        pixelbuffer.resize(bytes_per_scanline);
-
-        uint8_t const *ptr = pixelbuffer.data();
+        uint8_t const *ptr;
         //Which line on disk to read?
         unsigned diskline = bottomup ? lines - 1 : height - lines;
 
         if(compression==1) //RLE
         {
-                ptr = &pixelbuffer[diskline*width]; //8bit data is already in pixelbuffer
+                //8bit data is already in pixelbuffer (height*width bytes, see DecompressData), so don't resize it here
+                ptr = pixelbuffer.data() + std::size_t(diskline) * width;
         }
         else
         {
-                uint32_t result = stream->DirectRead(start_scanlines + diskline * bytes_per_scanline, pixelbuffer.data(), bytes_per_scanline);
+                // get some temporary space..
+                pixelbuffer.resize(bytes_per_scanline);
+
+                uint32_t result = stream->DirectRead(start_scanlines + Blex::FileOffset(diskline) * bytes_per_scanline, pixelbuffer.data(), bytes_per_scanline);
                 if (result != bytes_per_scanline)
                 {
                         DEBUGPRINT("Bitmap corrupted");
