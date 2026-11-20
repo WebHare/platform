@@ -45,7 +45,9 @@ if [ "$#" == 1 ] && [ "$1" == "*" ]; then
 elif [ "$#" != 0 ]; then
   MODULESLIST=("$@")
 else
-  MODULESLIST=($(wh_runwhscr mod::system/scripts/internal/listbrokenmodules.whscr))
+  # a plain assignment keeps the exit status of the command substitution, so we can detect failures
+  BROKENMODULES="$(wh_runjs "$WEBHARE_DIR/modules/system/scripts/internal/listbrokenmodules.ts")" || die "Unable to determine which modules need fixing"
+  MODULESLIST=($BROKENMODULES)
 fi
 
 # Run the npm installs in parallel, at most MAXNPMJOBS at a time. Each install writes its output to its own logfile

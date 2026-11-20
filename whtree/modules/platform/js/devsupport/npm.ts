@@ -2,6 +2,7 @@ import { existsSync, readdirSync } from "fs";
 import { join } from "node:path";
 import { execFile } from 'node:child_process';
 import { promisify } from "node:util";
+import type { ConcurrencyLimiterFunction } from "@webhare/std";
 
 function listNodePackageRoots(basepath: string) {
   const webdesigndirs = [];
@@ -10,13 +11,13 @@ function listNodePackageRoots(basepath: string) {
   } catch (ignore) { //the webdesigns subfolder probably doesnt exist itself
   }
 
-  const trypaths = [basepath, join(basepath, 'tests'), ...webdesigndirs];
+  const trypaths = [basepath, ...webdesigndirs];
   return trypaths.filter(x => existsSync(join(x, "package.json")) || existsSync(join(x, "node_modules")));
 }
 
 /* ==============
    this is an experiment to speed up the npm ls calls. it's a proof of concept, it's leaky etc.
-   test it by enabling it and invoking: wh run mod::system/scripts/internal/listbrokenmodules.whscr
+   test it by enabling it and invoking: wh run mod::system/scripts/internal/listbrokenmodules.ts
    */
 async function buildMyNpm() {
   //@ts-expect-error experimental, ignore
@@ -87,9 +88,15 @@ async function listNPMIssues(path: string) {
 
 }
 
-export async function checkNodeModulesInModule(modulerootdir: string) {
+/** Check the node_modules of all package roots in a module
+ * @param modulerootdir - Root directory of the module
+ * @param options - Options.
+ * @param options.concurrencyLimiter - Limits the number of parallel 'npm ls' invocations (eg. one created by createConcurrencyLimiter, which can be shared between multiple calls). By default all package roots are checked in parallel
+ */
+export async function checkNodeModulesInModule(modulerootdir: string, options?: { concurrencyLimiter?: ConcurrencyLimiterFunction }) {
+  const concurrencyLimiter = options?.concurrencyLimiter;
   const issues = [];
-  for (const checkresult of await Promise.all(listNodePackageRoots(modulerootdir).map(listNPMIssues)))
+  for (const checkresult of await Promise.all(listNodePackageRoots(modulerootdir).map(path => concurrencyLimiter ? concurrencyLimiter(() => listNPMIssues(path)) : listNPMIssues(path))))
     issues.push(...checkresult);
   return issues;
 }
