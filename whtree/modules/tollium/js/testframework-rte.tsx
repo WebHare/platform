@@ -129,7 +129,7 @@ export function getCompStyle(node: HTMLElement, prop: string) {
   return getComputedStyle(node).getPropertyValue(prop);
 }
 
-export function testEqHTMLEx(unused: unknown, expect: string, node: Node, locators?: domlevel.Locator[]) {
+export function testEqHTMLEx(unused: unknown, expect: string, node: Element, locators?: domlevel.Locator[]) {
   const actual = richdebug.cloneNodeWithTextQuotesAndMarkedLocators(node, locators || []).innerHTML;
   test.eqHTML(expect, actual);
 }

@@ -167,9 +167,6 @@ export class Range {
 
     this.check(maxancestor);
 
-    //console.log('*');
-    //console.log('*');
-    //console.log('*');
     // if (rangelog & 32)
     //   console.log('pre normalize', richdebug.getStructuredOuterHTML(maxancestor, { range: this }, true));
 
@@ -269,10 +266,7 @@ export class Range {
       this.splitStartBoundary(preservelocators);
 
     const retval = this.start.clone();
-    /*var newnode = */this.start.insertNode(node, (preservelocators || []).concat(this));
-    //    ++this.start.offset;
-    //    if (this.end.element === this.start.element)
-    //      ++this.end.offset;
+    this.start.insertNode(node, (preservelocators || []).concat(this));
     return retval;
   }
 
@@ -296,10 +290,6 @@ export class Range {
     return this;
   }
 
-  containsLocator(rhs: Locator) {
-    return this.start.compare(rhs) <= 0 && this.end.compare(rhs) >= 0;
-  }
-
   intersect(rhs: Range) {
     if (this.start.compare(rhs.start) < 0)
       this.start.assign(rhs.start);
@@ -320,19 +310,6 @@ export class Range {
       return this;
     }
     return this.intersect(noderange);
-  }
-
-  /** Returns a range of all the childnodes of node that are (partially) included in this range
-  */
-  getLocalRangeInNode(node: Node) {
-    const copy = this.clone();
-    const noderange = Range.fromNodeInner(node);
-    copy.intersect(noderange);
-
-    copy.start.ascend(node, false, true);
-    copy.end.ascend(node, false, true);
-
-    return { range: copy, containswholenode: copy.equals(noderange) };
   }
 
   getContainedLocators() {
@@ -404,29 +381,8 @@ export class Range {
     return this;
   }
 
-  static fromSelection(selection: Selection) {
-    const start = new Locator(selection.anchorNode ?? throwError("Incomplete selection, no anchorNode"), selection.anchorOffset);
-    const end = new Locator(selection.focusNode ?? throwError("Incomplete selection, no focusNode"), selection.focusOffset);
-    const reversed = start.compare(end) > 0;
-    return new Range(reversed ? end : start, reversed ? start : end);
-  }
-
   static fromDOMRange(range: DOMRange) {
     return new Range(new Locator(range.startContainer, range.startOffset), new Locator(range.endContainer, range.endOffset));
-  }
-
-  static fromRangyRange(range: DOMRange) {
-    return new Range(new Locator(range.startContainer, range.startOffset), new Locator(range.endContainer, range.endOffset));
-  }
-
-  static forNode(node: Node) {
-    console.warn('Range.forNode is deprecated, use fromNodeInner!'); console.trace();
-    return new Range(new Locator(node), new Locator(node, "end"));
-  }
-
-  static withinNode(node: Node) {
-    console.warn('Range.withinNode is deprecated, use fromNodeInner!'); console.trace();
-    return new Range(new Locator(node), new Locator(node, "end"));
   }
 
   static fromNodeInner(node: Node) {
@@ -478,7 +434,7 @@ function getCommonAncestor(lhs: Node, rhs: Node): Node {
 function compareContained(container: Locator, contained: Locator) {
   if (container.offset === 0)
     return 1; //container is at the front. everything contained in it is behind it
-  if (container.offset === GetNodeEndOffset(container.element))
+  if (container.offset === getNodeChildCount(container.element))
     return -1; //container is at the end. everything contained in it is before it
 
   const ascended = contained.clone();
@@ -517,20 +473,6 @@ function applyPreserveFunc(preserve: PreservedLocatorList | undefined, func: (lo
   }
 
   list.forEach((item, idx) => func(item, idx, list));
-  /*/ // Enable this to get better debugging of preserve functions
-  console.log('Apply preserve func', func);
-  list.each(function (item)
-    {
-      if (item.id)
-        console.log('pre  ' + (typeof item.id=="undefined"?'':'$'+item.id+'/'+(item.cc||0)),item.element, item.offset, func);
-      func(item);
-      if (item.id)
-      {
-        item.cc = (item.cc||0)+1;
-        console.log('post ' + (typeof item.id=="undefined"?'':'$'+item.id+'/'+item.cc), item.element, item.offset);
-      }
-    });
-  //*/
   return list;
 }
 
@@ -1083,7 +1025,6 @@ export function combineNodes(insertlocator: Locator, right: Node, preservelocato
   //for (var i = 0; locators && i < locators.length; ++i)
   //  console.log(' ', locators[i].element, locators[i].offset);
 
-  //var leftend = new Locator(left, "end");
   let rightptr = Locator.newPointingTo(right);
   const afterrightptr = Locator.newPointingAfter(right);
 
@@ -1098,8 +1039,6 @@ export function combineNodes(insertlocator: Locator, right: Node, preservelocato
 
   const afterlocator = insertlocator.clone();
   if (left.nodeType === 1) {
-    //var pointednode = insertlocator.getPointedNode();
-
     const nodes = removeNodeContents(right);
     insertNodesAtLocator(nodes, insertlocator);
     afterlocator.offset += nodes.length;
@@ -2026,13 +1965,6 @@ export class Locator {
   // Helper functions
   //
 
-  getMaxChildOffset(element: Node) {
-    if (testType(element, [NodeType.element, NodeType.documentFragment]))
-      return element.childNodes.length; // for element nodes, document fragments, etc
-    else
-      return element.nodeValue ? element.nodeValue.length : 0; // for text nodes
-  }
-
   // ---------------------------------------------------------------------------
   //
   // Public API
@@ -2043,7 +1975,7 @@ export class Locator {
     if (!element) throw new Error("No valid element in locator set");
     this.element = element;
     if (offset === 'end')
-      this.offset = this.getMaxChildOffset(element);
+      this.offset = getNodeChildCount(element);
     else
       this.offset = offset || 0;
   }
@@ -2072,16 +2004,8 @@ export class Locator {
     return this.getPointedNode() || this.element;
   }
 
-  /// When applicable, get the node this locator points to, otherwise get the parent node. DEPRECATED, use getNearestNode
-  getNearestElement() {
-    const elt = this.getNearestNode();
-    if (elt.nodeType !== 1 && elt.nodeType !== 11)
-      return elt.parentNode;
-    return elt;
-  }
-
   pointsPastChildrenEnd() {
-    return this.offset >= this.getMaxChildOffset(this.element);
+    return this.offset >= getNodeChildCount(this.element);
   }
 
   /** Get the path through the dom tree from the ancestor to an element, not including the ancestor
@@ -2093,24 +2017,6 @@ export class Locator {
     for (; element !== ancestor; element = element.parentNode as Node)
       treenodes.push(element);
     return treenodes.reverse();
-  }
-
-  getRelativePath(ancestor: Node) {
-    const path = [this.offset];
-    let node = this.element;
-    for (; node && node !== ancestor; node = node.parentNode as Node)
-      path.unshift(getNodeIndex(node));
-    return path;
-  }
-
-  /** Returns whether the locator points to an element within a specific parent node
-      @param parentNode -
-  */
-  isWithinNode(parentNode: Node) {
-    let current = this.element;
-    while (current && current !== parentNode)
-      current = current.parentNode as Node;
-    return current === parentNode;
   }
 
   parentIsElementOrFragmentNode() {
@@ -2204,7 +2110,7 @@ export class Locator {
   }
 
   positionPastLastChild() {
-    this.offset = this.getMaxChildOffset(this.element);
+    this.offset = getNodeChildCount(this.element);
     return this;
   }
 
@@ -2247,7 +2153,7 @@ export class Locator {
   removeNode(preservelocators?: PreservedLocatorList) {
     if (!this.parentIsElementOrFragmentNode())
       throw new Error("Removing a node only allowed when parent is a node");
-    if (this.offset >= this.getMaxChildOffset(this.element))
+    if (this.offset >= getNodeChildCount(this.element))
       throw new Error("Locator does not point to an element");
 
     const removed = this.element.childNodes[this.offset];
@@ -2268,7 +2174,7 @@ export class Locator {
   replacePointedNode(newnode: Node, preservelocators: PreservedLocatorList) {
     if (!this.parentIsElementOrFragmentNode())
       throw new Error("Removing a node only allowed when parent is a node");
-    if (this.offset >= this.getMaxChildOffset(this.element))
+    if (this.offset >= getNodeChildCount(this.element))
       throw new Error("Locator does not point to an element");
     if (!newnode)
       throw new Error("No valid new node given");
@@ -2305,7 +2211,7 @@ export class Locator {
     if (!this.element) throw new Error("Element not valid");
     if (maxancestor && !maxancestor.contains(this.element)) throw new Error("Element is not child of maxancestor");
     if (this.offset < 0) throw new Error("Negative offset");
-    if (this.offset > this.getMaxChildOffset(this.element)) throw new Error("Offset too big");
+    if (this.offset > getNodeChildCount(this.element)) throw new Error("Offset too big");
   }
 
   isInDOM() {
@@ -2334,7 +2240,7 @@ export class Locator {
     if (!maxancestor)
       throw new Error("Missing ancestor");
 
-    if (this.offset > GetNodeEndOffset(this.element))
+    if (this.offset > getNodeChildCount(this.element))
       throw new Error("Illegal offset!");
 
     if (typeof ignore.li === "undefined")
@@ -2419,9 +2325,6 @@ export class Locator {
     }
   }
 
-  // Old name, remove when not referenced anymore
-  scanUpStream(maxancestor: Node, ignore: ScanIgnoreOptions): ScanResult { return this.scanForward(maxancestor, ignore); }
-
   /** Scan upstream to the next visible element
       @param maxancestor -
       @param ignore - .whitespace .blocks
@@ -2499,43 +2402,41 @@ export class Locator {
   }
 
   //walks left to the last visible node or character, and puts the locator right from it.
-  movePastLastVisible(maxancestor: Node, stopatblock?: unknown, placeintext?: boolean) {
+  /** Move this locator to an end of its visual equivalence range
+      @param maxancestor - Ancestor to stay within
+      @param toend - Which end to move to: 'down' (past the last visible content before the locator) or 'up' (to
+          the first visible content after it)
+      @param placeintext - If the locator doesn't end up next to text, try to place it in the text on the other side
+      @returns Scan result for the end moved to
+  */
+  private moveToVisualEquivalenceEnd(maxancestor: Node, toend: "down" | "up", placeintext?: boolean) {
     if (!maxancestor.contains(this.element))
       throw new Error("Ancestor is not ancestor of this locator");
-    if (stopatblock)
-      throw new Error("Stopatblock not supported for movePastLastVisible");
 
     const range = getVisualEquivalenceRange(maxancestor, this);
-    this.assign(range.down);
+    const scanres = toend === "down" ? range.downres : range.upres;
+    this.assign(range[toend]);
 
-    if (placeintext && !['whitespace', 'char'].includes(range.downres.type)) {
+    if (placeintext && !['whitespace', 'char'].includes(scanres.type)) {
       const copy = this.clone();
-      const res = copy.scanForward(maxancestor, {});
+      const res = toend === "down" ? copy.scanForward(maxancestor, {}) : copy.scanBackward(maxancestor, {});
       if (['whitespace', 'char'].includes(res.type))
         this.assign(copy);
     }
 
-    return range.downres;
+    return scanres;
+  }
+
+  movePastLastVisible(maxancestor: Node, stopatblock?: unknown, placeintext?: boolean) {
+    if (stopatblock)
+      throw new Error("Stopatblock not supported for movePastLastVisible");
+    return this.moveToVisualEquivalenceEnd(maxancestor, "down", placeintext);
   }
 
   moveToFirstVisible(maxancestor: Node, stopatblock?: unknown, placeintext?: boolean) {
-    if (!maxancestor.contains(this.element))
-      throw new Error("Ancestor is not ancestor of this locator");
     if (stopatblock)
       throw new Error("Stopatblock not supported for moveToFirstVisible");
-
-    const range = getVisualEquivalenceRange(maxancestor, this);
-    //console.log('mtfv range', richdebug.getStructuredOuterHTML(maxancestor, { locator: this, range: range }, true));
-    this.assign(range.up);
-
-    if (placeintext && !['whitespace', 'char'].includes(range.upres.type)) {
-      const copy = this.clone();
-      const res = copy.scanBackward(maxancestor, {});
-      if (['whitespace', 'char'].includes(res.type))
-        this.assign(copy);
-    }
-
-    return range.upres;
+    return this.moveToVisualEquivalenceEnd(maxancestor, "up", placeintext);
   }
 
   moveLeft(maxancestor: Node, options: { checkblock?: (node: Node) => boolean } = {}) {
@@ -2774,19 +2675,6 @@ export class Locator {
     return ancestor as Element;
   }
 
-  /// Get start and end locator from a range
-  static getFromRange(range: AbstractRange) {
-    if (!range)
-      return null;
-
-    const result =
-    {
-      start: new Locator(range.startContainer, range.startOffset),
-      end: new Locator(range.endContainer, range.endOffset)
-    };
-    return result;
-  }
-
   static newPointingTo(node: Node) {
     return new Locator(node.parentNode as Node, getNodeIndex(node));
   }
@@ -2796,19 +2684,4 @@ export class Locator {
     ++locator.offset;
     return locator;
   }
-
-  static fromRelativePath(ancestor: Node, path: number[]) {
-    const lastoffset = path.pop();
-    let elt = ancestor;
-    for (let i = 0; i < path.length; ++i)
-      elt = elt.childNodes[path[i]];
-    return new Locator(elt, lastoffset);
-  }
-}
-
-function GetNodeEndOffset(element: Node) {
-  if (element.nodeType === 1 || element.nodeType === 11)
-    return element.childNodes.length; // for element nodes, document fragments, etc
-  else
-    return element.nodeValue ? element.nodeValue.length : 0; // for text nodes
 }

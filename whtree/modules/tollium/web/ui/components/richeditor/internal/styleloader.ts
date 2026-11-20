@@ -1,6 +1,6 @@
 import * as dompack from 'dompack';
 
-type CSSRef =
+export type CSSRef =
   {
     type: "style" | "link";
     src: string;
