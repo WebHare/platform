@@ -709,7 +709,7 @@ export class CPageRequest {
       @param options - Rendering options
       @param options.rtdType - RTD type to render with. Defaults to the RTD type of the RTD containing the current widget, or the RTD type of the page (set by \<rtddoc>) */
   async renderRTD(rtd: RichTextDocument, options?: RenderRTDOptions): Promise<Litty> {
-    return this.#renderRTD(rtd, options?.rtdType ?? await this.#getPageRTDType());
+    return this.#renderRTD(rtd, options?.rtdType || await this.#getPageRTDType());
   }
 
   async #renderRTD(rtd: RichTextDocument, rtdType: string | null): Promise<Litty> {
@@ -724,7 +724,7 @@ export class CPageRequest {
     const partRequest: PagePartRequest = new Proxy(this, {
       get: (target, prop) => {
         if (prop === "renderRTD")
-          return (rtd: RichTextDocument, options?: RenderRTDOptions) => target.#renderRTD(rtd, options?.rtdType ?? rtdType);
+          return (rtd: RichTextDocument, options?: RenderRTDOptions) => target.#renderRTD(rtd, options?.rtdType || rtdType);
         if (prop === "renderWidget")
           return (widget: RenderableWidget) => target.#renderWidget(partRequest, widget);
 
