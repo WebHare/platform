@@ -118,6 +118,44 @@ export function wrapSerialized<Fn extends (...args: any[]) => Promise<any>>(fn: 
   }) as Fn;
 }
 
+export type ConcurrencyLimiterFunction = <T>(callback: () => Promise<T>) => Promise<T>;
+
+/** Create a concurrency limiter that runs at most `jobs` callbacks at the same time. Callbacks are started in the order they are passed to the returned function
+ * @param jobs - Maximum number of callbacks to run in parallel (at least 1)
+ * @returns A function that runs a callback when a job slot is available, and resolves (or rejects) with that callback's result
+ * @example
+ * ```
+ * const run = createConcurrencyLimiter(4);
+ * const results = await Promise.all(urls.map(url => run(() => fetch(url))));
+ * ```
+*/
+export function createConcurrencyLimiter(jobs: number): ConcurrencyLimiterFunction {
+  if (!Number.isInteger(jobs) || jobs < 1)
+    throw new Error(`The number of parallel jobs must be a positive integer, got ${jobs}`);
+
+  let running = 0;
+  const waiting: Array<() => void> = [];
+
+  return async <T>(callback: () => Promise<T>): Promise<T> => {
+    if (running >= jobs) {
+      const { promise, resolve } = Promise.withResolvers<void>();
+      waiting.push(resolve);
+      await promise; //the job slot is handed over to us by the finishing job, so 'running' is already counting us
+    } else
+      ++running;
+
+    try {
+      return await callback();
+    } finally {
+      const next = waiting.shift();
+      if (next)
+        next(); //pass our job slot on to the next waiting callback
+      else
+        --running;
+    }
+  };
+}
+
 //TODO abandon the name 'serialize' for now so it's free and safe to use once JS Decorators land (so we can use @serialize there)
 /** @deprecated Use wrapSerialized instead */
 export function serialize<RetVal>(fn: (...args: unknown[]) => Promise<RetVal>, context: unknown) {
