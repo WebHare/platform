@@ -1,5 +1,8 @@
 <?wh
 
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/cache.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
@@ -268,6 +271,94 @@ ASYNC MACRO TestIntExtLink_Tabsextension()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+STRING FUNCTION GetValidationErrors(OBJECT screen) {
+  OBJECT work := screen->BeginFeedback();
+  STRING errors := Detokenize((SELECT AS STRING ARRAY text FROM work->errors), "\n");
+  work->Cancel();
+  RETURN errors;
+}
+
+ASYNC MACRO TestIntExtLink_WebHareInternalLinks() {
+  testfw->BeginWork();
+  OBJECT tmpfolder := GetTestsuiteTempFolder();
+  OBJECT pdf := tmpfolder->CreateFile([ name := "internallinks.pdf", data := StringToBlob("%PDF-1.4"), publish := TRUE ]);
+  OBJECT doc := tmpfolder->CreateFile([ name := "internallinks-doc.html", publish := TRUE ]);
+  doc->SetInstanceData("http://www.webhare.net/xmlns/beta/test", [ arraytest := [[ blobcell := WrapBlob(StringToBlob("1"), "1.txt") ]] ]);
+  testfw->CommitWork();
+
+  STRING filelink := GetCachedFSFileURL(tmpfolder->url, pdf->id);
+  STRING attachmentlink := GetCachedFSSettingFileURL(tmpfolder->url, doc->GetInstanceData("http://www.webhare.net/xmlns/beta/test").arraytest[0].blobcell.settingid);
+  STRING previewlink := GetPreviewLink(doc->id);
+  TestEqLike("*/.wh/ea/uc/*", filelink);
+  TestEqLike("*/.wh/ea/uc/*", attachmentlink);
+  TestEqLike("*/.publisher/preview/*", previewlink);
+
+  OBJECT screen := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
+                                                   [ component := "http://www.webhare.net/xmlns/publisher/components:intextlink"
+                                                   , settings := DEFAULT RECORD
+                                                   ]);
+  AWAIT ExpectScreenChange(+1, PTR screen->RunModal());
+  OBJECT comp := topscreen->comp;
+
+  // Existing values are accepted as is
+  comp->value := MakeIntExtExternalLink(filelink);
+  TestEq("", GetValidationErrors(topscreen));
+
+  // A cached copy of a WHFS file converts to an internal link to that file
+  comp->SetLinkType("internal");
+  TestEq(MakeIntExtInternalLink(pdf->id, ""), comp->value);
+
+  // ... but entering it is rejected, and tells you where the file is
+  comp->value := DEFAULT RECORD;
+  comp->SetLinkType("external");
+  comp->^external->value := filelink;
+  TestEqLike("*cached copy of '" || pdf->whfspath || "'*", GetValidationErrors(topscreen));
+
+  // ... also when code writes back the entered value (eg an onchange handler)
+  comp->value := comp->value;
+  TestEqLike("*cached copy of '" || pdf->whfspath || "'*", GetValidationErrors(topscreen));
+
+  // ... but setting it as a new value accepts it
+  comp->value := MakeIntExtExternalLink("https://www.example.com/");
+  comp->value := MakeIntExtExternalLink(filelink);
+  TestEq("", GetValidationErrors(topscreen));
+
+  // A file stored in another document can't be converted into an internal link (it would point to the document)
+  comp->^external->value := attachmentlink;
+  TestEqLike("*file stored in '" || doc->whfspath || "'*", GetValidationErrors(topscreen));
+  comp->SetLinkType("internal");
+  TestEq(0, comp->^internal->value);
+  comp->SetLinkType("external");
+  TestEq(attachmentlink, comp->^external->value);
+
+  comp->^external->value := previewlink;
+  TestEqLike("*temporary preview of '" || doc->whfspath || "'*", GetValidationErrors(topscreen));
+
+  FOREVERY(STRING badlink FROM [ "https://www.example.com/.wh/ea/p/branding/webhare.svg"
+                               , "https://www.example.com/.wh/ea/uc/i1234567890/test.jpg"
+                               , "https://www.example.com/.publisher/preview/xyz/"
+                               , "https://www.example.com/.system/dl/ec~AQLrIyEAgpvLAiE2CwCjrcACOgas/yt-g.png"
+                               , "https://www.example.com/.WH/common/download/?type=formattachment"
+                               , "//www.example.com/.uc/test.jpg"
+                               , "/.wh/common/authpages/?token=1"
+                               ]) {
+    comp->^external->value := badlink;
+    TestEqLike("*internal WebHare address*", GetValidationErrors(topscreen), badlink);
+  }
+
+  FOREVERY(STRING goodlink FROM [ "https://www.example.com/"
+                                , "https://www.example.com/.well-known/security.txt"
+                                , "https://www.example.com/wh/ea/uc/test.jpg"
+                                , "https://www.example.com/page/.wh/ea/uc/test.jpg"
+                                , "/page/"
+                                ]) {
+    comp->^external->value := goodlink;
+    TestEq("", GetValidationErrors(topscreen), goodlink);
+  }
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 MACRO TestLinkResolution() {
   testfw->BeginWork();
   OBJECT linktarget := OpenWHFSPrivateFolder("webhare_testsuite")->EnsureFolder([ name := "content" ])->EnsureFile([ name := "linktarget.txt" ]);
@@ -323,5 +414,6 @@ RunTestframework([ PTR TestIntExtLink
                  , PTR TestIntExtLink_OnChange
                  , PTR TestIntExtLink_WithLinkHandlers
                  , PTR TestIntExtLink_Tabsextension
+                 , PTR TestIntExtLink_WebHareInternalLinks
                  , PTR TestLinkResolution
                  ]);

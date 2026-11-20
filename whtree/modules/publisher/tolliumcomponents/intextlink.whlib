@@ -1,14 +1,86 @@
 <?wh
 
+LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/internal/inputvalidation.whlib";
+
+/* URL paths that are WebHare internals: caches, previews, resources, downloads, sessions and APIs. They may expire,
+   change, be tied to a session or expose a copy of a file stored elsewhere, so they aren't suitable as an external link.
+   We deliberately don't check the host: this also catches links to other WebHare servers such as test environments.
+   In time this list should shrink to just '.wh/' */
+CONSTANT STRING ARRAY webhare_internal_paths := [ ".wh/", ".uc/", ".publisher/", ".system/" ];
+
+/// Get the path of an absolute, protocol-relative or root-relative URL, without the leading slash
+STRING FUNCTION GetLinkPath(STRING url) {
+  IF(Left(url, 2) = "//")
+    RETURN UnpackURL("https:" || url).urlpath;
+  IF(Left(url, 1) = "/")
+    RETURN Substring(url, 1);
+  IF(IsAbsoluteURL(url))
+    RETURN UnpackURL(url).urlpath;
+  RETURN "";
+}
+
+/// Get the source of a cache link, or DEFAULT RECORD if it isn't one or its token can't be decoded (as LookupPublisherURL does)
+RECORD FUNCTION GetCachedSourceForLink(STRING url) {
+  TRY {
+    RETURN GetCachedDataSourceMetadataFromURL(url);
+  } CATCH {
+    RETURN DEFAULT RECORD;
+  }
+}
+
+/// Is this a cache link to a file that isn't a WHFS object itself (and thus can't be converted to an internal link)?
+BOOLEAN FUNCTION IsCachedAttachmentLink(STRING url) {
+  RECORD src := GetCachedSourceForLink(url);
+  RETURN RecordExists(src) AND src.type != 1;
+}
+
+/** Get the error to show for an external link to a WebHare internal URL
+    @param url URL to check
+    @param fieldtitle Title of the field for the error message
+    @return Error message, or an empty string if the URL is acceptable */
+STRING FUNCTION GetWebHareInternalLinkError(STRING url, STRING fieldtitle) {
+  STRING path := ToUppercase(GetLinkPath(url));
+  BOOLEAN isinternal;
+  FOREVERY(STRING prefix FROM webhare_internal_paths)
+    IF(path LIKE ToUppercase(prefix) || "*")
+      isinternal := TRUE;
+  IF(NOT isinternal)
+    RETURN "";
+
+  //Try to tell the user where the file came from so they can link to it directly
+  RECORD src := GetCachedSourceForLink(url);
+  IF(RecordExists(src) AND src.type = 1) { //a WHFS object (eg a file in the Publisher)
+    STRING sourcepath := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = src.id AND isactive;
+    IF(sourcepath != "")
+      RETURN GetTid("publisher:components.errors.cachedfilelink", fieldtitle, sourcepath);
+  } ELSE IF(RecordExists(src) AND src.type = 2) { //a file stored in a WHFS object's field (eg a widget's attachment)
+    STRING sourcepath := SELECT AS STRING fs_objects.whfspath
+                         FROM system.fs_settings, system.fs_instances, system.fs_objects
+                        WHERE fs_settings.id = src.id
+                              AND fs_settings.fs_instance = fs_instances.id
+                              AND fs_instances.fs_object = fs_objects.id
+                              AND fs_objects.isactive;
+    IF(sourcepath != "")
+      RETURN GetTid("publisher:components.errors.cachedattachmentlink", fieldtitle, sourcepath);
+  } ELSE IF(path LIKE ".PUBLISHER/PREVIEW/*" AND IsAbsoluteURL(url)) {
+    RECORD match := LookupPublisherURL(url);
+    INTEGER target := match.__directfile ?? match.folder;
+    IF(match.ispreview AND target != 0)
+      RETURN GetTid("publisher:components.errors.previewlink", fieldtitle, SELECT AS STRING whfspath FROM system.fs_objects WHERE id = target);
+  }
+
+  RETURN GetTid("publisher:components.errors.webhareinternallink", fieldtitle);
+}
 
 MACRO ExpandHyperlinkComponents(OBJECT selectbox)
 {
@@ -46,6 +118,10 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase <
   BOOLEAN __internallinks;
   BOOLEAN suspendonchange;
   RECORD lastnotifiedvalue;
+
+  /* External link last set through 'value'. Existing content is accepted as is, so we only reject links to WebHare
+     internal URLs if the user entered them */
+  STRING acceptedexternallink;
 
   // ---------------------------------------------------------------------------
   //
@@ -246,6 +322,10 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase <
     this->EnsurePreInit();
     IF(RecordExists(value) AND value.internallink = 0 AND value.externallink = "") //normalize value
       value := DEFAULT RECORD;
+    //Writing back what the user entered (eg from an onchange handler) shouldn't make it acceptable
+    STRING newexternallink := RecordExists(value) ? value.externallink : "";
+    IF(newexternallink = "" OR newexternallink != ^external->value)
+      this->acceptedexternallink := newexternallink;
 
     IF(EncodeHSON(value) = EncodeHSON(this->GetValue()))
       RETURN; //no change apparently
@@ -324,7 +404,8 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase <
   MACRO ConvertLinkType() {
     IF (^linktype->value = 2 AND this->current_linktype = 1)
     { // Try to convert internal links to external links
-      IF (this->external->value != "")
+      //LookupPublisherURL would resolve a cached attachment to the document storing it, which isn't the file we were linking to
+      IF (this->external->value != "" AND NOT IsCachedAttachmentLink(this->external->value))
       {
         //fill from external
         RECORD match := LookupPublisherURL(this->external->value);
@@ -402,6 +483,11 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase <
     ELSE IF(^linktype->value = 1)
     {
       ^external->ValidateValue(work);
+      IF(^external->value != this->acceptedexternallink) {
+        STRING validate_error := GetWebHareInternalLinkError(^external->value, fieldtitle);
+        IF(validate_error != "")
+          work->AddErrorFor(this, validate_error);
+      }
     }
   }
 
