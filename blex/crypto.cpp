@@ -404,7 +404,7 @@ void EVPKey::GenerateKeypair(KeyType::Type keytype, unsigned numbits, std::strin
                 }
                 else if (keytype == KeyType::EC)
                 {
-                        int nid = OBJ_sn2nid(curve.data());
+                        int nid = OBJ_sn2nid(curve.c_str());
                         if (nid == NID_undef)
                             throw std::runtime_error("Keygen failure - parameter error");
 
