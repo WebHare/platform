@@ -36,8 +36,6 @@ public:
                 AddColor2Tree(MyTree, mypixel,occurences);
         }
 
-        /** Get the total number of colors in the original bitmap */
-        unsigned long GetTotalColors() const;
 
         /** returns the number of colors in palette..
             @return number of colours, or -1 if there are too many colours */

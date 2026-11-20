@@ -197,74 +197,6 @@ class FPPoint
         }
 };
 
-/** Floating-point boundingbox */
-class FPBoundingBox
-{
-public:
-        FPPoint upper_left;
-        FPPoint lower_right;
-
-        FPBoundingBox() {}
-        FPBoundingBox(IRect const &inbox)
-        : upper_left(inbox.upper_left)
-        , lower_right(inbox.lower_right)
-        {
-        }
-        FPBoundingBox(double left, double top, double right, double bottom)
-        {
-                upper_left = FPPoint(std::min(left,right),std::min(top,bottom));
-                lower_right = FPPoint(std::max(left,right),std::max(top,bottom));
-        }
-        FPBoundingBox(FPPoint const &_upper_left, FPPoint const &_lower_right)
-        {
-                upper_left = FPPoint(std::min(_upper_left.x,_lower_right.x),std::min(_upper_left.y,_lower_right.y));
-                lower_right = FPPoint(std::max(_upper_left.x,_lower_right.x),std::max(_upper_left.y,_lower_right.y));
-        }
-        bool ExtendTo(FPPoint const &newpoint)
-        {
-                bool didextend=false;
-                if (newpoint.x < upper_left.x)
-                {
-                        upper_left.x = newpoint.x;
-                        didextend=true;
-                }
-                if (newpoint.y < upper_left.y)
-                {
-                        upper_left.y = newpoint.y;
-                        didextend=true;
-                }
-                if (newpoint.x > lower_right.x)
-                {
-                        lower_right.x = newpoint.x;
-                        didextend=true;
-                }
-                if (newpoint.y > lower_right.y)
-                {
-                        lower_right.y = newpoint.y;
-                        didextend=true;
-                }
-                return didextend;
-        }
-        void ExtendTo(FPBoundingBox const &newbox)
-        {
-                //We can slightly optimize using the fact that newbox.u_l < newbox.l_r
-                if (newbox.upper_left.x < upper_left.x) upper_left.x = newbox.upper_left.x;
-                if (newbox.upper_left.y < upper_left.y) upper_left.y = newbox.upper_left.y;
-                if (newbox.lower_right.x > lower_right.x) lower_right.x = newbox.lower_right.x;
-                if (newbox.lower_right.y > lower_right.y) lower_right.y = newbox.lower_right.y;
-        }
-
-        double GetWidth() const { return lower_right.x - upper_left.x; }
-        double GetHeight() const { return lower_right.y - upper_left.y; }
-        FPSize GetSize() const { return FPSize(GetWidth(), GetHeight()); }
-
-        /** Multiply this bounding box with the specified transformation. Note
-            that this call always keeps upper_left < lower_right */
-        FPBoundingBox& operator*=(XForm2D const &xform);
-        FPBoundingBox operator*(XForm2D const &xform) const;
-};
-
-
 /** Pixel32 -  a container class for 32bit pixels (RGBA).
     Pixel32 is guaranteed to remain a POD (Plain Old Datatype)
     so it should be safe to memcpy() this structure */
@@ -400,10 +332,6 @@ class Pixel32
         }
 };
 
-// ADDME: Maybe move these into an HSV class
-void BLEXLIB_PUBLIC RGBtoHSV( Pixel32 rgb, double *h, double *s, double *v );
-void BLEXLIB_PUBLIC HSVtoRGB( double h, double s, double v, Pixel32 *rgb );
-
 /** Polygon - a polygon container class. A polygon must have more than two points! */
 class Polygon
 {
@@ -432,49 +360,6 @@ public:
         bool IsValid() const { return points.size()>=2; }
 };
 
-/**
- * Class to get parts of a contour (PolyLine).
- * A next part is obtained, using 'GetNextPart', given the wished
- * length of the part. This class remembers the position the
- * last part ended.
- */
-class BLEXLIB_PUBLIC ContourIterator
-{
-        /** The contour. */
-        PolyLine const& polyline;
-
-        /** End point of the last part. (Rounded intermediate result.) */
-        FPPoint last_point;
-
-        /** Index in the polyline, of the first point after the last point of the last part. */
-        unsigned next_point_number;
-
-public:
-        /**
-         * Constructs a ContourIterator,beginning at the start
-         * of the PolyLine.
-         *
-         * @param _polyline The polyline defining the contour.
-         * During the use of this class this polyline may not get
-         * altered or deleted!
-         */
-        ContourIterator(PolyLine const& _polyline);
-
-        /**
-         * Gets the next part of the contour, as a 'PolyLine'.
-         *
-         * @param part The 'PolyLine' getting entirely overwritten with
-         * the part as result. It is undifined when no parts where left
-         * any more. When defined the total length will be equal or less
-         * than the parameter length.
-         *
-         * @param length The wished length of the part.
-         *
-         * @return If the part found is the last part.
-         */
-        bool GetNextPart(PolyLine *part, double length);
-};
-
 /** PolyPolygon - a container class for polygons. */
 class PolyPolygon
 {
@@ -495,25 +380,11 @@ public:
         ///Create an XForm2D with the specified matrix components
         XForm2D(double eM11, double eM12, double eM21, double eM22, FPPoint const &translation);
 
-
-        /** Create an XForm2D with rotation, scaling and translation.
-            @param[in] rotation - rotation in radians (for degrees multiply by (2*PI/360)
-            @param[in] scaling  - an FPPoint used for scaling
-            @param[in] translation - an FPPoint used for translation
-        */
-        XForm2D(double rotation, FPPoint const &scaling, FPPoint const &translation);
-
         ///Multiply this transformation against another worldtransform matrix
         XForm2D& operator*=(XForm2D const &xform);
 
         XForm2D operator *(XForm2D const &rhs) const;
 
-        /** Invert this matrix
-            @return The matrix, inverted*/
-        XForm2D Invert() const;
-
-        /** Get this matrix's rotation */
-        double GetRotation() const;
         ///The matrix components
         double eM11, eM12, eM21, eM22;
         ///Translation
@@ -553,14 +424,6 @@ inline FPSize& FPSize::operator*=(XForm2D const &xform)
 {
         return *this = *this * xform;
 }
-inline FPBoundingBox FPBoundingBox::operator*(XForm2D const &xform) const
-{
-        return FPBoundingBox(upper_left*xform,lower_right*xform);
-}
-inline FPBoundingBox& FPBoundingBox::operator*=(XForm2D const &xform)
-{
-        return *this = *this * xform;
-}
 
 inline bool operator== (FPPoint p1, FPPoint p2)
 {
@@ -585,7 +448,6 @@ BLEXLIB_PUBLIC std::ostream& operator<<(std::ostream &out, ISize const &point);
 BLEXLIB_PUBLIC std::ostream& operator<<(std::ostream &out, IPoint const &point);
 BLEXLIB_PUBLIC std::ostream& operator<<(std::ostream &out, FPSize const &point);
 BLEXLIB_PUBLIC std::ostream& operator<<(std::ostream &out, FPPoint const &point);
-BLEXLIB_PUBLIC std::ostream& operator<<(std::ostream &out, FPBoundingBox const &point);
 BLEXLIB_PUBLIC std::ostream& operator<<(std::ostream &out, Pixel32 const &pixel);
 BLEXLIB_PUBLIC std::ostream& operator<<(std::ostream &out, XForm2D const &xform);
 

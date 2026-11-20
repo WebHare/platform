@@ -16,12 +16,6 @@ typedef uint32_t DrawID;
 
 const unsigned DrawlibContextId = 7; //reserved number for drawlib. DO NOT CHANGE!!!
 
-struct CountResult
-{
-        unsigned numalpha;
-        unsigned numcolors;
-};
-
 class DrawlibInterfaceState
 {
 public:
@@ -32,21 +26,14 @@ public:
         DrawID  CreateDrawObject                   (uint32_t width, uint32_t height, DrawLib::Pixel32 color);        //default background: color
         DrawID  CreateDuplicateDrawObject          (DrawID id);
         DrawID  CreateDrawObjectFromDrawObject     (DrawID id, uint32_t offsetx, uint32_t offsety, uint32_t width, uint32_t height);
-        DrawID  CreateDrawObjectFromPNG            (Blex::Stream *stream);
-        DrawID  CreateDrawObjectFromJPG            (Blex::Stream *stream, int decimation);
-        DrawID  CreateDrawObjectFromGIF            (Blex::Stream *stream);
         DrawID  CreateDrawObjectFromFile           (Blex::RandomStream *stream);
-        DrawID  CreateDrawObjectFromRaw            (Blex::RandomStream *stream, int width, int height, std::string const &format, bool premultiplied);
         DrawID  CreateResizedDrawObjectFromFile    (Blex::RandomStream *stream, int outwidth, int outheight);
         int32_t RegisterDrawObject                 (DrawInfo const *drawinfo);
 
         //bitmap operations
-        int32_t CropDrawObject                     (DrawID id, uint32_t offsetx, uint32_t offsety, uint32_t width, uint32_t height);
         int32_t RotateDrawObject                     (DrawID id, bool rotate_right);
         int32_t MirrorDrawObject                     (DrawID id);
-        int32_t ShearDrawObject                     (DrawID id, double scale);
-        int32_t ResizeDrawObject                   (DrawID id, uint32_t newwidth, uint32_t newheight, bool fast);
-        CountResult CountDrawObjectColors       (DrawID id, unsigned minimum_alpha);
+        int32_t ResizeDrawObject                   (DrawID id, uint32_t newwidth, uint32_t newheight);
 
         //set options
         void SetAlphaMode              (DrawID id, uint32_t mode);
@@ -54,13 +41,9 @@ public:
 
         void SetOutlineColor       (DrawID id, DrawLib::Pixel32 color);
         void SetOutlineWidth       (DrawID id, double width);
-        void SetOutlineTexture     (DrawID id, DrawID texture, double offsetx, double offsety);
-        void SetOutlineThreeDTexture (DrawID id, DrawID texture, TwoParamFunc const &sufunc, TwoParamFunc const &svfunc, TwoParamFunc const &szfunc);
-        void SetOutlineMode        (DrawID id, DrawLib::DrawObject::FillMode);
 
         void SetFillColor      (DrawID id, DrawLib::Pixel32 color);
         void SetFillTexture    (DrawID id, DrawID texture, double offsetx, double offsety);
-        void SetFillThreeDTexture (DrawID id, DrawID texture, TwoParamFunc const &sufunc, TwoParamFunc const &svfunc, TwoParamFunc const &szfunc);
         void SetFillMode       (DrawID id, DrawLib::DrawObject::FillMode mode);
 
         //get options
@@ -68,24 +51,17 @@ public:
         uint32_t  GetHeight(DrawID id);
         uint32_t  GetAlphaMode(DrawID id);
         uint32_t  GetBinaryMode(DrawID id);
-        uint32_t  GetPixel(DrawID id, double x, double y);
-        uint32_t  GetRefCount(DrawID id);
         DrawLib::IRect GetPaintedRectangle(DrawID id);
 
         //draw options
-        void DrawEasterEgg     (DrawID id);         ///Create a mandelbrot
         void DrawDrawObject    (DrawID id, DrawID fid, double offsetx, double offsety);
         void DrawEllipse       (DrawID id, double centerx, double centery, double radiusx, double radiusy, bool outline);
-        void DrawPolyPolygon   (DrawID id, const DrawLib::PolyPolygon &polylist);
         void DrawPixel         (DrawID id, double x, double y,  DrawLib::Pixel32 color);
-        void DrawPlanes        (DrawID id, double x, double y,  int width, Blex::StringPair const &planes);
-        void DrawLine          (DrawID id, double sx, double sy, double ex, double ey);
-        void DrawRectangle     (DrawID id, double sx, double sy, double ex, double ey, bool outline);
+        void DrawRectangle     (DrawID id, double sx, double sy, double ex, double ey);
         void StrokeFillPath          (DrawID id, DrawLib::Path const &path, bool stroke, bool fill);
 
         ///Comparing bitmaps for testing purposes
         double CompareCanvases(DrawID id1, DrawID id2);
-        DrawID CreateDifferenceCanvas(DrawID id1, DrawID id2);
 
         ///Destroy an object... for powerusers only :)
         void DestroyDrawObject (DrawID id);
@@ -93,11 +69,7 @@ public:
         // Bitmap filters...
         void BlurCanvas        (DrawID id, int xsize, int ysize);
         void GrayscaleCanvas   (DrawID id);
-        void AlphaCanvas       (DrawID id, double multiply);
-        void AlphaCanvasAdd    (DrawID id, int add);
-        void InvertCanvas      (DrawID id);
         void MultiplyCanvas    (DrawID id1, DrawID id2);
-        void ApplyColorMapping (DrawID id, DrawLib::ColorMapping &colormap);
 
         int32_t ValidateDrawId(DrawID id) const;
 
@@ -129,14 +101,6 @@ inline Pixel32 HStoDrawlibPixel(uint32_t packed_hs_pixel)
                       ,packed_hs_pixel>>8
                       ,packed_hs_pixel
                       ,packed_hs_pixel>>24);
-}
-inline uint32_t DrawlibtoHSPixel(DrawLib::Pixel32 drawlibpixel)
-{
-        //Pixel32(packedcolor) 65536*red + 256* green + blue + 16.7m * alpha
-        return uint32_t( (drawlibpixel.GetA() << 24)
-                  | (drawlibpixel.GetR() << 16)
-                  | (drawlibpixel.GetG() <<  8)
-                  | (drawlibpixel.GetB()      ) );
 }
 
 /*******************************************************************************
@@ -211,54 +175,6 @@ DrawID DrawlibInterfaceState::CreateDrawObject(uint32_t width, uint32_t height, 
         return RegisterDrawInfo(bm);
 }
 
-DrawID  DrawlibInterfaceState::CreateDrawObjectFromPNG (Blex::Stream *stream)
-{
-        try
-        {
-                std::unique_ptr<DrawLib::Bitmap32> bm(DrawLib::CreateBitmap32FromPNG(stream));
-                if (!bm.get())
-                    return 0;//couldn't read anything..
-                return RegisterDrawInfo(bm);
-        }
-        catch(std::exception &e) //corrupted file, I guess (ADDME: drawlib should create better exceptions so we only intercept file format errors)
-        {
-                DEBUGPRINT("Drawlib I/O exception: " << e.what());
-                return 0;
-        }
-}
-
-DrawID  DrawlibInterfaceState::CreateDrawObjectFromJPG (Blex::Stream *stream, int decimation)
-{
-        try
-        {
-                std::unique_ptr<DrawLib::Bitmap32> bm(DrawLib::CreateBitmap32FromJPG(stream, decimation));
-                if (!bm.get())
-                    return 0;//couldn't read anything..
-                return RegisterDrawInfo(bm);
-        }
-        catch(std::exception &e) //corrupted file, I guess (ADDME: drawlib should create better exceptions so we only intercept file format errors)
-        {
-                DEBUGPRINT("Drawlib I/O exception: " << e.what());
-                return 0;
-        }
-}
-
-DrawID  DrawlibInterfaceState::CreateDrawObjectFromGIF (Blex::Stream *stream)
-{
-        try
-        {
-                std::unique_ptr<DrawLib::Bitmap32> bm(DrawLib::CreateBitmap32FromGIF(stream));
-                if (!bm.get())
-                    return 0;//couldn't read anything..
-                return RegisterDrawInfo(bm);
-        }
-        catch(std::exception &e) //corrupted file?:
-        {
-                DEBUGPRINT("Drawlib I/O exception: " << e.what());
-                return 0;
-        }
-}
-
 DrawID  DrawlibInterfaceState::CreateDrawObjectFromFile (Blex::RandomStream *stream)
 {
         try
@@ -266,23 +182,6 @@ DrawID  DrawlibInterfaceState::CreateDrawObjectFromFile (Blex::RandomStream *str
                 std::unique_ptr<DrawLib::Bitmap32> bm(DrawLib::CreateBitmap32Magic(stream));
                 if (!bm.get())
                     return 0;//couldn't read anything..
-                return RegisterDrawInfo(bm);
-        }
-        catch(std::exception &e) //corrupted file?:
-        {
-                DEBUGPRINT("Drawlib I/O exception: " << e.what());
-                return 0;
-        }
-}
-
-DrawID  DrawlibInterfaceState::CreateDrawObjectFromRaw (Blex::RandomStream *stream, int width, int height, std::string const &format, bool premultiplied)
-{
-        try
-        {
-                std::unique_ptr<DrawLib::Bitmap32> bm(CreateBitmap32FromRaw(*stream, width, height, format, premultiplied));
-                if (!bm.get())
-                    return 0;//couldn't read anything..
-
                 return RegisterDrawInfo(bm);
         }
         catch(std::exception &e) //corrupted file?:
@@ -339,36 +238,7 @@ int32_t   DrawlibInterfaceState::MirrorDrawObject(DrawID id)
                 return -1;
 }
 
-int32_t   DrawlibInterfaceState::ShearDrawObject(DrawID id, double scale)
-{
-        DrawInfo& drawinfo = GetDrawInfoForWrite(id);
-        DrawLib::Bitmap32 * shearedbitmap = DrawLib::CreateShearedBitmap(drawinfo.GetBitmap(), scale);
-        if (shearedbitmap !=NULL)
-        {
-                drawinfo.AdoptNewBitmap(shearedbitmap);
-                return 0;
-        }
-        else
-                return -1;
-}
-
-int32_t   DrawlibInterfaceState::CropDrawObject(DrawID id, uint32_t offsetx, uint32_t offsety, uint32_t width, uint32_t height)
-{
-        DrawInfo& drawinfo = GetDrawInfoForWrite(id);
-
-        //check already done in GetDrawInfo !!if (id <= drawinfolist.size())
-        DrawLib::Bitmap32 * croppedbitmap = DrawLib::CreateCroppedBitmap(drawinfo.GetBitmap(),
-                                                                         DrawLib::IRect(offsetx,offsety,offsetx+width,offsety+height) );
-        if (croppedbitmap !=NULL)
-        {
-                drawinfo.AdoptNewBitmap(croppedbitmap);
-                return 0;
-        }
-        else
-                return -1;
-}
-
-int32_t   DrawlibInterfaceState::ResizeDrawObject(DrawID id, uint32_t newwidth, uint32_t newheight, bool /*fast*/)
+int32_t   DrawlibInterfaceState::ResizeDrawObject(DrawID id, uint32_t newwidth, uint32_t newheight)
 {
         DrawInfo& drawinfo = GetDrawInfoForWrite(id);         //check already done in GetDrawInfo !!if (id <= drawinfolist.size())
 
@@ -382,18 +252,6 @@ int32_t   DrawlibInterfaceState::ResizeDrawObject(DrawID id, uint32_t newwidth, 
         }
         else
                 return -1;
-}
-
-CountResult DrawlibInterfaceState::CountDrawObjectColors       (DrawID id, unsigned minimum_alpha)
-{
-        CountResult counters;
-        DrawInfo const& drawinfo = GetDrawInfoForRead(id);         //check already done in GetDrawInfo !!if (id <= drawinfolist.size())
-
-        DrawLib::Octree my_octree;
-        counters.numalpha = DrawLib::FillOctreeAndCountAlpha(drawinfo.GetBitmap(), my_octree, minimum_alpha) > 0;
-        counters.numcolors = my_octree.GetTotalColors();
-
-        return counters;
 }
 
 void   DrawlibInterfaceState::SetAlphaMode(DrawID id, uint32_t alphamode)
@@ -429,23 +287,6 @@ BITMAP COMPARE FUNCTIONS
 *********************************************************************************************/
 //        double  CompareCanvases(DrawID id1, DrawID id2);
 
-DrawID  DrawlibInterfaceState::CreateDifferenceCanvas(DrawID id1, DrawID id2)
-{
-        DrawInfo const& src1 = GetDrawInfoForRead(id1);
-        DrawInfo const& src2 = GetDrawInfoForRead(id2);
-
-        try
-        {
-                std::unique_ptr<DrawLib::Bitmap32 > bitmapptr (DrawLib::DifferenceBitmap( src1.GetBitmap(), src2.GetBitmap(), false)   );
-                return RegisterDrawInfo(bitmapptr);
-        }
-        catch(std::exception &e) //corrupted file, I guess (ADDME: drawlib should create better exceptions so we only intercept file format errors)
-        {
-                DEBUGPRINT("Drawlib I/O exception: " << e.what());
-                return 0;
-        }
-}
-
 double  DrawlibInterfaceState::CompareCanvases(DrawID id1, DrawID id2)
 {
         DrawInfo const& src1 = GetDrawInfoForRead(id1);
@@ -457,11 +298,6 @@ double  DrawlibInterfaceState::CompareCanvases(DrawID id1, DrawID id2)
 /**********************************************************************************************
 OUTLINE SET FUNCTIONS
 *********************************************************************************************/
-void   DrawlibInterfaceState::SetOutlineMode(DrawID id, DrawLib::DrawObject::FillMode mode)
-{
-        DrawInfo& drawinfo = GetDrawInfoForWrite(id);
-        drawinfo.GetDrawObject().SetOutlineMode(mode);
-}
 void   DrawlibInterfaceState::SetOutlineColor(DrawID id, DrawLib::Pixel32 color)
 {
         DrawInfo& drawinfo = GetDrawInfoForWrite(id);
@@ -471,18 +307,6 @@ void   DrawlibInterfaceState::SetOutlineWidth(DrawID id, double width)
 {
         DrawInfo& drawinfo = GetDrawInfoForWrite(id);
         drawinfo.GetDrawObject().SetOutlineWidth( width);
-}
-void DrawlibInterfaceState::SetOutlineTexture (DrawID id, DrawID texture, double offsetx, double offsety)
-{
-        DrawInfo& drawinfo = GetDrawInfoForWrite(id);
-        DrawLib::IPoint offset( static_cast<int32_t> (offsetx) ,
-                                static_cast<int32_t> (offsety));
-        drawinfo.GetDrawObject().SetOutlineTexture( &GetDrawInfoForRead(texture).GetBitmap(), offset );
-}
-void DrawlibInterfaceState::SetOutlineThreeDTexture (DrawID id, DrawID texture, TwoParamFunc const &sufunc, TwoParamFunc const &svfunc, TwoParamFunc const &szfunc)
-{
-        DrawInfo& drawinfo = GetDrawInfoForWrite(id);
-        drawinfo.GetDrawObject().SetOutlineThreeDTexture(&GetDrawInfoForRead(texture).GetBitmap(), sufunc, svfunc, szfunc);
 }
 
 
@@ -507,17 +331,6 @@ void DrawlibInterfaceState::SetFillTexture (DrawID id, DrawID texture, double of
         DrawLib::IPoint offset( static_cast<int32_t> (offsetx) ,
                                 static_cast<int32_t> (offsety));
         drawinfo.GetDrawObject().SetFillTexture( &GetDrawInfoForRead(texture).GetBitmap(), offset );
-}
-
-void DrawlibInterfaceState::SetFillThreeDTexture (DrawID id, DrawID texture, TwoParamFunc const &sufunc, TwoParamFunc const &svfunc, TwoParamFunc const &szfunc)
-{
-        DrawInfo& drawinfo = GetDrawInfoForWrite(id);
-        drawinfo.GetDrawObject().SetFillThreeDTexture(&GetDrawInfoForRead(texture).GetBitmap(), sufunc, svfunc, szfunc);
-}
-uint32_t DrawlibInterfaceState::GetRefCount(DrawID id)
-{
-        DrawInfo const&drawinfo = GetDrawInfoForRead(id);
-        return drawinfo.refcount;
 }
 
 uint32_t DrawlibInterfaceState::GetWidth(DrawID id)
@@ -570,57 +383,15 @@ void DrawlibInterfaceState::DrawDrawObject(DrawID id, DrawID fid, double offsetx
         canvas_drawinfo.GetDrawObject().SetFillMode   (DrawLib::DrawObject::SOLID);
 }
 
-void DrawlibInterfaceState::DrawEasterEgg (DrawID /*id*/)
-{       ///Create a mandelbrot
-        // NOT IMPLEMENTED YET!
-
-}
-
 void DrawlibInterfaceState::DrawPixel(DrawID id, double x, double y,  DrawLib::Pixel32 pixel)
 {
         GetDrawInfoForWrite(id).GetDrawObject().DrawPixel(DrawLib::FPPoint(x,y),pixel);
-}
-
-void DrawlibInterfaceState::DrawPlanes(DrawID id, double x, double y,  int width, Blex::StringPair const &planes)
-{
-        if( (planes.size() % width != 0) || (planes.size() / width) != 4)
-            return;
-
-        DrawInfo& drawinfo = GetDrawInfoForWrite(id);
-        DrawLib::Scanline32 scanline(drawinfo.GetBitmap().GetWidth(), false);       // create a scanline
-
-        int startx = RoundFloat(x);
-        if(startx + width > 0 && unsigned(startx + width) > drawinfo.GetBitmap().GetWidth())
-            return;
-
-        for(;startx<width;++startx)
-        {
-                scanline.SetMask(startx, true);
-                scanline.Pixel(startx).SetRGBA(planes.begin[startx], planes.begin[startx+width], planes.begin[startx+width*2], planes.begin[startx+width*3]);
-        }
-        drawinfo.GetBitmap().SetScanline32(RoundFloat(y), scanline);       // write the scanline to the canvas
-}
-
-
-uint32_t DrawlibInterfaceState::GetPixel(DrawID id, double x, double y)
-{
-        DrawInfo const&drawinfo = GetDrawInfoForRead(id);
-        return DrawlibtoHSPixel(drawinfo.GetDrawObject().GetPixel(DrawLib::FPPoint(x,y)));
 }
 
 DrawLib::IRect DrawlibInterfaceState::GetPaintedRectangle(DrawID id)
 {
         DrawInfo const&drawinfo = GetDrawInfoForRead(id);
         return drawinfo.GetCanvas().GetPaintedRectangle();
-}
-
-void DrawlibInterfaceState::DrawLine (DrawID id, double sx, double sy, double ex, double ey)
-{
-        DrawLib::PolyLine polyline;
-
-        polyline.points.push_back(DrawLib::FPPoint(sx,sy));
-        polyline.points.push_back(DrawLib::FPPoint(ex,ey));
-        GetDrawInfoForWrite(id).GetDrawObject().DrawPolyLine(polyline);
 }
 
 void DrawlibInterfaceState::DrawEllipse  (DrawID id, double centerx, double centery, double radiusx, double radiusy, bool outline)
@@ -639,14 +410,11 @@ void DrawlibInterfaceState::StrokeFillPath (DrawID id, DrawLib::Path const &path
        GetDrawInfoForWrite(id).GetDrawObject().StrokeFillPath(path, stroke, fill);
 }
 
-void DrawlibInterfaceState::DrawRectangle (DrawID id, double sx, double sy, double ex, double ey, bool outline)
+void DrawlibInterfaceState::DrawRectangle (DrawID id, double sx, double sy, double ex, double ey)
 {
         DrawLib::FPPoint upper_left (sx, sy);
         DrawLib::FPPoint lower_right(ex, ey);
-        if (outline)
-                GetDrawInfoForWrite(id).GetDrawObject().DrawRectangleOutline(upper_left,lower_right);
-        else
-                GetDrawInfoForWrite(id).GetDrawObject().DrawRectangle(upper_left,lower_right);
+        GetDrawInfoForWrite(id).GetDrawObject().DrawRectangle(upper_left,lower_right);
 }
 
 void DrawlibInterfaceState::DestroyDrawObject(DrawID id)
@@ -666,31 +434,11 @@ void    DrawlibInterfaceState::GrayscaleCanvas(DrawID cid)
         DrawInfo& dptr = GetDrawInfoForWrite(cid);
         DrawLib::MakeBitmapGreyscale(&dptr.GetBitmap());
 }
-void    DrawlibInterfaceState::AlphaCanvas(DrawID cid, double multiply)
-{
-        DrawInfo& dptr = GetDrawInfoForWrite(cid);
-        DrawLib::MultiplyAlphaChannel(&dptr.GetBitmap(), multiply);
-}
-void    DrawlibInterfaceState::AlphaCanvasAdd(DrawID cid, int add)
-{
-        DrawInfo& dptr = GetDrawInfoForWrite(cid);
-        DrawLib::AddAlphaChannel(&dptr.GetBitmap(), add);
-}
-void    DrawlibInterfaceState::InvertCanvas(DrawID cid)
-{
-        DrawInfo& dptr = GetDrawInfoForWrite(cid);
-        DrawLib::InvertBitmap(&dptr.GetBitmap());
-}
 void    DrawlibInterfaceState::MultiplyCanvas(DrawID cid1, DrawID cid2)
 {
         DrawInfo& dptr1 = GetDrawInfoForWrite(cid1);
         DrawInfo& dptr2 = GetDrawInfoForWrite(cid2);
         DrawLib::MultiplyBitmap(&dptr1.GetBitmap(), dptr2.GetBitmap());
-}
-void    DrawlibInterfaceState::ApplyColorMapping(DrawID cid, DrawLib::ColorMapping &colormap)
-{
-        DrawInfo& dptr = GetDrawInfoForWrite(cid);
-        DrawLib::ApplyColorMapping(&dptr.GetBitmap(), colormap);
 }
 
 void DrawlibInterfaceState::CalculateKMeansQuantizedPalette(DrawID id, uint32_t clustercount, uint8_t minimum_alpha, int32_t max_iters, float initialpoint, std::vector< Pixel32 > *result)
@@ -747,17 +495,6 @@ void  DLv2_MakeCanvas(HSVM *vm, HSVM_VariableId id_set)
         CLOSE_WRAPPER
 }
 
-void  DLv2_EasterEgg(HSVM *vm)
-{
-        OPEN_WRAPPER
-        DrawID id = HSVM_IntegerGet(vm,HSVM_Arg(0));
-
-        //FIXME:
-        context->DrawEasterEgg(id);
-
-        CLOSE_WRAPPER
-}
-
 void  DLv2_BlurCanvas(HSVM *vm)
 {
         OPEN_WRAPPER
@@ -770,55 +507,7 @@ void  DLv2_GrayscaleCanvas(HSVM *vm)
         context->GrayscaleCanvas(HSVM_IntegerGet(vm, HSVM_Arg(0)));
         CLOSE_WRAPPER
 }
-void  DLv2_AlphaCanvas(HSVM *vm)
-{
-        OPEN_WRAPPER
-        context->AlphaCanvas(HSVM_IntegerGet(vm, HSVM_Arg(0)), HSVM_FloatGet(vm, HSVM_Arg(1)));
-        CLOSE_WRAPPER
-}
 
-void  DLv2_AlphaCanvasAdd(HSVM *vm)
-{
-        OPEN_WRAPPER
-        context->AlphaCanvasAdd(HSVM_IntegerGet(vm, HSVM_Arg(0)), HSVM_IntegerGet(vm, HSVM_Arg(1)));
-        CLOSE_WRAPPER
-}
-
-void  DLv2_ApplyColorMapping(HSVM *vm)
-{
-        OPEN_WRAPPER
-        DrawLib::ColorMapping colormap;
-
-        HSVM_ColumnId from_id = HSVM_GetColumnId(vm,"from_color");
-        HSVM_ColumnId to_id =   HSVM_GetColumnId(vm,"to_color");
-
-        unsigned length = HSVM_ArrayLength(vm, HSVM_Arg(1));
-
-        for (unsigned i = 0; i < length; ++i)
-        {
-                HSVM_VariableId rec = HSVM_ArrayGetRef(vm, HSVM_Arg(1), i);
-
-                HSVM_VariableId from = HSVM_RecordGetRef(vm, rec, from_id);
-                HSVM_VariableId to = HSVM_RecordGetRef(vm, rec, to_id);
-
-                if (HSVM_GetType(vm, from) != HSVM_VAR_Integer || HSVM_GetType(vm, to) != HSVM_VAR_Integer)
-                  throw std::runtime_error("Expected from_color and to_color of type INTEGER");
-
-                uint32_t fromval = HStoDrawlibPixel(HSVM_IntegerGet(vm, from)).GetPixelValue();
-                uint32_t toval = HStoDrawlibPixel(HSVM_IntegerGet(vm, to)).GetPixelValue();
-
-                colormap[fromval] = toval;
-        }
-        context->ApplyColorMapping(HSVM_IntegerGet(vm, HSVM_Arg(0)), colormap);
-        CLOSE_WRAPPER
-}
-
-void  DLv2_InvertCanvas(HSVM *vm)
-{
-        OPEN_WRAPPER
-        context->InvertCanvas(HSVM_IntegerGet(vm, HSVM_Arg(0)));
-        CLOSE_WRAPPER
-}
 void  DLv2_MultiplyCanvas(HSVM *vm)
 {
         OPEN_WRAPPER
@@ -826,21 +515,6 @@ void  DLv2_MultiplyCanvas(HSVM *vm)
         CLOSE_WRAPPER
 }
 
-
-void  DLv2_DrawPlanes(HSVM *vm)
-{
-        OPEN_WRAPPER
-        DrawID id = HSVM_IntegerGet(vm,HSVM_Arg(0));
-        int32_t sx = HSVM_IntegerGet(vm,HSVM_Arg(1));
-        int32_t sy = HSVM_IntegerGet(vm,HSVM_Arg(2));
-        int32_t w = HSVM_IntegerGet(vm,HSVM_Arg(3));
-        Blex::StringPair pair;
-        HSVM_StringGet(vm, HSVM_Arg(4), &pair.begin, &pair.end);
-
-        context->DrawPlanes(id , sx, sy, w, pair);
-
-        CLOSE_WRAPPER
-}
 
 void  DLv2_DrawPixel(HSVM *vm)
 {
@@ -850,20 +524,6 @@ void  DLv2_DrawPixel(HSVM *vm)
         int32_t sy = HSVM_IntegerGet(vm,HSVM_Arg(2));
         DrawLib::Pixel32 packedcolor = HStoDrawlibPixel(HSVM_IntegerGet(vm,HSVM_Arg(3)));
         context->DrawPixel(id , sx, sy, packedcolor);
-
-        CLOSE_WRAPPER
-}
-
-void  DLv2_GetPixel(HSVM *vm, HSVM_VariableId id_set)
-{
-        OPEN_WRAPPER
-        DrawID id = HSVM_IntegerGet(vm,HSVM_Arg(0));
-        int32_t sx = HSVM_IntegerGet(vm,HSVM_Arg(1));
-        int32_t sy = HSVM_IntegerGet(vm,HSVM_Arg(2));
-
-        uint32_t c = context->GetPixel(id,sx,sy);
-
-        HSVM_IntegerSet(vm,id_set, c);
 
         CLOSE_WRAPPER
 }
@@ -891,20 +551,7 @@ void  DLv2_DrawRectangle(HSVM *vm)
         int32_t sy = HSVM_IntegerGet(vm,HSVM_Arg(2));
         int32_t ex = HSVM_IntegerGet(vm,HSVM_Arg(3));
         int32_t ey = HSVM_IntegerGet(vm,HSVM_Arg(4));
-        context->DrawRectangle(id , sx, sy, ex, ey, false); //false = no outline
-
-        CLOSE_WRAPPER
-}
-
-void  DLv2_DrawRectangleOutline(HSVM *vm)
-{
-        OPEN_WRAPPER
-        DrawID id = HSVM_IntegerGet(vm,HSVM_Arg(0));
-        int32_t sx = HSVM_IntegerGet(vm,HSVM_Arg(1));
-        int32_t sy = HSVM_IntegerGet(vm,HSVM_Arg(2));
-        int32_t ex = HSVM_IntegerGet(vm,HSVM_Arg(3));
-        int32_t ey = HSVM_IntegerGet(vm,HSVM_Arg(4));
-        context->DrawRectangle(id , sx, sy, ex, ey, true);
+        context->DrawRectangle(id , sx, sy, ex, ey);
 
         CLOSE_WRAPPER
 }
@@ -930,24 +577,11 @@ void  DLv2_DrawEllipseOutline(HSVM *vm)
         int32_t cy = HSVM_IntegerGet(vm,HSVM_Arg(2));
         int32_t rx = HSVM_IntegerGet(vm,HSVM_Arg(3));
         int32_t ry = HSVM_IntegerGet(vm,HSVM_Arg(4));
-        context->DrawEllipse(id , cx, cy, rx, ry, true); //false = no outline
+        context->DrawEllipse(id , cx, cy, rx, ry, true); //true = outline
 
         CLOSE_WRAPPER
 }
 
-
-void  DLv2_DrawLine(HSVM *vm)
-{
-        OPEN_WRAPPER
-        DrawID id = HSVM_IntegerGet(vm,HSVM_Arg(0));
-        int32_t sx = HSVM_IntegerGet(vm,HSVM_Arg(1));
-        int32_t sy = HSVM_IntegerGet(vm,HSVM_Arg(2));
-        int32_t ex = HSVM_IntegerGet(vm,HSVM_Arg(3));
-        int32_t ey = HSVM_IntegerGet(vm,HSVM_Arg(4));
-        context->DrawLine(id, sx, sy, ex, ey);
-
-        CLOSE_WRAPPER
-}
 
 void  DLv2_DrawPath(HSVM *vm)
 {
@@ -962,14 +596,6 @@ void  DLv2_DrawPath(HSVM *vm)
         HSVM_ColumnId type_id = HSVM_GetColumnId(vm,"TYPE");
         HSVM_ColumnId x_id = HSVM_GetColumnId(vm,"X");
         HSVM_ColumnId y_id = HSVM_GetColumnId(vm,"Y");
-        HSVM_ColumnId cx_id = HSVM_GetColumnId(vm,"CX");
-        HSVM_ColumnId cy_id = HSVM_GetColumnId(vm,"CY");
-        HSVM_ColumnId c1x_id = HSVM_GetColumnId(vm,"C1X");
-        HSVM_ColumnId c1y_id = HSVM_GetColumnId(vm,"C1Y");
-        HSVM_ColumnId c2x_id = HSVM_GetColumnId(vm,"C2X");
-        HSVM_ColumnId c2y_id = HSVM_GetColumnId(vm,"C2Y");
-        HSVM_ColumnId rx_id = HSVM_GetColumnId(vm,"RX");
-        HSVM_ColumnId ry_id = HSVM_GetColumnId(vm,"RY");
 
         unsigned length = HSVM_ArrayLength(vm, HSVM_Arg(1));
         int type;
@@ -1020,99 +646,6 @@ void  DLv2_DrawPath(HSVM *vm)
 
                                 path.LineTo(DrawLib::FPPoint(x,y));
                         } break;
-                        case 3: //BezierTo
-                        {
-                                double x = 0, y = 0, c1x = 0, c1y = 0, c2x = 0, c2y = 0;
-
-                                temp = HSVM_RecordGetRef(vm, rec, x_id);
-                                if (HSVM_GetType(vm, temp) == HSVM_VAR_Float)
-                                        x = HSVM_FloatGet(vm, temp);
-
-                                temp = HSVM_RecordGetRef(vm, rec, y_id);
-                                if (HSVM_GetType(vm, temp) == HSVM_VAR_Float)
-                                        y = HSVM_FloatGet(vm, temp);
-
-                                temp = HSVM_RecordGetRef(vm, rec, c1x_id);
-                                if (HSVM_GetType(vm, temp) == HSVM_VAR_Float)
-                                        c1x = HSVM_FloatGet(vm, temp);
-
-                                temp = HSVM_RecordGetRef(vm, rec, c1y_id);
-                                if (HSVM_GetType(vm, temp) == HSVM_VAR_Float)
-                                        c1y = HSVM_FloatGet(vm, temp);
-
-                                temp = HSVM_RecordGetRef(vm, rec, c2x_id);
-                                if (HSVM_GetType(vm, temp) == HSVM_VAR_Float)
-                                        c2x = HSVM_FloatGet(vm, temp);
-
-                                temp = HSVM_RecordGetRef(vm, rec, c2y_id);
-                                if (HSVM_GetType(vm, temp) == HSVM_VAR_Float)
-                                        c2y = HSVM_FloatGet(vm, temp);
-
-                                path.BezierTo(DrawLib::FPPoint(c1x,c1y), DrawLib::FPPoint(c2x,c2y), DrawLib::FPPoint(x,y));
-                        } break;
-                        case 4: //ArcTo
-                        {
-                                double x = 0, y = 0, cx = 0, cy = 0, rx = 0, ry = 0;
-
-                                temp = HSVM_RecordGetRef(vm, rec, x_id);
-                                if (HSVM_GetType(vm, temp) == HSVM_VAR_Float)
-                                        x = HSVM_FloatGet(vm, temp);
-
-                                temp = HSVM_RecordGetRef(vm, rec, y_id);
-                                if (HSVM_GetType(vm, temp) == HSVM_VAR_Float)
-                                        y = HSVM_FloatGet(vm, temp);
-
-                                temp = HSVM_RecordGetRef(vm, rec, cx_id);
-                                if (HSVM_GetType(vm, temp) == HSVM_VAR_Float)
-                                        cx = HSVM_FloatGet(vm, temp);
-
-                                temp = HSVM_RecordGetRef(vm, rec, cy_id);
-                                if (HSVM_GetType(vm, temp) == HSVM_VAR_Float)
-                                        cy = HSVM_FloatGet(vm, temp);
-
-
-                                temp = HSVM_RecordGetRef(vm, rec, rx_id);
-                                if (HSVM_GetType(vm, temp) == HSVM_VAR_Float)
-                                        rx = HSVM_FloatGet(vm, temp);
-
-                                temp = HSVM_RecordGetRef(vm, rec, ry_id);
-                                if (HSVM_GetType(vm, temp) == HSVM_VAR_Float)
-                                        ry = HSVM_FloatGet(vm, temp);
-
-                                path.ArcTo(DrawLib::FPPoint(cx,cy), DrawLib::FPSize(rx,ry), DrawLib::FPPoint(x,y));
-                        } break;
-                        case 5: //ArcToR
-                        {
-                                double x = 0, y = 0, cx = 0, cy = 0, rx = 0, ry = 0;
-
-                                temp = HSVM_RecordGetRef(vm, rec, x_id);
-                                if (HSVM_GetType(vm, temp) == HSVM_VAR_Float)
-                                        x = HSVM_FloatGet(vm, temp);
-
-                                temp = HSVM_RecordGetRef(vm, rec, y_id);
-                                if (HSVM_GetType(vm, temp) == HSVM_VAR_Float)
-                                        y = HSVM_FloatGet(vm, temp);
-
-                                temp = HSVM_RecordGetRef(vm, rec, cx_id);
-                                if (HSVM_GetType(vm, temp) == HSVM_VAR_Float)
-                                        cx = HSVM_FloatGet(vm, temp);
-
-                                temp = HSVM_RecordGetRef(vm, rec, cy_id);
-                                if (HSVM_GetType(vm, temp) == HSVM_VAR_Float)
-                                        cy = HSVM_FloatGet(vm, temp);
-
-
-                                temp = HSVM_RecordGetRef(vm, rec, rx_id);
-                                if (HSVM_GetType(vm, temp) == HSVM_VAR_Float)
-                                        rx = HSVM_FloatGet(vm, temp);
-
-                                temp = HSVM_RecordGetRef(vm, rec, ry_id);
-                                if (HSVM_GetType(vm, temp) == HSVM_VAR_Float)
-                                        ry = HSVM_FloatGet(vm, temp);
-
-                                path.ArcToR(DrawLib::FPPoint(cx,cy), DrawLib::FPSize(rx,ry), DrawLib::FPPoint(x,y));
-                        } break;
-
                 }
         }
 
@@ -1184,19 +717,6 @@ void  DLv2_CreateResizedCanvasFromFile(HSVM *vm, HSVM_VariableId id_set)
 }
 
 
-void  DLv2_CreateDifferenceCanvas(HSVM *vm, HSVM_VariableId id_set)
-{
-        OPEN_WRAPPER
-
-        DrawID id1 = HSVM_IntegerGet(vm,HSVM_Arg(0));
-        DrawID id2 = HSVM_IntegerGet(vm,HSVM_Arg(1));
-
-        DrawID new_id = context->CreateDifferenceCanvas(id1, id2);
-        HSVM_IntegerSet(vm, id_set, new_id);
-
-        CLOSE_WRAPPER
-}
-
 void  DLv2_CompareCanvases(HSVM *vm, HSVM_VariableId id_set)
 {
         OPEN_WRAPPER
@@ -1227,16 +747,6 @@ void  DLv2_SetOutlineWidth(HSVM *vm)
         DrawID id       = HSVM_IntegerGet(vm,HSVM_Arg(0));
         uint32_t width       = HSVM_IntegerGet(vm,HSVM_Arg(1));
         context->SetOutlineWidth(id, width);
-
-        CLOSE_WRAPPER
-}
-void  DLv2_SetOutlineMode(HSVM *vm)
-{
-        OPEN_WRAPPER
-
-        DrawID id       = HSVM_IntegerGet(vm,HSVM_Arg(0));
-        DrawLib::DrawObject::FillMode mode        = (DrawLib::DrawObject::FillMode)HSVM_IntegerGet(vm,HSVM_Arg(1));
-        context->SetOutlineMode(id, mode);
 
         CLOSE_WRAPPER
 }
@@ -1274,48 +784,6 @@ void  DLv2_SetFillTexture(HSVM *vm)
         uint32_t offsety        = HSVM_IntegerGet(vm,HSVM_Arg(3));
 
         context->SetFillTexture(id, texture, offsetx, offsety);
-
-        CLOSE_WRAPPER
-}
-
-void  DLv2_SetFillThreeDTexture(HSVM *vm)
-{
-        OPEN_WRAPPER
-
-        DrawID id          = HSVM_IntegerGet(vm,HSVM_Arg(0));
-        DrawID texture     = HSVM_IntegerGet(vm,HSVM_Arg(1));
-        double sua         = HSVM_FloatGet(vm,HSVM_Arg(2));
-        double sub         = HSVM_FloatGet(vm,HSVM_Arg(3));
-        double suc         = HSVM_FloatGet(vm,HSVM_Arg(4));
-        double sva         = HSVM_FloatGet(vm,HSVM_Arg(5));
-        double svb         = HSVM_FloatGet(vm,HSVM_Arg(6));
-        double svc         = HSVM_FloatGet(vm,HSVM_Arg(7));
-        double sza         = HSVM_FloatGet(vm,HSVM_Arg(8));
-        double szb         = HSVM_FloatGet(vm,HSVM_Arg(9));
-        double szc         = HSVM_FloatGet(vm,HSVM_Arg(10));
-
-        context->SetFillThreeDTexture(id, texture, TwoParamFunc(sua, sub, suc), TwoParamFunc(sva, svb, svc), TwoParamFunc(sza, szb, szc));
-
-        CLOSE_WRAPPER
-}
-
-void  DLv2_SetOutlineThreeDTexture(HSVM *vm)
-{
-        OPEN_WRAPPER
-
-        DrawID id          = HSVM_IntegerGet(vm,HSVM_Arg(0));
-        DrawID texture     = HSVM_IntegerGet(vm,HSVM_Arg(1));
-        double sua         = HSVM_FloatGet(vm,HSVM_Arg(2));
-        double sub         = HSVM_FloatGet(vm,HSVM_Arg(3));
-        double suc         = HSVM_FloatGet(vm,HSVM_Arg(4));
-        double sva         = HSVM_FloatGet(vm,HSVM_Arg(5));
-        double svb         = HSVM_FloatGet(vm,HSVM_Arg(6));
-        double svc         = HSVM_FloatGet(vm,HSVM_Arg(7));
-        double sza         = HSVM_FloatGet(vm,HSVM_Arg(8));
-        double szb         = HSVM_FloatGet(vm,HSVM_Arg(9));
-        double szc         = HSVM_FloatGet(vm,HSVM_Arg(10));
-
-        context->SetOutlineThreeDTexture(id, texture, TwoParamFunc(sua, sub, suc), TwoParamFunc(sva, svb, svc), TwoParamFunc(sza, szb, szc));
 
         CLOSE_WRAPPER
 }
@@ -1372,16 +840,6 @@ void  DLv2_GetBinaryMode(HSVM *vm, HSVM_VariableId id_set)
         CLOSE_WRAPPER
 }
 
-void  DLv2_GetRefCount(HSVM *vm, HSVM_VariableId id_set)
-{
-        OPEN_WRAPPER
-        DrawID id = HSVM_IntegerGet(vm,HSVM_Arg(0));
-
-        int32_t w = context->GetRefCount(id);
-        HSVM_IntegerSet(vm,id_set, w);
-
-        CLOSE_WRAPPER
-}
 void  DLv2_GetCanvasWidth(HSVM *vm, HSVM_VariableId id_set)
 {
         OPEN_WRAPPER
@@ -1412,44 +870,13 @@ void  DLv2_DestroyCanvas(HSVM *vm)
         CLOSE_WRAPPER
 }
 
-void  DLv2_CountCanvasColors(HSVM *vm, HSVM_VariableId id_set)
-{
-        OPEN_WRAPPER
-        DrawID id  = HSVM_IntegerGet(vm,HSVM_Arg(0));
-        unsigned minalpha = HSVM_IntegerGet(vm,HSVM_Arg(1));
-        CountResult results = context->CountDrawObjectColors(id,minalpha);
-
-        HSVM_ColumnId col_alphas = HSVM_GetColumnId(vm, "ALPHAS");
-        HSVM_ColumnId col_colors = HSVM_GetColumnId(vm, "COLORS");
-
-        HSVM_SetDefault(vm, id_set, HSVM_VAR_Record);
-        HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, id_set, col_alphas), results.numalpha);
-        HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, id_set, col_colors), results.numcolors);
-
-        CLOSE_WRAPPER
-}
-
 void  DLv2_ResizeCanvas(HSVM *vm, HSVM_VariableId id_set)
 {
         OPEN_WRAPPER
         DrawID id  = HSVM_IntegerGet(vm,HSVM_Arg(0));
         int32_t newwidth = HSVM_IntegerGet(vm,HSVM_Arg(1));
         int32_t newheight= HSVM_IntegerGet(vm,HSVM_Arg(2));
-        int32_t result = context->ResizeDrawObject(id, newwidth, newheight, false);
-        HSVM_IntegerSet(vm,id_set, result);
-
-        CLOSE_WRAPPER
-}
-
-void  DLv2_CropCanvas(HSVM *vm, HSVM_VariableId id_set)
-{
-        OPEN_WRAPPER
-        DrawID id  = HSVM_IntegerGet(vm,HSVM_Arg(0));
-        int32_t left   = HSVM_IntegerGet(vm,HSVM_Arg(1));
-        int32_t top    = HSVM_IntegerGet(vm,HSVM_Arg(2));
-        int32_t width  = HSVM_IntegerGet(vm,HSVM_Arg(3));
-        int32_t height = HSVM_IntegerGet(vm,HSVM_Arg(4));
-        int32_t result = context->CropDrawObject(id, left, top, width, height);
+        int32_t result = context->ResizeDrawObject(id, newwidth, newheight);
         HSVM_IntegerSet(vm,id_set, result);
 
         CLOSE_WRAPPER
@@ -1471,24 +898,6 @@ void  DLv2_MirrorCanvas(HSVM *vm, HSVM_VariableId id_set)
         OPEN_WRAPPER
         DrawID id  = HSVM_IntegerGet(vm,HSVM_Arg(0));
         int32_t result = context->MirrorDrawObject(id);
-        HSVM_IntegerSet(vm, id_set, result);
-
-        CLOSE_WRAPPER
-}
-
-void  DLv2_ShearCanvas(HSVM *vm, HSVM_VariableId id_set)
-{
-        OPEN_WRAPPER
-        DrawID id  = HSVM_IntegerGet(vm,HSVM_Arg(0));
-        double x_scale = HSVM_FloatGet(vm,HSVM_Arg(1));
-        int32_t result = x_scale != 0 ? context->ShearDrawObject(id, x_scale) : 0;
-        if (result == 0)
-            result = context->RotateDrawObject(id, true);
-        double y_scale = HSVM_FloatGet(vm,HSVM_Arg(2));
-        if (result == 0)
-            result = y_scale != 0 ? context->ShearDrawObject(id, -y_scale) : 0;
-        if (result == 0)
-            result = context->RotateDrawObject(id, false);
         HSVM_IntegerSet(vm, id_set, result);
 
         CLOSE_WRAPPER
@@ -1578,38 +987,6 @@ void DLv2_CreateGIFBlobFromCanvas(HSVM *vm, HSVM_VariableId id_set)
 
         DrawLib::SaveBitmap32AsGIF(&outstream, drawinfo.GetBitmap());
         HSVM_MakeBlobFromStream(vm, id_set, streamid);
-
-        CLOSE_WRAPPER
-}
-
-void DLv2_CreateRAWBlobFromCanvas(HSVM *vm, HSVM_VariableId id_set)
-{
-        OPEN_WRAPPER
-        DrawID id = HSVM_IntegerGet(vm,HSVM_Arg(0));
-
-        // get the bitmap data using it's ID.
-        DrawInfo const&drawinfo = context->GetDrawInfoForRead(id);
-
-        int32_t streamid = HSVM_CreateStream(vm);
-        HareScript::Interface::OutputStream outstream(vm,streamid);
-
-        DrawLib::SaveBitmap32AsRaw(outstream, drawinfo.GetBitmap(), HSVM_StringGetSTD(vm, HSVM_Arg(1)));
-        HSVM_MakeBlobFromStream(vm, id_set, streamid);
-
-        CLOSE_WRAPPER
-}
-
-void DLv2_CreateCanvasFromRAWBlob(HSVM *vm, HSVM_VariableId id_set)
-{
-        OPEN_WRAPPER
-
-        HareScript::Interface::InputStream orig_in(vm, HSVM_Arg(0));
-        int32_t width = HSVM_IntegerGet(vm,HSVM_Arg(1));
-        int32_t height = HSVM_IntegerGet(vm,HSVM_Arg(2));
-        bool premultiplied = HSVM_BooleanGet(vm,HSVM_Arg(4));
-
-        DrawID new_id = context->CreateDrawObjectFromRaw( &orig_in, width, height, HSVM_StringGetSTD(vm, HSVM_Arg(3)), premultiplied );
-        HSVM_IntegerSet(vm,id_set, new_id);
 
         CLOSE_WRAPPER
 }
@@ -1750,30 +1127,6 @@ void DLv2_SetCanvasMarshaller(HSVM *vm)
 
 extern "C" {
 
-BLEXLIB_PUBLIC DrawLib::Bitmap32 * HSDRAWLIBINTERFACE_GetCanvasBitmap(HSVM *vm, int32_t canvasid)
-{
-        OPEN_WRAPPER
-        return &context->GetDrawInfoForWrite(canvasid).GetBitmap();
-        CLOSE_WRAPPER
-        return NULL;
-}
-
-BLEXLIB_PUBLIC DrawID HSDRAWLIBINTERFACE_CreateDrawObject(HSVM *vm, uint32_t width, uint32_t height, DrawLib::Pixel32 color)
-{
-        OPEN_WRAPPER
-        return context->CreateDrawObject(width, height, color);
-        CLOSE_WRAPPER
-        return 0;
-}
-
-BLEXLIB_PUBLIC void HSDRAWLIBINTERFACE_DestroyDrawObject(HSVM *vm, DrawID drawid)
-{
-        OPEN_WRAPPER
-        context->DestroyDrawObject(drawid);
-        CLOSE_WRAPPER
-}
-
-
 static void* CreateContext(void *)
 {
         return new DrawlibInterfaceState;
@@ -1790,18 +1143,12 @@ extern "C" BLEXLIB_PUBLIC int HSVM_ModuleEntryPoint(HSVM_RegData *regdata, void*
         HSVM_RegisterContext (regdata, DrawlibContextId, NULL, &CreateContext, &DestroyContext);
         HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_VALIDATEDRAWID:WHMOD_GRAPHICS:I:I",DLv2_ValidateDrawId);
         HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_MAKECANVAS:WHMOD_GRAPHICS:I:III",DLv2_MakeCanvas);
-        HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_EASTEREGG:WHMOD_GRAPHICS::I", DLv2_EasterEgg);
 
-        HSVM_RegisterFunction(regdata, "GFXCOUNTCANVASCOLORS:WHMOD_GRAPHICS:R:II",DLv2_CountCanvasColors);
-        HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_DRAWLINE:WHMOD_GRAPHICS::IIIII",DLv2_DrawLine);
         HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_DRAWRECTANGLE:WHMOD_GRAPHICS::IIIII",DLv2_DrawRectangle);
-        HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_DRAWRECTANGLEBORDER:WHMOD_GRAPHICS::IIIII",DLv2_DrawRectangleOutline);
         HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_DRAWELLIPSE:WHMOD_GRAPHICS::IIIII",DLv2_DrawEllipse);
         HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_DRAWELLIPSEBORDER:WHMOD_GRAPHICS::IIIII",DLv2_DrawEllipseOutline);
         HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_DRAWPIXEL:WHMOD_GRAPHICS::IIII", DLv2_DrawPixel);
         HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_GETPAINTEDRECTANGLE:WHMOD_GRAPHICS:R:I", DLv2_GetPaintedRectangle);
-        HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_DRAWPLANES:WHMOD_GRAPHICS::IIIIS", DLv2_DrawPlanes);
-        HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_GETPIXEL:WHMOD_GRAPHICS:I:III",DLv2_GetPixel);
         HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_DRAWPATH:WHMOD_GRAPHICS::IRABBFA",DLv2_DrawPath);
         HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_DRAWCANVAS:WHMOD_GRAPHICS::IIII", DLv2_DrawCanvas);
         HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_CREATECANVASFROMFILE:WHMOD_GRAPHICS:I:X", DLv2_CreateCanvasFromFile);
@@ -1812,15 +1159,11 @@ extern "C" BLEXLIB_PUBLIC int HSVM_ModuleEntryPoint(HSVM_RegData *regdata, void*
         HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_SETFILLCOLOR:WHMOD_GRAPHICS::II", DLv2_SetFillColor);
         HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_SETFILLMODE:WHMOD_GRAPHICS::II", DLv2_SetFillMode);
         HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_SETFILLTEXTURE:WHMOD_GRAPHICS::IIII", DLv2_SetFillTexture);
-        HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_SETFILLTHREEDTEXTURE:WHMOD_GRAPHICS::IIFFFFFFFFF", DLv2_SetFillThreeDTexture);
         HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_SETOUTLINECOLOR:WHMOD_GRAPHICS::II", DLv2_SetOutlineColor);
-        HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_SETOUTLINEMODE:WHMOD_GRAPHICS::II", DLv2_SetOutlineMode);
         HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_SETOUTLINEWIDTH:WHMOD_GRAPHICS::II", DLv2_SetOutlineWidth);
-        HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_SETOUTLINETHREEDTEXTURE:WHMOD_GRAPHICS::IIFFFFFFFFF", DLv2_SetOutlineThreeDTexture);
         HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_RESIZECANVAS:WHMOD_GRAPHICS:I:III", DLv2_ResizeCanvas);
         HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_ROTATECANVAS:WHMOD_GRAPHICS:I:IB", DLv2_RotateCanvas);
         HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_MIRRORCANVAS:WHMOD_GRAPHICS:I:I", DLv2_MirrorCanvas);
-        HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_SHEARCANVAS:WHMOD_GRAPHICS:I:IFF", DLv2_ShearCanvas);
         HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_DUPLICATECANVAS:WHMOD_GRAPHICS:I:I", DLv2_DuplicateCanvas);
         HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_MAKECANVASFROMCANVAS:WHMOD_GRAPHICS:I:IIIII", DLv2_MakeCanvasFromCanvas);
         HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_DESTROYCANVAS:WHMOD_GRAPHICS::I", DLv2_DestroyCanvas);
@@ -1828,8 +1171,6 @@ extern "C" BLEXLIB_PUBLIC int HSVM_ModuleEntryPoint(HSVM_RegData *regdata, void*
         HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_CREATEJPGBLOBFROMCANVAS:WHMOD_GRAPHICS:X:II", DLv2_CreateJPGBlobFromCanvas);
         HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_CREATEGIFBLOBFROMCANVAS:WHMOD_GRAPHICS:X:I", DLv2_CreateGIFBlobFromCanvas);
 
-        HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_CREATERAWBLOBFROMCANVAS:WHMOD_GRAPHICS:X:IS", DLv2_CreateRAWBlobFromCanvas);
-        HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_CREATECANVASFROMRAWBLOB:WHMOD_GRAPHICS:I:XIISB", DLv2_CreateCanvasFromRAWBlob);
 
         HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_SETALPHAMODE:WHMOD_GRAPHICS::II", DLv2_SetAlphaMode);
         HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_SETPIXELMODE:WHMOD_GRAPHICS::II", DLv2_SetBinaryMode);
@@ -1838,18 +1179,12 @@ extern "C" BLEXLIB_PUBLIC int HSVM_ModuleEntryPoint(HSVM_RegData *regdata, void*
 
         HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_BLURCANVAS:WHMOD_GRAPHICS::III", DLv2_BlurCanvas);
         HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_GRAYSCALECANVAS:WHMOD_GRAPHICS::I", DLv2_GrayscaleCanvas);
-        HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_ALPHACANVAS:WHMOD_GRAPHICS::IF", DLv2_AlphaCanvas);
-        HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_ALPHACANVASADD:WHMOD_GRAPHICS::II", DLv2_AlphaCanvasAdd);
-        HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_INVERTCANVAS:WHMOD_GRAPHICS::I", DLv2_InvertCanvas);
         HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_MULTIPLYCANVAS:WHMOD_GRAPHICS::II", DLv2_MultiplyCanvas);
-        HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_APPLYCOLORMAPPING:WHMOD_GRAPHICS::IRA", DLv2_ApplyColorMapping);
 
 
         HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_COMPARECANVASES:WHMOD_GRAPHICS:F:II", DLv2_CompareCanvases);
-        HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_CREATEDIFFERENCECANVAS:WHMOD_GRAPHICS:I:II", DLv2_CreateDifferenceCanvas);
 
         HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_SETCANVASMARSHALLER:WHMOD_GRAPHICS::O", DLv2_SetCanvasMarshaller);
-        HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_GETREFCOUNT:WHMOD_GRAPHICS:I:I", DLv2_GetRefCount);
 
         HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_GETKMEANSQUANTIZEDPALETTE:WHMOD_GRAPHICS:RA:IIIIF", DLv2_GetKMeansQuantizedPalette);
 

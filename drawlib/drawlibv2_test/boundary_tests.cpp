@@ -53,21 +53,10 @@ BLEX_TEST_FUNCTION(CanvasBoundaryTest)
         BLEX_TEST_CHECKTHROW( mycanvas.SetScanline32(5 ,&my_illegal_scanline) , std::runtime_error);
 }
 
+
 BLEX_TEST_FUNCTION(DrawObjectBoundaryTest)
 {
-        DrawLib::Bitmap32     mybitmap(10,10);
-        DrawLib::Canvas32     mycanvas(&mybitmap);
-        DrawLib::DrawObject   mydrobj(&mycanvas);
-        DrawLib::Scanline32   my_legal_scanline(10,false);
-        DrawLib::Scanline32   my_illegal_scanline( 5,false);
-        DrawLib::Pixel32      mypixel(255,255,255,255);
-        DrawLib::FPPoint      lowerright(10,10);
-        DrawLib::FPPoint      upperleft(0,0);
-        DrawLib::PolyLine     emptyline;
-
         BLEX_TEST_CHECKTHROW( DrawLib::DrawObject(NULL), std::runtime_error);
-
-        BLEX_TEST_CHECKTHROW( mydrobj.DrawBezierOutline(emptyline), std::runtime_error);
 }
 
 BLEX_TEST_FUNCTION(StreamingReadersBoundaryTest)
@@ -83,7 +72,5 @@ BLEX_TEST_FUNCTION(StreamingWritersBoundaryTest)
         DrawLib::Bitmap32     mybitmap(10,10);
 
         BLEX_TEST_CHECKTHROW( DrawLib::SaveBitmap32AsJPG(NULL, mybitmap, 75), std::runtime_error);
-        BLEX_TEST_CHECKTHROW( DrawLib::SaveBitmap32AsTGA(NULL, mybitmap), std::runtime_error);
         BLEX_TEST_CHECKTHROW( DrawLib::SaveBitmap32AsPNG(NULL, mybitmap , true, true), std::runtime_error);
 }
-

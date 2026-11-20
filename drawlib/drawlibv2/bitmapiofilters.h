@@ -44,22 +44,6 @@ protected:
         BitmapIOFilter *source;
 };
 
-
-/** A filter that changes the pixels to greyscale.. */
-class BLEXLIB_PUBLIC BlackWhiteFilter : public BitmapIOFilter
-{
-public:
-        BlackWhiteFilter(BitmapIOFilter *_source, double _mulfac) :
-                BitmapIOFilter(_source),
-                mul_fac(_mulfac) {};
-
-        virtual ~BlackWhiteFilter() {};
-        virtual void GetScanline32(Scanline32& output_scanline);
-
-private:
-        double mul_fac;
-};
-
 }
 
 #endif

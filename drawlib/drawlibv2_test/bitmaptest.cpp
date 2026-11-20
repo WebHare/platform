@@ -119,112 +119,6 @@ BLEX_TEST_FUNCTION(StreamingResizerSSE2Test)
         //BLEX_TEST_CHECK(DoErrorCompare("ref-streamingresizetest_scenery.png", SmallBitmap, 3000, true)); //ADDME: Was 1.5 with old kernel
 }
 
-//as I actually found a use for the Raw format (fast storage during photo
-//album conversions) we might as well test it (as it didn't work at all at first)
-BLEX_TEST_FUNCTION(RobRawTest) //rob als in au :-)
-{
-        std::unique_ptr<Blex::FileStream> RedFile;
-
-        // load red.png
-        RedFile.reset(Blex::Test::OpenTestFile("testimage.png"));
-
-        BLEX_TEST_CHECK(RedFile.get()!=NULL);
-        std::unique_ptr<DrawLib::Bitmap32 > redbitmap;
-        std::unique_ptr<DrawLib::Bitmap32 > inputbitmap;
-
-        redbitmap.reset(DrawLib::CreateBitmap32FromPNG(RedFile.get()));
-
-        // open a tempfile for storage
-        std::string tempfilepath = Blex::MergePath(Blex::Test::GetTempDir(),"robraw");
-        std::unique_ptr<Blex::FileStream> tempfile;
-        tempfile.reset(Blex::FileStream::OpenRW(tempfilepath, true, true, Blex::FilePermissions::PublicRead));
-        BLEX_TEST_CHECK(tempfile.get()!=NULL);
-
-        // write the bitmap as a RobRaw file
-        SaveBitmap32AsRaw(*tempfile, *redbitmap, "RGBA");
-
-        // now read it back
-        tempfile->SetOffset(0);
-        inputbitmap.reset(DrawLib::CreateBitmap32FromRaw(*tempfile, redbitmap->GetWidth(), redbitmap->GetHeight(), "RGBA", false));
-        BLEX_TEST_CHECK(inputbitmap.get() != NULL);
-
-        // check the size of *red..
-        BLEX_TEST_CHECKEQUAL(redbitmap->GetWidth(), inputbitmap->GetWidth());
-        BLEX_TEST_CHECKEQUAL(redbitmap->GetHeight(), inputbitmap->GetHeight());
-
-        BLEX_TEST_CHECK(DoCompare("testimage.png", *inputbitmap, true));
-
-        // read it as ARGB
-        tempfile->SetOffset(0);
-        redbitmap.reset(DrawLib::CreateBitmap32FromRaw(*tempfile, redbitmap->GetWidth(), redbitmap->GetHeight(), "ARGB", false));
-        BLEX_TEST_CHECK(redbitmap.get() != NULL);
-        BLEX_TEST_CHECKEQUAL(redbitmap->GetWidth(), inputbitmap->GetWidth());
-        BLEX_TEST_CHECKEQUAL(redbitmap->GetHeight(), inputbitmap->GetHeight());
-}
-
-#if 0
-BLEX_TEST_FUNCTION(BrokenPNGTest)
-{
-        std::unique_ptr<Blex::FileStream> ImageFile;
-        ImageFile.reset(Blex::Test::OpenTestFile("brokenpngtest.png"));
-        BLEX_TEST_CHECK(ImageFile.get()!=NULL);
-
-        std::unique_ptr<DrawLib::Bitmap32 > Bitmap;
-        std::unique_ptr<DrawLib::PNG_GraphicsReader> PngReader;
-
-        PngReader.reset(new DrawLib::PNG_GraphicsReader(
-                ImageFile.get(),DrawLib::PNG_GraphicsReader::ChunkCallback()));
-
-        PngReader->SkipImageData();
-
-        /*if (PngReader.get()==NULL)
-                throw(std::runtime_error("PNG_GraphicsReader failed!"));
-
-        DrawLib::BlackWhiteFilter bwfilter(PngReader.get(), 1.0);
-        DrawLib::Bitmap32 greyscale_bitmap(bwfilter.GetWidth(), bwfilter.GetHeight());
-
-        DrawLib::Scanline32 tempscanline(bwfilter.GetWidth(), true);
-        for(unsigned y=0; y<bwfilter.GetHeight(); y++)
-        {
-                bwfilter.GetScanline32(tempscanline);
-                greyscale_bitmap.SetScanline32(y,tempscanline);
-        }
-
-        //DrawLib::Bitmap32 *greyscale = DrawLib::CreateGreyscaleBitmap(*(Bitmap.get()));
-
-        BLEX_TEST_CHECK(DoErrorCompare("ref-greyscale_scenery.png", greyscale_bitmap, 1.0, true));*/
-}
-#endif
-
-BLEX_TEST_FUNCTION(GreyscaleTest)
-{
-        std::unique_ptr<Blex::FileStream> ImageFile;
-        ImageFile.reset(Blex::Test::OpenTestFile("scenery.png"));
-        BLEX_TEST_CHECK(ImageFile.get()!=NULL);
-
-        std::unique_ptr<DrawLib::Bitmap32 > Bitmap;
-        std::unique_ptr<DrawLib::PNG_GraphicsReader> PngReader;
-
-        PngReader.reset(new DrawLib::PNG_GraphicsReader(
-                ImageFile.get(),DrawLib::PNG_GraphicsReader::ChunkCallback()));
-
-        if (PngReader.get()==NULL)
-                throw(std::runtime_error("PNG_GraphicsReader failed!"));
-
-        DrawLib::BlackWhiteFilter bwfilter(PngReader.get(), 1.0);
-        DrawLib::Bitmap32 greyscale_bitmap(bwfilter.GetWidth(), bwfilter.GetHeight());
-
-        DrawLib::Scanline32 tempscanline(bwfilter.GetWidth(), true);
-        for(unsigned y=0; y<bwfilter.GetHeight(); y++)
-        {
-                bwfilter.GetScanline32(tempscanline);
-                greyscale_bitmap.SetScanline32(y,tempscanline);
-        }
-
-        //DrawLib::Bitmap32 *greyscale = DrawLib::CreateGreyscaleBitmap(*(Bitmap.get()));
-
-        BLEX_TEST_CHECK(DoErrorCompare("ref-greyscale_scenery.png", greyscale_bitmap, 1.0, true));
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -256,47 +150,6 @@ BLEX_TEST_FUNCTION(PngTest)
                         BLEX_TEST_CHECK( pixel == RedPixel);
                 }
         }
-}
-
-bool png_chunk_callback_called = false;
-
-void png_chunk_callback(const char *DEBUGONLYARG(chunkname), const void*, unsigned)
-{
-        DEBUGPRINT("  Got PNG chuck callback: " << chunkname);
-        png_chunk_callback_called = true;
-}
-
-BLEX_TEST_FUNCTION(PngChunkCallbackTest)
-{
-        std::unique_ptr<Blex::FileStream> ImageFile;
-        ImageFile.reset(Blex::Test::OpenTestFile("unknownchunk.png"));
-        BLEX_TEST_CHECK(ImageFile.get()!=NULL);
-
-        std::unique_ptr<DrawLib::PNG_GraphicsReader> PngReader;
-
-        DrawLib::PNG_GraphicsReader::ChunkCallback unknown_chunk_callback;
-
-        unknown_chunk_callback = &png_chunk_callback;
-
-        std::cerr << "\n";
-
-        PngReader.reset(new DrawLib::PNG_GraphicsReader(
-                ImageFile.get(),unknown_chunk_callback));
-
-        if (PngReader.get()==NULL)
-                throw(std::runtime_error("PNG_GraphicsReader failed!"));
-
-        // skip the image data and hopefully get unkown chunk callbacks!
-        try{
-                PngReader->SkipImageData();
-        }
-        catch(...)
-        {
-                std::cerr << "PngReader caused an exception..\n";
-        }
-
-        // check if it was indeed called...
-        BLEX_TEST_CHECK(png_chunk_callback_called == true);
 }
 
 BLEX_TEST_FUNCTION(PngAlphaCircleTest) //this png is fully blue but with alpha 0-255 to create the circle. test blending to white
@@ -343,6 +196,7 @@ BLEX_TEST_FUNCTION(PngAlphaCircleTest) //this png is fully blue but with alpha 0
 //
 // The GIF reader
 
+
 BLEX_TEST_FUNCTION(GifReadTest)
 {
         std::unique_ptr<Blex::FileStream> imagefile;
@@ -351,10 +205,6 @@ BLEX_TEST_FUNCTION(GifReadTest)
 
         std::unique_ptr<DrawLib::Bitmap32 > bitmap;
         bitmap.reset(DrawLib::CreateBitmap32FromGIF(imagefile.get()));
-
-        //Blex::FileStream *fs = Blex::FileStream::OpenWrite("C:\\test.tga", true, false, Blex::FilePermissions::PublicRead);
-        //DrawLib::SaveBitmap32AsTGA(fs, *bitmap);
-        //delete fs;
 
         BLEX_TEST_CHECK(DoErrorCompare("ref-gifTest.png", *bitmap, 0, true));
 
@@ -626,45 +476,6 @@ BLEX_TEST_FUNCTION(MagicReaderTest)
         BLEX_TEST_CHECK(my_4_bitmap.get()!=NULL);
 
         BLEX_TEST_CHECK(DoCompare ("ref-4bitdib.png", *(my_4_bitmap.get()),  true));
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-//
-// Shearing images
-
-BLEX_TEST_FUNCTION(ShearTest)
-{
-        std::unique_ptr<Blex::FileStream> ImageFile;
-        ImageFile.reset(Blex::Test::OpenTestFile("scenery.png"));
-        BLEX_TEST_CHECK(ImageFile.get()!=NULL);
-
-        std::unique_ptr<DrawLib::Bitmap32 > Bitmap;
-        Bitmap.reset(DrawLib::CreateBitmap32FromPNG(ImageFile.get()));
-        Blex::FastTimer timer;
-
-        timer.Start();
-        DrawLib::Bitmap32 *ShearedBitmap = DrawLib::CreateShearedBitmap(*(Bitmap.get()), 1);
-        timer.Stop();
-        std::cerr << timer << "\n";
-        // compare!
-        BLEX_TEST_CHECK(DoErrorCompare("ref-sheartest_scenery_1.png", *ShearedBitmap, 0, true));
-        delete ShearedBitmap;
-
-        ShearedBitmap = DrawLib::CreateShearedBitmap(*(Bitmap.get()), -1);
-        // compare!
-        BLEX_TEST_CHECK(DoErrorCompare("ref-sheartest_scenery_-1.png", *ShearedBitmap, 0, true));
-        delete ShearedBitmap;
-
-        ShearedBitmap = DrawLib::CreateShearedBitmap(*(Bitmap.get()), .05);
-        // compare!
-        BLEX_TEST_CHECK(DoErrorCompare("ref-sheartest_scenery_.05.png", *ShearedBitmap, 0, true));
-        delete ShearedBitmap;
-
-        ShearedBitmap = DrawLib::CreateShearedBitmap(*(Bitmap.get()), -.34);
-        // compare!
-        BLEX_TEST_CHECK(DoErrorCompare("ref-sheartest_scenery_-.34.png", *ShearedBitmap, 0, true));
-        delete ShearedBitmap;
 }
 
 

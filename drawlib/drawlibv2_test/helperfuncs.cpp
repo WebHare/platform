@@ -44,7 +44,7 @@ DrawLib::Bitmap32 * LoadReferenceBitmap(std::string filename)
         {
                 return NULL;
         }
-        return DrawLib::CreateBitmap32FromPNG(reference_file.get());
+        return DrawLib::CreateBitmap32Magic(reference_file.get());
 }
 
 void SaveBitmap(DrawLib::Bitmap32 const &bitmap, std::string const &name, bool noalpha)
@@ -104,18 +104,6 @@ bool DoErrorCompare(std::string filename, const DrawLib::Bitmap32 & result_bitma
         {
                 SaveBitmap(result_bitmap, filename +"_gen.png",false);
                 SaveBitmap(*reference_bitmap, filename +"_ref.png",false);
-
-                std::unique_ptr<DrawLib::Bitmap32 > difference_bitmap;
-                difference_bitmap.reset(DrawLib::DifferenceBitmap(*(reference_bitmap.get()), result_bitmap, false));
-                SaveBitmap(*difference_bitmap, filename +"_diff_withalpha.png",false);
-
-                std::unique_ptr<DrawLib::Bitmap32 > difference_bitmap_noalpha;
-                difference_bitmap_noalpha.reset(DrawLib::DifferenceBitmap(*(reference_bitmap.get()), result_bitmap, true));
-                SaveBitmap(*difference_bitmap_noalpha, filename +"_diff_opaque.png",true);
-
-                std::unique_ptr<DrawLib::Bitmap32 > alphaonly_bitmap;
-                alphaonly_bitmap.reset(DrawLib::RedAlphaBitmap(*(difference_bitmap.get())));
-                SaveBitmap(*alphaonly_bitmap, filename +"_diff_redalpha.png",true);
         }
         return false;
 }

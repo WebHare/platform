@@ -8,34 +8,6 @@ LOADLIB "wh::graphics/core.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/graphics-tags.whlib";
 
-/** @short Change colors in a canvas
-    @param canvas ID of canvas to grayscale
-    @param colormap A Record Array describing how to change colors
-    @cell colormap.from_color The color to change
-    @cell colormap.to_color The new color */
-PUBLIC MACRO GfxApplyColorMapping(INTEGER canvas, RECORD ARRAY colormap)
-{
-  ValidateDrawId(canvas);
-  __DRAWLIB_V2_APPLYCOLORMAPPING(canvas, colormap);
-}
-
-/** @short Convert a canvas to grayscale
-    @param canvas ID of canvas to grayscale */
-PUBLIC MACRO GfxGrayscaleCanvas(INTEGER canvas)
-{
-  ValidateDrawId(canvas);
-  __DRAWLIB_V2_GRAYSCALECANVAS(canvas);
-}
-
-/** @short Update the alpha channel on a canvas
-    @param canvas ID of canvas to grayscale
-    @param multiply Alpha multiplication factor (<1 increases transparancy) */
-PUBLIC MACRO GfxUpdateCanvasAlpha(INTEGER canvas, FLOAT multiply)
-{
-  ValidateDrawId(canvas);
-  __DRAWLIB_V2_ALPHACANVAS(canvas, multiply);
-}
-
 /** @short Blur canvas.
     @param canvas CanvasID to blur.
     @param hsize Horizontal blur size
@@ -50,17 +22,6 @@ PUBLIC MACRO GfxBlurCanvas(INTEGER Canvas, INTEGER hsize DEFAULTSTO 1, INTEGER v
 }
 
 /**
-@short          Invert the colors of the canvast
-@long           Changes the color of every pixel to it's oposite colour
-@param CanvasID The ID of the canvas to invert
-*/
-PUBLIC MACRO   GfxInvertCanvas(INTEGER CanvasID)
-{
-        ValidateDrawID(CanvasId);
-        __DRAWLIB_V2_InvertCanvas(CanvasID);
-}
-
-/**
 @short          Multiply a canvas with another canvas
 @long           Multiplies every pixel of a canvas with the corresponding pixel of another canvas.
 @param CanvasID1 The ID of the canvas to change
@@ -72,26 +33,6 @@ PUBLIC MACRO   GfxMultiplyCanvas(INTEGER CanvasID1, INTEGER CanvasID2)
         ValidateDrawID(CanvasId2);
 
         __DRAWLIB_V2_MultiplyCanvas(CanvasID1, CanvasID2);
-}
-
-/** @short Reprocess, resize and crop an image
-    @long This function takes an image and converts it to the requested output format, setting
-          both image format and dimensions. First the image is resized and the cropped in the
-          center to the requested dimensions.
-    @param inblob Input image blob
-    @param setwidth Width to set, in pixels.
-    @param setheight Height to set, in pixels.
-    @param format Output format. If empty, format is not changed. Otherwise one of "image/jpeg", "image/gif" or "image/png" will be used
-    @return Record describing the output image, or a non-existing record if the file was not recognized as an image
-    @cell return.data Image data (as a blob)
-    @cell return.width New image width
-    @cell return.height New image height
-    @cell return.mimetype New image mimetype
-*/
-PUBLIC RECORD FUNCTION GfxResizeCropImageBlob(BLOB inblob, INTEGER setwidth, INTEGER setheight, STRING format, INTEGER bgcolor DEFAULTSTO 0x00FFFFFF)
-{
-  RECORD resizemethod := [ method := "fill", setwidth := setwidth, setheight := setheight, format := format, bgcolor := bgcolor ];
-  RETURN GfxResizeImageBlobWithMethod(inblob, resizemethod);
 }
 
 //these functions are in filters.whlib to ensure they stay in sync

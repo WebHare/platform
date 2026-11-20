@@ -180,61 +180,6 @@ IRect Bitmap32::GetPaintedRectangle() const
         return IRect(firstx, firsty, limitx, limity);
 }
 
-//ADDME: Drop our separate ProtectArea etc functions, just allow users to interface with the embedded Region...
-ProtectedBitmap32::ProtectedBitmap32(Bitmap32 &basebitmap)
-: Bitmap32(basebitmap.GetWidth(), basebitmap.GetHeight())
-, basebitmap(basebitmap)
-, region(GetWidth(), GetHeight(), true)
-, scratchpad(new Blex::BitmapType[ Blex::BitmapRequiredSize(GetWidth()) ])
-{
-}
-
-ProtectedBitmap32::~ProtectedBitmap32()
-{
-}
-
-Scanline32 ProtectedBitmap32::GetScanline32(unsigned line) const
-{
-        return basebitmap.GetScanline32(line);
-}
-void ProtectedBitmap32::SetPixelsWithMask(unsigned line, Pixel32 const *sourcepixels, Blex::ConstBitmap mask)
-{
-        //bail if stuff isn't what it needs to be..
-        if (line>=GetHeight())
-                throw(std::runtime_error("Bitmap32::SetScanline32Ptr out-of-bounds 'line'"));
-
-        unsigned numwords = Blex::BitmapRequiredSize(GetWidth());
-
-        //Copy specified drawing mask AND-ed with protection mask into the scratchpad..
-        Blex::Bitmap row = region.GetRow(line);
-        for (unsigned i=0;i<numwords;++i)
-            scratchpad[i] = mask[i] & row[i];
-
-        //Paint the scanline with our new mask
-        basebitmap.SetPixelsWithMask(line, sourcepixels, &scratchpad[0]);
-}
-
-void ProtectedBitmap32::ProtectArea   (IRect area)
-{
-        region.SetProtectedArea(area,true);
-}
-void ProtectedBitmap32::UnProtectArea (IRect area)
-{
-        region.SetProtectedArea(area,false);
-}
-void ProtectedBitmap32::ProtectBitmap()
-{
-        region.SetProtectedArea(DrawLib::IRect(0,0,GetWidth(),GetHeight()), true);
-}
-void ProtectedBitmap32::UnProtectBitmap()
-{
-        region.SetProtectedArea(DrawLib::IRect(0,0,GetWidth(),GetHeight()), false);
-}
-void ProtectedBitmap32::SetAreaProtection(const Region &r)
-{
-        region=r;
-}
-
 Scanline32::Scanline32(unsigned width, bool draw, DrawLib::Pixel32 bgcolor)
 : width(width)
 , pixels(0)
@@ -339,24 +284,6 @@ void Scanline32::CopyWithOffset(unsigned dest_offset, unsigned src_length, Scanl
         src_length = std::min(width-dest_offset,src_length);
         if (src_length>0)
            memcpy(&pixels[dest_offset], src.GetRawPixels(), sizeof(Pixel32) * src_length);
-}
-
-void Scanline32::ConvertToFloat(float *outfloats) const
-{
-        unsigned int N = GetWidth();
-        unsigned int o=0;
-        Pixel32 const *mypixels = GetRawPixels();
-        for(unsigned int i=0; i<N; i++)
-        {
-            uint32_t p = mypixels[i].GetPixelValue();
-            outfloats[o++] = static_cast<float>(p & 0x0ff);
-            p >>= 8;
-            outfloats[o++] = static_cast<float>(p & 0x0ff);
-            p >>= 8;
-            outfloats[o++] = static_cast<float>(p & 0x0ff);
-            p >>= 8;
-            outfloats[o++] = static_cast<float>(p & 0x0ff);
-        }
 }
 
 } //end namespace DrawLib

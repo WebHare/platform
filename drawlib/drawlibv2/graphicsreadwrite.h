@@ -56,11 +56,6 @@ public:
         /* LinesLeft - check is there are any PNG scanlines left to read.. */
         bool LinesLeft() const;
 
-        /* SkipImageData() - skip the image data in the PNG and process to the end of the file,
-           this function will still call the "unknown chunk" user callback.
-        */
-        void SkipImageData();
-
         virtual uint32_t  GetWidth() const;
         virtual uint32_t  GetHeight() const;
 
@@ -90,7 +85,6 @@ public:
 
         virtual uint32_t GetWidth() const;
         virtual uint32_t GetHeight() const;
-        bool IsUpsideDown() const;
 
 private:
         // palette will contain RGBA items if there is a palette
@@ -178,31 +172,6 @@ public:
         GraphicsWriter(GraphicsWriter const &) = delete;
         GraphicsWriter& operator=(GraphicsWriter const &) = delete;
 
-};
-
-class HTMLTABLE_GraphicsWriter : public GraphicsWriter
-{
-public:
-        HTMLTABLE_GraphicsWriter();
-        virtual ~HTMLTABLE_GraphicsWriter();
-
-        void WriteBitmap(Blex::Stream &stream, const Bitmap32 &bitmap);
-
-private:
-        bool compressed;
-};
-
-class WBMP_GraphicsWriter : public GraphicsWriter
-{
-public:
-        WBMP_GraphicsWriter();
-        virtual ~WBMP_GraphicsWriter();
-
-        void WriteBitmap(Blex::Stream &stream, const Bitmap32 &bitmap);
-
-private:
-        void WriteHeader();
-        bool compressed;
 };
 
 /** Write a PNG to a BLEX stream, paletted or non-paletted, transparent or non-transparent. */

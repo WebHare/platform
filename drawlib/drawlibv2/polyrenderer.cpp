@@ -90,108 +90,6 @@ void TexturedPolyCallback::GenerateScanline(int startx, int limitx , int y, Scan
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-     ThreeDTexturedPolyCallback stuff
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-void ThreeDTexturedPolyCallback::GenerateScanline(int startx, int limitx , int y, Scanline32 *scanline)
-{
-        if (startx > limitx) std::swap(startx, limitx);
-
-        if (limitx <= 0 || startx >= (int)scanline->GetWidth())
-            return; //scanline is invisible, ignore
-
-        startx=Blex::Bound<int>(0,scanline->GetWidth(),startx);
-        limitx=Blex::Bound<int>(0,scanline->GetWidth(),limitx);
-
-        int32_t texturewidth  = texture->GetWidth();
-        int32_t textureheight = texture->GetHeight();
-
-        // Calculate su, sv & sz at startx
-        double su = sufunc.Calc(startx, y);
-        double sv = svfunc.Calc(startx, y);
-        double sz = szfunc.Calc(startx, y);
-
-        DEBUGPRINT("ThreeDTexturedPolyCallback::GenerateScanline");
-
-        // sz won't change as x increases, uses quick path that loses some divisions
-        if (szfunc.a == 0)
-        {
-                if (fabs(sz) < 0.00001)
-                    return;
-
-                // Calculate z, u and v at start point, plus the differences per pixel
-                double z = 1 / sz;
-                double u = su * z + 0.00001; // For rounding errors
-                double v = sv * z + 0.00001; // For rounding errors
-
-                double du = sufunc.a * z;
-                double dv = svfunc.a * z;
-
-                for (int x = startx; x < limitx; x++)
-                {
-                        if (u < 0 || u >= texturewidth)
-                            u -= static_cast< int32_t >(floor(u /  texturewidth) * texturewidth);
-                        if (v < 0 || v >= textureheight)
-                            v -= static_cast< int32_t >(floor(v /  textureheight) * textureheight);
-
-                        int32_t int_u = static_cast< int32_t >(u);
-                        int32_t int_v = static_cast< int32_t >(v);
-
-                        if (int_u < 0 || int_u >= texturewidth)
-                            int_u = 0;
-                        if (int_v < 0 || int_v >= textureheight)
-                            int_v = 0;
-
-                        const Scanline32 &texturescanline = texture->GetScanline32(int_v);
-                        scanline->Pixel(x) = texturescanline.Pixel(int_u);
-
-                        u += du;
-                        v += dv;
-                }
-        }
-        else
-        {
-                for(int x = startx; x < limitx; x++)
-                {
-                        // sz too small: bail out
-                        if (fabs(sz) < 0.000001)
-                            continue;
-
-                        // Calc u & v for this point
-                        float z = 1 / sz;
-                        float u = su*z + 0.00001; // for rounding errors
-                        float v = sv*z + 0.00001; // for rounding errors
-
-                        // Bring within texture size
-                        u -= static_cast< int32_t >(floor(u /  texturewidth) * texturewidth); // for rounding errors
-                        v -= static_cast< int32_t >(floor(v /  textureheight) * textureheight); // for rounding errors
-
-                        int32_t int_u = static_cast< int32_t >(u);
-                        int32_t int_v = static_cast< int32_t >(v);
-
-                        if (int_u < 0 || int_u >= texturewidth)
-                            int_u = 0;
-                        if (int_v < 0 || int_v >= textureheight)
-                            int_v = 0;
-
-                        const Scanline32 &texturescanline = texture->GetScanline32(int_v);
-                        scanline->Pixel(x) = texturescanline.Pixel(int_u);
-
-                        // Calculate su, sv & sz for next x pixel
-                        su += sufunc.a;
-                        sv += svfunc.a;
-                        sz += szfunc.a;
-                }
-        }
-
-        // Mark bits as drawn
-        Blex::SetBits(scanline->GetRawMask(), startx, limitx - startx, true);
-}
-
-
-
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
      PolyRenderer stuff
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -247,21 +145,8 @@ void PolyRenderer::insert_vertex(int i, int y)
         }
 }
 
-void PolyRenderer::DrawPolygonToProtection(DrawLib::Canvas32 *canvas, const DrawLib::PolyPolygon &polypolygon,
-                PolyScanlineCallbackBase &callback, bool winding)
-{
-        DrawPolygonInternal(canvas, polypolygon, callback, winding, true);
-}
-
 void PolyRenderer::DrawPolygon(DrawLib::Canvas32 *canvas, const DrawLib::PolyPolygon &polypolygon,
         PolyScanlineCallbackBase &callback, bool winding)
-{
-        DrawPolygonInternal(canvas, polypolygon, callback, winding, false);
-}
-
-
-void PolyRenderer::DrawPolygonInternal(DrawLib::Canvas32 *canvas, const DrawLib::PolyPolygon &polypolygon,
-        PolyScanlineCallbackBase &callback, bool winding, bool /*set_protection*/)
 {
         //Put the polygon points into a a vertex list
 
