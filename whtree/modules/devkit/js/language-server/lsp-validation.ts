@@ -102,25 +102,32 @@ class DiagUpdate {
       this.updater = this.updateDiagnostics();
   }
   async updateDiagnostics() {
-    for (; ;) {
-      const doc = this.proc.docs.get(this.uri);
-      if (doc === undefined)
-        break; //give up
+    try {
+      for (; ;) {
+        const doc = this.proc.docs.get(this.uri);
+        if (doc === undefined)
+          break; //give up
 
-      //clear current diagnostics
-      this.proc.onDiagnostic(this.uri, []);
-      const result = await getDiagnostics(doc);
+        //clear current diagnostics
+        this.proc.onDiagnostic(this.uri, []);
+        const result = await getDiagnostics(doc);
 
-      if (!this.mustRestart) {
-        //no new changes to check, return the final result
-        this.proc.onDiagnostic(this.uri, result);
-        break;
+        if (!this.mustRestart) {
+          //no new changes to check, return the final result
+          this.proc.onDiagnostic(this.uri, result);
+          break;
+        }
+
+        //restart requested due to async hanges, try again
+        this.mustRestart = false;
       }
-
-      //restart requested due to async hanges, try again
+    } catch (e) {
+      // Don't leave this document stuck: a change after this failure should trigger a new update
       this.mustRestart = false;
+      this.proc.onError(e);
+    } finally {
+      this.updater = null;
     }
-    this.updater = null;
   }
   isStale() {
     return this.mustRestart || this.updater !== null;
@@ -130,11 +137,14 @@ class DiagUpdate {
 export class DiagnosticsProcessor {
   docs;
   onDiagnostic;
+  onError;
   pendigDiagUpdates = new Map<string, DiagUpdate>;
 
-  constructor(docs: DocumentsLike, onDiagnostic: DiagnosticsCallback) {
+  /** @param onError - Called when updating a document's diagnostics failed. Rethrows the error by default. */
+  constructor(docs: DocumentsLike, onDiagnostic: DiagnosticsCallback, onError: (e: unknown) => void = e => { throw e; }) {
     this.docs = docs;
     this.onDiagnostic = onDiagnostic;
+    this.onError = onError;
   }
 
   async update(uri: string) {

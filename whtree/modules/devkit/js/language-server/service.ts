@@ -23,10 +23,15 @@ import { readFile } from "node:fs/promises";
 import type { TextDocument } from "vscode-languageserver-textdocument";
 import { doExecuteCommand, doReformat, doStackTraceRequest, getCodeActions, getDefinitions, getHover } from "./lsp-services";
 import { DiagnosticsProcessor } from "./lsp-validation";
+import { handleRequestError } from "./request-errors";
 
 
 const processor = new DiagnosticsProcessor(documents, (uri, diagnostics) => {
   void connection.sendDiagnostics({ uri, diagnostics });
+}, e => {
+  // Report the error, which may abort the LS (like failing requests do), otherwise just keep running without diagnostics
+  if (handleRequestError(e, "rejection", "updateDiagnostics"))
+    throw e;
 });
 
 export async function didChangeContent(e: TextDocumentChangeEvent<TextDocument>) {

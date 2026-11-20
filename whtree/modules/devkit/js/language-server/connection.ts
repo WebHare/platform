@@ -11,7 +11,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 
 //TODO: Find a nicer way to ping the WebHare connection at every request
 let messageHandler: ((message: Message) => void) | null = null;
-export function onConnectionMessage(handler: (message: Message) => void) {
+export function onConnectionMessage(handler: ((message: Message) => void) | null) {
   messageHandler = handler;
 }
 
