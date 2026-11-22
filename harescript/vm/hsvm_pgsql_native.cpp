@@ -339,13 +339,61 @@ bool PGSQLNativeTransactionDriver::WaitForResult()
 
                 if (counter >= command_timeout_secs * 10)
                 {
-                        char errbuf[256];
-                        PQcancel(cancel.get(), errbuf, sizeof(errbuf));
-                        HSVM_ThrowException(*vm, std::string("PostgreSQL command timeout after " + Blex::AnyToString(command_timeout_secs) + " seconds").c_str());
+                        /* Cancel the command and read away its results (the expected 'canceling statement due
+                           to user request' error) here. Otherwise the next command (usually a ROLLBACK) would
+                           report that error instead of being sent.
+                        */
+                        std::string error = "PostgreSQL command timeout after " + Blex::AnyToString(command_timeout_secs) + " seconds";
+                        if (!CancelAndDiscardResults())
+                            error += ", and the connection could not be recovered (it is still busy with the cancelled command)";
+                        HSVM_ThrowException(*vm, error.c_str());
                         return false;
                 }
 
                 ++counter;
+        }
+}
+
+bool PGSQLNativeTransactionDriver::CancelAndDiscardResults()
+{
+        char errbuf[256];
+        if (!PQcancel(cancel.get(), errbuf, sizeof(errbuf)))
+        {
+                // No cancel was delivered, so waiting for the command to finish would just extend the timeout
+                PQ_PRINT("Cancel request failed: " << errbuf);
+                return false;
+        }
+
+        int sock = PQsocket(conn);
+        if (sock < 0)
+            return false;
+
+        // Give the server max 10 seconds to process the cancel request. Count elapsed time, not idle polls, so a server
+        // that keeps sending data can't extend the wait
+        Blex::DateTime deadline = Blex::DateTime::Now() + Blex::DateTime::Seconds(10);
+        while (true)
+        {
+                if (!PQconsumeInput(conn))
+                    return false;
+
+                if (!PQisBusy(conn))
+                {
+                        PGPtr< PGresult > res(PQgetResult(conn));
+                        if (!res)
+                            return true;
+
+                        PQ_PRINT("Discarding result of cancelled command, status: " << PQresStatus(PQresultStatus(res.get())));
+                        continue;
+                }
+
+                pollfd input_fd;
+                input_fd.fd = sock;
+                input_fd.events = POLLERR | POLLIN;
+                input_fd.revents = 0;
+
+                poll(&input_fd, 1, 100);
+                if (Blex::DateTime::Now() >= deadline)
+                    return false;
         }
 }
 

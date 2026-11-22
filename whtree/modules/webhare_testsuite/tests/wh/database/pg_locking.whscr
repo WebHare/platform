@@ -421,6 +421,39 @@ PUBLIC STRING FUNCTION TestDeadlockWorker(INTEGER commandtimeout)
   RETURN "Update returned without error";
 }
 
+PUBLIC RECORD FUNCTION TestTimeoutRollbackWorker()
+{
+  OBJECT trans1 := OpenPrimary();
+  OBJECT trans2 := __StartWHPostgreSQLTransaction([ auto := TRUE ]);
+
+  deadlocktable1 := BindTransactionToTable(trans1->id, "webhare_testsuite_testschema.deadlocktest");
+  deadlocktable2 := BindTransactionToTable(trans2->id, "webhare_testsuite_testschema.deadlocktest");
+
+  trans2->__UpdateDebugConfig([ commandtimeout := 1 ]);
+
+  trans1->BeginWork();
+  trans2->BeginWork();
+
+  UPDATE deadlocktable1 SET ival := ival + 1 WHERE id = 1;
+
+  STRING timeouterror;
+  TRY
+    UPDATE deadlocktable2 SET ival := ival + 1 WHERE id = 1; // blocks on the lock held by trans1
+  CATCH (OBJECT e)
+    timeouterror := e->what;
+
+  // The rollback must not report the error of the cancelled command, and must actually be executed
+  trans2->RollbackWork();
+  trans1->RollbackWork();
+
+  // The connection must be usable again, so updating the record must work now that trans1 has released its lock
+  trans2->BeginWork();
+  UPDATE deadlocktable2 SET ival := ival + 1 WHERE id = 1;
+  trans2->RollbackWork();
+
+  RETURN CELL[ timeouterror ];
+}
+
 MACRO TestDeadlockBreaking()
 {
   GetPrimary()->BeginWork();
@@ -479,6 +512,10 @@ MACRO TestDeadlockBreaking()
   TestEQ(TRUE, IsValueSet(got_result), "Expected the PostgreSQL command timeout to have triggered");
   TestEQ(TypeID(OBJECT), TypeID(got_result.value));
   TestEqLike("*timeout*", got_result.value->what);
+
+  // After a command timeout, the timeout must be reported (not the error of the cancelled command) and a rollback must work
+  RECORD result := WaitForPromise(AsyncCallFunctionFromJob(Resolve("#TestTimeoutRollbackWorker")));
+  TestEqLike("*PostgreSQL command timeout after 1 seconds*", result.timeouterror);
 }
 
 
