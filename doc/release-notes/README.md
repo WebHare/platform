@@ -1,3 +1,8 @@
+# WebHare release notes
+
+One file per minor version (eg. `6.2.md` for WebHare 6.2.x), describing incompatibilities and deprecations, things
+you should do when upgrading to that version and other things that are nice to know.
+
 ## Unskippable upgrades
 Some upgrades cannot be skipped. These are:
 - 3.10.xx: You should upgrade to the latest 3.10 version before switching to WebHare 4
@@ -12,7 +17,7 @@ any conversions (check the managed tasks) before continuing the update, as the w
 quite a bit of time.
 
 ## How to upgrade
-Before you upgrade, check the changelogs of the relevant versions to see if there
+Before you upgrade, check the release notes of the relevant versions to see if there
 are any important deprecations.
 
 You should also regularly look for important deprecations and changes you may have

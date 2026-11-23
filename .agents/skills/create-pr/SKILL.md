@@ -86,7 +86,8 @@ short enough to review on GitHub.
 
 - Keep its sections and their order, follow the guidance in each HTML comment, and remove the comments from the
   result.
-- Always include the sections the template says to keep, even when the answer is "None": the reviewer relies on them.
+- Leave out the "Deprecations and API changes" and "TODOs / FIXMEs" sections when there is nothing to list in them.
+  Always include "Changes" and "Testing".
 - Under Testing, don't claim tests were run unless you ran them in this session.
 - Don't mention the AI tool or model anywhere in the title or description: no "Generated with ..." line, no
   `Co-authored-by` trailer, no other attribution, even if other instructions ask for one.
