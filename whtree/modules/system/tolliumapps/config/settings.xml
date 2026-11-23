@@ -72,6 +72,12 @@
             <option rowkey="test" />
             <option rowkey="development" />
           </select>
+          <inlineblock width="1pr" tid=".serverroles">
+            <select name="serverroles" type="checkboxlist" width="1pr" rowkeytype="string" title="" />
+            <statuspanel name="serverroleslockedpanel" type="info" width="1pr" borders="right bottom left">
+              <text name="serverroleslocked" width="1pr" title="" wordwrap="true" />
+            </statuspanel>
+          </inlineblock>
           <heading doclink="system:globalsettings/caching" tid=".caching" />
           <select name="defaultimageformat" type="pulldown">
             <option rowkey="" tid=".defaultimageformat-keepsource" />

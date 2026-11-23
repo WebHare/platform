@@ -1363,6 +1363,9 @@
         <text tid="security">Security</text>
         <text tid="server">Server</text>
         <text tid="servername">Server name</text>
+        <text tid="serverroles">Server roles</text>
+        <text tid="serverroles-env">The server roles are set by the host (WEBHARE_SERVERROLES) and can't be changed here.</text>
+        <text tid="serverroles-restored">This server is in restore mode, so it only has the 'Restored server' role. The roles can't be changed here.</text>
         <text tid="servertype">Server type (DTAP)</text>
         <text tid="servertype-acceptance">Acceptance</text>
         <text tid="servertype-development">Development</text>
