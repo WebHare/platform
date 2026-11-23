@@ -145,7 +145,7 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
 
   /** The list of options
       @cell rowkey Rowkey of the option
-      @cell(boolean) enabled Optional. set to false to disable this option (pulldown mode only)
+      @cell(boolean) enabled Optional. set to false to disable this option. A disabled option in a checkboxlist keeps its checkbox, but it can't be toggled
       @cell(integer) indent Optional, how far to indent the option. Defaults to 0
   */
   PUBLIC PROPERTY options(GetRows, SetRows);
@@ -1055,7 +1055,6 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
                        ];
 
       INSERT CELL checkboxname := "__select_checked" INTO coldef;
-      INSERT CELL checkboxvisible := "__select_showswitch" INTO coldef;
       INSERT CELL checkboxenabled := "__select_switchenabled" INTO coldef;
       list->columns := [ coldef ];
 
@@ -1117,8 +1116,7 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
     this->pvt_list->rows :=
         SELECT *
              , __select_checked := tolliumselected
-             , __select_showswitch := enabled
-             , __select_switchenabled := this->pvt_enabled
+             , __select_switchenabled := this->pvt_enabled AND enabled
           FROM this->options WHERE NOT CellExists(options, "isdivider") OR NOT options.isdivider;
 
     this->ApplyEnableOns();
