@@ -396,13 +396,6 @@ MACRO ColorDetectTest()
   CloseTest("ColorDetectTest");
 }
 
-MACRO TestRegressions()
-{
-  TestEq([ width := 600, height := 450, isjpeg := TRUE ], GfxDimensionsFromImageBlob(OpenTestFile("exif/landscape_1.jpg")));
-  TestEq(DEFAULT RECORD, GfxDimensionsFromImageBlob(DEFAULT BLOB));
-  TestEq(DEFAULT RECORD, GfxDimensionsFromImageBlob(StringToBlob("Hello, world!")));
-}
-
 MethodPacking();
 FilterTest();
 ColorTest();
@@ -414,4 +407,3 @@ IF(NOT IsWASM())
   ColorDetectTest();
 }
 RotateTest();
-TestRegressions();

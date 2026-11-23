@@ -38,25 +38,5 @@ uint32_t BitmapIOFilter::GetHeight() const
         return source->GetHeight();
 }
 
-void BlackWhiteFilter::GetScanline32(Scanline32& output_scanline)
-{
-        unsigned int width = GetWidth();
-        source->GetScanline32(output_scanline);
-        for(unsigned int x=0; x<width; x++)
-        {
-                double grey = 0.30*(double)output_scanline.Pixel(x).GetR()+
-                             0.59*(double)output_scanline.Pixel(x).GetG()+
-                             0.11*(double)output_scanline.Pixel(x).GetB();
-                grey*=mul_fac;
-                grey = (grey>255.0) ? 255.0 : grey;
-                grey = (grey<0.0) ? 0.0 : grey;
-                output_scanline.Pixel(x).SetRGBA(static_cast<uint8_t>(grey),
-                        static_cast<uint8_t>(grey),
-                        static_cast<uint8_t>(grey),
-                        255);
-        }
-}
-
-
 }
 

@@ -127,12 +127,6 @@ uint8_t Octree::GetLinList(Node *Treenode)
   return flag;
 }
 
-unsigned long Octree::GetTotalColors() const
-{
-        return TotalColors;
-}
-
-
 uint8_t Octree::LookupColor(Pixel32 mypixel) const
 {
         Node *mynode = MyTree;

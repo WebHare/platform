@@ -15,26 +15,12 @@ namespace DrawLib
 {
         enum GfxFileType {GFX_UNKNOWN, GFX_PNG, GFX_JPG, GFX_GIF, GFX_BMP, GFX_TIFF };
 
-        /** Save a DrawLib::Bitmap32 bitmap to a stream as a .TGA file. This is a debug format and
-            will not save the alpha layer! This call will fail for bitmaps with height/width greater
-            than 65535.
-            @return true if there were no errors.
-            */
-        BLEXLIB_PUBLIC void SaveBitmap32AsTGA(Blex::Stream *stream, const Bitmap32  &bitmap);
-
         /** Save a DrawLib::Bitmap32 bitmap to a stream as a .JPG file. This format does not support
             alpha layers and they will therefore be discarded. The quality can be entered and can vary
             from 0 .. 100 ?
             @return true if there were no errors.
             */
         BLEXLIB_PUBLIC void SaveBitmap32AsJPG(Blex::Stream *stream, const Bitmap32 &bitmap, uint32_t quality);
-
-        /** Save a DrawLib::Bitmap32 bitmap to a JPG-file on disk. This format does not support
-            alpha layers and they will therefore be discarded.
-            @return true if there were no errors.
-            */
-        BLEXLIB_PUBLIC void SaveBitmap32AsJPG(const std::string &filename, const Bitmap32 &bitmap, uint32_t quality);
-
 
         /** Save A DrawLib::Bitmap32 bitmap to a stream as a .PNG file. This format supports
             alpha layers and fully transparent colors. To use fully transparent colors, a palette
@@ -85,21 +71,6 @@ namespace DrawLib
             @return pointer to a Bitmap32 object, may return NULL on error!
         */
         BLEXLIB_PUBLIC Bitmap32* CreateBitmap32FromBMP(Blex::RandomStream *stream, bool fromfile, bool paletted);
-
-        /** CreateBitmap32FromRaw creates a Bitmap32 object that contains the graphic
-            @param stream - a pointer to an open read-stream.
-            @return pointer to a Bitmap32 object, may return NULL on error!
-        */
-        BLEXLIB_PUBLIC Bitmap32* CreateBitmap32FromRaw(Blex::Stream &stream, unsigned width, unsigned height, std::string const &format, bool premultiplied);
-
-        /** Save A DrawLib::Bitmap32 bitmap to a Raw-file on disk. This format supports
-            alpha layers. It is stored as raw format.
-
-            @param stream - an open write-stream.
-            @param bitmap - a reference to a bitmap containing the image to be written.
-            @return true if there were no errors.
-            */
-        BLEXLIB_PUBLIC void SaveBitmap32AsRaw(Blex::Stream &stream, const Bitmap32 &bitmap, std::string const &format);
 
         /** Reads a file of the TIFF format from an open stream and stores it in
             a Bitmap32 object.

@@ -5,7 +5,7 @@
 #include <blex/blexlib.h>
 #include "drawlib_v2_types.h"
 #include "scanline.h"
-#include "region.h"
+#include <blex/bitmanip.h>
 
 namespace DrawLib
 {
@@ -69,52 +69,6 @@ class BLEXLIB_PUBLIC Bitmap32
         unsigned GetHeight() const {return height;}
 
         IRect GetPaintedRectangle() const;
-};
-
-
-class BLEXLIB_PUBLIC ProtectedBitmap32 : public Bitmap32
-{
-        public:
-        /** Construct a protecting bitmap on top of an existing bitmap.
-            @param basebitmap Actual bitmap to paint on (parent must guarantee that its kept alive as long as this ProtectedBitmap lives)
-        */
-        ProtectedBitmap32(Bitmap32 &basebitmap);
-        ~ProtectedBitmap32();
-
-        /**     Protects an area of the bitmap. A protected area cannot be written to
-                @param area     The area to be protected.
-        */
-        void    ProtectArea   (IRect area);
-
-        /**     UnProtects an area of the bitmap. A unprotected area can be written t
-
-                @param area     The area to be set to unprotected.
-        */
-        void    UnProtectArea (IRect area);
-
-        /**     Protects the whole bitmap. A protected area cannot be written t
-
-        */
-        void    ProtectBitmap   ();
-
-        /**     UnProtects the whole bitmap. A unprotected area can be written to
-
-        */
-        void    UnProtectBitmap ();
-
-        /**     Sets the protection of the bitmap to the protection region.
-        */
-        void    SetAreaProtection(const Region &r);
-        Scanline32 GetScanline32(unsigned line) const;
-        void SetPixelsWithMask(unsigned line, Pixel32 const *sourcepixels, Blex::ConstBitmap mask);
-
-        private:
-        /// Our parent bitmap
-        Bitmap32 &basebitmap;
-        /// The region indicating our protected area
-        Region region;
-        /// Our scratchpad
-        std::unique_ptr<Blex::BitmapType[]> scratchpad;
 };
 
 
@@ -191,8 +145,6 @@ class BLEXLIB_PUBLIC Scanline32
                 std::swap(pixels,rhs.pixels);
                 std::swap(mask,rhs.mask);
         }
-        /** Convert scanline to floats, 4 floats per pixel, r,g,b,a memory layout */
-        void ConvertToFloat(float *outfloats) const;
 };
 
 } //end namespace Drawlib

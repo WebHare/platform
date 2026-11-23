@@ -250,20 +250,6 @@ void Canvas32::SetScanline32(uint32_t line, const Scanline32 *scanline)
         bitmap->SetScanline32(line, scratch);
 }
 
-Scanline32 Canvas32::GetScanline32(uint32_t line) const
-{
-        //the caller should make sure the scanlinewidth equals
-        //assert(scanline->GetWidth()==bitmap->GetWidth());
-        //assert(line                < bitmap->GetHeight());
-
-        //bail if stuff isn't what it needs to be..
-        if (line>=bitmap->GetHeight())
-                throw(std::runtime_error("Canvas32::GetScanline32 out-of-bounds 'line'"));
-
-        // return the scanline
-        return bitmap->GetScanline32(line);
-}
-
 IRect Canvas32::GetPaintedRectangle() const
 {
         return bitmap->GetPaintedRectangle();
