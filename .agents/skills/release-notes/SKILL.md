@@ -10,11 +10,15 @@ or do. They are not a changelog: the git history already records every change.
 
 ## Where they live
 
-- One file per minor version: `doc/release-notes/<major>.<minor>.md`, with the minor version zero-padded to two digits.
-  WebHare 6.2.x goes into `doc/release-notes/6.02.md`.
+- One file per minor version: `doc/release-notes/<major>.<minor>.md`, with the version numbers as in semantic
+  versioning, without zero-padding. WebHare 6.2.x goes into `doc/release-notes/6.2.md`, 6.10.x into `6.10.md`.
 - The version currently being developed is the `version=` line in `whtree/etc/platform.conf`. Add notes to that
   version's file. Create the file if it doesn't exist yet, titled `# WebHare <major>.<minor> release notes`
-  (eg. `# WebHare 6.02 release notes`).
+  (eg. `# WebHare 6.2 release notes`).
+- Git merges these files with the `union` driver (see `.gitattributes`), so concurrent additions don't conflict. The
+  flip side is that two branches editing the same entry are merged without a conflict too, keeping both versions.
+  After merging or rebasing a branch that touches `doc/release-notes/`, check the file for duplicated or interleaved
+  text.
 
 ## What to add
 
