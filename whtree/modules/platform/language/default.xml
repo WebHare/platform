@@ -49,6 +49,9 @@
       <text tid="debug">WebHare debugging</text>
       <text tid="debug-description">Has access to debugging options</text>
     </textgroup>
+    <textgroup gid="serverroles">   <!-- module.serverroles -->
+      <text tid="restored">Restored server</text>
+    </textgroup>
   </textgroup>
   <textgroup gid="siteprofiles" limitlanguages="en nl">   <!-- siteprofiles -->
     <textgroup gid="types">   <!-- siteprofiles.types -->

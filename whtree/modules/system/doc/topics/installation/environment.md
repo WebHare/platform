@@ -30,6 +30,11 @@ Lock the DTAP stage. Must be one of 'production', 'acceptance', 'test' or 'devel
 ### WEBHARE_SERVERNAME
 Override the server name
 
+### WEBHARE_SERVERROLES
+Override the server roles of this server. A list of full role names separated by spaces or commas, eg
+`mymodule:primary mymodule:mailer`. If not set, the roles are configurable in WebHare. In restore mode (see
+`WEBHARE_ISRESTORED`) the only active role is `platform:restored`, whether this variable is set or not.
+
 ### WEBHARE_POSTSTARTSCRIPT
 Path to a shell script to execute near the end of the post-start script.
 

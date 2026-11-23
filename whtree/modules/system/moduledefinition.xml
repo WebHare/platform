@@ -1384,6 +1384,9 @@ Add the name of the type of data (for example "headerimages") or the purpose it 
       </node>
       <node name="global">
         <string name="servertype" description="Type of the server: production, acceptance, test, development" />
+        <string name="serverroles"
+                description="Space separated list of the server roles of this server, eg 'mymodule:primary'. Ignored in restore mode or when WEBHARE_SERVERROLES is set"
+                initialval="" />
         <string name="servername" description="Name of your server" initialval="" />
         <string name="installationid" description="Installation ID of your server" initialval="" />
       </node>

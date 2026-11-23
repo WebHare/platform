@@ -5,7 +5,7 @@ import { generateKyselyDefs } from "@mod-system/js/internal/generation/gen_whdb"
 import { checkModule, installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
 import { buildGeneratorContext } from "@mod-system/js/internal/generation/generator";
 import { getCacheableJSONConfig, getExtractedConfig, invalidateGeneratedFilesCache, writeCacheableJSONConfig } from "@mod-system/js/internal/configuration";
-import { enableDevKit, parseModuleFolderName } from "@mod-system/js/internal/generation/gen_config_nodb";
+import { enableDevKit, resolveServerRoles, parseModuleFolderName, parseServerRoles } from "@mod-system/js/internal/generation/gen_config_nodb";
 import { generatePropertyName, generateTypeName } from "@mod-system/js/internal/generation/gen_wrd";
 import { deleteTestModule } from "@webhare/test-backend";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -57,6 +57,23 @@ async function testCacheableJSONConfig() {
   }
 }
 
+
+async function testServerRoles() {
+  test.eq([], parseServerRoles(undefined));
+  test.eq([], parseServerRoles(""));
+  test.eq(["mymod:aa", "mymod:bb", "other:c-d"], parseServerRoles(" mymod:bb,mymod:aa  other:c-d mymod:aa"));
+  test.eq(["mymod:aa"], parseServerRoles(["mymod:aa", "nomodule", "mymod:", ":tag", "mymod:Upper", "mymod:aa:bb", "mod:reserved", "mymod:a", "mymod:_x", "mymod:x-", 42]));
+
+  //Restore mode wins from everything, then the environment, then the stored roles
+  test.eq(["platform:restored"], resolveServerRoles(["mymod:stored"], { WEBHARE_ISRESTORED: "1", WEBHARE_SERVERROLES: "mymod:env" }));
+  test.eq(["mymod:env", "mymod:env2"], resolveServerRoles(["mymod:stored"], { WEBHARE_SERVERROLES: "mymod:env2 mymod:env" }));
+  test.eq(["mymod:stored"], resolveServerRoles(["mymod:stored"], { WEBHARE_SERVERROLES: "" }));
+  test.eq([], resolveServerRoles([], {}));
+
+  test.assert(Array.isArray(backendConfig.serverRoles));
+  test.eq({ name: "platform:restored", title: "platform:module.serverroles.restored" },
+    getExtractedConfig("serverroles").roles.find(_ => _.name === "platform:restored"));
+}
 
 async function testWebHareConfig() {
   test.eq("DshopsProdSkw", generateTypeName("dshops-prod-skw"));
@@ -369,6 +386,7 @@ export type RPCDependencyResult = { value: Awaited<ReturnType<GetRPCClientInterf
 
 test.runTests([
   testCacheableJSONConfig,
+  testServerRoles,
   testModuleRPCDependencies,
   testBasics,
   testWebHareConfig,

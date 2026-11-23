@@ -7,7 +7,7 @@ import type { RecursivePartial } from "@webhare/js-api-tools";
 import type { DTAPStage } from "@webhare/env/src/concepts";
 import { DOMParser } from "@xmldom/xmldom";
 import type { BackendConfiguration, ClusterSecretType, ConfigFile, ModuleData, ModuleMap, RetiredSecret } from "@webhare/services/src/config";
-import { isValidModuleName } from "@webhare/services/src/naming";
+import { isValidModuleName, isValidModuleQualifiedName } from "@webhare/services/src/naming";
 import { join } from "node:path";
 
 export function appendSlashWhenMissing(path: string) {
@@ -16,6 +16,26 @@ export function appendSlashWhenMissing(path: string) {
 
 export function isValidDTAPStage(dtapstage: string): dtapstage is DTAPStage {
   return ["production", "acceptance", "test", "development"].includes(dtapstage);
+}
+
+/** Parse a list of server roles, separated by spaces or commas, dropping invalid names */
+export function parseServerRoles(input: unknown): string[] {
+  const roles = typeof input === "string" ? input.split(/[\s,]+/) : Array.isArray(input) ? input : [];
+  return [...new Set(roles.filter((role): role is string => typeof role === "string" && isValidModuleQualifiedName(role)))].sort();
+}
+
+/** Resolve which server roles are active for this server, while generating platform.json (public.serverRoles):
+ *  - in restore mode (WEBHARE_ISRESTORED) only 'platform:restored', so a restored server never picks up the original server's roles
+ *  - otherwise the roles in WEBHARE_SERVERROLES, if set
+ *  - otherwise the roles stored in the registry
+ *  To get the active roles at runtime, read backendConfig.serverRoles instead
+ */
+export function resolveServerRoles(storedRoles: string[], env: Record<string, string | undefined> = process.env): string[] {
+  if (env.WEBHARE_ISRESTORED)
+    return ["platform:restored"];
+  if (env.WEBHARE_SERVERROLES)
+    return parseServerRoles(env.WEBHARE_SERVERROLES);
+  return parseServerRoles(storedRoles);
 }
 
 /** Parse a list of retired secrets (from the registry or an older platform.json), dropping malformed entries */
@@ -136,6 +156,8 @@ export type PartialConfigFile = RecursivePartial<ConfigFile> & { debugsettings?:
 
 export function updateWebHareConfigWithoutDB(oldconfig: PartialConfigFile): ConfigFile {
   const nodbconfig = generateNoDBConfig();
+  //Without a database we keep the stored roles from the previous platform.json, but restore mode and WEBHARE_SERVERROLES are always rechecked
+  const storedServerRoles = parseServerRoles(oldconfig?.storedServerRoles);
 
   const publicdata: BackendConfiguration = {
     dtapstage: "production",
@@ -144,6 +166,7 @@ export function updateWebHareConfigWithoutDB(oldconfig: PartialConfigFile): Conf
     backendURL: "",
     ...oldconfig?.public,
     ...nodbconfig.public,
+    serverRoles: resolveServerRoles(storedServerRoles)
   };
 
   return {
@@ -156,6 +179,7 @@ export function updateWebHareConfigWithoutDB(oldconfig: PartialConfigFile): Conf
       retired: parseRetiredSecrets(oldconfig?.secrets?.retired),
     },
     defaultImageFormat: oldconfig?.defaultImageFormat || "keep",
+    storedServerRoles,
     ...pick(oldconfig, ["debugsettings", "socketDir"]),
     ...omit(nodbconfig, ["public"]),
   };

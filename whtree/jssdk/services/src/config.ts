@@ -23,6 +23,8 @@ export type BackendConfiguration = {
   /** The URL to the backend interface (if configured), eg https://my.webhare.dev/ */
   backendURL: string;
   serverName: string;
+  /** Active server roles, eg 'mymodule:primary'. Only 'platform:restored' in restore mode */
+  serverRoles: string[];
   /** WebHare version number (the semantic-version of the current WebHare (eg 5.7.1) */
   whVersion: string;
 
@@ -54,6 +56,8 @@ export type ConfigFile = {
   modulescandirs: string[];
   public: BackendConfiguration;
   defaultImageFormat: "keep" | "image/webp" | "image/avif";
+  /** Server roles as stored in the registry (system:global.serverroles). public.serverRoles holds the roles that are actually active */
+  storedServerRoles: string[];
   secrets: {
     cache: string;
     cookie: string;

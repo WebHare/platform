@@ -192,3 +192,7 @@ reports:
   seosettings:
     onGenerate: mod::publisher/tolliumapps/filemanager/reports/seoreport.ts#getSEOReport
     outputFormat: application/x-webhare-spreadsheet
+
+serverRoles:
+  restored:
+    tid: module.serverroles.restored
