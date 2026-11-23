@@ -50,7 +50,12 @@
       <text tid="debug-description">Heeft toegang tot debugopties</text>
     </textgroup>
     <textgroup gid="serverroles">   <!-- module.serverroles -->
+      <text tid="acceptance">Acceptatieserver</text>
+      <text tid="ci">CI-server</text>
+      <text tid="development">Ontwikkelserver</text>
+      <text tid="production">Productieserver</text>
       <text tid="restored">Teruggezette server</text>
+      <text tid="test">Testserver</text>
     </textgroup>
   </textgroup>
   <textgroup gid="siteprofiles">   <!-- siteprofiles -->

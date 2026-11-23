@@ -64,15 +64,28 @@ async function testServerRoles() {
   test.eq(["mymod:aa", "mymod:bb", "other:c-d"], parseServerRoles(" mymod:bb,mymod:aa  other:c-d mymod:aa"));
   test.eq(["mymod:aa"], parseServerRoles(["mymod:aa", "nomodule", "mymod:", ":tag", "mymod:Upper", "mymod:aa:bb", "mod:reserved", "mymod:a", "mymod:_x", "mymod:x-", 42]));
 
-  //Restore mode wins from everything, then the environment, then the stored roles
-  test.eq(["platform:restored"], resolveServerRoles(["mymod:stored"], { WEBHARE_ISRESTORED: "1", WEBHARE_SERVERROLES: "mymod:env" }));
-  test.eq(["mymod:env", "mymod:env2"], resolveServerRoles(["mymod:stored"], { WEBHARE_SERVERROLES: "mymod:env2 mymod:env" }));
-  test.eq(["mymod:stored"], resolveServerRoles(["mymod:stored"], { WEBHARE_SERVERROLES: "" }));
-  test.eq([], resolveServerRoles([], {}));
+  //Restore mode ignores both the environment and the stored roles, then the environment wins from the stored roles
+  test.eq(["platform:production", "platform:restored"], resolveServerRoles(["mymod:stored"], "production", { WEBHARE_ISRESTORED: "1", WEBHARE_SERVERROLES: "mymod:env" }));
+  test.eq(["mymod:env", "mymod:env2", "platform:test"], resolveServerRoles(["mymod:stored"], "test", { WEBHARE_SERVERROLES: "mymod:env2 mymod:env" }));
+  test.eq(["mymod:stored", "platform:acceptance"], resolveServerRoles(["mymod:stored"], "acceptance", { WEBHARE_SERVERROLES: "" }));
+  test.eq(["platform:development"], resolveServerRoles([], "development", {}));
 
-  test.assert(Array.isArray(backendConfig.serverRoles));
-  test.eq({ name: "platform:restored", title: "platform:module.serverroles.restored" },
-    getExtractedConfig("serverroles").roles.find(_ => _.name === "platform:restored"));
+  //Built-in roles are always derived, never taken from the stored roles or WEBHARE_SERVERROLES
+  test.eq(["mymod:stored", "platform:ci", "platform:development"], resolveServerRoles(["mymod:stored", "platform:production", "platform:restored"], "development", { WEBHARE_CI: "1" }));
+  test.eq(["platform:test"], resolveServerRoles([], "test", { WEBHARE_SERVERROLES: "platform:ci platform:production" }));
+
+  //A restored server only has the built-in roles derived for it: no stored roles, no WEBHARE_SERVERROLES, and no built-in names passed through either
+  test.eq(["platform:restored", "platform:test"], resolveServerRoles(["mymod:stored"], "test", { WEBHARE_ISRESTORED: "1" }));
+  test.eq(["platform:restored", "platform:test"], resolveServerRoles([], "test", { WEBHARE_ISRESTORED: "1", WEBHARE_SERVERROLES: "mymod:env" }));
+  test.eq(["platform:restored", "platform:test"], resolveServerRoles(["platform:production", "platform:ci"], "test", { WEBHARE_ISRESTORED: "1", WEBHARE_SERVERROLES: "platform:acceptance mymod:env" }));
+  test.eq(["platform:ci", "platform:restored", "platform:test"], resolveServerRoles(["mymod:stored"], "test", { WEBHARE_ISRESTORED: "1", WEBHARE_CI: "1" }));
+
+  test.assert(backendConfig.serverRoles.includes(`platform:${backendConfig.dtapstage}`));
+  const declared = getExtractedConfig("serverroles").roles;
+  test.eq({ name: "platform:restored", title: "platform:module.serverroles.restored", isBuiltin: true },
+    declared.find(_ => _.name === "platform:restored"));
+  test.eq(["platform:acceptance", "platform:ci", "platform:development", "platform:production", "platform:restored", "platform:test"],
+    declared.filter(_ => _.isBuiltin).map(_ => _.name).sort());
 }
 
 async function testWebHareConfig() {
@@ -145,11 +158,13 @@ async function testWebHareConfig() {
   const serverRoles = getExtractedConfig("serverroles");
   test.eq({
     name: "webhare_testsuite:primary",
-    title: ":Primary server"
+    title: ":Primary server",
+    isBuiltin: false
   }, serverRoles.roles.find(_ => _.name === "webhare_testsuite:primary"));
   test.eq({
     name: "webhare_testsuite:secondary",
-    title: "webhare_testsuite:module.secondaryrole"
+    title: "webhare_testsuite:module.secondaryrole",
+    isBuiltin: false
   }, serverRoles.roles.find(_ => _.name === "webhare_testsuite:secondary"));
 }
 

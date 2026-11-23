@@ -24,18 +24,23 @@ export function parseServerRoles(input: unknown): string[] {
   return [...new Set(roles.filter((role): role is string => typeof role === "string" && isValidModuleQualifiedName(role)))].sort();
 }
 
+/** Built-in server roles. They're derived from the environment and the DTAP stage and can't be stored or set */
+export const builtinServerRoles = ["platform:restored", "platform:ci", "platform:production", "platform:acceptance", "platform:test", "platform:development"];
+
 /** Resolve which server roles are active for this server, while generating platform.json (public.serverRoles):
- *  - in restore mode (WEBHARE_ISRESTORED) only 'platform:restored', so a restored server never picks up the original server's roles
- *  - otherwise the roles in WEBHARE_SERVERROLES, if set
- *  - otherwise the roles stored in the registry
+ *  - the roles in WEBHARE_SERVERROLES if set, otherwise the roles stored in the registry. In restore mode (WEBHARE_ISRESTORED)
+ *    neither, so a restored server never picks up the original server's roles
+ *  - the built-in roles: 'platform:restored' in restore mode, 'platform:ci' if WEBHARE_CI is set and 'platform:<dtapstage>'
  *  To get the active roles at runtime, read backendConfig.serverRoles instead
  */
-export function resolveServerRoles(storedRoles: string[], env: Record<string, string | undefined> = process.env): string[] {
+export function resolveServerRoles(storedRoles: string[], dtapstage: DTAPStage, env: Record<string, string | undefined> = process.env): string[] {
+  const roles = env.WEBHARE_ISRESTORED ? [] : parseServerRoles(env.WEBHARE_SERVERROLES || storedRoles).filter(role => !builtinServerRoles.includes(role));
   if (env.WEBHARE_ISRESTORED)
-    return ["platform:restored"];
-  if (env.WEBHARE_SERVERROLES)
-    return parseServerRoles(env.WEBHARE_SERVERROLES);
-  return parseServerRoles(storedRoles);
+    roles.push("platform:restored");
+  if (env.WEBHARE_CI)
+    roles.push("platform:ci");
+  roles.push(`platform:${dtapstage}`);
+  return parseServerRoles(roles);
 }
 
 /** Parse a list of retired secrets (from the registry or an older platform.json), dropping malformed entries */
@@ -156,7 +161,7 @@ export type PartialConfigFile = RecursivePartial<ConfigFile> & { debugsettings?:
 
 export function updateWebHareConfigWithoutDB(oldconfig: PartialConfigFile): ConfigFile {
   const nodbconfig = generateNoDBConfig();
-  //Without a database we keep the stored roles from the previous platform.json, but restore mode and WEBHARE_SERVERROLES are always rechecked
+  //Without a database we keep the stored roles from the previous platform.json, but the environment and DTAP stage are always rechecked
   const storedServerRoles = parseServerRoles(oldconfig?.storedServerRoles);
 
   const publicdata: BackendConfiguration = {
@@ -166,8 +171,9 @@ export function updateWebHareConfigWithoutDB(oldconfig: PartialConfigFile): Conf
     backendURL: "",
     ...oldconfig?.public,
     ...nodbconfig.public,
-    serverRoles: resolveServerRoles(storedServerRoles)
+    serverRoles: []
   };
+  publicdata.serverRoles = resolveServerRoles(storedServerRoles, publicdata.dtapstage);
 
   return {
     public: publicdata,

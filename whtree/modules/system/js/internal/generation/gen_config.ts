@@ -67,7 +67,7 @@ async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: boolean
 
       //the default is needed when the registry key hasn't been created yet ('wh apply registry' runs after us)
       finalconfig.storedServerRoles = parseServerRoles(await readRegistryKey("system:global.serverroles", ""));
-      finalconfig.public.serverRoles = resolveServerRoles(finalconfig.storedServerRoles);
+      finalconfig.public.serverRoles = resolveServerRoles(finalconfig.storedServerRoles, finalconfig.public.dtapstage);
 
       return finalconfig;
     } finally {

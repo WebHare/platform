@@ -23,7 +23,7 @@ export type BackendConfiguration = {
   /** The URL to the backend interface (if configured), eg https://my.webhare.dev/ */
   backendURL: string;
   serverName: string;
-  /** Active server roles, eg 'mymodule:primary'. Only 'platform:restored' in restore mode */
+  /** Active server roles, eg 'mymodule:primary', including the built-in roles such as 'platform:production' */
   serverRoles: string[];
   /** WebHare version number (the semantic-version of the current WebHare (eg 5.7.1) */
   whVersion: string;

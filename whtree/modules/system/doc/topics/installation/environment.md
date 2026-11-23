@@ -33,7 +33,10 @@ Override the server name
 ### WEBHARE_SERVERROLES
 Override the server roles of this server. A list of full role names separated by spaces or commas, eg
 `mymodule:primary mymodule:mailer`. If not set, the roles are configurable in WebHare. In restore mode (see
-`WEBHARE_ISRESTORED`) the only active role is `platform:restored`, whether this variable is set or not.
+`WEBHARE_ISRESTORED`) neither these nor the configured roles are active.
+
+The built-in roles are always derived and can't be set: `platform:<dtapstage>` (eg `platform:production`),
+`platform:restored` in restore mode and `platform:ci` if `WEBHARE_CI` is set.
 
 ### WEBHARE_POSTSTARTSCRIPT
 Path to a shell script to execute near the end of the post-start script.
@@ -173,7 +176,8 @@ points to may be executed by the test runner as well.
 If set the CI framework will launch a second WebHare (used for test_peerserver)
 
 ### WEBHARE_CI
-The `WEBHARE_CI` variable is set by testcontainer/testmodule to indicate that the current installation is started by CI
+The `WEBHARE_CI` variable is set by testcontainer/testmodule to indicate that the current installation is started by CI.
+It also gives the server the built-in `platform:ci` server role.
 
 ### WEBHARE_CI_MODULE
 The `WEBHARE_CI_MODULE` variable contains the name of the module being tested by CI. (added in 5.02)

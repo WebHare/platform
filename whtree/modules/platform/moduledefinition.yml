@@ -193,6 +193,16 @@ reports:
     onGenerate: mod::publisher/tolliumapps/filemanager/reports/seoreport.ts#getSEOReport
     outputFormat: application/x-webhare-spreadsheet
 
-serverRoles:
+serverRoles: # Built-in roles, see builtinServerRoles in gen_config_nodb.ts
+  acceptance:
+    tid: module.serverroles.acceptance
+  ci:
+    tid: module.serverroles.ci
+  development:
+    tid: module.serverroles.development
+  production:
+    tid: module.serverroles.production
   restored:
     tid: module.serverroles.restored
+  test:
+    tid: module.serverroles.test

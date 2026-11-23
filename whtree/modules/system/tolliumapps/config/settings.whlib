@@ -2,6 +2,7 @@
 
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 
@@ -20,6 +21,7 @@ LOADLIB "mod::tollium/lib/internal/support.whlib";
 PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
 <
   RECORD ARRAY save_servertype_options;
+  STRING ARRAY builtinroles;
 
   MACRO Init()
   {
@@ -80,8 +82,8 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
       WriteRegistryKey("system.global.servertype",^servertype->value);
     IF(^servername->enabled)
       WriteRegistryKey("system.global.servername", ^servername->value);
-    IF(^serverroles->enabled)
-      WriteRegistryKey("system.global.serverroles", Detokenize(SortArray(^serverroles->value), " "));
+    IF(^serverroles->enabled) //built-in roles are derived from the environment and DTAP stage, never stored
+      WriteRegistryKey("system.global.serverroles", Detokenize(SortArray(ArrayDelete(^serverroles->value, this->builtinroles)), " "));
     WriteRegistryKey("system.backend.layout.title", ^displayname->value);
 
     IF(NOT work->HasFailed())
@@ -152,26 +154,30 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
   }
 
   MACRO InitServerRoles() {
+    RECORD ARRAY declared := __GetExtractedConfig("serverroles").roles;
+    this->builtinroles := SELECT AS STRING ARRAY name FROM declared WHERE isbuiltin;
+
     STRING ARRAY stored;
     FOREVERY(STRING role FROM Tokenize(ReadRegistryKey("system.global.serverroles"), " "))
-      IF(role != "" AND role NOT IN stored)
+      IF(role != "" AND role NOT IN stored AND role NOT IN this->builtinroles)
         INSERT role INTO stored AT END;
 
-    // platform:restored is only set by restore mode. Keep stored roles that no installed module declares, so saving doesn't drop them
+    // Built-in roles are shown read-only, checked when active. Keep stored roles that no installed module declares, so saving doesn't drop them
     RECORD ARRAY options := SELECT rowkey := name
                                  , roletitle := title != "" ? GetTid(title) : ""
-                              FROM __GetExtractedConfig("serverroles").roles
-                             WHERE name != "platform:restored";
+                                 , enabled := NOT isbuiltin
+                              FROM declared;
     FOREVERY(STRING role FROM stored)
       IF(role NOT IN (SELECT AS STRING ARRAY rowkey FROM options))
-        INSERT [ rowkey := role, roletitle := "" ] INTO options AT END;
+        INSERT [ rowkey := role, roletitle := "", enabled := TRUE ] INTO options AT END;
 
     // Sort by title, then by full role name. Roles without a title sort by their full name
     ^serverroles->options := SELECT rowkey
                                   , title := roletitle != "" ? roletitle || " (" || rowkey || ")" : rowkey
+                                  , enabled
                                FROM options
                            ORDER BY ToUppercase(roletitle ?? rowkey), rowkey;
-    ^serverroles->value := stored;
+    ^serverroles->value := stored CONCAT (SELECT AS STRING ARRAY role FROM ToRecordArray(GetServerRoles(), "role") WHERE role IN this->builtinroles);
 
     // The host decides the roles in restore mode or when WEBHARE_SERVERROLES is set, see resolveServerRoles
     STRING lockedtid := GetEnvironmentVariable("WEBHARE_ISRESTORED") != "" ? ".serverroles-restored"
