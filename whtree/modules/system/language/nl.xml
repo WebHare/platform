@@ -1360,6 +1360,8 @@
         <text tid="recheck-scheduled">Een recheck voor dit probleem is ingepland</text>
         <text tid="runintervalchecks">Intervalchecks inplannen</text>
         <text tid="server">Serverversie</text>
+        <text tid="serverroles">Serverrollen</text>
+        <text tid="serverroles-none">Geen</text>
         <text tid="since">Sinds</text>
         <text tid="snooze">Snooze</text>
         <text tid="snoozed_until">Gesnoozed tot <param p="1"/></text>

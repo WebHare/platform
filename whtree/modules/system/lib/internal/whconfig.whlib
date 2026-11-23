@@ -139,6 +139,17 @@ PUBLIC RECORD FUNCTION GetcachedWebHareConfig()
   RETURN GetAdhocCached([ type := "config" ], PTR GetCacheableWebHareConfig);
 }
 
+/** Read the active server roles from an already decoded platform.json */
+STRING ARRAY FUNCTION ReadServerRoles(RECORD config) {
+  RETURN CellExists(config."public", "serverroles") ? STRING ARRAY(config."public".serverroles) : STRING[];
+}
+
+/** @short Get the active server roles of this server, as resolved while generating platform.json
+    @return Full role names, eg 'mymodule:primary'. Only 'platform:restored' in restore mode */
+PUBLIC STRING ARRAY FUNCTION GetServerRoles() {
+  RETURN ReadServerRoles(DecodeJSONBlob(GetDiskResource(__SYSTEM_WHCOREPARAMETERS().basedataroot || "config/platform.json")));
+}
+
 PUBLIC RECORD FUNCTION GetMyApplicabilityInfo()
 {
   RECORD config := DecodeJSONBlob(GetDiskResource(__SYSTEM_WHCOREPARAMETERS().basedataroot || "config/platform.json"));

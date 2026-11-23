@@ -1550,6 +1550,8 @@
         <text tid="recheck-scheduled">A recheck for this issue has been scheduled</text>
         <text tid="runintervalchecks">Schedule interval checks</text>
         <text tid="server">Server version</text>
+        <text tid="serverroles">Server roles</text>
+        <text tid="serverroles-none">None</text>
         <text tid="since">Since</text>
         <text tid="snooze">Snooze</text>
         <text tid="snoozed_until">Snoozed until</text>
