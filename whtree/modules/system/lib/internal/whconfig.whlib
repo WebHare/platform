@@ -144,10 +144,27 @@ STRING ARRAY FUNCTION ReadServerRoles(RECORD config) {
   RETURN CellExists(config."public", "serverroles") ? STRING ARRAY(config."public".serverroles) : STRING[];
 }
 
-/** @short Get the active server roles of this server, as resolved while generating platform.json
-    @return Full role names, eg 'mymodule:primary', including the built-in roles such as 'platform:production' */
+/** @short Get the server roles that are active on this server
+    @topic modules/config
+    @public
+    @loadlib mod::system/lib/configure.whlib
+    @return Full role names, sorted, eg 'mymodule:primary'. Includes the built-in roles such as 'platform:production' and, in restore mode, 'platform:restored'
+*/
 PUBLIC STRING ARRAY FUNCTION GetServerRoles() {
   RETURN ReadServerRoles(DecodeJSONBlob(GetDiskResource(__SYSTEM_WHCOREPARAMETERS().basedataroot || "config/platform.json")));
+}
+
+/** @short Check whether a server role is active on this server
+    @topic modules/config
+    @public
+    @loadlib mod::system/lib/configure.whlib
+    @param role Full role name, eg 'mymodule:primary'
+    @return True if the role is active
+*/
+PUBLIC BOOLEAN FUNCTION HasServerRole(STRING role) {
+  IF(role NOT LIKE "?*:?*")
+    THROW NEW Exception(`Invalid server role name '${role}', expected a full role name such as 'mymodule:primary'`);
+  RETURN role IN GetServerRoles();
 }
 
 PUBLIC RECORD FUNCTION GetMyApplicabilityInfo()

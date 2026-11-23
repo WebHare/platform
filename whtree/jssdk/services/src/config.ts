@@ -1,8 +1,27 @@
 //Types as stored in the backend configuratio
 import type { DTAPStage } from "@webhare/env/src/concepts";
 import type { RecursiveReadonly } from "@webhare/js-api-tools";
-export { backendConfig } from "@mod-system/js/internal/configuration";
+import { backendConfig } from "@mod-system/js/internal/configuration";
+import { isValidModuleQualifiedName } from "./naming";
+export { backendConfig };
 export { getBasePort } from "./environment";
+
+/** Get the server roles that are active on this server
+ * @returns Full role names, sorted, eg ['mymodule:primary', 'platform:production']. Includes the built-in roles such as 'platform:production' and, in restore mode, 'platform:restored'
+ */
+export function getServerRoles(): string[] {
+  return [...backendConfig.serverRoles];
+}
+
+/** Check whether a server role is active on this server
+ * @param role - Full role name, eg 'mymodule:primary'
+ * @returns True if the role is active
+ */
+export function hasServerRole(role: string): boolean {
+  if (!isValidModuleQualifiedName(role))
+    throw new Error(`Invalid server role name '${role}', expected a full role name such as 'mymodule:primary'`);
+  return backendConfig.serverRoles.includes(role);
+}
 
 export interface ModuleData {
   /** Module's version */

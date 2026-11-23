@@ -14,7 +14,7 @@ export type { ToFSPathOptions } from "./resources";
 export { openBackendService, type GetBackendServiceInterface } from "./ipc/backendservice.ts";
 export { BackendServiceConnection } from "./ipc/ipc-base.ts";
 export { runBackendService, type BackendServiceController, type BackendServiceOptions, type ServiceClientFactoryFunction, type ServiceControllerFactoryFunction, type WebHareService } from "./ipc/backendservicerunner.ts";
-export { backendConfig } from "./config";
+export { backendConfig, getServerRoles, hasServerRole } from "./config";
 export type { WebHareBackendConfiguration } from "./config";
 export { broadcast, subscribe, subscribeToEventStream, signalOnEvent } from "./backendevents";
 export type { BackendEvent, BackendEventSubscription } from "./backendevents";

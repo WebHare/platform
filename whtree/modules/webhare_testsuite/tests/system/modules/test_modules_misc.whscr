@@ -86,6 +86,15 @@ MACRO TestApplicability()
   TestEq("", GetApplicabilityError(GetMyApplicabilityInfo(), oldrestrictions));
 }
 
+MACRO TestServerRoles()
+{
+  STRING stagerole := "platform:" || GetDTAPStage(); //always active
+  TestEq(TRUE, stagerole IN GetServerRoles());
+  TestEq(TRUE, HasServerRole(stagerole));
+  TestEq(FALSE, HasServerRole("webhare_testsuite:neverset"));
+  TestThrowsLike("*Invalid server role name 'primary'*", PTR HasServerRole("primary"));
+}
+
 MACRO TestConfigurationAndVersion()
 {
   TestEq(TRUE, GetWebhareVersionInfo().versionnum >= 43600 AND GetWebhareVersionInfo().versionnum < 99999);
@@ -106,6 +115,7 @@ MACRO TestWithModule()
 
 RunTestframework([ PTR TestSemvers
                  , PTR TestApplicability
+                 , PTR TestServerRoles
                  , PTR TestConfigurationAndVersion
                  , PTR TestWithModule
                  ]);

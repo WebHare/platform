@@ -31,7 +31,7 @@ export const builtinServerRoles = ["platform:restored", "platform:ci", "platform
  *  - the roles in WEBHARE_SERVERROLES if set, otherwise the roles stored in the registry. In restore mode (WEBHARE_ISRESTORED)
  *    neither, so a restored server never picks up the original server's roles
  *  - the built-in roles: 'platform:restored' in restore mode, 'platform:ci' if WEBHARE_CI is set and 'platform:<dtapstage>'
- *  To get the active roles at runtime, read backendConfig.serverRoles instead
+ *  To get the active roles at runtime, use getServerRoles/hasServerRole from @webhare/services (GetServerRoles/HasServerRole in HareScript) instead
  */
 export function resolveServerRoles(storedRoles: string[], dtapstage: DTAPStage, env: Record<string, string | undefined> = process.env): string[] {
   const roles = env.WEBHARE_ISRESTORED ? [] : parseServerRoles(env.WEBHARE_SERVERROLES || storedRoles).filter(role => !builtinServerRoles.includes(role));

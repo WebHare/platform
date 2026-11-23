@@ -1,6 +1,6 @@
 import * as test from "@webhare/test";
 import * as fs from "fs";
-import { applyConfiguration, backendConfig, signalOnEvent } from "@webhare/services";
+import { applyConfiguration, backendConfig, getServerRoles, hasServerRole, signalOnEvent } from "@webhare/services";
 import { generateKyselyDefs } from "@mod-system/js/internal/generation/gen_whdb";
 import { checkModule, installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
 import { buildGeneratorContext } from "@mod-system/js/internal/generation/generator";
@@ -81,6 +81,12 @@ async function testServerRoles() {
   test.eq(["platform:ci", "platform:restored", "platform:test"], resolveServerRoles(["mymod:stored"], "test", { WEBHARE_ISRESTORED: "1", WEBHARE_CI: "1" }));
 
   test.assert(backendConfig.serverRoles.includes(`platform:${backendConfig.dtapstage}`));
+
+  //Runtime API
+  test.eq(backendConfig.serverRoles, getServerRoles());
+  test.assert(hasServerRole(`platform:${backendConfig.dtapstage}`));
+  test.assert(!hasServerRole("webhare_testsuite:neverset"));
+  test.throws(/Invalid server role name 'primary'/, () => hasServerRole("primary"));
   const declared = getExtractedConfig("serverroles").roles;
   test.eq({ name: "platform:restored", title: "platform:module.serverroles.restored", isBuiltin: true },
     declared.find(_ => _.name === "platform:restored"));
