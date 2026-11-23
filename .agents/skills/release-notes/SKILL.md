@@ -15,6 +15,9 @@ or do. They are not a changelog: the git history already records every change.
 - The version currently being developed is the `version=` line in `whtree/etc/platform.conf`. Add notes to that
   version's file. Create the file if it doesn't exist yet, titled `# WebHare <major>.<minor> release notes`
   (eg. `# WebHare 6.2 release notes`).
+- When a version is released (its first `.0` release), add the release date to the title in the form
+  `# WebHare <major>.<minor> - <day> <Month> <year>` (eg. `# WebHare 6.2 - 1 December 2026`). The title has
+  no date while the version is still in development.
 - Git merges these files with the `union` driver (see `.gitattributes`), so concurrent additions don't conflict. The
   flip side is that two branches editing the same entry are merged without a conflict too, keeping both versions.
   After merging or rebasing a branch that touches `doc/release-notes/`, check the file for duplicated or interleaved
