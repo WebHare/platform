@@ -345,7 +345,7 @@ bool PGSQLNativeTransactionDriver::WaitForResult()
                         */
                         std::string error = "PostgreSQL command timeout after " + Blex::AnyToString(command_timeout_secs) + " seconds";
                         if (!CancelAndDiscardResults())
-                            error += ", and the connection could not be recovered (it is still busy with the cancelled command)";
+                            error += ", and the connection could not be recovered";
                         HSVM_ThrowException(*vm, error.c_str());
                         return false;
                 }
