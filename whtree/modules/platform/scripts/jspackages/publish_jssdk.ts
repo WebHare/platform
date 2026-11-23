@@ -25,6 +25,7 @@ import { pick } from '@webhare/std';
 import { readAxioms } from '@mod-platform/js/configure/axioms';
 import type { PackageJson } from "../../js/devsupport/jspackages";
 import { tmpdir } from "os";
+import { readJSONFile } from "@mod-platform/js/cli/cli-tools";
 
 runCli({
   description: "Validate/lint the WebHare JSSDK packages",
@@ -114,13 +115,13 @@ runCli({
       await rm(join(destdir, 'dist'), { recursive: true, force: true });
     }
 
-    const rootpackagejson = JSON.parse(await readFile(join(backendConfig.installationroot, "package.json"), "utf8"));
+    const rootpackagejson = await readJSONFile<Record<string, unknown>>(join(backendConfig.installationroot, "package.json"));
     const fixedsettings = pick(rootpackagejson, axioms.copyPackageFields);
 
     //let's patch the packages for distribution outside the WebHare tree
     for (const pkgname of axioms.publishPackages) {
       const pkgroot = join(jssdkPath, pkgname);
-      const packagejson = JSON.parse(await readFile(join(pkgroot, "package.json"), "utf8")) as PackageJson;
+      const packagejson = await readJSONFile<PackageJson>(join(pkgroot, "package.json"));
       packagejson.private = false;
       //for eg @webhare/eslint-config we also need to include the manually written .d.ts file
       packagejson.files = [...(packagejson.files || []), "dist/", "bin/"];

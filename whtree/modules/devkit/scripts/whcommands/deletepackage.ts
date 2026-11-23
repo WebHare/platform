@@ -33,7 +33,7 @@ runCli({
     const modroot = backendConfig.module[asModulePath.module].root;
 
     const modulePackageJson = modroot + "package.json";
-    const packageJson = readJSONFile<PackageJson>(modulePackageJson);
+    const packageJson = await readJSONFile<PackageJson>(modulePackageJson);
 
     if (packageJson.workspaces?.includes(findPath)) {
       //remove it from the package json

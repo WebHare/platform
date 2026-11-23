@@ -73,7 +73,7 @@ runCli({
       const reportDir = toResourcePath(dir, { keepUnmatched: true });
       let directDependencies: Record<string, string>;
       try {
-        directDependencies = readJSONFile<{ dependencies?: Record<string, string> }>(join(dir, "package.json")).dependencies || {};
+        directDependencies = (await readJSONFile<{ dependencies?: Record<string, string> }>(join(dir, "package.json"))).dependencies || {};
       } catch (e) { //report and continue with the other package dirs
         retval.errors.push({ message: (e as Error).message, resource: reportDir });
         continue;

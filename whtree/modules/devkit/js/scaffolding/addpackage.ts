@@ -59,7 +59,7 @@ export async function addPackage(module: string, parsed: PackageRef, options?: {
 
   //Prepare to add it as a workspace
   const modulePackageJson = modroot + "package.json";
-  const packageJson = readJSONFile<PackageJson>(modulePackageJson);
+  const packageJson = await readJSONFile<PackageJson>(modulePackageJson);
 
   if (!packageJson.workspaces)
     packageJson.workspaces ||= [];

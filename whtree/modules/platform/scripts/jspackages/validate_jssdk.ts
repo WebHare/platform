@@ -40,7 +40,7 @@ runCli({
         console.log(`Checking ${pkg.name}`);
 
 
-      const pkgjson = readJSONFile<PackageJson>(join(pkg.fullPath, "package.json"));
+      const pkgjson = await readJSONFile<PackageJson>(join(pkg.fullPath, "package.json"));
       if (pkgjson.version !== "") //you can't remove it, npm will put it back
         issues.push({ message: "Version should be empty", toFix: () => pkgjson.version = "" });
       if (pkgjson.private !== true)
