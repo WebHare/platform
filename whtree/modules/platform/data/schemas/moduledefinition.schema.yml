@@ -81,6 +81,9 @@ properties:
   mcpTools:
     description: MCP tools offered by the MCP servers of WRD schemas
     $ref: "#/$defs/McpTools"
+  serverRoles:
+    description: Server roles offered by this module
+    $ref: "#/$defs/ServerRoles"
 
 
 $defs:
@@ -774,3 +777,19 @@ $defs:
           onCall:
             type: string
             description: "Function implementing the tool. Must satisfy MCPToolHandler"
+
+  ServerRoles:
+    type: object
+    description: "Declare server roles offered by this module. The full name of a role is <module>:<tag>"
+    additionalProperties: false
+    patternProperties:
+      "^[a-z0-9][-.a-z0-9_]*[a-z0-9]$": # Role tag, see isValidModuleQualifiedName
+        type: object
+        additionalProperties: false
+        properties:
+          title:
+            type: string
+            description: "Human readable title of this role"
+          tid:
+            type: string
+            description: "TID of the title of this role"

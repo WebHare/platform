@@ -18,6 +18,7 @@ import { generatePlugins } from "./gen_plugins";
 import { generateTollium } from "./gen_extract_tollium";
 import { generateReports } from "./gen_extract_reports";
 import { generateMCP } from "./gen_extract_mcp";
+import { generateServerRoles } from "./gen_extract_serverroles";
 
 const DefaultMaxBodySize = 64 * 1024;
 export interface AssetPack {
@@ -421,6 +422,11 @@ export async function listAllExtracts(): Promise<FileToUpdate[]> {
       module: "platform",
       type: "extracts",
       generator: (context: GenerateContext) => generateMCP(context)
+    }, {
+      path: `extracts/serverroles.json`,
+      module: "platform",
+      type: "extracts",
+      generator: (context: GenerateContext) => generateServerRoles(context)
     }
   ];
 }

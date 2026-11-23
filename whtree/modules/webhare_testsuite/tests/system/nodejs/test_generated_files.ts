@@ -124,6 +124,16 @@ async function testWebHareConfig() {
     onGenerate: "mod::webhare_testsuite/js/reports/testreport.ts#generateTestReportNoConfig",
     outputFormat: "application/x-webhare-spreadsheet"
   }, reports.reports.find(_ => _.name === "webhare_testsuite:testreport_noconfig"));
+
+  const serverRoles = getExtractedConfig("serverroles");
+  test.eq({
+    name: "webhare_testsuite:primary",
+    title: ":Primary server"
+  }, serverRoles.roles.find(_ => _.name === "webhare_testsuite:primary"));
+  test.eq({
+    name: "webhare_testsuite:secondary",
+    title: "webhare_testsuite:module.secondaryrole"
+  }, serverRoles.roles.find(_ => _.name === "webhare_testsuite:secondary"));
 }
 
 async function testBasics() {

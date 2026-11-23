@@ -212,3 +212,9 @@ reports:
   testreport_noconfig:
     onGenerate: js/reports/testreport.ts#generateTestReportNoConfig
     outputFormat: application/x-webhare-spreadsheet
+
+serverRoles:
+  primary:
+    title: Primary server
+  secondary:
+    tid: module.secondaryrole
