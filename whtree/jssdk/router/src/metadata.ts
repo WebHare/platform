@@ -46,7 +46,8 @@ function fixupFAQPage(item: StructuredDataItem): NormalizedFaqPage | null {
   };
 }
 
-type ConsilioFieldValue = string | number | boolean | string[] | { [key: string]: ConsilioFieldValue };
+/** Value of a field in PageMetadata.consilioFields. Records are allowed for catalog fields mapped as objects */
+export type ConsilioFieldValue = string | number | boolean | string[] | { [key: string]: ConsilioFieldValue };
 
 /** Manages page level metadata */
 export class PageMetadata {
@@ -72,7 +73,7 @@ export class PageMetadata {
   openGraph: OpenGraphMetadata = {};
 
   /** Additional consilio fields to index with frontend content */
-  readonly consilioFields: Record<string, ConsilioFieldValue> = {}; //TODO investigate which further types to support here, shouldn't consilio offer a type? (although records may be too complex)
+  readonly consilioFields: Record<string, ConsilioFieldValue> = {}; //TODO shouldn't consilio offer a type for this?
 
   //mapping from lowercased prefix to [prefix,namespace] pairs for case-insensitive lookups
   #htmlPrefixes: Map<string, [string, string]> = new Map();
