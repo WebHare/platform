@@ -1175,7 +1175,8 @@
         <text tid="servername">Servernaam</text>
         <text tid="serverroles">Serverrollen</text>
         <text tid="serverroles-env">De serverrollen worden ingesteld door de host (WEBHARE_SERVERROLES) en kunnen hier niet gewijzigd worden.</text>
-        <text tid="serverroles-restored">Deze server staat in restore-modus, daarom zijn de rollen van de oorspronkelijke server niet actief. De rollen kunnen hier niet gewijzigd worden.</text>
+        <text tid="serverroles-env-restored">Deze server staat in restore-modus, daarom zijn alleen de ingebouwde rollen actief. Na het verlaten van de restore-modus gelden de rollen die door de host ingesteld zijn (WEBHARE_SERVERROLES), indien aanwezig.</text>
+        <text tid="serverroles-restored">Deze server staat in restore-modus, daarom zijn de rollen die hier ingesteld zijn niet actief. Wijzigingen gaan in na het verlaten van de restore-modus.</text>
         <text tid="servertype">Servertype (OTAP)</text>
         <text tid="servertype-acceptance">Acceptatie</text>
         <text tid="servertype-development">Ontwikkeling</text>

@@ -34,7 +34,7 @@ fi
 
 if [ -n "$STOREDROLES" ]; then
   if [ -z "$SERVERROLES" ]; then
-    echo "This server has stored server roles, probably from the server the backup was made on: $STOREDROLES"
+    echo "This server has configured server roles, which may come from the server the backup was made on: $STOREDROLES"
     echo "Specify --keep-serverroles to keep them or --clear-serverroles to remove them"
     exit 1
   fi

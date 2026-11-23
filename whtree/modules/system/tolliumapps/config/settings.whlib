@@ -167,12 +167,20 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
       IF(role != "" AND role NOT IN stored AND role NOT IN this->builtinroles)
         INSERT role INTO stored AT END;
 
-    // Built-in roles are shown read-only, checked when active. Keep stored roles that no installed module declares, so saving doesn't drop them
+    // When WEBHARE_SERVERROLES is set, the host decides the roles, see resolveServerRoles. The list then shows the active
+    // roles (read-only), as the configured roles aren't active. Otherwise it shows the configured roles, plus the active
+    // built-in roles
+    BOOLEAN hostroles := GetEnvironmentVariable("WEBHARE_SERVERROLES") != "";
+    STRING ARRAY shown := hostroles ? GetServerRoles()
+                          : stored CONCAT (SELECT AS STRING ARRAY role FROM ToRecordArray(GetServerRoles(), "role") WHERE role IN this->builtinroles);
+
+    // Built-in roles are shown read-only, checked when active. Keep shown roles that no installed module declares, so they
+    // stay visible and saving doesn't drop them
     RECORD ARRAY options := SELECT rowkey := name
                                  , roletitle := title != "" ? GetTid(title) : ""
                                  , enabled := NOT isbuiltin
                               FROM declared;
-    FOREVERY(STRING role FROM stored)
+    FOREVERY(STRING role FROM shown)
       IF(role NOT IN (SELECT AS STRING ARRAY rowkey FROM options))
         INSERT [ rowkey := role, roletitle := "", enabled := TRUE ] INTO options AT END;
 
@@ -183,16 +191,19 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
                                FROM options
                            ORDER BY ToUppercase(roletitle ?? rowkey), rowkey;
     this->storedroles := SortArray(stored);
-    ^serverroles->value := stored CONCAT (SELECT AS STRING ARRAY role FROM ToRecordArray(GetServerRoles(), "role") WHERE role IN this->builtinroles);
+    ^serverroles->value := shown;
 
-    // The host decides the roles in restore mode or when WEBHARE_SERVERROLES is set, see resolveServerRoles
-    STRING lockedtid := GetEnvironmentVariable("WEBHARE_ISRESTORED") != "" ? ".serverroles-restored"
-                        : GetEnvironmentVariable("WEBHARE_SERVERROLES") != "" ? ".serverroles-env"
-                        : "";
-    ^serverroles->enabled := lockedtid = "";
-    ^serverroleslockedpanel->visible := lockedtid != "";
-    IF(lockedtid != "")
-      ^serverroleslocked->value := this->GetTid(lockedtid);
+    // In restore mode the configured roles aren't active, but they can still be changed, eg to set this server's own roles
+    // before leaving restore mode. With WEBHARE_SERVERROLES the list is read-only, so saving can't overwrite them. With
+    // both, only the built-in roles are active, and the host's roles apply after leaving restore mode
+    BOOLEAN restored := GetEnvironmentVariable("WEBHARE_ISRESTORED") != "";
+    STRING notetid := hostroles ? (restored ? ".serverroles-env-restored" : ".serverroles-env")
+                      : restored ? ".serverroles-restored"
+                      : "";
+    ^serverroles->enabled := NOT hostroles;
+    ^serverroleslockedpanel->visible := notetid != "";
+    IF(notetid != "")
+      ^serverroleslocked->value := this->GetTid(notetid);
   }
 
   MACRO RefreshGLobalDashboard(BOOLEAN iscommit)

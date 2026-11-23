@@ -13,7 +13,7 @@ const serverRolesKey = "system:global.serverroles";
 /** Describe why the configured roles aren't the active roles, if they aren't */
 function getRolesOverrideReason(): string | null {
   if (process.env.WEBHARE_ISRESTORED)
-    return "this server is in restore mode (WEBHARE_ISRESTORED), so the configured roles aren't active";
+    return "this server is in restore mode (WEBHARE_ISRESTORED), so the configured roles only become active after leaving restore mode";
   if (process.env.WEBHARE_SERVERROLES)
     return "WEBHARE_SERVERROLES is set, so it overrides the configured roles";
   return null;
