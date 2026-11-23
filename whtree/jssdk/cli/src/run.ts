@@ -531,8 +531,9 @@ async function parseInternal(data: OptArgBase, argv: string[]): Promise<any> {
     }
   }
 
-  if (data.subCommands && !command)
-    throw new CLISyntaxError(`No subcommand specified`);
+  // The last command level may itself have subcommands (eg 'wh config roles' without 'list'), not just the root
+  if (level.subCommands && !(showHelp && command))
+    throw new CLISyntaxError(`No subcommand specified`, command);
 
   const cmdArgs = "arguments" in level ? [...level.arguments ?? []] : [];
   const { trailingRequired } = checkArgumentsOrder(cmdArgs, command);
