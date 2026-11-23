@@ -22,6 +22,7 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
 <
   RECORD ARRAY save_servertype_options;
   STRING ARRAY builtinroles;
+  STRING ARRAY storedroles;
 
   MACRO Init()
   {
@@ -82,8 +83,11 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
       WriteRegistryKey("system.global.servertype",^servertype->value);
     IF(^servername->enabled)
       WriteRegistryKey("system.global.servername", ^servername->value);
-    IF(^serverroles->enabled) //built-in roles are derived from the environment and DTAP stage, never stored
-      WriteRegistryKey("system.global.serverroles", Detokenize(SortArray(ArrayDelete(^serverroles->value, this->builtinroles)), " "));
+    //built-in roles are derived from the environment and DTAP stage, never stored
+    STRING ARRAY newroles := SortArray(ArrayDelete(^serverroles->value, this->builtinroles));
+    BOOLEAN roleschanged := ^serverroles->enabled AND Detokenize(newroles, " ") != Detokenize(this->storedroles, " ");
+    IF(roleschanged)
+      WriteRegistryKey("system.global.serverroles", Detokenize(newroles, " "));
     WriteRegistryKey("system.backend.layout.title", ^displayname->value);
 
     IF(NOT work->HasFailed())
@@ -148,7 +152,8 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
     BroadcastEvent("system:internal.configdata", DEFAULT RECORD);
     BroadcastEvent("system:config.servertype", DEFAULT RECORD);
     UpdateSystemConfigurationRecord();
-    ApplyWebHareConfiguration([ subsystems := ["config.base"], source := "WebHare backend settings"]);
+    //Server roles affect which rules apply (ifWebHare serverRoles, ifserverroles), so changing them needs the full configuration
+    ApplyWebHareConfiguration([ subsystems := roleschanged ? ["all"] : ["config.base"], source := "WebHare backend settings"]);
 
     RETURN TRUE;
   }
@@ -177,6 +182,7 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
                                   , enabled
                                FROM options
                            ORDER BY ToUppercase(roletitle ?? rowkey), rowkey;
+    this->storedroles := SortArray(stored);
     ^serverroles->value := stored CONCAT (SELECT AS STRING ARRAY role FROM ToRecordArray(GetServerRoles(), "role") WHERE role IN this->builtinroles);
 
     // The host decides the roles in restore mode or when WEBHARE_SERVERROLES is set, see resolveServerRoles

@@ -475,6 +475,16 @@
         <xs:documentation>If set, a list of wildcard masks applied against which the server's name must apply for this node to have effect</xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="ifserverroles">
+      <xs:annotation>
+        <xs:documentation>Space separated list of full server role names (eg 'mymodule:primary'). This rule only applies if the server has any of these roles</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="unlessserverroles">
+      <xs:annotation>
+        <xs:documentation>Space separated list of full server role names (eg 'mymodule:primary'). This rule doesn't apply if the server has any of these roles</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
     <xs:attribute name="ifmodules">
       <xs:annotation>
         <xs:documentation>Requires all the specified modules. Expects a semicolon separated list</xs:documentation>

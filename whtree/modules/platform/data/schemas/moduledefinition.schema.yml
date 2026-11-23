@@ -114,6 +114,11 @@ $defs:
         type: array
         items:
           type: string
+      serverRoles:
+        description: "Only apply if the server has any of these server roles (full role names, eg 'mymodule:primary')"
+        type: array
+        items:
+          type: string
       envVars:
         description: "Only apply if the environment variable is set"
         type: array

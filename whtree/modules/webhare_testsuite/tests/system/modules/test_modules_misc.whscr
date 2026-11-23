@@ -6,6 +6,7 @@ LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
 
 MACRO TestSemvers()
 {
@@ -19,6 +20,7 @@ MACRO TestApplicability()
 {
   STRING platform := GetEnvironmentVariable("WEBHARE_PLATFORM");
   TestAssert(platform != "", `Cannot run this test if WEBHARE_PLATFORM is unset`);
+  STRING stagerole := "platform:" || GetDTAPStage(); //always active
 
   OBJECT xmldoc := MakeXMLDocument(StringToBlob(
     `<xml>
@@ -38,6 +40,12 @@ MACRO TestApplicability()
       <node xml:id="test14" ifmodules="webhare_testsuite>=1.0 &lt;9.99" />
       <node xml:id="test15" ifmodules="webhare_testsuite>=1.0;webhare_testsuite&lt;9.99" />
       <node xml:id="test16" ifmodules="webhare_testsuite>=1.0;webhare_testsuite>9.99" />
+      <node xml:id="test17" ifserverroles="${stagerole}" />
+      <node xml:id="test18" ifserverroles="webhare_testsuite:neverset ${stagerole}" />
+      <node xml:id="test19" ifserverroles="webhare_testsuite:neverset" />
+      <node xml:id="test20" unlessserverroles="${stagerole}" />
+      <node xml:id="test21" unlessserverroles="webhare_testsuite:neverset" />
+      <node xml:id="test22" unlessserverroles="webhare_testsuite:neverset ${stagerole}" />
 
     </xml>`));
 
@@ -59,6 +67,23 @@ MACRO TestApplicability()
   TestEq(TRUE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test14")));
   TestEq(TRUE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test15")));
   TestEq(FALSE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test16")));
+
+  // Server roles: ifserverroles needs any of the roles, unlessserverroles fails if any of them is active
+  TestEq(TRUE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test17")));
+  TestEq(TRUE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test18")));
+  TestEq(FALSE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test19")));
+  TestEq(FALSE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test20")));
+  TestEq(TRUE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test21")));
+  TestEq(FALSE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test22")));
+
+  // Peers running an older WebHare don't send their server roles, and older stored restrictions lack the new cells
+  RECORD oldpeer := GetMyApplicabilityInfo();
+  DELETE CELL serverroles FROM oldpeer;
+  TestEq(TRUE, GetApplicabilityError(oldpeer, ReadApplicableToWebHareNode(xmldoc->GetElementById("test17"))) != "");
+  TestEq(TRUE, GetApplicabilityError(oldpeer, ReadApplicableToWebHareNode(xmldoc->GetElementById("test21"))) = "");
+  RECORD oldrestrictions := ReadApplicableToWebHareNode(xmldoc->GetElementById("test12"));
+  DELETE CELL ifserverroles, unlessserverroles FROM oldrestrictions;
+  TestEq("", GetApplicabilityError(GetMyApplicabilityInfo(), oldrestrictions));
 }
 
 MACRO TestConfigurationAndVersion()

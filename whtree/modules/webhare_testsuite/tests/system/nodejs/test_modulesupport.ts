@@ -116,6 +116,46 @@ function testApplicabilityXML() {
   test.eq(null, getApplicabilityError(baseApplicability, readMockXML({ unlessenvironset: "WEBHARE_PLATFORM=dummy TESTDUMMY=x" })));
 }
 
+async function testApplicabilityServerRoles() {
+  const withRoles = { ...getMyApplicabilityInfo(), serverroles: ["mymod:primary", "platform:test"] };
+
+  //YAML: any of the listed roles is enough
+  test.eq(null, getApplicabilityError(withRoles, { serverRoles: ["mymod:primary"] }));
+  test.eq(null, getApplicabilityError(withRoles, { serverRoles: ["mymod:secondary", "mymod:primary"] }));
+  test.eq(/Requires one of the server roles: mymod:secondary, current: mymod:primary, platform:test/, getApplicabilityError(withRoles, { serverRoles: ["mymod:secondary"] }));
+  test.eq(null, getApplicabilityError(withRoles, { not: [{ serverRoles: ["mymod:secondary"] }] }));
+  test.eq(/Requirement that should not be met is met/, getApplicabilityError(withRoles, { not: [{ serverRoles: ["mymod:secondary", "mymod:primary"] }] }));
+  test.eq(/current: none/, getApplicabilityError({ ...withRoles, serverroles: undefined }, { serverRoles: ["mymod:primary"] }), "A peer without server roles has no roles");
+
+  //XML: ifserverroles needs any of the roles, unlessserverroles fails if any of them is active
+  test.eq(null, getApplicabilityError(withRoles, readMockXML({ ifserverroles: "mymod:secondary mymod:primary" })));
+  test.eq(/Requires one of the server roles/, getApplicabilityError(withRoles, readMockXML({ ifserverroles: "mymod:secondary" })));
+  test.eq(null, getApplicabilityError(withRoles, readMockXML({ unlessserverroles: "mymod:secondary" })));
+  test.eq(/Requirement that should not be met is met/, getApplicabilityError(withRoles, readMockXML({ unlessserverroles: "mymod:secondary mymod:primary" })));
+  test.eq(/Requirement that should not be met is met/, getApplicabilityError(withRoles, readMockXML({ unlessenvironset: "TESTDUMMY", unlessserverroles: "mymod:primary" })), "unlessserverroles must combine with unlessenvironset");
+
+  //Masks aren't supported
+  test.eq(/Requires one of the server roles/, getApplicabilityError(withRoles, { serverRoles: ["mymod:*"] }));
+
+  //The real applicability info has the active roles, including the DTAP stage role
+  test.assert(getMyApplicabilityInfo().serverroles?.includes(`platform:${getMyApplicabilityInfo().dtapstage}`));
+
+  const servicedefs = gatherManagedServicesFromModDef(await parseAndValidateModuleDefYMLText(`
+managedServices:
+  service1:
+    script: mod::system/scripts/internal/apprunner.whscr
+    run: always
+    ifWebHare:
+      serverRoles: ["platform:${getMyApplicabilityInfo().dtapstage}"]
+  service2:
+    script: mod::system/scripts/internal/apprunner.whscr
+    run: always
+    ifWebHare:
+      serverRoles: ["webhare_testsuite:neverset"]
+`));
+  test.eq(["webhare_testsuite:service1"], Object.keys(servicedefs));
+}
+
 async function testYMLTitles() {
   const moduledef: LoadedModuleDefs = {
     name: "publisher",
@@ -230,5 +270,6 @@ test.runTests([
   testModuleServices,
   testYMLTitles,
   testApplicability,
-  testApplicabilityXML
+  testApplicabilityXML,
+  testApplicabilityServerRoles
 ]);
