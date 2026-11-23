@@ -46,6 +46,8 @@ function fixupFAQPage(item: StructuredDataItem): NormalizedFaqPage | null {
   };
 }
 
+type ConsilioFieldValue = string | number | boolean | string[] | { [key: string]: ConsilioFieldValue };
+
 /** Manages page level metadata */
 export class PageMetadata {
   viewport = "width=device-width, initial-scale=1";
@@ -70,7 +72,7 @@ export class PageMetadata {
   openGraph: OpenGraphMetadata = {};
 
   /** Additional consilio fields to index with frontend content */
-  readonly consilioFields: Record<string, string | number | boolean | string[]> = {}; //TODO investigate which further types to support here, shouldn't consilio offer a type? (although records may be too complex)
+  readonly consilioFields: Record<string, ConsilioFieldValue> = {}; //TODO investigate which further types to support here, shouldn't consilio offer a type? (although records may be too complex)
 
   //mapping from lowercased prefix to [prefix,namespace] pairs for case-insensitive lookups
   #htmlPrefixes: Map<string, [string, string]> = new Map();
