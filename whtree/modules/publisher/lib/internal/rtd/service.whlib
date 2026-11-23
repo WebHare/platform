@@ -12,6 +12,7 @@ LOADLIB "wh::xml/dom.whlib";
 LOADLIB "mod::system/lib/cache.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
@@ -297,6 +298,29 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor <
     OBJECT applytester := this->applytester ?? ObjectExists(basefsobject) ? GetApplyTesterForObject(basefsobject->id) : DEFAULT OBJECT;
     RECORD preview := GetRTDSingleObjectPreview(basefsobject, applytester, instanceref, this->rtdtype, instancerec, this->language, this->mergefields);
     RETURN preview;
+  }
+
+  /** Render the previews of embedded objects pasted into the RTE. We don't trust the previews that were on the clipboard
+      @param instancerefs Instance references of the pasted embedded objects
+      @return Previews of the embedded objects. Embedded objects with an invalid instance reference, that fail to render or
+          that have no preview (a legacy widget whose GetPreview returns a DEFAULT RECORD) are left out */
+  PUBLIC RECORD ARRAY FUNCTION RenderEmbeddedObjects(STRING ARRAY instancerefs) {
+    OBJECT applytester := this->applytester ?? ObjectExists(this->basefsobject) ? GetApplyTesterForObject(this->basefsobject->id) : DEFAULT OBJECT;
+    RECORD ARRAY previews;
+    FOREVERY(STRING instanceref FROM instancerefs) {
+      RECORD instancerec := this->GetWidget(instanceref);
+      IF(NOT RecordExists(instancerec))
+        CONTINUE;
+
+      TRY {
+        RECORD preview := GetRTDSingleObjectPreview(this->basefsobject, applytester, instanceref, this->rtdtype, instancerec, this->language, this->mergefields);
+        IF(RecordExists(preview))
+          INSERT preview INTO previews AT END;
+      } CATCH(OBJECT e) { //don't let one broken widget prevent the others from being rendered
+        LogHarescriptException(e);
+      }
+    }
+    RETURN previews;
   }
 
   RECORD FUNCTION AddNewImage(STRING inurl)
@@ -1107,11 +1131,6 @@ RECORD FUNCTION GetEmbeddedObjectDataFromRef(STRING eref)
     RETURN DEFAULT RECORD;
 
   RETURN DEFAULT RECORD;
-}
-
-PUBLIC BOOLEAN FUNCTION ValidateObjectDataRef(STRING eref)
-{
-  RETURN RecordExists(GetEmbeddedObjectDataFromRef(eref));
 }
 
 PUBLIC OBJECT FUNCTION CreateLiveInstanceBlockNode(OBJECT doc, STRING instanceref)

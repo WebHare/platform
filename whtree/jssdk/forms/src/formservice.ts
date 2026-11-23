@@ -35,8 +35,6 @@ export interface PublisherFormService {
   /** Get the final image URL to use */
   getUploadedFileFinalURL(uploadurl: string): Promise<string>;
 
-  validateEmbeddedObjects(objrefs: string[]): Promise<{ tokill: string[] }>;
-
   /** Verify address */
   verifyAddress(url: string, address: HareScriptAddressValue, options: AddressValidationOptions): Promise<HareScriptAddressValidationResult>;
 

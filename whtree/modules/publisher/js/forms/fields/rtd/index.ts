@@ -63,6 +63,7 @@ export class RTDEditElement extends JSFormElement<string> {
       allowtags: null,//data.allowtags.length ? data.allowtags : null
       hidebuttons: hidebuttons,
       editembeddedobjects: false,
+      onRenderEmbeddedObjects: instancerefs => this.renderEmbeddedObjects(instancerefs),
       ...specifiedopts
     };
     //FIXME
@@ -117,6 +118,15 @@ export class RTDEditElement extends JSFormElement<string> {
       this.onInsertVideo(this.node);
       return;
     }
+  }
+
+  /** Have the form render embedded objects pasted into the RTE */
+  private async renderEmbeddedObjects(instancerefs: string[]): Promise<RTEWidget[]> {
+    const formhandler = this.node.closest('form')?.propWhFormhandler;
+    if (!formhandler)
+      throw new Error(`RTE no longer associated with a form`);
+
+    return await (formhandler as RPCFormBase).invokeRPC(this.name + '.renderEmbeddedObjects', instancerefs) as RTEWidget[];
   }
 
   async insertVideoByURL(url: string) {

@@ -1,4 +1,5 @@
 import { testType } from "./domlevel";
+import { recordEmbeddedObjectSizes } from "./support";
 import type EditorBase from "./editorbase";
 
 /** Copies the current selection to the clipboard. The selection calculated synchronously with the call
@@ -29,6 +30,7 @@ export async function copySelectionToClipboard(editor: EditorBase, evt?: Clipboa
 
     const div = document.createElement('div');
     div.appendChild(clonedContent);
+    recordEmbeddedObjectSizes(div, editor.getBody());
 
     clipboardItemData["text/html"] = div.innerHTML;
     clipboardItemData["text/plain"] = selection.toString();

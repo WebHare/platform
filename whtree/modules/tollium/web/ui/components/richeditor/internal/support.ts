@@ -88,9 +88,95 @@ export function replaceClasses(node: HTMLElement, removeclass: string, addclass:
   }
 }
 
+/** Attributes recording the size of an embedded object's preview in copied HTML */
+const previewWidthAttr = "data-wh-preview-width", previewHeightAttr = "data-wh-preview-height";
+
+/** Record the size of the previews of the embedded objects in copied content, so the placeholders shown after pasting them
+ *  take about the same space as the previews will
+ * @param container - Copied content
+ * @param body - Body of the editor the content was copied from
+ */
+export function recordEmbeddedObjectSizes(container: HTMLElement, body: HTMLElement) {
+  for (const node of queryEmbeddedObjects(container)) {
+    const instanceref = node.dataset.instanceref;
+    const preview = instanceref ? body.querySelector(`.wh-rtd-embeddedobject[data-instanceref="${CSS.escape(instanceref)}"] > .wh-rtd-embeddedobject__box > .wh-rtd-embeddedobject__preview`) : null;
+    if (!preview)
+      continue;
+
+    const rect = preview.getBoundingClientRect();
+    node.setAttribute(previewWidthAttr, String(Math.round(rect.width)));
+    node.setAttribute(previewHeightAttr, String(Math.round(rect.height)));
+  }
+}
+
+function getPreviewSize(value: string | null) {
+  const size = parseInt(value || "");
+  return size > 0 ? Math.min(size, 10000) : 0;
+}
+
+/** Give the preview node of a placeholder the size of the original preview. Block embedded objects only get its height, as their
+ *  width follows the width of the editor they're pasted into */
+function setPlaceholderSize(previewnode: HTMLElement, size: { width: number; height: number }) {
+  if (size.width && previewnode.nodeName === 'SPAN')
+    previewnode.style.width = size.width + "px";
+  if (size.height)
+    previewnode.style.height = size.height + "px";
+}
+
+/** Replace the embedded objects in pasted content with placeholders. The previews and other data of the pasted embedded objects
+ *  came from the clipboard and can't be trusted, so we only keep their instance reference and have the server render them again.
+ *  Embedded objects without an instance reference are removed
+ * @param container - Pasted content. Should not be part of a live document
+ */
+export function replaceEmbeddedObjectsWithPlaceholders(container: HTMLElement) {
+  for (const node of queryEmbeddedObjects(container)) {
+    if (!container.contains(node)) //nested in an embedded object we've already replaced
+      continue;
+
+    const instanceref = node.getAttribute("data-instanceref");
+    if (!instanceref) {
+      node.remove();
+      continue;
+    }
+
+    const doc = node.ownerDocument;
+    const basenode = node.nodeName === 'SPAN' ? 'span' : 'div';
+    const placeholder = doc.createElement(basenode);
+    placeholder.className = "wh-rtd-embeddedobject wh-rtd-embeddedobject--placeholder";
+    placeholder.setAttribute("data-instanceref", instanceref);
+    //the size is stored on the preview node, so it doesn't end up in the value
+    const preview = doc.createElement(basenode);
+    preview.className = "wh-rtd-embeddedobject__preview";
+    setPlaceholderSize(preview, {
+      width: getPreviewSize(node.getAttribute(previewWidthAttr)),
+      height: getPreviewSize(node.getAttribute(previewHeightAttr))
+    });
+    placeholder.append(preview);
+    node.replaceWith(placeholder);
+  }
+}
+
 export function parseEmbeddedObjectNode(node: HTMLElement): RTEWidget & { type: string } {
+  if (node.classList.contains("wh-rtd-embeddedobject--placeholder")) { //created by replaceEmbeddedObjectsWithPlaceholders, or a reparse of a placeholder still waiting for its preview
+    const preview = node.querySelector<HTMLElement>(".wh-rtd-embeddedobject__preview");
+    return {
+      type: 'embeddedobject',
+      instanceref: node.getAttribute("data-instanceref") || '',
+      htmltext: '',
+      typetext: '',
+      canedit: false,
+      canwrite: false,
+      embedtype: node.nodeName === 'SPAN' ? 'inline' : 'block',
+      wide: false,
+      placeholder: {
+        width: getPreviewSize(preview?.style.width || null),
+        height: getPreviewSize(preview?.style.height || null)
+      }
+    };
+  }
+
   let htmltext = node.dataset.innerhtmlContents || '';
-  if (!htmltext) { //we may have already rendered a preview (reparse of existing code or pasted content) (TODO does this also apply in ProseMirror?)
+  if (!htmltext) { //we may have already rendered a preview (reparse of existing code) (TODO does this also apply in ProseMirror?)
     const currentpreview = node.querySelector(".wh-rtd-embeddedobject__preview");
     if (currentpreview)
       htmltext = currentpreview.innerHTML;
@@ -120,7 +206,8 @@ export function buildEmbeddedObjectNode(data: RTEWidget, config: Pick<RTESetting
     + (data.canwrite ? " wh-rtd-embeddedobject--writable" : "")
     + (data.wide ? " wh-rtd-embeddedobject--wide" : "")
     + (isinline ? " wh-rtd-embeddedobject--inline" : " wh-rtd-embeddedobject--block")
-    + (has_inlinepreview ? " wh-rtd-embeddedobject--hasinlinepreview" : "");
+    + (has_inlinepreview ? " wh-rtd-embeddedobject--hasinlinepreview" : "")
+    + (data.placeholder ? " wh-rtd-embeddedobject--placeholder" : "");
   node.dataset.instanceref = data.instanceref;
   node.contentEditable = "false";
 
@@ -150,7 +237,10 @@ export function buildEmbeddedObjectNode(data: RTEWidget, config: Pick<RTESetting
 
   const previewnode = document.createElement(basenode);
   previewnode.className = "wh-rtd-embeddedobject__preview";
-  previewnode.innerHTML = data.htmltext;
+  if (data.placeholder)
+    setPlaceholderSize(previewnode, data.placeholder);
+  else
+    previewnode.innerHTML = data.htmltext;
   box.appendChild(previewnode);
 
   if (!isinline) {

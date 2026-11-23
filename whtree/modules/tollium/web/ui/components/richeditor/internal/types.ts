@@ -59,7 +59,17 @@ export interface RTEWidget {
   wide: boolean;
   instanceref: string;
   typetext: string;
+  /** Set for a pasted embedded object whose preview hasn't been rendered by the server yet. Its size is the size of the
+   *  preview when it was copied (0 if unknown), so the placeholder takes about the same space as the final preview */
+  placeholder?: { width: number; height: number };
 }
+
+/** Renders the previews of pasted embedded objects on the server
+ * @param instancerefs - Instance references of the pasted embedded objects, at most 8 per call
+ * @returns The rendered embedded objects. Embedded objects with an invalid instance reference, that fail to render or that
+ *   have no preview are left out (and will be removed from the document)
+ */
+export type RenderEmbeddedObjectsCallback = (instancerefs: string[]) => Promise<RTEWidget[]>;
 
 export interface ActionState {
   [key: string]: {

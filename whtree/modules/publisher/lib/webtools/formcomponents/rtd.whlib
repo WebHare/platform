@@ -3,6 +3,9 @@
     @topic forms/standardcomponents
 */
 
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
 LOADLIB "mod::publisher/lib/embedvideo.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/service.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
@@ -12,6 +15,8 @@ LOADLIB "mod::publisher/lib/forms/components.whlib";
 LOADLIB "mod::publisher/lib/forms/editor.whlib";
 
 LOADLIB "mod::system/lib/logging.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
 
 
 PUBLIC OBJECTTYPE FormRTD EXTEND FormComponentExtensionBase
@@ -138,6 +143,40 @@ PUBLIC OBJECTTYPE RTDField EXTEND FormFieldBase
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetResultColumns(RECORD exportoptions)
   {
     RETURN RECORD[];
+  }
+
+  /** Render embedded objects pasted into the RTE
+      @param instancerefs Instance references of the pasted embedded objects, at most 8 (after removing duplicates). The
+          client sends larger pastes in batches
+      @return Previews of the embedded objects. Embedded objects with an invalid instance reference, that fail to render or
+          that have no preview are left out */
+  PUBLIC RECORD ARRAY FUNCTION RPC_RenderEmbeddedObjects(STRING ARRAY instancerefs) {
+    /* Anyone can call this RPC, so limit the number of refs per call and cache the result per ref. Requesting a ref again
+       within the TTL (also as part of a different set of refs) doesn't render it again, and the cache's lock makes parallel
+       requests for the same ref wait for the first one instead of rendering it too */
+    instancerefs := GetSortedSet(instancerefs);
+    IF(Length(instancerefs) > 8)
+      THROW NEW Exception(`Too many embedded objects to render (${Length(instancerefs)}), at most 8 are allowed per call`);
+
+    RECORD ARRAY previews;
+    FOREVERY(STRING instanceref FROM instancerefs) {
+      RECORD preview := GetAdhocCached(CELL[ type := "renderembeddedobject"
+                                           , rtdtype := this->field.rtdtype
+                                           , applytester := ObjectExists(this->rtdeditor->applytester) ? this->rtdeditor->applytester->__GetCacheKey() : ""
+                                           , language := GetTidLanguage()
+                                           , instanceref
+                                           ], PTR this->GetCacheableRenderedEmbeddedObject(instanceref));
+      IF(RecordExists(preview))
+        INSERT preview INTO previews AT END;
+    }
+    RETURN previews;
+  }
+
+  RECORD FUNCTION GetCacheableRenderedEmbeddedObject(STRING instanceref) {
+    RECORD ARRAY rendered := this->rtdeditor->RenderEmbeddedObjects([ instanceref ]);
+    RETURN CELL[ value := Length(rendered) > 0 ? rendered[0] : DEFAULT RECORD
+               , ttl := 60 * 1000
+               ];
   }
 
   PUBLIC RECORD FUNCTION RPC_InsertVideoByURL(STRING videourl)

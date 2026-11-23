@@ -26,7 +26,7 @@ import Range from './dom/range';
 import type { BlockStyle, ExternalStructureDef } from "./parsedstructure";
 import { encodeString } from "@webhare/std";
 import { getFileAsDataURL, requestFile } from '@webhare/upload';
-import type { ActionState, GetPlainTextMethod, GetPlainTextOptions, RTEComponent } from './types';
+import type { ActionState, GetPlainTextMethod, GetPlainTextOptions, RenderEmbeddedObjectsCallback, RTEComponent } from './types';
 import { RTECompBase } from './rtecompbase';
 import { handleCopyEvent } from "./clipboard";
 import { copyPastedImageStyleDimensions, downloadPastedImage, validatePastedImage } from "./utils";
@@ -333,6 +333,8 @@ export interface EditorBaseOptions {
   contentareawidth: string | null;
   imgloadplaceholder: string | null;
   language: string;
+  /** Renders pasted embedded objects on the server. If not set, pasted embedded objects are removed as they can't be rendered */
+  onRenderEmbeddedObjects?: RenderEmbeddedObjectsCallback;
 }
 
 export default class EditorBase extends RTECompBase implements RTEComponent {

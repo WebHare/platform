@@ -127,7 +127,8 @@ export default class ObjRTE extends ComponentBase {
       htmlclass: data.htmlclass,
       bodyclass: data.bodyclass,
       csscode: data.csscode,
-      propertiesaction: true
+      propertiesaction: true,
+      onRenderEmbeddedObjects: instancerefs => this.renderEmbeddedObjects(instancerefs)
     };
 
     if (!this.rteoptions.structure) {
@@ -259,6 +260,12 @@ export default class ObjRTE extends ComponentBase {
         return;
       }
     }
+  }
+
+  /** Have our server side component render pasted embedded objects */
+  private async renderEmbeddedObjects(instancerefs: string[]): Promise<RTEWidget[]> {
+    const result = await this.asyncRequest<{ widgets: RTEWidget[] }>("renderEmbeddedObjects", { instancerefs }, { modal: false });
+    return result.widgets;
   }
 
   doButtonClick(button: string, messagetag: string) {

@@ -760,6 +760,17 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase <
     TolliumComponentBase::ProcessInboundMessage(type, msgdata);
   }
 
+  /** Render embedded objects pasted into the RTE
+      @param data Request
+      @cell data.instancerefs Instance references of the pasted embedded objects
+      @return Rendered embedded objects
+      @cell return.widgets Previews of the embedded objects. Embedded objects with an invalid instance reference, that fail to
+          render or that have no preview are left out */
+  PUBLIC ASYNC FUNCTION OnRequestRenderEmbeddedObjects(RECORD data) {
+    data := EnforceStructure(CELL[ instancerefs := STRING[] ], data);
+    RETURN CELL[ widgets := this->editable->RenderEmbeddedObjects(data.instancerefs) ];
+  }
+
   RECORD FUNCTION HandlePropertiesRequest2(RECORD data)
   {
     SWITCH (data.type)
