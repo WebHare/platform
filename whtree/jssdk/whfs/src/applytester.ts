@@ -1,4 +1,4 @@
-import type { CSPApplyTo, CSPApplyRule, CSPApplyToTo, RawPluginSettings, CSPDynamicExecution, CSPBaseProperties, CSPPlugin } from "./siteprofiles";
+import type { CSPApplyTo, CSPApplyRule, CSPApplyToTo, RawPluginSettings, CSPDynamicExecution, CSPBaseProperties, CSPPlugin, CSPRtddoc, CSPRTDStructure } from "./siteprofiles";
 import { db, type Selectable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { isLike, isNotLike } from "@webhare/hscompat/src/strings";
@@ -653,6 +653,16 @@ export class WHFSApplyTester {
     return setMetadata;
   }
 
+  /** Get the merged \<rtddoc> settings that apply to this object
+      @returns The settings, or null if no RTD type applies */
+  async getRTDTypeSettings(): Promise<CSPRtddoc & { rtdtype: string } | null> {
+    let rtddoc: CSPRtddoc = {};
+    for (const apply of await this.getMatchingRules('rtddoc'))
+      rtddoc = { ...rtddoc, ...apply.rtddoc };
+
+    return rtddoc.rtdtype ? { ...rtddoc, rtdtype: rtddoc.rtdtype } : null;
+  }
+
   async getObjRenderInfo() {
     const baseinfo = { onRenderContent: "", hsPageObjectType: "", dynamicExecution: null as CSPDynamicExecution | null };
     const typeInfo = getType(this.objinfo.type === "platform:filetypes.dynamicfoldercontents" ? this.objinfo.parent.type : this.objinfo.type);
@@ -724,6 +734,16 @@ export async function getApplyTesterForObject(obj: WHFSObject, options?: { type?
 
 export async function getApplyTesterForMockedObject(parent: WHFSFolder, isFolder: boolean, type: WHFSTypeName, name = "new object") { //FIXME why defaults on an internal API?
   return new WHFSApplyTester(await getBaseInfoForMockedApplyCheck(parent, isFolder, type, name)); //TODO root object support
+}
+
+/** Get the block and cell styles of an RTD type
+    @param rtdType - Namespace of the RTD type
+    @returns The RTD type's structure. Throws if the RTD type doesn't exist */
+export function getRTDTypeStructure(rtdType: string): CSPRTDStructure {
+  const typeinfo = getExtractedHSConfig("siteprofiles").rtdtypes.find(type => type.namespace === rtdType && type.isrtdtype);
+  if (!typeinfo?.structure)
+    throw new Error(`RTDType '${rtdType}' has not been registered`);
+  return typeinfo.structure;
 }
 
 export async function getApplyTesterForURL(url: string, options?: LookupURLOptions) {

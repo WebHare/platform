@@ -7,7 +7,7 @@ import { IncomingWebRequest } from "@webhare/router/src/request";
 import { getTidLanguage } from "@webhare/gettid";
 import { parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 import { litty, littyToString } from "@webhare/litty";
-import { backendConfig, buildInstance, buildRTD, ResourceDescriptor } from "@webhare/services";
+import { backendConfig, buildInstance, buildRTD, buildWidget, ResourceDescriptor } from "@webhare/services";
 import type { } from "@mod-publisher/js/internal/plugins/gtmplugin.ts"; //make config["socialite:gtm"] work
 import { parseResponse, getWHConfig, getAsDoc, fetchPreviewAsDoc } from "@mod-webhare_testsuite/js/whfs";
 import { loadlib } from "@webhare/harescript";
@@ -81,17 +81,63 @@ async function testPageResponse() {
   test.eqPartial([{ tag: 'div', attributes: { class: "level1widget", "data-whfsfileid": String(hsWidget.id) } }, {}], hsWidget.bodyElements);
 
   //Regression: the '<b></b>' part was rendered as '[Object object]'
+  //Blocks are rendered using their block style in the site's RTD type: basetestjs has no 'intro' style, and uses a div for 'mycustomstyle'
   const richDocument = await sitereq.renderRTD(await buildRTD([
     { h1: ["Heading 1"] },
     { tag: "p", items: [] }, //empty line without items
-    { "p.intro": [{ text: "default p with " }, { text: "bold", bold: true }, { text: " text." }] }
+    { "p.intro": [{ text: "default p with " }, { text: "bold", bold: true }, { text: " text." }] },
+    { "div.mycustomstyle": ["custom div"] },
+    { "p.mycustomstyle": ["custom p"] }
   ]));
-  test.eq(`<h1 class="heading1">Heading 1</h1><p class="normal"><br></p><p class="intro">default p with <b>bold</b> text.</p>`, await littyToString(richDocument));
+  test.eq(`<h1 class="heading1">Heading 1</h1><p class="normal"><br></p><p class="normal">default p with <b>bold</b> text.</p><div class="mycustomstyle">custom div</div><div class="mycustomstyle">custom p</div>`, await littyToString(richDocument));
 
   //Regression: images we can't resize (eg SVGs, which have no width/height) threw instead of rendering their alt text like HareScript does
   const svgImage = await ResourceDescriptor.fromResource("mod::webhare_testsuite/web/img/testicon_1.b.svg", { mediaType: "image/svg+xml", getHash: true });
   const svgDocument = await sitereq.renderRTD(await buildRTD([{ p: ["SVG: ", { image: svgImage, alt: "<icon>" }, { image: svgImage }] }]));
   test.eq(`<p class="normal">SVG: &lt;icon&gt;</p>`, await littyToString(svgDocument));
+}
+
+//renderRTD uses the page's RTD type unless given an rtdType. RTDs rendered by widgets inside an RTD default to the RTD type of the RTD containing the widget
+async function testRenderRTDType() {
+  const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/markdownpage");
+  const sitereq = await createContentPageRequest(markdowndoc, { webRequest: new IncomingWebRequest(markdowndoc.link!) });
+
+  //The page uses the basetestjs RTD type which has a HEADING3 style. testrichdoc has no h3 style, so it renders h3s as normal paragraphs
+  const testRichDocType = "http://www.webhare.net/xmlns/webhare_testsuite/testrichdoc";
+  //An RTD containing a widget with an RTD, containing another widget with an RTD
+  const nestedRTD = await buildRTD([
+    { "h3.heading3": "Level 1" },
+    {
+      widget: await buildWidget("webhare_testsuite:base_test.jsrtdwidget", {
+        contents: await buildRTD([
+          { "h3.heading3": "Level 2" },
+          { widget: await buildWidget("webhare_testsuite:base_test.jsrtdwidget", { contents: await buildRTD([{ "h3.heading3": "Level 3" }]) }) }
+        ])
+      })
+    }
+  ]);
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Without an rtdType, the RTDs at all levels are rendered with the page's RTD type
+  const withPageType = `<h3 class="heading3">Level 1</h3><div class="jsrtdwidget"><h3 class="heading3">Level 2</h3><div class="jsrtdwidget"><h3 class="heading3">Level 3</h3></div></div>`;
+  test.eq(withPageType, await littyToString(await sitereq.renderRTD(nestedRTD)));
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: An rtdType also applies to the RTDs rendered by the widgets inside the RTD, at every level
+  test.eq(`<p class="normal">Level 1</p><div class="jsrtdwidget"><p class="normal">Level 2</p><div class="jsrtdwidget"><p class="normal">Level 3</p></div></div>`,
+    await littyToString(await sitereq.renderRTD(nestedRTD, { rtdType: testRichDocType })));
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: The rtdType doesn't stick to the request
+  test.eq(withPageType, await littyToString(await sitereq.renderRTD(nestedRTD)));
+  test.eq(`<div class="jsrtdwidget"><h3 class="heading3">Level 2</h3></div>`,
+    await littyToString(await sitereq.renderWidget(await buildWidget("webhare_testsuite:base_test.jsrtdwidget", { contents: await buildRTD([{ "h3.heading3": "Level 2" }]) }))),
+    "A widget rendered directly by the page should use the page's RTD type");
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: The RTD type's b= and i= settings choose the tags for bold and italic text
+  test.eq(`<p class="normal"><strong>B</strong><em>I</em></p>`,
+    await littyToString(await sitereq.renderRTD(await buildRTD([{ p: [{ text: "B", bold: true }, { text: "I", italic: true }] }]), { rtdType: "http://www.webhare.net/xmlns/webhare_testsuite/rtd/strong-em" })));
 }
 
 async function testPaths() {
@@ -670,6 +716,7 @@ async function testRouter_JSLinkResolving() {
 test.runTests([
   test.reset,
   testPageResponse,
+  testRenderRTDType,
   testPaths,
   testDynamicPage,
   testPageResponseApplies,

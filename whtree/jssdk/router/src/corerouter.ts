@@ -1,7 +1,7 @@
 import * as whfs from "@webhare/whfs";
 import { type ContentBuilderFunction, type WebRequest, type WebResponse, createWebResponse } from "./router";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
-import { createContentPageRequest, buildTargetPath, type PagePartRequest, type WidgetBuilderFunction, type ContentPageRequest, type ContentPageRequestWithRenderer } from "./siterequest";
+import { createContentPageRequest, buildTargetPath, type PagePartRequest, type RenderRTDOptions, type WidgetBuilderFunction, type ContentPageRequest, type ContentPageRequestWithRenderer } from "./siterequest";
 import * as undici from "undici";
 import { importJSFunction, type Instance, type IntExtLink, type RichTextDocument } from "@webhare/services";
 import { whconstant_webserver_hstrustedportoffset } from "@mod-system/js/internal/webhareconstants";
@@ -228,9 +228,9 @@ export async function renderTSWidgetHS(context: {
   let pagereq: ContentPageRequest | null = null;
   const pagePartRequest: PagePartRequest = {
     //Consider taking the parent rendering context if available
-    renderRTD: async (rtd: RichTextDocument) => {
+    renderRTD: async (rtd: RichTextDocument, options?: RenderRTDOptions) => {
       pagereq ??= await createContentPageRequest(targetObject);
-      return pagereq.renderRTD(rtd);
+      return pagereq.renderRTD(rtd, options);
     },
     renderWidget: async (widget: Instance) => {
       pagereq ??= await createContentPageRequest(targetObject);

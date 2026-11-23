@@ -16,11 +16,11 @@ type RTDItemMode = "inMemory" | "export" | "build";
 export type RTDImageFloat = "left" | "right";
 
 /** Paragraph types supported by us */
-export const rtdParagraphTypes = ["h1", "h2", "h3", "h4", "h5", "h6", "p"] as const;
+export const rtdParagraphTypes = ["h1", "h2", "h3", "h4", "h5", "h6", "p", "div"] as const;
 /** List types supported by us */
 export const rtdListTypes = ["ul", "ol"] as const;
 /** Maps h1 etc to a default class if we're building RTDs wthout an explicit RTDType (needed for consistent output) */
-export const rtdBlockDefaultClass: Record<RTDParagraphType[number], string> = { "h1": "heading1", "h2": "heading2", "h3": "heading3", "h4": "heading4", "h5": "heading5", "p": "normal", "ol": "ordered", "ul": "unordered", "table": "table" } as const;
+export const rtdBlockDefaultClass: Record<RTDParagraphType | RTDListType | "table", string> = { "h1": "heading1", "h2": "heading2", "h3": "heading3", "h4": "heading4", "h5": "heading5", "h6": "heading6", "p": "normal", "div": "normal", "ol": "ordered", "ul": "unordered", "table": "table" } as const;
 /** Simple text styles and their order */
 export const rtdTextStyles = { //Note that a-href is higher than all these styles. See also this.textstyletags in structurededitor
   "i": "italic",
@@ -247,13 +247,13 @@ function isTagEntry<E extends [string, unknown], T extends string>(entry: E, tag
 
 function splitBuildTag<T extends string>(tag: T): { tag: T extends `${infer Tag}.${string}` ? Tag : T; className?: string } {
   let [tagName, className, extra] = tag.split('.');
-  const defaultClass = rtdBlockDefaultClass[tagName];
+  const defaultClass = (rtdBlockDefaultClass as Partial<Record<string, string>>)[tagName];
   if (extra !== undefined)
     throw new Error(`Invalid tag name '${tag}'`);
   if (className && !isValidRTDClassName(className))
     throw new Error(`Invalid class name '${className}'`);
   else {
-    className ||= defaultClass;
+    className ||= defaultClass ?? "";
     if (!className)
       throw new Error(`No default class for tag '${tagName}'`);
   }
