@@ -344,7 +344,10 @@ bool PGSQLNativeTransactionDriver::WaitForResult()
                            report that error instead of being sent.
                         */
                         std::string error = "PostgreSQL command timeout after " + Blex::AnyToString(command_timeout_secs) + " seconds";
-                        if (!CancelAndDiscardResults())
+                        bool recovered = CancelAndDiscardResults();
+                        if (HSVM_TestMustAbort(*vm)) // aborted while waiting for the cancel, don't throw into an aborting VM
+                            return false;
+                        if (!recovered)
                             error += ", and the connection could not be recovered";
                         HSVM_ThrowException(*vm, error.c_str());
                         return false;
@@ -392,7 +395,9 @@ bool PGSQLNativeTransactionDriver::CancelAndDiscardResults()
                 input_fd.revents = 0;
 
                 poll(&input_fd, 1, 100);
-                if (Blex::DateTime::Now() >= deadline)
+
+                // Don't keep a VM that must abort waiting for the server, also not while data keeps coming in
+                if (HSVM_TestMustAbort(*vm) || Blex::DateTime::Now() >= deadline)
                     return false;
         }
 }
