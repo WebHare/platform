@@ -19,9 +19,11 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 
 LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
 
 //ADDME rename us to cache/implementation.whlib or something similar?
 
@@ -33,6 +35,14 @@ BOOLEAN got_defaultformat;
 
 PUBLIC STRING imgcache_globalbaseurl; //set by eg webdesign to enforce CDN preferences
 CONSTANT STRING u1packet := "type:C,id:L,cc:L,md:L,ms:L,imgdatalen:C";
+
+/// Unified cache source types. Keep in sync with unifiedCacheSourceTypes in @webhare/services unifiedcache.ts
+PUBLIC CONSTANT INTEGER uc_source_whfsobject := 1;
+PUBLIC CONSTANT INTEGER uc_source_whfssetting := 2;
+PUBLIC CONSTANT INTEGER uc_source_wrdentitysetting := 3;
+PUBLIC CONSTANT INTEGER uc_source_formresultattachment := 4;
+
+/// __blobsource prefixes, indexed by source type - 1
 CONSTANT STRING ARRAY blobsources := ["o","s","w","r"];
 
 BOOLEAN FUNCTION IsImageRefpointRelevant(RECORD resizemethod)
@@ -561,6 +571,40 @@ PUBLIC RECORD FUNCTION GetCachedDataSourceMetadataFromURL(STRING url)
   RETURN DEFAULT RECORD;
 }
 
+/** Get the file name stored with a setting that's a source for the unified cache
+    @param sourcetype Type of the source: uc_source_whfssetting or uc_source_wrdentitysetting
+    @param sourceid Id of the setting
+    @return The file name of the file, image or image embedded in a rich text document. Empty if it has none */
+PUBLIC STRING FUNCTION GetCachedDataSourceFileName(INTEGER sourcetype, INTEGER64 sourceid) {
+  STRING setting;
+  BOOLEAN isfilefield;
+  IF(sourcetype = uc_source_whfssetting) {
+    RECORD rec := SELECT fs_settings.setting, fs_members.type
+                    FROM system.fs_settings, system.fs_members
+                   WHERE fs_settings.id = sourceid
+                         AND fs_settings.fs_member = fs_members.id;
+    IF(RecordExists(rec)) {
+      setting := rec.setting;
+      isfilefield := rec.type = whconstant_whfsmembertype_file;
+    }
+  } ELSE IF(sourcetype = uc_source_wrdentitysetting) {
+    RECORD rec := SELECT entity_settings.rawdata, attrs.attributetype
+                    FROM wrd.entity_settings, wrd.attrs
+                   WHERE entity_settings.id = sourceid
+                         AND entity_settings.attribute = attrs.id;
+    IF(RecordExists(rec)) {
+      setting := rec.rawdata;
+      isfilefield := rec.attributetype IN [ wrd_attributetype_image, wrd_attributetype_file ];
+    }
+  }
+
+  IF(NOT isfilefield) //An image embedded in a rich text document has its content id where others have their file name
+    RETURN GetEmbeddedImageFileName(setting);
+
+  RECORD split := SplitBlobSetting(setting, DEFAULT BLOB, 0);
+  RETURN RecordExists(split) AND IsStorableEmbeddedImageFileName(split.filename) ? split.filename : "";
+}
+
 /** Root directory for the unified cache (images + files). Guaranteed to end in a slash */
 PUBLIC STRING FUNCTION GetUnifiedCacheDiskRoot()
 {
@@ -671,11 +715,17 @@ PUBLIC RECORD FUNCTION ExportTSDescriptor(RECORD wrappedblob) {
     THROW NEW Exception("Unrecognized blob source type");
 
   RECORD objinfo := GetObjInfo(source, id);
+  RECORD setting := CELL[...SplitBlobSetting(objinfo.settingdata, DEFAULT BLOB, 0), DELETE data, DELETE __blobsource, DELETE mirrored, DELETE rotation ];
+  //An image embedded in a rich text document has its content id as filename, and may have its file name stored separately.
+  //Don't pass the content id or a made-up 'noname' name as file name, just like TypeScript reading the setting itself
+  IF(source IN [ uc_source_whfssetting, uc_source_wrdentitysetting ])
+    setting.filename := GetCachedDataSourceFileName(source, id);
+
   RETURN CELL[ ts$resourcedescriptor :=
              CELL[ source,
                    id,
                    cc := GetUnifiedCC(objinfo.creationdate),
-                   setting := CELL[...SplitBlobSetting(objinfo.settingdata, DEFAULT BLOB, 0), DELETE data, DELETE __blobsource, DELETE mirrored, DELETE rotation ]
+                   setting
              ]
   ];
 }

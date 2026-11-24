@@ -74,13 +74,14 @@ export async function getIdToGuidMap(ids: Array<number | null>): Promise<Map<num
 }
 
 function decodeResourceDescriptor(val: EntitySettingsRec, links: EntitySettingsWHFSLinkRec[], cc: number): ResourceDescriptor {
-  return decodeEmbeddedResourceDescriptor(val, links, cc, false).descriptor;
+  return decodeStoredResourceDescriptor(val, links, cc, false).descriptor;
 }
 
 /** Decode a resource descriptor
  * @param embedded - The setting is an image embedded in a rich text document, which also has a content id
+ * @returns The descriptor, and the content id if this is an embedded image
  */
-function decodeEmbeddedResourceDescriptor(val: EntitySettingsRec, links: EntitySettingsWHFSLinkRec[], cc: number, embedded: boolean): { contentId: string | null; descriptor: ResourceDescriptor } {
+function decodeStoredResourceDescriptor(val: EntitySettingsRec, links: EntitySettingsWHFSLinkRec[], cc: number, embedded: boolean): { contentId: string | null; descriptor: ResourceDescriptor } {
   const lpos = recordLowerBound(links, val, ["id"]);
   const sourceFile = lpos.found ? links[lpos.position].fsobject : null;
   //See also GetWrappedObjectFromWRDSetting: rawdata is prefixed with WHFS: if we need to pick up a link
@@ -1949,7 +1950,7 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
     const embedded = new Map<string, ResourceDescriptor>();
     for (const item of entity_settings.slice(settings_start + 1, settings_limit)) {
       if (item.ordering >= 1) { //it's an embedded image
-        const { contentId, descriptor } = decodeEmbeddedResourceDescriptor(item, links, cc, true);
+        const { contentId, descriptor } = decodeStoredResourceDescriptor(item, links, cc, true);
         if (contentId)
           embedded.set(contentId, descriptor);
       }

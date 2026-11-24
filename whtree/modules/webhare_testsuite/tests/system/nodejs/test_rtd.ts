@@ -6,7 +6,7 @@ import { openFile, whfsType } from "@webhare/whfs";
 import { loadlib } from "@webhare/harescript";
 import { createWRDTestSchema, getLegacyWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { buildInstance, type RTDBlock, type RTDInlineItem, type RTDSource, type RTDExport, type Instance } from "@webhare/services/src/richdocument";
-import { isResourceDescriptor, type ExportedResource } from "@webhare/services/src/descriptor";
+import { addMissingScanData, decodeEmbeddedScanData, decodeScanData, isResourceDescriptor, type ExportedResource } from "@webhare/services/src/descriptor";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { fetchUCLink } from "./data/image-fetch";
 import { fetchPreviewAsDoc } from "@mod-webhare_testsuite/js/whfs";
@@ -1070,6 +1070,41 @@ async function testImageFileNames() {
   test.eq([null, null, null, null], getImages((await rtdType.get(tempfile.id)).data as RichTextDocument).map(_ => _.fileName));
   for (const embed of (await hsWHFSType.getInstanceData(tempfile.id)).data.embedded)
     test.eq(embed.contentid, embed.filename);
+
+  // HareScript makes up 'noname.<ext>' for a file without a name. That isn't a file name: we don't store it, and ignore it where it was stored
+  const nonameData = (await hsWHFSType.getInstanceData(tempfile.id)).data;
+  await beginWork();
+  await hsWHFSType.setInstanceData(tempfile.id, { data: { ...nonameData, embedded: nonameData.embedded.map((embed: { filename: string }) => ({ ...embed, filename: "noname.png" })) } });
+  await commitWork();
+  for (const setting of await getImageSettings())
+    test.assert(!setting.setting.includes('"n":'), `Shouldn't have stored a file name in ${setting.setting}`);
+
+  await beginWork();
+  for (const setting of await getImageSettings())
+    await db<PlatformDB>().updateTable("system.fs_settings").set({ setting: setting.setting.replace('{', '{"n":"noname.png",') }).where("id", "=", setting.id).execute();
+  await commitWork();
+
+  test.eq([null, null, null, null], getImages((await rtdType.get(tempfile.id)).data as RichTextDocument).map(_ => _.fileName));
+  for (const embed of (await hsWHFSType.getInstanceData(tempfile.id)).data.embedded)
+    test.eq(embed.contentid, embed.filename);
+
+  // TypeScript doesn't take it from a HareScript document either, and doesn't store it if it's given one
+  const nonameHS: HareScriptRTD = { ...nonameData, embedded: nonameData.embedded.map((embed: { filename: string }) => ({ ...embed, filename: "noname.png" })) };
+  test.eq([null, null, null, null], getImages(await buildRTDFromHareScriptRTD(nonameHS)).map(_ => _.fileName));
+
+  const nonameImage = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { ...imgOptions, fileName: "noname.png" });
+  await beginWork();
+  await rtdType.set(tempfile.id, { data: await buildRTD([{ p: [{ image: nonameImage }] }]) });
+  await commitWork();
+  test.eq(1, (await getImageSettings()).length);
+  for (const setting of await getImageSettings())
+    test.assert(!setting.setting.includes('"n":'), `TypeScript shouldn't have stored a file name in ${setting.setting}`);
+  test.eq([null], getImages((await rtdType.get(tempfile.id)).data as RichTextDocument).map(_ => _.fileName));
+
+  // An embedded image's file name doesn't decide its type, like its content id didn't
+  const unknownData = new ResourceDescriptor(WebHareBlob.from("Not an image"), { mediaType: "application/octet-stream", fileName: "manual.pdf", hash: "x" });
+  test.eq("application/pdf", decodeScanData(await addMissingScanData(unknownData)).mediaType);
+  test.eqPartial({ contentId: "cid-1", metadata: { mediaType: "application/octet-stream", fileName: "manual.pdf" } }, decodeEmbeddedScanData(await addMissingScanData(unknownData, { contentId: "cid-1" })));
 }
 
 async function testWRDRoundTrips() {

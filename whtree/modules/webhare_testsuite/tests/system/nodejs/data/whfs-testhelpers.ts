@@ -1,5 +1,5 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { buildInstance, buildRTD, WebHareBlob } from "@webhare/services";
+import { buildInstance, buildRTD, WebHareBlob, type ResourceDescriptor } from "@webhare/services";
 import { CompoundDocument } from "@webhare/services/src/compound-document";
 import { buildFormDefinitionFromCompoundDocument, type FormDefinition } from "@webhare/services/src/form-definition";
 import { db } from "@webhare/whdb";
@@ -70,7 +70,7 @@ export async function generateMarkDownDoc(): Promise<CompoundDocument> {
     we send greetings from the testsuite`));
 }
 
-export async function generateCompoundHTMLDoc(): Promise<CompoundDocument> {
+export async function generateCompoundHTMLDoc(content?: { embedded?: Record<string, ResourceDescriptor> }): Promise<CompoundDocument> {
   //TODO with instances once we're sure we'll actually keep supporting markdowndoc and add that
   return new CompoundDocument("platform:html", WebHareBlob.from(`<html><body><p class="normal">We send greetings from the testsuite</p><div class="wh-rtd-embeddedobject" data-instanceid="_1ra7ve1TrCw-ussv14O-g"</body></html>`),
     {
@@ -81,13 +81,15 @@ export async function generateCompoundHTMLDoc(): Promise<CompoundDocument> {
             data: await buildRTD([{ p: "widget!" }])
           }
         })
-      }
+      },
+      embedded: content?.embedded
     }
   );
 }
 
 export async function generateForm(content: {
   text: string;
+  embedded?: Record<string, ResourceDescriptor>;
 }): Promise<FormDefinition> {
   const formContent = buildFormDefinitionFromCompoundDocument(new CompoundDocument("platform:formdefinition", WebHareBlob.from(`
       <formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms">
@@ -104,7 +106,8 @@ export async function generateForm(content: {
           data: await buildRTD([{ p: content.text }])
         }
       })
-    }
+    },
+    embedded: content.embedded
   }));
   return formContent;
 }

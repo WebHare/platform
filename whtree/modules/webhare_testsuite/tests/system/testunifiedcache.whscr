@@ -325,6 +325,34 @@ MACRO ImgCacheSourcesTest()
   RECORD kikkerinfo := ScanBlob(testfw->browser->content,"");
   TestEq(21, kikkerinfo.width);
   TestEq(25, kikkerinfo.height);
+
+  RECORD kikkersource := GetCachedDataSourceMetadataFromURL(kikkerinstance.link);
+  TestEq("kikker.jpg", GetCachedDataSourceFileName(kikkersource.type, kikkersource.id), "An image field has its file name where an embedded image has its content id");
+
+  //An image embedded in a rich text document has its content id where others have their file name
+  testfw->BeginWork();
+  BLOB frogdata := GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/cmyk_kikkertje.jpg");
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
+      [ data := [ htmltext := StringToBlob('<html><body><p class="normal"><img src="cid:cid-frog"/><img src="cid:cid-unnamed"/></p></body></html>')
+                , embedded := [ CELL[ ...WrapBlob(frogdata, "frog.jpg"), contentid := "cid-frog" ]
+                              , CELL[ ...WrapBlob(frogdata, ""), contentid := "cid-unnamed" ]
+                              ]
+                ]
+      ]);
+  testfw->CommitWork();
+
+  RECORD ARRAY embedded := testfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data.embedded;
+  RECORD frog := SELECT * FROM embedded WHERE contentid = "cid-frog";
+  RECORD froginstance := WrapCachedImage(frog, [ method := "scale", setwidth := 25, setheight := 25, format := "keep" ]);
+  TestEqLike("*/frog.jpg", froginstance.link);
+  RECORD frogsource := GetCachedDataSourceMetadataFromURL(froginstance.link);
+  TestEq("frog.jpg", GetCachedDataSourceFileName(frogsource.type, frogsource.id));
+  TestEqLike("*/frog.jpg", CallJS("@webhare/hscompat#resizeTSDescriptor", ExportTSDescriptor(frog), [ method := "scale", width := 25, height := 25, format := "keep" ]).link, "TypeScript should see the file name too, not the content id");
+
+  RECORD unnamed := SELECT * FROM embedded WHERE contentid = "cid-unnamed";
+  RECORD unnamedsource := GetCachedDataSourceMetadataFromURL(WrapCachedImage(unnamed, [ method := "none", format := "keep" ]).link);
+  TestEq("", GetCachedDataSourceFileName(unnamedsource.type, unnamedsource.id), "The content id isn't a file name");
+  TestEqLike("*/image.jpg", CallJS("@webhare/hscompat#resizeTSDescriptor", ExportTSDescriptor(unnamed), [ method := "scale", width := 25, height := 25, format := "keep" ]).link, "TypeScript shouldn't get the content id as file name either");
 }
 
 MACRO NotTheImageTest()
@@ -515,6 +543,9 @@ MACRO WRDImageCache()
   TestEq(TRUE, testfw->browser->GotoWebPage(wrappedresized.link));
   TestEqMembers([width:=64, mimetype:="image/png"], ScanBlob(testfw->browser->content), "MIMEWIDTH,TYPE");
   link_wrd_homer := wrappedresized.link;
+
+  RECORD wrdsource := GetCachedDataSourceMetadataFromURL(wrappedresized.link);
+  TestEq("homersbrain.bmp", GetCachedDataSourceFileName(wrdsource.type, wrdsource.id));
 }
 
 

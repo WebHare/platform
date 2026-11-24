@@ -110,9 +110,9 @@ async function encodeResourceDescriptor(value: ResourceDescriptor | ExportedReso
   };
 }
 
-function decodeResourceDescriptor(row: FSSettingsRow, context: DecoderContext) {
+function decodeResourceDescriptor(row: FSSettingsRow, context: DecoderContext, metadata = decodeScanData(row.setting)) {
   const meta = {
-    ...decodeScanData(row.setting),
+    ...metadata,
     dbLoc: { source: 2, id: row.id, cc: context.cc },
     sourceFile: row.fs_object ?? null,
   };
@@ -184,7 +184,7 @@ async function decodeCompoundDocument(settings: FSSettingsRow[], type: CompoundD
   for (const img of settings.filter(s => s.ordering === 1 && s.blobdata)) {
     const { contentId, metadata } = decodeEmbeddedScanData(img.setting);
     if (contentId)
-      outdoc.embedded.set(contentId, new ResourceDescriptor(img.blobdata, { ...metadata, dbLoc: { source: 2, id: img.id, cc: context.cc }, sourceFile: img.fs_object ?? null }));
+      outdoc.embedded.set(contentId, decodeResourceDescriptor(img, context, metadata));
   }
 
   for (const link of settings.filter(s => s.ordering === 2 && s.fs_object)) {

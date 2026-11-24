@@ -939,7 +939,7 @@ STATIC OBJECTTYPE WHFSType <
             {
               //ADDME safe/restore hash?
               //The content id is stored where other files have their file name, the image's own file name is stored separately
-              STRING filename := CellExists(embed, "filename") AND embed.filename != embed.contentid ? embed.filename : "";
+              STRING filename := GetStorableEmbeddedImageFileName(embed);
               DELETE CELL filename FROM embed;
               INSERT CELL filename := embed.contentid INTO embed;
 

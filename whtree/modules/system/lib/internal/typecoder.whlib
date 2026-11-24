@@ -287,7 +287,21 @@ PUBLIC STRING FUNCTION GetEmbeddedImageFileName(STRING setting) {
     RETURN "";
 
   RECORD parseddata := DecodeHSON(setting);
-  RETURN CellExists(parseddata, 'n') ? parseddata.n : "";
+  RETURN CellExists(parseddata, 'n') AND IsStorableEmbeddedImageFileName(parseddata.n) ? parseddata.n : "";
+}
+
+/** Is this a file name we store with an image embedded in a rich text document?
+    @param filename File name to check
+    @return FALSE if the name is empty or one that WrapBlob made up for a file without a name ('noname' plus the extension) */
+PUBLIC BOOLEAN FUNCTION IsStorableEmbeddedImageFileName(STRING filename) {
+  RETURN filename != "" AND filename != "noname" AND filename NOT LIKE "noname.*";
+}
+
+/** Get the file name to store for an image in the embedded array of a rich text document
+    @param embed Record from the embedded array. An image without a file name has its content id as filename
+    @return The file name to store, empty if the image has none */
+PUBLIC STRING FUNCTION GetStorableEmbeddedImageFileName(RECORD embed) {
+  RETURN CellExists(embed, "filename") AND embed.filename != embed.contentid AND IsStorableEmbeddedImageFileName(embed.filename) ? embed.filename : "";
 }
 
 /** Add a file name to the setting of an image embedded in a rich text document

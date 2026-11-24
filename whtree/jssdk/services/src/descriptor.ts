@@ -540,7 +540,7 @@ export function encodeScanData(meta: EncodableResourceMetadata, options?: { cont
     data.d = meta.dominantColor;
   if (options?.contentId) { //an embedded image: the storage format keeps the content id where others keep their file name
     data.f = options.contentId;
-    if (meta.fileName && meta.fileName !== options.contentId)
+    if (meta.fileName && meta.fileName !== options.contentId && !isPlaceholderFileName(meta.fileName))
       data.n = meta.fileName;
   } else if (meta.fileName)
     data.f = meta.fileName;
@@ -580,7 +580,8 @@ export async function addMissingScanData(meta: ResourceDescriptor, options?: {
     newmeta = { ...newmeta, ...await analyzeImage(meta.resource, true) };
   }
 
-  if (newmeta.mediaType === "application/octet-stream" && newmeta.fileName) {
+  //An embedded image's file name is only a label and shouldn't decide its type
+  if (newmeta.mediaType === "application/octet-stream" && newmeta.fileName && !options?.contentId) {
     //TODO do we want to re-add some of WebHare's file content based magic?
     const mediatype = getMimeTypeForExtension(extname(newmeta.fileName));
     if (mediatype && !mediatype.startsWith("image/"))
@@ -590,6 +591,11 @@ export async function addMissingScanData(meta: ResourceDescriptor, options?: {
   return encodeScanData(newmeta, { contentId: options?.contentId });
 }
 
+/** Is this a name HareScript's WrapBlob made up for a file without a name ('noname' plus the extension)? We never store or return it as a file name */
+export function isPlaceholderFileName(fileName: string): boolean {
+  return fileName === 'noname' || fileName.startsWith('noname.');
+}
+
 /** Decode the scan data of an image embedded in a rich text document
  * @returns The image's content id (null if it has none) and its metadata. The metadata's fileName is null if no file name was stored with the image
  */
@@ -597,15 +603,18 @@ export function decodeEmbeddedScanData(scandata: string): { contentId: string | 
   const parseddata = scandata ? decodeHSON(scandata) as SerializedScanData : {};
   return {
     contentId: parseddata.f || null,
-    metadata: { ...decodeScanData(scandata), fileName: parseddata.n || null }
+    metadata: buildMetadataFromScanData(parseddata, parseddata.n)
   };
 }
 
 export function decodeScanData(scandata: string): ResourceMetadata {
   const parseddata = scandata ? decodeHSON(scandata) as SerializedScanData : {};
+  return buildMetadataFromScanData(parseddata, parseddata.f);
+}
 
-  let fileName = parseddata.f || null;
-  if (fileName && (fileName === 'noname' || fileName.startsWith('noname.')))
+function buildMetadataFromScanData(parseddata: SerializedScanData, storedFileName: string | undefined): ResourceMetadata {
+  let fileName = storedFileName || null;
+  if (fileName && isPlaceholderFileName(fileName))
     fileName = null; //WebHare would write 'noname' followed by the extension if the filename was not set. make it clear we didn't have a filename (TODO stop writing 'noname', probably need to rename 'f' for backwards compat with existing data)
 
   const rotation = parseddata.w ? (parseddata.r || 0) : null;

@@ -7,7 +7,7 @@ import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
 import { Node, type Element } from "@xmldom/xmldom";
 import { elements, parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 import { IntExtLink } from "@webhare/services/src/intextlink";
-import { ResourceDescriptor, hashStream } from "@webhare/services/src/descriptor";
+import { ResourceDescriptor, isPlaceholderFileName } from "@webhare/services/src/descriptor";
 import { CompoundDocument } from "@webhare/services/src/compound-document";
 import type { CodecImportMemberType } from "@webhare/whfs/src/codecs";
 
@@ -92,8 +92,8 @@ async function rebuildInstanceDataFromHSStructure(members: WHFSTypeMember[], dat
 export function importHSResourceDescriptor(resource: HareScriptResourceDescriptor): ResourceDescriptor {
   return new ResourceDescriptor(resource.data, {
     dominantColor: resource.dominantcolor || null,
-    //An embedded image without a file name has its content id as HareScript 'filename'
-    fileName: resource.contentid && resource.filename === resource.contentid ? null : resource.filename,
+    //An embedded image without a file name has its content id as HareScript 'filename'. WrapBlob makes up 'noname' names
+    fileName: (resource.contentid && resource.filename === resource.contentid) || isPlaceholderFileName(resource.filename) ? null : resource.filename,
     mediaType: resource.mimetype,
     extension: resource.extension,
     hash: resource.hash,
@@ -547,8 +547,7 @@ export async function exportRTDAsCompoundDocument(rtd: RichTextDocument, { recur
     if (known && isAvailable(known))
       return known;
 
-    const hash = resource.hash ?? await hashStream(await resource.resource.getStream());
-    const base = `img-${hash.substring(0, 16)}`;
+    const base = `img-${(resource.hash ?? throwError("Embedded image has no hash")).substring(0, 16)}`;
     for (let counter = 1; ; ++counter) { //the same contents can appear more than once, eg. with different file names
       const contentid = `${base}${counter > 1 ? `-${counter}` : ''}${resource.extension ?? ''}`;
       if (isAvailable(contentid))
@@ -567,8 +566,10 @@ export async function exportRTDAsCompoundDocument(rtd: RichTextDocument, { recur
     if ("externalImage" in image) {
       link = image.externalImage;
     } else {
-      const contentid = await getContentId(image, image.image);
-      embedded.set(contentid, image.image);
+      //Calculate a missing hash here, so we don't have to read the image again when it's stored
+      const resource = image.image.hash ? image.image : await image.image.clone({ getHash: true });
+      const contentid = await getContentId(image, resource);
+      embedded.set(contentid, resource);
       link = `cid:${contentid}`;
     }
     const hasDimensions = image.width && image.height;

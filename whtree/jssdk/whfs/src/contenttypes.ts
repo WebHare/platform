@@ -462,8 +462,8 @@ export async function visitResources(callback: VisitCallback, scope: {
       if (batchSize-- <= 0 || (deadline && new Date() > deadline))
         return `instance:${queryPos}:${resultPos}`; //there will be something to do, but we reached the batch size, it will be up to the next run
 
-      //Images embedded in a rich text or compound document also have a content id
-      const isEmbedded = result.type === CSPMemberType.RichTextDocument || result.type === CSPMemberType.CompoundDocument;
+      //Images embedded in a rich text document, compound document or form definition also have a content id
+      const isEmbedded = result.type !== CSPMemberType.File;
       const { contentId, metadata } = isEmbedded ? decodeEmbeddedScanData(result.setting) : { contentId: null, metadata: decodeScanData(result.setting) };
 
       //As we're not calculating the original 'cc' we can't add a dbLoc. Wouldn't be too difficult to add if really needed
@@ -479,7 +479,7 @@ export async function visitResources(callback: VisitCallback, scope: {
           fsType: typeInfo?.scopedType ?? typeInfo?.namespace,
           fieldType: result.type === CSPMemberType.File ? "file"
             : result.type === CSPMemberType.RichTextDocument ? "richTextDocument"
-              : result.type === CSPMemberType.CompoundDocument ? "compoundDocument"
+              : result.type === CSPMemberType.CompoundDocument || result.type === CSPMemberType.CompoundHTMLDocument ? "compoundDocument"
                 : result.type === CSPMemberType.FormDefinition ? "formDefinition"
                   : throwError(`Unexpected type ${result.type}`), //TODO don't hardcode constant, add RTD and 'image' type
           fieldName: nameToCamelCase(result.name) //FIXME take full path and member name from type info
