@@ -30,6 +30,11 @@ export async function renderDynamicPage(request: ContentPageRequest): Promise<We
     request.pageMetadata.openGraph.imageResource = snowbeagle_avif.data!;
   }
 
+  if (url.searchParams.get("consilio")) {
+    request.pageMetadata.consilioFields.wtsPageType = "dynamic";
+    request.pageMetadata.consilioFields.wtsImage = { altText: "Snowbeagle", imageWidth: 1200 };
+  }
+
   return await request.buildWebPage(litty`<p>renderDynamicPage(echo = ${url.searchParams.get("echo") || ''})</p>`);
 }
 

@@ -16,7 +16,7 @@ import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import { isLitty, litty, littyToString, rawLitty, type Litty } from "@webhare/litty";
 import type { InstanceData, WHFSTypes } from "@webhare/whfs/src/contenttypes";
 import { getWHFSObjRef } from "@webhare/whfs/src/support";
-import { isPromise, stringify, throwError, toCLocaleLowercase } from "@webhare/std";
+import { isPromise, stringify, throwError, toCLocaleLowercase, toSnakeCase } from "@webhare/std";
 import { type LegacyResponseInsertable, type ResponseInsertable, type ResponseInsertPoints, type SiteResponse, SiteResponseSettings } from "./sitereponse";
 import { renderRTD } from "@webhare/services/src/richdocument-rendering";
 import { PageMetadata, getOpenGraphData, type StructuredDataItem } from "./metadata";
@@ -587,7 +587,7 @@ export class CPageRequest {
     return litty`
       ${this.__insertions["body-bottom"] ? await this.__renderInserts("body-bottom") : ''}
       ${this.pageMetadata.consilioFields && Object.keys(this.pageMetadata.consilioFields).length > 0 ?
-        litty`<script type="application/x-hson" id="wh-consiliofields">${rawLitty(stringify(this.pageMetadata.consilioFields, { target: "script" }))}</script>` : ''}
+        litty`<script type="application/x-hson" id="wh-consiliofields">${rawLitty(stringify(toSnakeCase(this.pageMetadata.consilioFields), { target: "script" }))}</script>` : ''}
       ${this.__insertions["body-devbottom"] ? await this.__renderInserts("body-devbottom") : ''}
       <script type="application/ld+json">${rawLitty(stringify(schemaOrgItems, { target: "script" }))}</script>`;
   }
