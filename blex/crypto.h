@@ -314,50 +314,6 @@ class BLEXLIB_PUBLIC CRC32Hasher: public Hasher
         Blex::StringPair FinalizeHash();
 };
 
-/** RC4 crypt class. RC4 is symmetric - the same key is used for both encryption
-    and decryption */
-class BLEXLIB_PUBLIC RC4
-{
-        public:
-        /** Construct a RC4 cryptor, waiting for a 'InitKey' */
-        RC4();
-        /** Construct and initialize a RC4 cryptor */
-        RC4(void const *key, unsigned keylen);
-        /** Reset the RC4 cryptor and initialize with a key */
-        void InitKey(void const *key, unsigned keylen);
-        /** Crypt the data in the specified buffer */
-        void CryptBuffer(void *buffer, unsigned bufferlen);
-        /** Crypt a single byte */
-        uint8_t CryptByte(uint8_t inbyte);
-
-        private:
-        uint8_t state[256];
-        unsigned x,y;
-};
-
-/** RC4 crypting stream. */
-class BLEXLIB_PUBLIC RC4CryptingStream : public Blex::Stream
-{
-        public:
-        RC4CryptingStream(Blex::Stream &in);
-        ~RC4CryptingStream();
-
-        /** Reset the RC4 cryptor and initialize with a key */
-        void InitKey(void const *key, unsigned keylen);
-
-        bool EndOfStream();
-        std::size_t Read(void *buf,std::size_t maxbufsize);
-        std::size_t Write(const void *buf, std::size_t bufsize);
-
-        private:
-        RC4 crypt;
-        Blex::Stream &in;
-};
-
-/** Calculate the MD5 hash of a buffer of byte data
-    @param hash Location where to store the hash (must be MD5HashLen bytes in length)*/
-void BLEXLIB_PUBLIC GetMD5Hash(const void *data, unsigned len, void *hashstore);
-
 /** Calculate the SHA1 hash of a message
     @param data Pointer to data to hash
     @param len Length of data to hash
