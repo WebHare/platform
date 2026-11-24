@@ -12,7 +12,7 @@ import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
 import { WebHareMemoryBlob, WebHareNativeBlob } from "@webhare/services/src/webhareblob";
 import { AsyncWorker } from "@mod-system/js/internal/worker";
 import { workHasMutex, isDatabaseError, overrideValueType, getConnection, type WHDBConnectionImpl, type FinishHandler } from "@webhare/whdb/src/impl";
-import { getCurrentPGVersion } from "@webhare/whdb/src/management";
+import { getCurrentPGVersion, getPGBackendPid } from "@webhare/whdb/src/management";
 
 async function cleanup() {
   await beginWork();
@@ -773,6 +773,23 @@ async function testSeparatePrimaryLeak() {
   await rollbackWork();
 }
 
+async function testRestoredConnectionCleanup() {
+  let outerPid: number, innerPid: number;
+  {
+    await using context = new CodeContext("testRestoredConnectionCleanup");
+    [outerPid, innerPid] = await context.run(async () => {
+      const outer = await getPGBackendPid();
+      const inner = await runInSeparateWork(getPGBackendPid);
+      test.assert(inner !== outer);
+      test.eq(outer, await getPGBackendPid(), "Separate work restores the outer session");
+      return [outer, inner] as const;
+    });
+  }
+
+  await test.wait(async () => (await query("SELECT pid FROM pg_stat_activity WHERE pid IN ($1, $2)", [outerPid, innerPid])).rows.length === 0,
+    { timeout: 5000, annotation: "Both PostgreSQL sessions should be gone after closing the context" });
+}
+
 async function testFailingCommitHandler() {
   // An onCommit handler that fails runs after the database acknowledged the commit, so it must not undo anything
   await beginWork();
@@ -1020,6 +1037,7 @@ test.runTests([
   testHSCommitHandlers, //moving this higher triggers races around commit handlers and VM shutdowns
   testClosedConnectionHandling,
   testSeparatePrimaryLeak,
+  testRestoredConnectionCleanup,
   testFailingCommitHandler,
   testDeadlockDetection,
   testOtherTypes,
