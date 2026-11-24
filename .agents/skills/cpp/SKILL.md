@@ -19,6 +19,20 @@ The C++ sources live in the repository root, outside `whtree/`:
 - `vendor/` - third-party code (libxml2, njs, dragonbox, fast_float).
 - `builder/` - the build system: `make.sh` and `base_makefile`.
 
+## Code that waits inside the VM
+
+Builtin functions run on the VM's thread, so a VM or job can only be aborted (job killed, timeout, shutdown) when the
+native code checks for it. Every loop that can wait (`poll`, sleeps, socket/process/database I/O, retry loops) must:
+
+- wait in short slices (eg. `poll(..., 100)`), not one long blocking call,
+- keep waiting in slices until the operation is complete: when a slice returns some data, don't hand over to a call
+  that blocks until the rest arrives (eg. `PQgetResult` while `PQisBusy` is still true), and
+- call `HSVM_TestMustAbort(vm)` after every slice (so at least every ~100ms) and return immediately when it is set.
+  Don't throw a HareScript exception in that case: the VM is already being torn down.
+
+Otherwise the VM hangs until the wait ends. Any timeout should count elapsed time, not idle slices, so data that
+trickles in can't keep the wait going forever.
+
 ## Building: `wh make` and `wh make install`
 
 Builds are done with `wh make`, which runs `builder/make.sh`, which in turn runs GNU make (`gmake` on macOS) on
