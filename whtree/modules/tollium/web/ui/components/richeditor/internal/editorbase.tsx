@@ -2870,7 +2870,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
 
     let properurl;
     try {
-      properurl = await getFormService().getUploadedFileFinalURL(await getFileAsDataURL(filetoupload));
+      properurl = await getFormService().getUploadedFileFinalURL(await getFileAsDataURL(filetoupload), filetoupload.name);
     } catch (e) {
       imgnode.remove(); //don't leave the placeholder behind
       throw e;

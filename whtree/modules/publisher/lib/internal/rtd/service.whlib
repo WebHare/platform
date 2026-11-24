@@ -15,6 +15,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
+LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/dbase/support.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
@@ -308,6 +309,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor <
     INSERT CELL contentid := GenerateUFS128BitId()
               , seen := TRUE
               , url := inurl
+              , orgfilename := GetFileNameForImageURL(inurl)
            INTO wrapped;
     INSERT wrapped INTO this->embedded AT END;
     RETURN wrapped;
@@ -438,7 +440,8 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor <
           STRING orgfilename := CellExists(embed, "filename") ? embed.filename : "";
           IF(NOT CellExists(embed,"__BLOBSOURCE") OR embed.__blobsource="")
           {
-            RECORD backedimg := CreateTempUploadedFile(embed)->GetWrapped();
+            //The temporary file only gets a real file name, as AddNewImage takes the file name of a copied image from it
+            RECORD backedimg := CreateTempUploadedFile(CELL[ ...embed, filename := orgfilename != embed.contentid ? orgfilename : "" ])->GetWrapped();
             INSERT CELL contentid := embed.contentid INTO backedimg;
             embed := backedimg;
           }
@@ -507,14 +510,18 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor <
 
   PUBLIC RECORD FUNCTION InsertImage(BLOB data, STRING filename, STRING contentid DEFAULTSTO "")
   {
+    //An image we add ourselves (with a contentid) has a generated name, which isn't worth keeping
+    STRING orgfilename := contentid = "" ? filename : "";
     IF(contentid = "")
       contentid := GenerateUFS128BitId();
 
-    RECORD backedimg := CreateTempUploadedFile(WrapBlob(data,filename))->GetWrapped();
+    //The temporary file only gets the name we want to keep, as AddNewImage takes an image's file name from it
+    RECORD backedimg := CreateTempUploadedFile(CELL[ ...WrapBlob(data, filename), filename := orgfilename ])->GetWrapped();
     RECORD forserver := WrapCachedImage(backedimg, [ method := "none", baseurl := this->baseurl, fixorientation := TRUE, format := "keep" ]);
 
     INSERT CELL contentid := contentid
               , url := forserver.link
+              , orgfilename := orgfilename
            INTO backedimg;
 
     INSERT backedimg INTO this->embedded AT END;
@@ -774,7 +781,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor <
 
     /* An image without a file name has its contentid as filename when read back from WHFS/WRD. Fill the
        filename with the contentid here so we match what's written to (and given back from) the DB.
-       Images added in the editor don't keep their file name yet: theirs is the name of a temporary file.
+       We can't use the filename of our own records: an image backed by a temporary file has that file's name.
     */
 
     RECORD ARRAY embedded := SELECT data
@@ -1128,18 +1135,41 @@ PUBLIC OBJECT FUNCTION CreateLiveInstanceBlockNode(OBJECT doc, STRING instancere
   RETURN myblock;
 }
 
+/** Get the file name to store with an image that was added in the editor
+    @param url Image cache URL of the image
+    @return The name the image was uploaded with, the name of the file in WHFS or the file name of the image it was
+            copied from. Empty if we don't know a file name */
+STRING FUNCTION GetFileNameForImageURL(STRING url) {
+  RECORD info := GetCachedDataSourceMetadataFromURL(url);
+  IF(NOT RecordExists(info))
+    RETURN "";
+
+  IF(info.type = uc_source_whfsobject) { //An uploaded image is a temporary file that has the upload's name as its title
+    RECORD fsobj := SELECT name, title, parent FROM system.fs_objects WHERE id = info.id;
+    IF(RecordExists(fsobj))
+      RETURN fsobj.parent != GetRTETempDir()->id ? fsobj.name : IsStorableEmbeddedImageFileName(fsobj.title) ? fsobj.title : "";
+  }
+  IF(info.type IN [ uc_source_whfssetting, uc_source_wrdentitysetting ]) //A WHFS or WRD setting, eg. an image copied from another rich text document or taken from an image field
+    RETURN GetCachedDataSourceFileName(info.type, info.id);
+
+  RETURN "";
+}
+
 PUBLIC OBJECT FUNCTION CreateTempUploadedFile(RECORD wrapped)
 {
+  //The file name we were given. WrapBlob makes one up if there is none
+  STRING filename := CellExists(wrapped,'filename') ? wrapped.filename : CellExists(wrapped,'name') ? wrapped.name : "";
+
   //Odd data source, eg MIME mail. backwards compatibility probably requires us to deal with this
   IF(NOT IsCompleteScanData(wrapped))
-    wrapped := WrapBlob(wrapped.data, CellExists(wrapped,'filename') ? wrapped.filename : CellExists(wrapped,'name') ? wrapped.name : "");
+    wrapped := WrapBlob(wrapped.data, filename);
 
   OBJECT tempdir := GetRTETempDir();
   GetPrimary()->BeginWork();
   INTEGER newfileid := tempdir->GetNewFSObjectId();
   OBJECT newfile := tempdir->CreateFile( [ id := newfileid
                                          , name := newfileid || GetExtensionForMimeType(wrapped.mimetype)
-                                         , title := wrapped.filename
+                                         , title := filename
                                          , type := wrapped.mimetype LIKE "image/*" ? 12 : 0
                                          , data := wrapped.data
                                          ]);

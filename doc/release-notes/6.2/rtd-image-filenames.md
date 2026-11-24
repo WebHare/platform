@@ -21,5 +21,7 @@ WHFS and in WRD, and survives export and import. See also
   same result. Images added in the rich text editor still get a random content id
 - Exports made earlier (`wh whfs export`, WRD exports) have the content id as an image's `fileName`. Importing those
   stores that content id as the file name
-- The rich text editor keeps the file names of images that are already in a document. Images added in the editor don't
-  get a file name yet
+- The rich text editor keeps the file names of images that are already in a document. Images uploaded in the editor keep
+  the name of the uploaded file as a slug (`My Photo (1).JPG` becomes `my-photo-1.jpg`). An image inserted with the RTE
+  component's `InsertImage` keeps the file name passed to it, and an image copied from another document keeps its file
+  name. Pasted images have no file name

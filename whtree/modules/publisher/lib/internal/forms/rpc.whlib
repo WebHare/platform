@@ -3,6 +3,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/any.whlib";
 LOADLIB "wh::internal/graphics.whlib";
 LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/langspecific.whlib";
 
 LOADLIB "mod::platform/lib/captcha/captchamgmt.whlib";
 
@@ -53,10 +54,32 @@ PUBLIC RECORD FUNCTION RPC_FormInvoke(RECORD submitinfo)
   RETURN form->__FormDoInvoke(submitinfo.methodname, submitinfo.args);
 }
 
-PUBLIC STRING FUNCTION RPC_GetUploadedFileFinalURL(STRING uploadurl)
+/** Get the file name to keep for an uploaded or pasted image. Such names are whatever the file was called on the uploader's
+    computer, and end up in the URL of the image, so we store a slug
+    @param filename Name of the uploaded file
+    @return Lowercase name with only letters, digits and hyphens, and its extension. Empty if nothing usable is left */
+STRING FUNCTION GetFileNameForUploadedImage(STRING filename) {
+  filename := GetNameFromPath(Substitute(filename, "\\", "/"));
+  STRING extension := GetSafeName(GetExtensionFromPath(filename), [ fallback := "" ]);
+  STRING basename := GetSafeName(GetBasenameFromPath(filename), [ fallback := "" ]);
+  IF(basename = "")
+    RETURN "";
+
+  IF(extension != "")
+    extension := "." || UCLeft(extension, 10);
+  basename := UCLeft(basename, 100 - UCLength(extension));
+  WHILE(basename LIKE "*-") //we may have cut it off after a hyphen
+    basename := Left(basename, Length(basename) - 1);
+  RETURN basename || extension;
+}
+
+PUBLIC STRING FUNCTION RPC_GetUploadedFileFinalURL(STRING uploadurl, STRING filename DEFAULTSTO "")
 {
   RECORD file := ParseDataURL(uploadurl);
-  RECORD wrapped := WrapBlob(file.data, "");
+  /* The name must not influence the detected file type, so we only set it afterwards. The scan must be complete, or
+     CreateTempUploadedFile scans the data again, with the name. The rich text editor stores the name with the image */
+  RECORD wrapped := WrapBlob(file.data, "", [ generatehash := TRUE, extractdominantcolor := TRUE ]);
+  wrapped.filename := GetFileNameForUploadedImage(filename);
   OpenPrimary();
   BOOLEAN isimage := IsSupportedImageResizeType(wrapped.mimetype) OR wrapped.mimetype IN ["image/webp", "image/avif"];
   RETURN isimage ? GetCachedFSImageURL("", CreateTempUploadedFile(wrapped)->id, [method := "none", fixorientation := TRUE])
