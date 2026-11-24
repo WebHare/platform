@@ -62,11 +62,10 @@ RUN --mount=type=bind,source=/ap,target=/mnt/ap \
     --mount=type=bind,source=/builder,target=/mnt/builder \
     --mount=type=bind,source=/drawlib,target=/mnt/drawlib \
     --mount=type=bind,source=/harescript,target=/mnt/harescript \
-    --mount=type=bind,source=/parsers,target=/mnt/parsers \
     --mount=type=bind,source=/whtree/etc,target=/mnt/whtree/etc \
     --mount=type=bind,source=/whtree/lib,target=/mnt/whtree/lib \
     mkdir -p /opt/wh/whtree/ && \
-    cp -a /mnt/ap /mnt/blex /mnt/builder /mnt/drawlib /mnt/harescript /mnt/parsers /opt/wh/ && \
+    cp -a /mnt/ap /mnt/blex /mnt/builder /mnt/drawlib /mnt/harescript /opt/wh/ && \
     cp -a /mnt/whtree/lib /mnt/whtree/etc /opt/wh/whtree/
 
 # Build those parts.

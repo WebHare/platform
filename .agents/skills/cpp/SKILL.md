@@ -1,6 +1,6 @@
 ---
 name: cpp
-description: "Use when changing, building, or installing the WebHare platform's C++ code (blex, harescript compiler/VM, ap webserver/whmanager/libwebhare, parsers, drawlib) or its WASM build, including 'wh make', 'wh make install', build directories, and C++ test targets."
+description: "Use when changing, building, or installing the WebHare platform's C++ code (blex, harescript compiler/VM, ap webserver/whmanager/libwebhare, drawlib) or its WASM build, including 'wh make', 'wh make install', build directories, and C++ test targets."
 ---
 
 # WebHare C++ codebase
@@ -15,7 +15,7 @@ The C++ sources live in the repository root, outside `whtree/`:
   (`vmtest/`). The VM is also built as WASM (`lib/harescript.wasm`).
 - `ap/` - WebHare application processes: `libwebhare/` (shared webserver/connection code), `webserver/`,
   `whmanager/`, and `utils/` (`runscript`, `whcompile`).
-- `parsers/`, `drawlib/` - document parsers and graphics library, loaded as HareScript modules.
+- `drawlib/` - graphics library, loaded as a HareScript module.
 - `vendor/` - third-party code (libxml2, njs, dragonbox, fast_float).
 - `builder/` - the build system: `make.sh` and `base_makefile`.
 
