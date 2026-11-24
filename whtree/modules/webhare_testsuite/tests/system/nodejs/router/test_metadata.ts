@@ -120,6 +120,15 @@ async function testPageMetadata() {
 
     test.eq("consilio </script> value", dynamicPage.consilioFields.test_consilio, `Custom consilio field should be present in ${site}`);
 
+    if (site === "webhare_testsuite.testsitejs") {
+      //Test pure TS/TS integration. camelCase field names should be converted to snake_case as HSON transport is case insensitive
+      const dynamicJSPage = await fetchPreviewAsDoc(`site::${site}/TestPages/dynamicpage-js`, { consilio: "1" });
+      test.eq({
+        wts_page_type: "dynamic",
+        wts_image: { alt_text: "Snowbeagle", image_width: 1200 }
+      }, dynamicJSPage.consilioFields);
+    }
+
     const dynamicPageNoBreadcrumb = await fetchPreviewAsDoc(`site::${site}/TestPages/dynamicpage`, { setmetadata: "1", nobreadcrumb: "1" });
     test.eq([], dynamicPageNoBreadcrumb.schemaOrg.filter(_ => _["@type"] === "BreadcrumbList"), `Breadcrumbs should not be present in ${site} when nobreadcrumb is set`);
   }
