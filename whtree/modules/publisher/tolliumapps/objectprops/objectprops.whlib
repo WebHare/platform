@@ -553,7 +553,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
   */
   MACRO ConfigureForObjectType(INTEGER settype)
   {
-    ^type->value := GetTid(this->curtype.title);
+    ^type->value := GetTid(this->curtype.title) ?? this->curtype.scopedtype ?? this->curtype.namespace;
 
     IF(this->curtype.id=18 OR this->curtype.id=19) //http://www.webhare.net/xmlns/publisher/externallink OR http://www.webhare.net/xmlns/publisher/internallink
     {

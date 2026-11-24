@@ -72,6 +72,7 @@ PUBLIC RECORD FUNCTION GetCachedSiteProfiles()
     @return Metadata for the content type
     @cell(integer) return.id Id of the content type
     @cell(string) return.namespace Namespace of the content type
+    @cell(string) return.scopedtype Scoped type name of the content type (empty for types only identified by a namespace)
     @cell(boolean) return.ispublishable Whether the content type is publishable
     @cell(boolean) return.initialpublish Whether the files should be published immediately after creation
     @cell(boolean) return.needstemplate Whether files of this type need a template
@@ -135,6 +136,7 @@ PUBLIC RECORD FUNCTION DescribeContentTypeById(INTEGER id, RECORD options DEFAUL
   STRING ns := ismissing ? RecordExists(fstype) ? fstype.namespace : "#" || id : type.namespace;
   RETURN [ id := id
          , namespace := ns
+         , scopedtype := ismissing ? (RecordExists(fstype) ? fstype.scopedtype : "") : type.scopedtype
          , ispublishable := RecordExists(type.filetype) AND type.filetype.ispublishable
          , initialpublish := RecordExists(type.filetype) AND type.filetype.initialpublish
          , needstemplate := RecordExists(type.filetype) AND type.filetype.needstemplate
