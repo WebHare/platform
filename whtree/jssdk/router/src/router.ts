@@ -22,6 +22,7 @@ export {
 } from './response';
 export type { WebDesignFunction, SiteRequest, ResponseBuilder, PageBuildRequest, PagePartRequest, LinkResolverContext, ContentBuilderFunction, PagePluginRequest, PagePluginInit, PagePluginFunction, LinkResolverFunction } from './siterequest';
 export { createContentPageRequest } from './siterequest';
+export type { ConsilioFieldValue } from './metadata';
 export {
   RestRequest,
 } from './restrequest';
