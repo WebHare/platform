@@ -8,10 +8,11 @@ function isElement(node: Node): node is Element {
   return node.nodeType === node.ELEMENT_NODE;
 }
 
-type RegistryKey = {
+export type RegistryKey = {
   name: string;
   type: "string" | "datetime" | "boolean" | "integer" | "float" | "money" | "blob" | "record";
   initialVal: string;
+  description: string;
 } | {
   name: string;
   type: "obsoleteKey" | "obsoleteNode";
@@ -46,7 +47,7 @@ function enumerateRegistryKeys(parentNode: Element, prefix: string): RegistryKey
       case "money":
       case "blob":
       case "record":
-        keys.push({ name: keyName, type: localName, initialVal: node.getAttribute("initialval") ?? "" });
+        keys.push({ name: keyName, type: localName, initialVal: node.getAttribute("initialval") ?? "", description: node.getAttribute("description") ?? "" });
         break;
       default:
         console.error(`Unknown registry key type ${localName} in ${keyName}`);
@@ -56,9 +57,14 @@ function enumerateRegistryKeys(parentNode: Element, prefix: string): RegistryKey
   return keys;
 }
 
-function listRegistryKeys(context: GenerateContext, mods: string[]): RegistryKey[] {
+/** List the registry keys declared by the modules in their module definitions
+ * @param context - Context holding the module definitions
+ * @param mods - Modules to list the keys for
+ * @returns The declared keys, named in storage format ('module.node.key')
+ */
+export function listRegistryKeys(context: GenerateContext, mods: string[]): RegistryKey[] {
   const keys = new Array<RegistryKey>;
-  for (const module of mods.sort()) {
+  for (const module of mods.toSorted()) {
     const moduleDef = context.moduledefs.find(m => m.name === module);
     if (!moduleDef)
       continue;
