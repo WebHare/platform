@@ -1,11 +1,12 @@
 import * as path from "node:path";
 import { CLIRuntimeError, runCli } from "@webhare/cli";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { simpleGit } from "simple-git";
 import { isTruthy } from "@webhare/std";
 import { backendConfig, parseResourcePath, toResourcePath } from "@webhare/services";
 import { fixJSPackages, type PackageJson } from "@mod-platform/js/devsupport/jspackages";
 import { storeDiskFile } from "@webhare/system-tools";
+import { readJSONFile } from "@mod-platform/js/cli/cli-tools";
 
 runCli({
   description: "Delete a package from a module",
@@ -32,7 +33,7 @@ runCli({
     const modroot = backendConfig.module[asModulePath.module].root;
 
     const modulePackageJson = modroot + "package.json";
-    const packageJson = JSON.parse(readFileSync(modulePackageJson, "utf8")) as PackageJson;
+    const packageJson = await readJSONFile<PackageJson>(modulePackageJson);
 
     if (packageJson.workspaces?.includes(findPath)) {
       //remove it from the package json

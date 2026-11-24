@@ -1,7 +1,8 @@
 import { backendConfig } from "@webhare/services";
 import * as TypeDoc from "typedoc";
-import { readFile } from "node:fs/promises";
+import { readJSONFile } from "@mod-platform/js/cli/cli-tools";
 import { listDirectory } from "@webhare/system-tools";
+import { existsSync } from "node:fs";
 
 /* TODO: we're currently stuck at typedoc 0.26 as 0.27 switch to ESM and we can't actually load that using tsrun
          we also had to override the dependency in our package.json to get 'npm install' to not complain about the incompatible version */
@@ -17,12 +18,10 @@ export async function setupDocGenerator() {
     if (blacklistModules.includes(pkg.name))
       continue;
 
-    let packageinfo;
-    try {
-      packageinfo = JSON.parse(await readFile(pkg.fullPath + "/package.json", 'utf8'));
-    } catch {
-      continue;
-    }
+    if (!existsSync(pkg.fullPath + "/package.json"))
+      continue; //not a package
+
+    const packageinfo = await readJSONFile<{ main?: string }>(pkg.fullPath + "/package.json");
 
     if (!packageinfo.main?.endsWith('.ts'))
       continue; //not an interesting package (eg. eslint, tsrun)
