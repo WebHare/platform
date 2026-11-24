@@ -317,8 +317,8 @@ FullPath=$(if $(filter /%,$(1)),$(1),$(abspath $(WHBUILD_BUILDDIR)/$(1)))
 
 HSENGINE_SUBPROJECTS=blex harescript
 WHAP_SUBPROJECTS=blex harescript ap
-HSENGINE_SUBPROJECTS+=drawlib parsers
-WHAP_SUBPROJECTS+=drawlib parsers
+HSENGINE_SUBPROJECTS+=drawlib
+WHAP_SUBPROJECTS+=drawlib
 
 SUBPROJECTS=$(sort $(HSENGINE_SUBPROJECTS) $(WHAP_SUBPROJECTS))
 GetSrcFiles=$(subst $(SRCDIR)/,,$(wildcard $(SRCDIR)/$1))
@@ -485,15 +485,6 @@ DRAWLIB_LIBS = blex_draw pixman-1
 
 drawlib_CPPFILES = $(DRAWLIB_FILES) $(DRAWLIBTEST_FILES) $(DRAWLIBHSINTERFACE_FILES)
 drawlib_SRCDIRS = drawlibv2 harescript $(RUNDRAWLIBTEST)
-
-# PARSERS
-PARSERS_MODULES = $(filter-out .svn,$(notdir $(wildcard $(SRCDIR)/parsers/modules/*)))
-parsers_SRCDIRS = modules $(addprefix modules/,$(PARSERS_MODULES))
-parsers_DEPLOYABLES_HSENGINE = \
-	$(addprefix lib/hsm_,$(addsuffix $(DLL_SUFFIX),$(PARSERS_MODULES)))
-
-parsers_DEPLOYABLES_WHAP = $(parsers_DEPLOYABLES_HSENGINE)
-parsers_DEPLOYABLES = $(parsers_DEPLOYABLES_WHAP)
 
 # AP
 AP_DEPLOYABLES_SERVERS = webserver whmanager
@@ -716,7 +707,7 @@ harescript-clean:
 build.harescript: $(harescript_DEPLOYABLES)
 	>build.harescript
 
-success.harescript: build.drawlib build.harescript build.parsers
+success.harescript: build.drawlib build.harescript
 	> success.harescript
 
 build.harescriptvm: build.blex lib/libblex_hsvm$(DLL_SUFFIX) lib/libblex_hscompiler$(DLL_SUFFIX) $(HS_DEPLOYABLES_PREP)
@@ -741,7 +732,7 @@ bin/libdumper: harescript/utils/LibDumper.native-obj lib/libblex_hscompiler$(DLL
 	$(call LinkExecutable,$<,$@,blex_hsvm $(BLEX_LIBS))
 
 # Create module compilation target.
-# $1=module name, $2=library prefix (wh_ or nothing), $3=subfolder (parsers or harescript)
+# $1=module name, $2=library prefix (wh_ or nothing), $3=subfolder (eg. harescript)
 define HsModTarget
 
 $3_$2$1_CPPFILES = $(call GetSrcFiles,$3/modules/$1/*.cpp)
@@ -793,27 +784,9 @@ lib/hsm_whmod_graphics$(DLL_SUFFIX): $(DRAWLIBHSINTERFACE_OBJS) lib/libblex_draw
 coffee:
 	$(error Coffee not yet implemented)
 #
-# PARSERS
-#
-parsers-all: success.parsers
-
-parsers-clean:
-	rm -rf -- parsers $(parsers_DEPLOYABLES)
-
-build.parsers: $(parsers_DEPLOYABLES)
-	>build.parsers
-
-success.parsers: build.parsers
-	> success.parsers
-
-parsers_HsMod_AddDeps = lib/libblex_draw$(DLL_SUFFIX) build.harescript
-parsers_HsMod_AddLibs = $(DRAWLIB_LIBS) $(HS_LIBS)
-$(foreach mod,$(PARSERS_MODULES),$(eval $(call HsModTarget,$(mod),,parsers)))
-
-#
 # AP
 #
-ap-all: parsers-all success.ap
+ap-all: success.ap
 
 ap-clean:
 	rm -rf -- ap $(ap_DEPLOYABLES)
@@ -1029,7 +1002,7 @@ endif # end darwin check
 
 #ADDME autogenerate lists below
 BIN_ALIASES = webhare $(RUNTEST) vmtest $(AP_DEPLOYABLES_SERVERS) $(AP_DEPLOYABLES_UTILS)
-MOD_ALIASES = libblex_draw libblex_hscompiler libblex_hsvm libblex_webhare hsm_parser_adobe_pdf
+MOD_ALIASES = libblex_draw libblex_hscompiler libblex_hsvm libblex_webhare
 WASM_ALIASES = harescript
 
 list-targets:    # List all available targets

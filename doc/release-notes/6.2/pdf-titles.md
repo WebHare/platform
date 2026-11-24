@@ -14,3 +14,12 @@ immediately, read it from the PDF yourself and pass it as `title` when creating 
 This now also works for files created from TypeScript (eg. `createFile` and `importIntoWHFS`) and on the WebAssembly
 HareScript engine, which didn't set PDF titles before. A title you pass explicitly, even an empty one, is never
 replaced. PDFs larger than 100 MB no longer get a title.
+
+### `wh::parser/pdf.whlib` removed
+The native PDF parser and `wh::parser/pdf.whlib` (`OpenPDFFile`, `DoPDFConversion`, `GetPDFMetaInfo`,
+`GetNumberOfPDFPages`, `GetTextOnPDFPage` and the other PDF functions) have been removed. HareScript code that loads
+this library no longer compiles. The parser only ever worked on the native HareScript engine.
+
+To read a PDF's title, subject or keywords, use a PDF library from npm in TypeScript, eg. `getMeta` from
+[unpdf](https://www.npmjs.com/package/unpdf), and call it from HareScript with `CallJS` if needed. The
+`webhare_testsuite:scanfile` debug command has been removed as well.
