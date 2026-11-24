@@ -255,6 +255,8 @@
       <textgroup gid="consilio">   <!-- filemanager.inspect.consilio -->
         <text tid="cannotinspectconsilio">Kan dit object niet vinden in de Publisher zoekindex</text>
         <text tid="consilio_subfiles">Subbestanden</text>
+        <text tid="indexsource">Nu indexeren</text>
+        <text tid="indexsourcedone">Het object is geïndexeerd in catalogus '<param p="1"/>'</text>
         <text tid="inspectconsilio">Inspect in Consilio</text>
         <text tid="inspectsource">Inspecteer bron</text>
         <text tid="nosearchinfo">Geen searchinfo beschikbaar</text>
