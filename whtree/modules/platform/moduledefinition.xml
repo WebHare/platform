@@ -30,6 +30,11 @@
     <managedtask type="requestcertificate"
                  priority="background"
                  taskrunner="js/certbot/internal/task.ts#requestCertificateTask" />
+    <!-- Analyzes newly created files, eg. to take their title from PDF metadata. Declared here instead of in
+         moduledefinition.yml because HareScript's ScheduleManagedTask only finds tasks declared in XML -->
+    <managedtask type="analyzefiles"
+                 timeout="300000"
+                 taskrunner="js/whfs/analyze-files.ts#analyzeFiles" />
   </servicemanager>
 
   <portal>

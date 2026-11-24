@@ -1,6 +1,6 @@
 import { db, sql, type Selectable, type Updateable, isWorkOpen, uploadBlob, nextVal } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { addMissingScanData, getUnifiedCC, type ResourceDescriptor, type WebHareDBLocation } from "@webhare/services/src/descriptor";
+import { addMissingScanData, decodeScanData, getUnifiedCC, type ResourceDescriptor, type WebHareDBLocation } from "@webhare/services/src/descriptor";
 import { getType, describeWHFSType, unknownfiletype, normalfoldertype } from "./describe";
 import { defaultDateTime } from "@webhare/hscompat/src/datetime";
 import type { CSPContentType } from "./siteprofiles";
@@ -217,6 +217,12 @@ export async function createWHFSObject(parent: {
   whfsFinishHandler().objectCreate(parent.parentSite, parent.id, id, isFolder);
   if (isPublish(published))
     whfsFinishHandler().fileRepublish(parent.parentSite, parent.id, id);
+
+  if (initialData && metadata?.title === undefined) { //see if we can get a title from the file's data
+    const { mediaType, hash } = decodeScanData(scandata);
+    if (mediaType === "application/pdf" && hash)
+      whfsFinishHandler().analyzeFile(id, hash);
+  }
 
   return id;
 }
