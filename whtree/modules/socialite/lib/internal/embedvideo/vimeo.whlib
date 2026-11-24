@@ -5,6 +5,8 @@ LOADLIB "wh::internet/fetch.whlib";
 
 LOADLIB "mod::publisher/lib/embedvideo.whlib";
 
+LOADLIB "mod::socialite/lib/internal/embedvideo/support.whlib";
+
 
 PUBLIC OBJECTTYPE VimeoProvider EXTEND EmbedVideoProviderBase <
   UPDATE PUBLIC RECORD FUNCTION Search2(STRING searchfor, RECORD options DEFAULTSTO DEFAULT RECORD) {
@@ -36,8 +38,12 @@ PUBLIC OBJECTTYPE VimeoProvider EXTEND EmbedVideoProviderBase <
   }
 
   UPDATE PUBLIC RECORD FUNCTION DescribeVideo(STRING videoid) {
+    RECORD parsed := ParseVimeoVideoId(videoid);
+    IF(NOT RecordExists(parsed))
+      RETURN DEFAULT RECORD;
+
     //Use their public unauthenticated API, at least it doesn't change its opinion on thumbnail dimensions all the time
-    OBJECT videoinfo := FetchSync("https://vimeo.com/api/oembed.json?url=https://player.vimeo.com/video/" || EncodeURL(videoid) || "&width=1920&height=1080");
+    OBJECT videoinfo := FetchSync("https://vimeo.com/api/oembed.json?url=" || EncodeURL(GetVimeoVideoURL(parsed)) || "&width=1920&height=1080");
 
     RECORD data := videoinfo->JSON();
     IF(NOT RecordExists(data))
@@ -62,14 +68,18 @@ PUBLIC OBJECTTYPE VimeoProvider EXTEND EmbedVideoProviderBase <
                , playratio := 16f/9f
                , title := data.title ?? data.video_id
                , location := DEFAULT RECORD
-               , videoid := data.video_id
+               , videoid := videoid //not data.video_id, which lacks the privacy hash of unlisted videos
                , thumbnail := inferred_thumbnail
                , biggestthumbnail := inferred_thumbnail
                ];
   }
 
   UPDATE PUBLIC STRING FUNCTION GetIFramePlayerURL(STRING videoid) {
-    RETURN "//player.vimeo.com/video/"|| EncodeURL(videoid);
+    RECORD parsed := ParseVimeoVideoId(videoid);
+    IF(NOT RecordExists(parsed))
+      THROW NEW Exception(`Invalid Vimeo video id '${videoid}'`);
+
+    RETURN "//player.vimeo.com/video/" || parsed.id || (parsed.hash != "" ? "?h=" || parsed.hash : "");
   }
 
   UPDATE PUBLIC STRING FUNCTION GetTitle()

@@ -21,10 +21,12 @@ class EmbedVideoForm extends RPCFormBase {
     video: {
       network: string;
       videoid: string;
+      starttime?: number;
     };
   }>) {
     if (result.video) {
-      this.rtd.insertVideoByURL('x-wh-embedvideo:' + result.video.network + ':' + result.video.videoid);
+      const { network, videoid, starttime } = result.video;
+      this.rtd.insertVideoByURL(`x-wh-embedvideo:${network}:${videoid}` + (starttime ? `:${starttime}` : ""));
       this.dialog.resolve(null);
     }
   }

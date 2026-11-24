@@ -109,10 +109,14 @@ PUBLIC OBJECT FUNCTION GetVideoEmbedProvider(STRING providername)
 }
 PUBLIC RECORD FUNCTION GuessEmbeddedVideoFromCode(STRING code)
 {
-  IF(code LIKE "x-wh-embedvideo:*:*")
+  IF(code LIKE "x-wh-embedvideo:*:*") //x-wh-embedvideo:<network>:<videoid>[:<starttime in seconds>]
   {
-    RETURN [ network := Tokenize(code,':')[1]
-           , videoid := Tokenize(code,':')[2]
+    STRING ARRAY parts := Tokenize(code,':');
+    //ToInteger wraps around on overflow, so limit the number of digits. MakeVideoEmbedInstance checks the range
+    INTEGER starttime := Length(parts) > 3 AND Length(parts[3]) <= 7 ? ToInteger(parts[3], 0) : 0;
+    RETURN [ network := parts[1]
+           , videoid := parts[2]
+           , starttime := starttime > 0 ? starttime : 0
            ];
   }
 
@@ -158,6 +162,7 @@ PUBLIC RECORD FUNCTION MakeVideoEmbedInstance(STRING network, STRING videoid)
   //ADDME Use timeouts and a service to avoid TCP/IP requirements
   OBJECT browser := NEW WebBrowser;
   RECORD thumb;
+  STRING thumbname := "preview-" || ToLowercase(Substitute(videoid, "/", "-")) || ".*"; //Vimeo ids of unlisted videos contain a slash
 
   IF(RecordExists(described.biggestthumbnail))
   {
@@ -167,17 +172,17 @@ PUBLIC RECORD FUNCTION MakeVideoEmbedInstance(STRING network, STRING videoid)
     // This workaround is done here (instead of in Socialite) so code using Socialite (YouTubeNetworkAPI or EmbedProviders) don't get a link to a thumbnail that may not exist.
     IF (described.biggestthumbnail.url LIKE "*hqdefault.jpg" AND browser->GotoWebPage(Substitute(described.biggestthumbnail.url, "hqdefault.jpg", "maxresdefault.jpg")))
     {
-      thumb := WrapBlob(browser->content, "preview-" || ToLowercase(videoid) || ".*");
+      thumb := WrapBlob(browser->content, thumbname);
     }
     ELSE IF(browser->GotoWebPage(described.biggestthumbnail.url))
     {
-      thumb := WrapBlob(browser->content, "preview-" || ToLowercase(videoid) || ".*");
+      thumb := WrapBlob(browser->content, thumbname);
     }
     ELSE IF(RecordExists(described.thumbnail) AND described.thumbnail.url != described.biggestthumbnail.url) //alternate url might work? youtube sometimes fails on its biggest thumb, eg http://i.ytimg.com/vi/oSzwFOBq4Co/maxresdefault.jpg fails
     {
       IF(browser->GotoWebPage(described.thumbnail.url))
       {
-        thumb := WrapBlob(browser->content, "preview-" || ToLowercase(videoid) || ".*");
+        thumb := WrapBlob(browser->content, thumbname);
       }
     }
   }

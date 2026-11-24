@@ -29,6 +29,23 @@ test.runTests(
       await test.wait(() => test.qSA("iframe[allowfullscreen]").length === 1);
     },
 
+    "Test unlisted Vimeo video with start time",
+    async function () {
+      await test.load(test.getTestSiteRoot() + "testpages/vimeovideotest/");
+      const videowidget = test.qS("#content > div");
+      test.assert(videowidget.classList.contains("wh-video"));
+      test.eq({ network: "vimeo", id: "906101866/2954ad331e", starttime: 45, "title": "How to add a Practice Exercise to a track" }, JSON.parse(videowidget.dataset.whVideo));
+      test.assert(test.qSA("iframe[allowfullscreen]").length === 0, "video did NOT wait for click!");
+      test.click(videowidget);
+      await test.wait(() => test.qSA("iframe[allowfullscreen]").length === 1);
+
+      const src = new URL(test.qR("iframe[allowfullscreen]").src);
+      test.eq("/video/906101866", src.pathname);
+      test.eq("2954ad331e", src.searchParams.get("h"));
+      test.eq("h", [...src.searchParams.keys()][0], "Vimeo wants the privacy hash as the first parameter");
+      test.eq("#t=0m45s", src.hash);
+    },
+
     "Test consent video",
     async function () {
       forceResetConsent();

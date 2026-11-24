@@ -92,7 +92,7 @@ test.runTests(
         test.eq(null, test.qS('#embedvideo-videourl')); //do not want the fields to leak with a name
 
         test.eq(1, test.qSA('.mydialog').length); //should be only one dialog
-        test.qR('.mydialog input[name=videourl]').value = 'https://www.youtube.com/watch?v=u-e3CcIBxdw';
+        test.qR('.mydialog input[name=videourl]').value = 'https://www.youtube.com/watch?v=u-e3CcIBxdw&t=1m5s';
         test.qR('.mydialog button.wh-form__button--submit').click();
         await test.waitForUI();
       }
@@ -103,6 +103,8 @@ test.runTests(
         await verifyBeagleVideo();
         test.click('#submitbutton');
         await test.waitForUI();
+        //the start time from the pasted URL should be taken over
+        test.eq([65000], JSON.parse(test.qR('#rtdformresponse').textContent!).videostarttimes);
       }
     },
     {
