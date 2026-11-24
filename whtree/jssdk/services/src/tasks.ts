@@ -216,20 +216,23 @@ export async function flushTasks(taskTypes: string[], options?: {
 }) {
   const createdAfter = options?.createdAfter;
   const timeout = convertWaitPeriodToDate(options?.deadline ?? "PT10M");
+  const seenTasks = new Set<number>();
 
-  while (true) { //if we receive multiple tasks, they may create more tasks of types we checked earlier, so loop until ALL tasks are done
-    let anyTasks = false;
+  while (true) { //if we receive multiple tasks, they may create more tasks of types we checked earlier, so loop until no new tasks appear
+    let anyNewTasks = false;
 
     for (const type of taskTypes) {
-      const tasks = await listTasks(type, { createdAfter });
-      if (tasks.length) {
-        anyTasks = true;
-        for (const task of tasks)
-          await retrieveTaskResult(task.id, { timeout, acceptCancel: options?.acceptCancel });
+      for (const task of await listTasks(type, { createdAfter })) {
+        if (seenTasks.has(task.id))
+          continue; //listTasks also returns finished tasks, so don't wait for these again
+
+        seenTasks.add(task.id);
+        anyNewTasks = true;
+        await retrieveTaskResult(task.id, { timeout, acceptCancel: options?.acceptCancel });
       }
     }
 
-    if (!anyTasks)
+    if (!anyNewTasks)
       return;
   }
 }
