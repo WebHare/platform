@@ -210,5 +210,39 @@ test.runTests(
 
       rtetest.testEqSelHTMLEx(test.getWin(),
         `<p class="normal"><a href="http://example.com"><i><b><u><strike><sup>"b(*0*)(*1*)"</sup></strike></u></b></i></a></p>`);
+    },
+    "Copy fragment links",
+    async function () {
+      await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured');
+
+      const rte = test.getWin().rte.getEditor() as StructuredEditor;
+      rte.getBody().focus();
+
+      /* Chromium resolves relative hrefs in the pasted HTML against the URL of the document it was copied from. Simulate
+         that, and check that we restore the original fragment links (but only if the resolved href still ends with it) */
+      const base = "https://webhare.example.net/";
+      for (const { resolve, expect } of [
+        { resolve: (frag: string) => frag, expect: ["#section", "#sectie-ö"] }, //Firefox and Safari don't resolve
+        { resolve: (frag: string) => new URL(frag, base).href, expect: ["#section", "#sectie-ö"] }, //resolving percent-encodes the 'ö'
+        { resolve: (frag: string) => new URL(frag === "#section" ? "#other" : frag, base).href, expect: [base + "#other", "#sectie-ö"] },
+      ]) {
+        rtetest.setStructuredContent(test.getWin(),
+          `<p class="normal">(*0*)<a href="#section">"Section"</a>" and "<a href="#sectie-ö">"Sectie"</a>(*1*)</p>`);
+
+        const transfer = await rtetest.copy(rte);
+        const copiedhtml = transfer.getData("text/html");
+        test.assert(copiedhtml.includes(`data-wh-href="#section"`), "Fragment links should be marked when copying");
+
+        const resolvedtransfer = new DataTransfer;
+        resolvedtransfer.setData("text/html", copiedhtml.replaceAll(/ href="(#[^"]*)"/g, (_, frag: string) => ` href="${resolve(frag)}"`));
+        resolvedtransfer.setData("text/plain", transfer.getData("text/plain"));
+
+        rtetest.setStructuredContent(test.getWin(), `<p class="normal">"(*0*)(*1*)"<br data-wh-rte="bogus"></p>`);
+        await rtetest.paste(rte, resolvedtransfer);
+
+        const links = Array.from(rte.getBody().querySelectorAll("a"));
+        test.eq(expect, links.map(link => link.getAttribute("href")));
+        test.assert(!rte.getBody().querySelector("[data-wh-href]"), "Fragment link markers should not end up in the document");
+      }
     }
   ]);

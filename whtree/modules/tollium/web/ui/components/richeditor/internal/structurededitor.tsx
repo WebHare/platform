@@ -17,7 +17,7 @@ import { copyPastedImageStyleDimensions } from "./utils";
 import PasteCleanup from './pastecleanup';
 import type { RTEWidget } from "./types";
 import { parseEmbeddedObjectNode } from "./support";
-import { copySelectionToClipboard } from "./clipboard";
+import { copySelectionToClipboard, restoreFragmentLinks } from "./clipboard";
 
 //debug flags
 const debugicc = debugFlags["rte-icc"]; //debug insert container contents. needed to figure out rewriting errors eg on fill
@@ -190,6 +190,7 @@ export default class StructuredEditor extends EditorBase {
         const pastecontent = parsed.createElement('div');
         while (parsed.body.firstChild) //not append(...childNodes): a large flat paste would exceed the engine's argument limit
           pastecontent.append(parsed.body.firstChild);
+        restoreFragmentLinks(pastecontent);
 
         /* 'Copy image' in a browser offers both the HTML (with the remote image URL) and the image itself. Prefer the
            image data, as we can't download the remote URL if its server doesn't send CORS headers */
