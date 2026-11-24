@@ -1071,6 +1071,7 @@ MACRO RichDoc()
   myrichexp.embedded := RecurseDeleteSettingIds(myrichexp.embedded, ["HASH", "LINK"]);
   testrec1.richie.embedded  := RecurseDeleteSettingIds(testrec1.richie.embedded,  ["HASH", "LINK"]);
   TestEq(myrichexp, testrec1.richie);
+  TestEq(TRUE, Length(testrec1.richie.embedded) > 0 AND NOT RecordExists(SELECT FROM testrec1.richie.embedded WHERE filename = contentid), "The file names of embedded images should be kept");
   TestTestInstance(testrec1.testinstance);
   TestEq(OpenTestsuiteSite()->OpenByPath("tmp/destlink")->id, testrec1.testintextlink.internallink);
   TestEq("#test", testrec1.testintextlink.append);

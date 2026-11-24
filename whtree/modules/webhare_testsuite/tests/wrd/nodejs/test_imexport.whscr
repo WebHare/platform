@@ -227,6 +227,8 @@ MACRO TestJSExportRoundTrip() {
     RECORD fields := schemaobj->^test_imexport->GetEntityFields(newid, testattrs);
     TestEQ(TRUE, RecordExists(fields));
 
+    TestEQ(["bob.jpg", "goudvis.png"], (SELECT AS STRING ARRAY filename FROM fields.test_richdocument.embedded ORDER BY filename), "File names of embedded images should survive the export");
+
     // RTD's don't keep the contentIds in an export, so they will differ
     STRING ARRAY expected_changes := [ "test_richdocument" ];
     RECORD ARRAY updates := UnpackRecord(newobj->FilterFieldUpdates(fields));

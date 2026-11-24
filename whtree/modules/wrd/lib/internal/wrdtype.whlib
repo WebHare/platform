@@ -2289,6 +2289,8 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase <
             FOREVERY(RECORD embed FROM val.embedded)
             {
               //ADDME safe/restore hash?
+              //The content id is stored where other files have their file name, the image's own file name is stored separately
+              STRING filename := CellExists(embed, "filename") AND embed.filename != embed.contentid ? embed.filename : "";
               DELETE CELL filename FROM embed;
               INSERT CELL filename := embed.contentid INTO embed;
 
@@ -2296,6 +2298,8 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase <
                 val := CELL[ ...val, data := StringToBlob(val.data) ];
 
               RECORD newinfo := MappedJoinBlobSetting(embed, whfsmapper, jsmode);
+              IF(filename != "")
+                newinfo.rawdata := SetEmbeddedImageFileName(newinfo.rawdata, filename);
               INSERT
                   [ setting := 0
                   , whfsdata := newinfo.fs_object

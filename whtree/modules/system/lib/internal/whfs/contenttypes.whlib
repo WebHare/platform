@@ -487,11 +487,13 @@ STATIC OBJECTTYPE WHFSType <
               IF(setting.ordering=1)
               {
                 RECORD split := SplitBlobSetting(setting.setting, setting.blobdata, setting.fs_object);
-                IF(NOT RecordExists(SELECT FROM newval.embedded WHERE embedded.contentid = split.filename))
+                STRING contentid := split.filename; //the content id is stored where other files have their file name
+                IF(NOT RecordExists(SELECT FROM newval.embedded WHERE embedded.contentid = VAR contentid))
                 {
                   //Then add it!
                   split := CELL[ ...split
-                               , contentid := split.filename
+                               , contentid := contentid
+                               , filename := GetEmbeddedImageFileName(setting.setting) ?? contentid
                                ];
 
                   IF (ObjectExists(remapper))
@@ -936,10 +938,14 @@ STATIC OBJECTTYPE WHFSType <
             FOREVERY(RECORD embed FROM embedded)
             {
               //ADDME safe/restore hash?
+              //The content id is stored where other files have their file name, the image's own file name is stored separately
+              STRING filename := CellExists(embed, "filename") AND embed.filename != embed.contentid ? embed.filename : "";
               DELETE CELL filename FROM embed;
               INSERT CELL filename := embed.contentid INTO embed;
 
               RECORD settingdata := JoinBlobSetting(embed);
+              IF(filename != "")
+                settingdata.rawdata := SetEmbeddedImageFileName(settingdata.rawdata, filename);
 
               INTEGER64 settingid := SELECT AS INTEGER64 id FROM current_member_settings WHERE ordering=1 AND SplitBlobSetting(setting, DEFAULT BLOB, 0).filename = embed.contentid;;
               IF(settingid != 0)

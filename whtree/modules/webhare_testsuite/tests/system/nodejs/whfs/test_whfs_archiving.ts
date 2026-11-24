@@ -1,6 +1,6 @@
 import { YAML } from "@webhare/deps";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
-import { toFSPath } from "@webhare/services";
+import { buildRTD, ResourceDescriptor, toFSPath } from "@webhare/services";
 import { beginWork, commitWork, rollbackWork } from "@webhare/whdb";
 import { importIntoWHFS, storeWHFSExport, whfsType, type ImportWHFSProgress, type WHFSFolder } from "@webhare/whfs";
 import { mkdtemp } from "node:fs/promises";
@@ -172,9 +172,50 @@ async function testWHFSExportWithResourceLinks() {
   test.eq({ resource: "mod::system/web/tests/snowbeagle.jpg" }, rootFileMeta.instances[1].data.data[1].widget.data.thumbnail.file);
 }
 
+async function testRTDImageRoundTrip() {
+  const workdir = await mkdtemp(join(tmpdir(), "whfs-export-archive."));
+  const target = await test.getTestSiteJSTemp();
+
+  await beginWork();
+  const sourceFolder = await target.createFolder("rtd-images");
+  const sourceFile = await sourceFolder.createFile("images", { type: "platform:filetypes.richdocument", title: "Images" });
+  await whfsType("platform:filetypes.richdocument").set(sourceFile.id, {
+    data: await buildRTD([
+      {
+        p: [
+          { image: await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { fileName: "kikker.png" }) },
+          { image: await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg", { fileName: undefined }) }
+        ]
+      }
+    ])
+  });
+  await commitWork();
+
+  // export -> import -> export should give the same images, with their file names but without their content ids
+  const getExportedRTD = (dir: string) => YAML.parse(readFileSync(join(workdir, dir, "rtd-images/images.whfs.yml"), "utf-8")).instances.find((instance: { whfsType: string }) => instance.whfsType === "platform:filetypes.richdocument");
+
+  await storeWHFSExport(join(workdir, "export1"), [sourceFolder]);
+  const export1 = getExportedRTD("export1");
+  test.eq(["kikker.png", undefined], export1.data.data[0].items.map((item: { image: { fileName?: string } }) => item.image.fileName));
+
+  await beginWork();
+  const importFolder = await target.createFolder("rtd-images-reimport");
+  const importResult = await importIntoWHFS(join(workdir, "export1"), importFolder, { onProgress: onImportProgress });
+  test.eq([], importResult.messages);
+  await commitWork();
+
+  await storeWHFSExport(join(workdir, "export2"), [await importFolder.openFolder("rtd-images")]);
+  test.eq(export1, getExportedRTD("export2"));
+
+  //the metadata files themselves still differ, as they contain the export time and the source path
+  for (const item of export1.data.data[0].items as Array<{ image: { file: { asset: string } } }>)
+    test.assert(readFileSync(join(workdir, "export1", "rtd-images", item.image.file.asset)).equals(readFileSync(join(workdir, "export2", "rtd-images", item.image.file.asset))), `Exported image '${item.image.file.asset}' should be identical`);
+}
+
 test.runTests([
   test.resetWTS,
   testWHFSImportArchive,
   testWHFSExportArchive,
   testWHFSExportWithResourceLinks,
+  testRTDImageRoundTrip,
 ]);

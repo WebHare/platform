@@ -434,12 +434,15 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor <
       {
         TRY
         {
+          //Remember the image's file name, as backing it with a temporary file replaces it
+          STRING orgfilename := CellExists(embed, "filename") ? embed.filename : "";
           IF(NOT CellExists(embed,"__BLOBSOURCE") OR embed.__blobsource="")
           {
             RECORD backedimg := CreateTempUploadedFile(embed)->GetWrapped();
             INSERT CELL contentid := embed.contentid INTO backedimg;
             embed := backedimg;
           }
+          embed := CELL[ ...embed, orgfilename := orgfilename ];
 
           //For performance, keep the original image format so we especially avoid slow AVIF transcoding during RTD editing
           //TODO: don't burden the image cache with temporary RTE files
@@ -769,9 +772,9 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor <
 
     value := this->blobstabilizer->Process(value);
 
-    /* The contentid can't be saved in blob settings, so the filename is overwritten with the contentid
-       within WHFS/WRD. Fill the filename with the contentid here so we match what's written to (and given
-       back from) the DB.
+    /* An image without a file name has its contentid as filename when read back from WHFS/WRD. Fill the
+       filename with the contentid here so we match what's written to (and given back from) the DB.
+       Images added in the editor don't keep their file name yet: theirs is the name of a temporary file.
     */
 
     RECORD ARRAY embedded := SELECT data
@@ -779,7 +782,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor <
                                   , contentid// := cid
                                   , width
                                   , height
-                                  , filename := contentid
+                                  , filename := (CellExists(embedded, "orgfilename") ? embedded.orgfilename : "") ?? contentid
                                   , extension
                                   , rotation
                                   , mirrored

@@ -7,7 +7,7 @@ import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
 import { Node, type Element } from "@xmldom/xmldom";
 import { elements, parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 import { IntExtLink } from "@webhare/services/src/intextlink";
-import { ResourceDescriptor } from "@webhare/services/src/descriptor";
+import { ResourceDescriptor, hashStream } from "@webhare/services/src/descriptor";
 import { CompoundDocument } from "@webhare/services/src/compound-document";
 import type { CodecImportMemberType } from "@webhare/whfs/src/codecs";
 
@@ -92,7 +92,8 @@ async function rebuildInstanceDataFromHSStructure(members: WHFSTypeMember[], dat
 export function importHSResourceDescriptor(resource: HareScriptResourceDescriptor): ResourceDescriptor {
   return new ResourceDescriptor(resource.data, {
     dominantColor: resource.dominantcolor || null,
-    fileName: resource.filename,
+    //An embedded image without a file name has its content id as HareScript 'filename'
+    fileName: resource.contentid && resource.filename === resource.contentid ? null : resource.filename,
     mediaType: resource.mimetype,
     extension: resource.extension,
     hash: resource.hash,
@@ -107,7 +108,7 @@ function exportHSEmbeddedResource(resource: ResourceDescriptor, contentid: strin
   return {
     dominantcolor: resource.dominantColor || '',
     data: resource.file,
-    filename: contentid,
+    filename: resource.fileName || contentid,
     mimetype: resource.mediaType,
     extension: resource.extension ?? throwError("ResourceDescriptor must have an extension set"),
     hash: resource.hash ?? throwError("ResourceDescriptor must have a hash set"),
@@ -532,6 +533,29 @@ export async function exportRTDAsCompoundDocument(rtd: RichTextDocument, { recur
     return `<${tag} class="wh-rtd-embeddedobject" data-instanceid="${encodeEntities(instanceid, 'attribute')}"></${tag}>`;
   }
 
+  function isSameEmbeddedImage(lhs: ResourceDescriptor, rhs: ResourceDescriptor): boolean {
+    return lhs === rhs || (Boolean(lhs.hash) && lhs.hash === rhs.hash && lhs.fileName === rhs.fileName && lhs.sourceFile === rhs.sourceFile
+      && lhs.refPoint?.x === rhs.refPoint?.x && lhs.refPoint?.y === rhs.refPoint?.y);
+  }
+
+  /** Get the content id for an image. An id we already know is kept. New ids are derived from the image's contents so
+      storing the same document twice (eg. on different servers) gives the same ids */
+  async function getContentId(image: RTDBaseInlineImageItem<"inMemory">, resource: ResourceDescriptor): Promise<string> {
+    const isAvailable = (id: string) => !embedded.has(id) || isSameEmbeddedImage(embedded.get(id)!, resource);
+
+    const known = imagemapping.get(image);
+    if (known && isAvailable(known))
+      return known;
+
+    const hash = resource.hash ?? await hashStream(await resource.resource.getStream());
+    const base = `img-${hash.substring(0, 16)}`;
+    for (let counter = 1; ; ++counter) { //the same contents can appear more than once, eg. with different file names
+      const contentid = `${base}${counter > 1 ? `-${counter}` : ''}${resource.extension ?? ''}`;
+      if (isAvailable(contentid))
+        return contentid;
+    }
+  }
+
   async function exportImageForHS(image: RTDBaseInlineImageItem<"inMemory">) {
     const classes = ["wh-rtd__img"];
     if (image.float === "left")
@@ -543,7 +567,7 @@ export async function exportRTDAsCompoundDocument(rtd: RichTextDocument, { recur
     if ("externalImage" in image) {
       link = image.externalImage;
     } else {
-      const contentid = imagemapping.get(image) || generateRandomId();
+      const contentid = await getContentId(image, image.image);
       embedded.set(contentid, image.image);
       link = `cid:${contentid}`;
     }

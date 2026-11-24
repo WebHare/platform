@@ -153,7 +153,8 @@ PUBLIC RECORD FUNCTION ReadWRDRichDocument(RECORD ARRAY settings, OBJECT linkget
     IF (NOT IsDefaultValue(whfsmapper))
       split := CELL[ ...split, source_fsobject := whfsmapper->MapWHFSRef(split.source_fsobject) ];
 
-    INSERT CELL contentid := split.filename INTO split;
+    //The content id is stored where other files have their file name
+    split := CELL[ ...split, contentid := split.filename, filename := GetEmbeddedImageFileName(toset.rawdata) ?? split.filename ];
     INSERT split INTO retval.embedded AT END;
   }
 

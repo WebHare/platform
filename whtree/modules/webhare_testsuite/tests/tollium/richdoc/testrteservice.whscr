@@ -91,6 +91,7 @@ MACRO RTECreation()
   RECORD exportrec := editable->ExportAsRecord();
   TestEq(FALSE, BlobToString(exportrec.htmltext) LIKE "*noise*", "The word noise didn't get stripped from embeddedobject contents");
   TestEq(2, Length(exportrec.instances));
+  TestEq([[ contentid := "imagecid-81400", filename := "bob.jpg" ]], (SELECT contentid, filename FROM exportrec.embedded), "The editor should keep an image's file name");
 
   //Get the rendered value from this RTECreation
   doc := MakeXMLDocumentFromHTML(StringToBlob(editable->GetHTMLForClientRTE()));

@@ -162,6 +162,7 @@ MACRO RTEDocumentTypes()
   scr->testrte->type := "html-block";
   scr->testrte->value := pthuhtml;
   TestEq(2,Length(scr->testrte->value.embedded));
+  TestEq([[ contentid := "imagecid-81399", filename := "81399" ], [ contentid := "imagecid-81400", filename := "81400" ]], (SELECT contentid, filename FROM scr->testrte->value.embedded ORDER BY contentid), "The editor should keep an image's file name");
 
   scr->testrte->type := "html";
 }

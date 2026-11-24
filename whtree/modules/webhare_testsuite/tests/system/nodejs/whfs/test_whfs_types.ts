@@ -865,6 +865,11 @@ async function testVisitor() {
   const aboutAFishData = await whfs.whfsType("platform:filetypes.richdocument").get(aboutAFish.id, { export: true });
   await commitWork();
 
+  const hsRTDType = await loadlib("mod::system/lib/whfs.whlib").openWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  const getContentIds = async () => (await hsRTDType.getInstanceData(aboutAFish.id)).data.embedded.map((embed: { contentid: string }) => embed.contentid) as string[];
+  const originalContentIds = await getContentIds();
+  test.eq(1, originalContentIds.length);
+
   const originalList: Array<whfs.VisitedResourceContext & { fileName: string | null }> = [];
   const startingPoints = [(await test.getTestSiteHS()).id, (await test.getTestSiteJS()).id];
 
@@ -899,7 +904,9 @@ async function testVisitor() {
   }, { startingPoints, isVisibleEdit: false });
 
   const finalRTD = await whfs.whfsType("platform:filetypes.richdocument").get(aboutAFish.id, { export: true });
-  test.eq((aboutAFishData as any).data[0].items[1].image.fileName, (finalRTD as any).data[0].items[1].image.fileName, "verify contentid was preserved");
+  test.eq("goudvis.png", (aboutAFishData as any).data[0].items[1].image.fileName);
+  test.eq("snowbeagle.jpg", (finalRTD as any).data[0].items[1].image.fileName, "the new image's file name should be stored");
+  test.eq(originalContentIds, await getContentIds(), "verify contentid was preserved");
   test.eqPartial({ width: 428, height: 284, mediaType: "image/jpeg", hash: test.wellKnownHashes.snowbeagleJPG }, (finalRTD as any).data[0].items[1].image);
 }
 
