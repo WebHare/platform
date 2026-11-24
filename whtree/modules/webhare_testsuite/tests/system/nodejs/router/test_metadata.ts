@@ -121,7 +121,7 @@ async function testPageMetadata() {
     test.eq("consilio </script> value", dynamicPage.consilioFields.test_consilio, `Custom consilio field should be present in ${site}`);
 
     if (site === "webhare_testsuite.testsitejs") {
-      //Test pure TS/TS integration. camelCase field names should be converted to snake_case as HSON transport is case insensitive
+      //Test pure TS/TS integration. camelCase field names should be converted to snake_case so HareScript can access them
       const dynamicJSPage = await fetchPreviewAsDoc(`site::${site}/TestPages/dynamicpage-js`, { consilio: "1" });
       test.eq({
         wts_page_type: "dynamic",
