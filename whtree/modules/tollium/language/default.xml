@@ -976,12 +976,14 @@
         <text tid="destination">Destination</text>
         <text tid="dimensions">Dimensions</text>
         <text tid="downloadoriginal">Download original</text>
+        <text tid="filename">File name</text>
         <text tid="height">Height</text>
         <text tid="hyperlink">Hyperlink</text>
         <text tid="imageproperties">Image properties</text>
         <text tid="img_inline">In line with text</text>
         <text tid="img_left">Floating left</text>
         <text tid="img_right">Floating right</text>
+        <text tid="invalidfilename">The file name is not valid. It cannot be longer than 100 characters including its extension, it may not be 'noname' or end with a dot, and the following characters may not be used: / \ : * ? " &lt; &gt; |</text>
         <text tid="keepaspectratio">Keep aspect ratio</text>
         <text tid="openinnewwindow">Open in new window</text>
         <text tid="overridedimensions">Override dimensions</text>

@@ -25,3 +25,6 @@ WHFS and in WRD, and survives export and import. See also
   the name of the uploaded file as a slug (`My Photo (1).JPG` becomes `my-photo-1.jpg`). An image inserted with the RTE
   component's `InsertImage` keeps the file name passed to it, and an image copied from another document keeps its file
   name. Pasted images have no file name
+- Editors can set or change an image's file name in its properties in the rich text editor, next to the alternative
+  text. The extension follows the image's type and can't be changed. Every use of the same image in a document shares
+  the name. A renamed image gets a new URL the next time the document is published; the old URL keeps working

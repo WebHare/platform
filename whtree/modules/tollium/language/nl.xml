@@ -945,12 +945,14 @@
         <text tid="destination">Bestemming</text>
         <text tid="dimensions">Afmetingen</text>
         <text tid="downloadoriginal">Download origineel</text>
+        <text tid="filename">Bestandsnaam</text>
         <text tid="height">Hoogte</text>
         <text tid="hyperlink">Hyperlink</text>
         <text tid="imageproperties">Eigenschappen van afbeelding</text>
         <text tid="img_inline">In de alinea</text>
         <text tid="img_left">Links zwevend</text>
         <text tid="img_right">Rechts zwevend</text>
+        <text tid="invalidfilename">De bestandsnaam is niet geldig. Deze mag inclusief extensie niet langer zijn dan 100 tekens, mag niet 'noname' zijn of op een punt eindigen, en de volgende tekens mogen niet gebruikt worden: / \ : * ? " &lt; &gt; |</text>
         <text tid="keepaspectratio">Behoud breedte-hoogte verhouding</text>
         <text tid="openinnewwindow">Open in nieuw venster</text>
         <text tid="overridedimensions">Overschrijf dimensies</text>

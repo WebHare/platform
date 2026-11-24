@@ -436,12 +436,12 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor <
       {
         TRY
         {
-          //Remember the image's file name, as backing it with a temporary file replaces it
-          STRING orgfilename := CellExists(embed, "filename") ? embed.filename : "";
+          //Remember the image's file name, as backing it with a temporary file replaces it. An image without a file name has its contentid as filename
+          STRING orgfilename := GetStorableEmbeddedImageFileName(embed);
           IF(NOT CellExists(embed,"__BLOBSOURCE") OR embed.__blobsource="")
           {
             //The temporary file only gets a real file name, as AddNewImage takes the file name of a copied image from it
-            RECORD backedimg := CreateTempUploadedFile(CELL[ ...embed, filename := orgfilename != embed.contentid ? orgfilename : "" ])->GetWrapped();
+            RECORD backedimg := CreateTempUploadedFile(CELL[ ...embed, filename := orgfilename ])->GetWrapped();
             INSERT CELL contentid := embed.contentid INTO backedimg;
             embed := backedimg;
           }
@@ -610,6 +610,21 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor <
       tags := tags CONCAT ["html","body","br"];
     }
     RETURN tags;
+  }
+
+  /** Set the file name of an image. Every use of the image in the document gets this name
+      @param src URL of the image, as the editor has it
+      @param filename The new file name, empty to remove it */
+  PUBLIC MACRO SetImageFileName(STRING src, STRING filename) {
+    RECORD img := this->GetImage(src);
+    IF(NOT RecordExists(img))
+      THROW NEW Exception(`No such image '${src}'`);
+    IF(filename != "" AND NOT IsValidEmbeddedImageFileName(filename))
+      THROW NEW Exception(`Invalid file name '${filename}'`);
+
+    FOREVERY(RECORD embed FROM this->embedded)
+      IF(embed.contentid = img.contentid)
+        this->embedded[#embed] := CELL[ ...embed, orgfilename := filename ];
   }
 
   PUBLIC RECORD FUNCTION GetImage(STRING src)
@@ -1135,6 +1150,13 @@ PUBLIC OBJECT FUNCTION CreateLiveInstanceBlockNode(OBJECT doc, STRING instancere
   RETURN myblock;
 }
 
+/** Is this a file name a user may give to an image in a rich text document?
+    @param filename File name to check, with its extension
+    @return TRUE if the name is a valid name for a file, of at most 100 characters, and not a name we'd ignore when it's stored */
+PUBLIC BOOLEAN FUNCTION IsValidEmbeddedImageFileName(STRING filename) {
+  RETURN IsValidWHFSName(filename, FALSE) AND UCLength(filename) <= 100 AND IsStorableEmbeddedImageFileName(filename);
+}
+
 /** Get the file name to store with an image that was added in the editor
     @param url Image cache URL of the image
     @return The name the image was uploaded with, the name of the file in WHFS or the file name of the image it was
@@ -1147,7 +1169,7 @@ STRING FUNCTION GetFileNameForImageURL(STRING url) {
   IF(info.type = uc_source_whfsobject) { //An uploaded image is a temporary file that has the upload's name as its title
     RECORD fsobj := SELECT name, title, parent FROM system.fs_objects WHERE id = info.id;
     IF(RecordExists(fsobj))
-      RETURN fsobj.parent != GetRTETempDir()->id ? fsobj.name : IsStorableEmbeddedImageFileName(fsobj.title) ? fsobj.title : "";
+      RETURN fsobj.parent != GetRTETempDir()->id ? fsobj.name : fsobj.title;
   }
   IF(info.type IN [ uc_source_whfssetting, uc_source_wrdentitysetting ]) //A WHFS or WRD setting, eg. an image copied from another rich text document or taken from an image field
     RETURN GetCachedDataSourceFileName(info.type, info.id);
