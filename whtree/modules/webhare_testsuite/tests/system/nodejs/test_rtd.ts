@@ -1081,8 +1081,10 @@ async function testImageFileNames() {
 
   await beginWork();
   for (const setting of await getImageSettings())
-    await db<PlatformDB>().updateTable("system.fs_settings").set({ setting: setting.setting.replace('{', '{"n":"noname.png",') }).where("id", "=", setting.id).execute();
+    await db<PlatformDB>().updateTable("system.fs_settings").set({ setting: setting.setting.replace(/^hson:\{/, 'hson:{"n":"noname.png",') }).where("id", "=", setting.id).execute();
   await commitWork();
+  for (const setting of await getImageSettings())
+    test.assert(setting.setting.includes('"n":"noname.png"'), `Should have added the file name to ${setting.setting}`);
 
   test.eq([null, null, null, null], getImages((await rtdType.get(tempfile.id)).data as RichTextDocument).map(_ => _.fileName));
   for (const embed of (await hsWHFSType.getInstanceData(tempfile.id)).data.embedded)
