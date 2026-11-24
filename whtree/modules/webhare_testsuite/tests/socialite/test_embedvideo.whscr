@@ -146,6 +146,12 @@ MACRO TestNewVideoAPI()
       , [ test:= 'https://vimeo.com/channels/1234567/1249144075' // numeric channel followed by a 10 digit video id is not an unlisted video
         , out := [ network := "vimeo", videoid := '1249144075', starttime := 0 ]
         ]
+      , [ test:= 'https://vimeo.com/someuser/review/906101866/2954ad331e' // review link
+        , out := [ network := "vimeo", videoid := '906101866/2954ad331e', starttime := 0 ]
+        ]
+      , [ test:= 'https://vimeo.com/someuser/review/581039021/9603038895' // review link with an all-digit hash
+        , out := [ network := "vimeo", videoid := '581039021/9603038895', starttime := 0 ]
+        ]
       , [ test:= 'https://vimeo.com/906101866/notahash12' // not a hash
         , out := [ network := "vimeo", videoid := '906101866', starttime := 0 ]
         ]
@@ -267,13 +273,23 @@ MACRO TestVimeoProvider()
 
   TestEq("//player.vimeo.com/video/50788492", prov->GetIFramePlayerURL("50788492"));
   TestEq("//player.vimeo.com/video/906101866?h=2954ad331e", prov->GetIFramePlayerURL("906101866/2954ad331e"));
+  TestEq("//player.vimeo.com/video/not%20an%20id", prov->GetIFramePlayerURL("not an id")); //don't throw on unexpected ids
 
   RECORD instance := MakeVideoEmbedInstance("vimeo", "906101866/2954ad331e");
   TestEq("906101866/2954ad331e", instance.videoid);
   TestEq("How to add a Practice Exercise to a track", instance.title);
   TestEqLike("preview-906101866-2954ad331e.*", instance.thumbnail.filename);
 
-  RECORD embedinfo := GetVideoEmbedInfo(CELL[ ...instance, starttime := 45000 ]);
+  TestEq(0, instance.starttime);
+  instance := MakeVideoEmbedInstance("vimeo", "906101866/2954ad331e", [ starttime := 45 ]);
+  TestEq(45000, instance.starttime);
+
+  //start times that are negative, past the end of the video or overflow the milliseconds are ignored
+  TestEq(0, MakeVideoEmbedInstance("vimeo", "906101866/2954ad331e", [ starttime := -5 ]).starttime);
+  TestEq(0, MakeVideoEmbedInstance("vimeo", "906101866/2954ad331e", [ starttime := 359996400 ]).starttime);
+  TestEq(0, MakeVideoEmbedInstance("vimeo", "906101866/2954ad331e", [ starttime := instance.duration + 1 ]).starttime);
+
+  RECORD embedinfo := GetVideoEmbedInfo(instance);
   TestEq("906101866/2954ad331e", embedinfo.id);
   TestEq(45m, embedinfo.starttime);
 }

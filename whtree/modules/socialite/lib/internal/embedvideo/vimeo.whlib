@@ -76,8 +76,8 @@ PUBLIC OBJECTTYPE VimeoProvider EXTEND EmbedVideoProviderBase <
 
   UPDATE PUBLIC STRING FUNCTION GetIFramePlayerURL(STRING videoid) {
     RECORD parsed := ParseVimeoVideoId(videoid);
-    IF(NOT RecordExists(parsed))
-      THROW NEW Exception(`Invalid Vimeo video id '${videoid}'`);
+    IF(NOT RecordExists(parsed)) //not an id we recognize. don't throw, callers may be rendering a whole list of videos
+      RETURN "//player.vimeo.com/video/" || EncodeURL(videoid);
 
     RETURN "//player.vimeo.com/video/" || parsed.id || (parsed.hash != "" ? "?h=" || parsed.hash : "");
   }

@@ -152,12 +152,22 @@ PUBLIC RECORD FUNCTION GetVideoEmbedInfo(RECORD video)
   RETURN videoinfo;
 }
 
-/** @short Get the data to store in a video embed instance */
-PUBLIC RECORD FUNCTION MakeVideoEmbedInstance(STRING network, STRING videoid)
+/** @short Get the data to store in a video embed instance
+    @param network Video network, eg 'youtube'
+    @param videoid Video id
+    @cell(integer) options.starttime Start time in seconds, eg as parsed by GuessEmbeddedVideoFromCode. Ignored if it's
+        negative or past the end of the video
+    @return Instance data, DEFAULT RECORD if the video wasn't found */
+PUBLIC RECORD FUNCTION MakeVideoEmbedInstance(STRING network, STRING videoid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions(CELL[ starttime := 0 ], options);
   RECORD described := GetVideoEmbedProvider(network)->DescribeVideo(videoid);
   IF (NOT RecordExists(described))
     RETURN DEFAULT RECORD;
+
+  //like the video widget's properties dialog, don't start past the end. starttime is stored in milliseconds, so it must stay below 2^31/1000
+  IF(options.starttime < 0 OR options.starttime > 2147483 OR (described.duration > 0 AND options.starttime > described.duration))
+    options.starttime := 0;
 
   //ADDME Use timeouts and a service to avoid TCP/IP requirements
   OBJECT browser := NEW WebBrowser;
@@ -197,7 +207,7 @@ PUBLIC RECORD FUNCTION MakeVideoEmbedInstance(STRING network, STRING videoid)
          , duration :=     described.duration
          , location :=     LatLngToString(described.location)
          , playratio :=    16f/9f //FIXME properly calculate this, but simply
-         , starttime :=    0
+         , starttime :=    options.starttime * 1000 //stored in milliseconds
          , endtime :=      0
          , autoplay :=     FALSE
          , loop :=         FALSE

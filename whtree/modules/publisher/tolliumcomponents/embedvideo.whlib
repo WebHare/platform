@@ -468,13 +468,12 @@ PUBLIC OBJECTTYPE SearchVideo EXTEND TolliumScreenBase
       RETURN FALSE;
     }
 
-    this->selectedvideo := MakeVideoEmbedInstance(video.video.network, video.video.videoid);
-    IF(RecordExists(this->selectedvideo)
-       AND RecordExists(this->guessedvideo)
-       AND CellExists(this->guessedvideo, "starttime")
-       AND this->guessedvideo.network = video.video.network
-       AND this->guessedvideo.videoid = video.video.videoid)
-      this->selectedvideo.starttime := this->guessedvideo.starttime * 1000; //the instance stores milliseconds
+    //Take over the start time if this is the video from a pasted URL
+    BOOLEAN isguessedvideo := RecordExists(this->guessedvideo)
+                              AND CellExists(this->guessedvideo, "starttime")
+                              AND this->guessedvideo.network = video.video.network
+                              AND this->guessedvideo.videoid = video.video.videoid;
+    this->selectedvideo := MakeVideoEmbedInstance(video.video.network, video.video.videoid, isguessedvideo ? CELL[ this->guessedvideo.starttime ] : DEFAULT RECORD);
 
     RETURN TRUE;
   }

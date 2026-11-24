@@ -160,14 +160,18 @@ PUBLIC RECORD FUNCTION GuessFromCode(STRING text)
         INSERT part INTO parts AT END;
 
     /* Unlisted videos need their privacy hash, which can be in the path (vimeo.com/<id>/<hash>,
-       player.vimeo.com/video/<id>/<hash>) or in the 'h' parameter (player.vimeo.com/video/<id>?h=<hash>).
-       Only recognize the path form right after the start or 'video/': hashes can be all digits
-       (eg vimeo.com/581039021/9603038895) so we can't tell them apart from video ids elsewhere */
+       player.vimeo.com/video/<id>/<hash>, vimeo.com/<user>/review/<id>/<hash>) or in the 'h' parameter
+       (player.vimeo.com/video/<id>?h=<hash>). So if the path ends in an id and a hash, take both. Hashes can be
+       all digits (eg vimeo.com/581039021/9603038895), so we can't tell a hash from a video id. Except in
+       vimeo.com/channels/<channel>/<id>, where a numeric channel would look like an id */
     STRING videoid, hash;
-    INTEGER idpos := Length(parts) > 0 AND parts[0] = "video" ? 1 : 0;
-    IF(Length(parts) = idpos + 2 AND IsVimeoVideoId(parts[idpos]) AND IsVimeoUnlistedHash(parts[idpos + 1])) {
-      videoid := parts[idpos];
-      hash := parts[idpos + 1];
+    INTEGER numparts := Length(parts);
+    IF(numparts >= 2
+       AND IsVimeoVideoId(parts[numparts - 2])
+       AND IsVimeoUnlistedHash(parts[numparts - 1])
+       AND NOT (numparts >= 3 AND parts[numparts - 3] = "channels")) {
+      videoid := parts[numparts - 2];
+      hash := parts[numparts - 1];
     } ELSE {
       //otherwise the last numeric part contains the video identifier (eg vimeo.com/channels/staffpicks/<id>)
       FOR(INTEGER i := Length(parts) - 1; i >= 0 ; i := i - 1) {
