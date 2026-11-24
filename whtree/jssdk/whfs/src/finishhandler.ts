@@ -293,9 +293,8 @@ class WHFSFinishHandler extends HSVMMarshallableOpaqueObject implements FinishHa
 
     if (this._filesToAnalyze.size) {
       //Schedule the files in batches, so importing an archive doesn't create a task per file (but keep the task data well within its 4K limit)
-      const files = this._filesToAnalyze.entries().map(([id, hash]) => ({ id, hash })).toArray();
-      const batches = Array.from({ length: Math.ceil(files.length / analyzeFilesBatchSize) }, (_, idx) => ({ files: files.slice(idx * analyzeFilesBatchSize, (idx + 1) * analyzeFilesBatchSize) }));
-      await scheduleTasks("platform:analyzefiles", batches);
+      const batches = Map.groupBy(this._filesToAnalyze.entries().map(([id, hash]) => ({ id, hash })), (_, idx) => Math.floor(idx / analyzeFilesBatchSize));
+      await scheduleTasks("platform:analyzefiles", batches.values().map(files => ({ files })).toArray());
     }
   }
 
