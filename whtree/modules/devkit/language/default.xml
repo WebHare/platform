@@ -71,10 +71,14 @@
         </textgroup>
       </textgroup>
       <textgroup gid="forges">   <!-- tolliumapps.deploy.forges -->
+        <text tid="aboutresourceowner">Optional. A fine-grained GitHub token only works for the repositories of one user or organization. Enter the organization (eg. 'WebHare') before clicking 'Get token' to request a token for its repositories. Leave it empty for your own repositories.</text>
         <text tid="abouttoken">devkit:automerge requires a GitLab token with 'api' privileges</text>
+        <text tid="abouttoken-github">devkit:automerge uses this token, or your GitHub CLI login ('gh auth login') if you leave the token empty</text>
         <text tid="editforge">Set up forge</text>
         <text tid="forges">Forges</text>
         <text tid="requestnewtoken">Get token</text>
+        <text tid="resourceowner">Resource owner</text>
+        <text tid="resourceownerplaceholder">Your own account</text>
         <text tid="token">Token</text>
         <text tid="url">URL</text>
       </textgroup>

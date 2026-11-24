@@ -1,5 +1,6 @@
 <?wh
 LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
@@ -13,16 +14,28 @@ PUBLIC STATIC OBJECTTYPE Forges EXTEND TolliumScreenBase
 
 PUBLIC STATIC OBJECTTYPE EditForge EXTEND WRDEntityEditScreenBase
 <
+  UPDATE MACRO Init(RECORD data) {
+    WRDEntityEditScreenBase::Init(data);
+    this->OnUrlChange();
+  }
+
+  BOOLEAN FUNCTION IsGitHub() {
+    RETURN ToLowercase(UnpackURL(^url->value).host) = "github.com";
+  }
+
+  MACRO OnUrlChange() {
+    BOOLEAN isgithub := this->IsGitHub();
+    ^abouttoken->value := this->GetTid(isgithub ? ".abouttoken-github" : ".abouttoken");
+    ^token->required := NOT isgithub; //without a token, devkit:automerge uses the GitHub CLI's login
+    ^resourceowner->visible := isgithub;
+    ^aboutresourceowner->visible := isgithub;
+  }
+
   MACRO OnOpenNewToken(OBJECT browser) {
-    STRING forgeurl := ^entity->^url->value;
-    IF (ToLowercase(UnpackURL(forgeurl).host) = "github.com") {
-      /* Fine-grained token with what a GitHub equivalent of automerge needs: create/find PRs and set assignees (pull_requests),
-         merge or enable auto-merge (contents), and check CI results (actions). metadata:read is implied */
-      browser->SendURL("https://github.com/settings/personal-access-tokens/new?name=WebHare+devkit"
-                       || "&description=" || EncodeURL("Used by WebHare devkit:automerge")
-                       || "&contents=write&pull_requests=write&actions=read");
+    IF (this->IsGitHub()) {
+      browser->SendURL(CallJS("mod::devkit/lib/internal/deploy/github.ts#getNewTokenURL", TrimWhitespace(^resourceowner->value)));
       RETURN;
     }
-    browser->SendURL(forgeurl || "/-/user_settings/personal_access_tokens/");
+    browser->SendURL(^url->value || "/-/user_settings/personal_access_tokens/");
   }
 >;

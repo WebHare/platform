@@ -1,8 +1,9 @@
 import { sleep } from "@webhare/std";
 import { logDebug } from "@webhare/services";
 
-/* GitHub support for devkit:automerge. Needs a fine-grained token with contents:write, pull_requests:write and actions:read.
-   The 'Get token' link in the devkit:deploy forges app requests exactly these permissions (see forges.whlib) */
+/* GitHub support for devkit:automerge. Uses the forge's token from the devkit:deploy forges app, or the GitHub CLI's login
+   (gh auth token) if the forge has none. A fine-grained token needs contents:write, pull_requests:write and actions:read:
+   the 'Get token' link in the forges app requests exactly these permissions (see getNewTokenURL) */
 
 export function isGitHubForge(apiRoot: string) {
   return new URL(apiRoot).hostname.toLowerCase() === "github.com";
@@ -99,6 +100,8 @@ class GitHubClient {
 export interface GitHubAutomergeOptions {
   apiRoot: string;
   token: string;
+  /** Where the token came from: the forge's settings or the GitHub CLI */
+  tokenSource: "forge" | "gh";
   /** 'owner/repo' */
   project: string;
   pushBranch: string;
@@ -108,7 +111,7 @@ export interface GitHubAutomergeOptions {
   verbose: boolean;
 }
 
-/** Get the URL to create a fine-grained token with the permissions automerge needs
+/** Get the URL to create a fine-grained token with the permissions automerge needs. Also used by the 'Get token' link in tolliumapps/deploy/forges.whlib
     @param owner - User or organization that owns the repositories the token should access. If not set, GitHub defaults to the current user
 */
 export function getNewTokenURL(owner?: string) {
@@ -117,7 +120,6 @@ export function getNewTokenURL(owner?: string) {
   url.searchParams.set("description", "Used by WebHare devkit:automerge");
   if (owner)
     url.searchParams.set("target_name", owner);
-  //Keep in sync with OnOpenNewToken in tolliumapps/deploy/forges.whlib
   url.searchParams.set("contents", "write");
   url.searchParams.set("pull_requests", "write");
   url.searchParams.set("actions", "read");
@@ -131,6 +133,14 @@ export async function automergeGitHub(opts: GitHubAutomergeOptions): Promise<voi
   } catch (e) {
     /* Reading public repositories works with any token, but writing needs the token to be granted access to the repository.
        A fine-grained token only covers repositories of the resource owner it was created for (by default: yourself) */
+    //A 403 can also be a (secondary) rate limit, which is not an access problem
+    const isRateLimit = e instanceof GitHubError && /rate limit/i.test(getErrorMessage(e.body) ?? "");
+    if (e instanceof GitHubError && e.status === 403 && opts.tokenSource === "gh" && !isRateLimit) {
+      console.error(`Your GitHub CLI login has no write access to '${opts.project}' (${e.message})`);
+      console.error(`Check that you can write to the repository, and that its organization allows the GitHub CLI (and you authorized it for single sign-on, if required).`);
+      console.error(`Alternatively, set up a fine-grained token for forge ${opts.apiRoot} in the dev deploy app: https://my.webhare.dev/?app=devkit:deploy/forges`);
+      process.exit(1);
+    }
     if (e instanceof GitHubError && e.status === 403 && /not accessible by personal access token/i.test(getErrorMessage(e.body) ?? "")) {
       const [owner] = opts.project.split("/");
       console.error(`Your GitHub token for ${opts.apiRoot} has no write access to '${opts.project}' (${e.message})`);
@@ -153,7 +163,10 @@ async function runAutomerge(opts: GitHubAutomergeOptions): Promise<void> {
     self = await client.request<{ login: string }>("GET", "/user");
   } catch (e) {
     console.error(`Could not look up current user. Token expired?: ${(e as Error).message}`);
-    console.error(`You can set up a new API token for forge ${opts.apiRoot} in the dev deploy app. https://my.webhare.dev/?app=devkit:deploy/forges`);
+    if (opts.tokenSource === "gh")
+      console.error(`The token came from the GitHub CLI: log in again with 'gh auth login'`);
+    else
+      console.error(`You can set up a new API token for forge ${opts.apiRoot} in the dev deploy app. https://my.webhare.dev/?app=devkit:deploy/forges`);
     process.exit(1);
   }
 

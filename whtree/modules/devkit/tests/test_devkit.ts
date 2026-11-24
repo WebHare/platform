@@ -22,6 +22,8 @@ async function testGitHubHelpers() {
   test.eq("write", url.searchParams.get("pull_requests"));
   test.eq("read", url.searchParams.get("actions"));
   test.eq(null, url.searchParams.get("target_name"));
+
+  test.eq("WebHare", new URL(getNewTokenURL("WebHare")).searchParams.get("target_name"));
 }
 
 test.runTests([
