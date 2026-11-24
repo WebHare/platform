@@ -3,6 +3,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::javascript.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 
 LOADLIB "mod::platform/lib/dialogs.whlib";
@@ -364,6 +365,65 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     }
   }
 
+  PUBLIC MACRO DoCloseEntity()
+  {
+    // sorted for the RecordLowerBound lookups below
+    RECORD ARRAY selected :=
+        SELECT rowkey
+          FROM ^results_frees->selection
+      ORDER BY rowkey;
+
+    IF (this->RunSimpleScreen("confirm", GetTid(Length(selected) > 1 ? "wrd:browser.messages.closeentities" : "wrd:browser.messages.closeentity")) != "yes")
+      RETURN;
+
+    DATETIME now := GetCurrentDatetime();
+    OBJECT work := this->BeginWork();
+    // Use the type of the results list: current_type is the type of the entity shown in the panel, which can be a linked entity
+    OBJECT closetype := this->current_entitylisttype;
+    // Entities that were deleted after the search are missing here
+    RECORD ARRAY entities :=
+        SELECT *
+          FROM closetype->RunQuery(
+                  [ outputcolumns := [ rowkey := "WRD_ID", creationdate := "WRD_CREATIONDATE", limitdate := "WRD_LIMITDATE" ]
+                  , filters := [ [ field := "WRD_ID", matchtype := "IN", value := SELECT AS INTEGER ARRAY rowkey FROM selected ] ]
+                  , historymode := "all"
+                  ])
+      ORDER BY rowkey;
+
+    FOREVERY (RECORD entity FROM entities)
+    {
+      // The row may be stale: don't move the close date of an entity that was closed (or changed to start later) in the meantime
+      IF (entity.creationdate <= now AND entity.limitdate > now)
+      {
+        closetype->UpdateEntity(entity.rowkey, [ wrd_limitdate := now ]);
+        entities[#entity].limitdate := now;
+      }
+    }
+
+    IF (NOT work->Finish())
+      RETURN;
+
+    // The results list also shows closed entities, so update the closed rows instead of removing them. Only remove the rows
+    // of entities that were deleted in the meantime
+    RECORD ARRAY rows;
+    FOREVERY (RECORD row FROM ^results_frees->rows)
+    {
+      RECORD pos := RecordLowerBound(entities, row, [ "ROWKEY" ]);
+      IF (pos.found)
+      {
+        row.limitdate := entities[pos.position].limitdate;
+        row.style := this->GetAvailabilityStyle(now, row.creationdate, row.limitdate);
+        row.can_close_entity := FALSE;
+      }
+      ELSE IF (RecordLowerBound(selected, row, [ "ROWKEY" ]).found)
+        CONTINUE;
+
+      INSERT row INTO rows AT END;
+    }
+    ^results_frees->rows := rows;
+    this->RefreshEntity();
+  }
+
   PUBLIC MACRO DoDeleteEntity()
   {
     INTEGER ARRAY delete_entries :=
@@ -384,7 +444,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
       FOREVERY (INTEGER entityid FROM delete_entries)
       {
-        OBJECT entityobj := this->current_type->GetEntity(entityid);
+        OBJECT entityobj := this->current_entitylisttype->GetEntity(entityid);
         IF (ObjectExists(entityobj))
         {
           entityobj->DeleteEntity();
@@ -603,6 +663,8 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     DATETIME now := GetCurrentDateTime();
     results := SELECT *
                     , style := this->GetAvailabilityStyle(now, creationdate, limitdate)
+                    // only entities that are currently live can be closed
+                    , can_close_entity := can_edit_entity AND creationdate <= now AND limitdate > now
                  FROM this->EnrichSearchResults(results, type);
 
     ^results_frees->rows := results;
@@ -617,7 +679,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   STRING FUNCTION GetAvailabilityStyle(DATETIME now, DATETIME creationdate, DATETIME limitdate)
   {
-    IF (limitdate < now OR creationdate > now)
+    IF (limitdate <= now OR creationdate > now)
       RETURN "notavailable";
 
     RETURN "";
@@ -896,11 +958,11 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO doshowhistory_results()
   {
-    RunWRDHistoryDialog(this, this->current_type->GetEntity(^results_frees->value[0]));
+    RunWRDHistoryDialog(this, this->current_entitylisttype->GetEntity(^results_frees->value[0]));
   }
 
   MACRO DoEditRegistry() {
-    this->RunScreen("mod::system/tolliumapps/dashboard/registry.xml#userregistry", [ entity := this->current_type->GetEntity(^results_frees->value[0]) ]);
+    this->RunScreen("mod::system/tolliumapps/dashboard/registry.xml#userregistry", [ entity := this->current_entitylisttype->GetEntity(^results_frees->value[0]) ]);
   }
 
   MACRO DoEditSource()

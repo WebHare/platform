@@ -1,4 +1,6 @@
 <?wh
+LOADLIB "wh::datetime.whlib";
+
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
@@ -73,6 +75,64 @@ ASYNC MACRO TestWRDBrowser()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+ASYNC MACRO TestWRDBrowserCloseDelete()
+{
+  OBJECT announcementtype := testfw->GetWRDSchema()->^whuser_announcement;
+  DATETIME now := GetRoundedDatetime(GetCurrentDatetime(), 1000);
+  testfw->BeginWork();
+  INTEGER closeme := announcementtype->CreateEntity([ announcement_title := "Close and delete me" ])->id;
+  INTEGER closeme2 := announcementtype->CreateEntity([ announcement_title := "Close and delete me" ])->id;
+  INTEGER future := announcementtype->CreateEntity([ announcement_title := "Close and delete me", wrd_creationdate := AddDaysToDate(1, now) ])->id;
+  INTEGER closedbyother := announcementtype->CreateEntity([ announcement_title := "Close and delete me", wrd_creationdate := AddDaysToDate(-2, now) ])->id;
+  INTEGER deletedbyother := announcementtype->CreateEntity([ announcement_title := "Close and delete me" ])->id;
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("wrd:browser", [ params := STRING[OpenTestsuiteWRDSchema()->tag]] ));
+  TT("freetype")->value := announcementtype->id;
+  TT("quickfilter->freeattr")->value := "ANNOUNCEMENT_TITLE";
+  TT("quickfilter->freevalue")->value := "Close and delete me";
+  TTClick("quickfilter->searchfree");
+
+  TestEq(SortArray([ closeme, closeme2, future, closedbyother, deletedbyother ]), SortArray(SELECT AS INTEGER ARRAY rowkey FROM TT("results_frees")->rows));
+  topscreen->frame->focused := TT("results_frees");
+
+  TT("results_frees")->selection := SELECT * FROM TT("results_frees")->rows WHERE rowkey = future;
+  TestEq(FALSE, TTIsActionEnabled("closeentity"), "an entity that only starts in the future cannot be closed");
+  TestEq(TRUE, TTIsActionEnabled("deleteentity"));
+
+  // Someone else closes one entity and deletes another after the search, so their rows are stale
+  DATETIME closedbyother_limitdate := AddDaysToDate(-1, now);
+  testfw->BeginWork();
+  announcementtype->UpdateEntity(closedbyother, [ wrd_limitdate := closedbyother_limitdate ]);
+  announcementtype->DeleteEntity(deletedbyother);
+  testfw->CommitWork();
+
+  TT("results_frees")->selection := SELECT * FROM TT("results_frees")->rows WHERE rowkey IN [ closeme, closeme2, closedbyother, deletedbyother ];
+  TestEq(TRUE, TTIsActionEnabled("closeentity"));
+  TestEq(TRUE, TTIsActionEnabled("deleteentity"));
+
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("closeentity"), [ messagemask := "*entities*" ]);
+  FOREVERY (INTEGER closed FROM [ closeme, closeme2 ])
+  {
+    TestEq(TRUE, announcementtype->GetEntityField(closed, "WRD_LIMITDATE") <= GetCurrentDatetime());
+    TestEq(0, announcementtype->Search("WRD_ID", closed), "closed entity should no longer be live");
+  }
+  TestEq(closedbyother_limitdate, announcementtype->GetEntityField(closedbyother, "WRD_LIMITDATE"), "the close date of an entity that was already closed should not move");
+  TestEq(closedbyother_limitdate, SELECT AS DATETIME limitdate FROM TT("results_frees")->rows WHERE rowkey = closedbyother, "the row should show the real close date");
+  TestEq(SortArray([ closeme, closeme2, future, closedbyother ]), SortArray(SELECT AS INTEGER ARRAY rowkey FROM TT("results_frees")->rows), "closed entities should stay in the list, the deleted one should be removed");
+  TestEq(INTEGER[], SELECT AS INTEGER ARRAY rowkey FROM TT("results_frees")->rows WHERE style != "notavailable", "all entities should be grayed out");
+  TestEq(FALSE, TTIsActionEnabled("closeentity"), "an entity that is already closed cannot be closed again");
+  TestEq(TRUE, TTIsActionEnabled("deleteentity"));
+
+  TT("results_frees")->selection := TT("results_frees")->rows;
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("deleteentity"));
+  FOREVERY (INTEGER deleted FROM [ closeme, closeme2, future, closedbyother ])
+    TestEq(FALSE, ObjectExists(announcementtype->GetEntity(deleted)));
+  TestEq(0, Length(TT("results_frees")->rows));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 ASYNC MACRO TestWRDBrowserGoto()
 {
   AWAIT ExpectScreenChange(+2, PTR TTLaunchApp("wrd:browser"));
@@ -85,5 +145,6 @@ ASYNC MACRO TestWRDBrowserGoto()
 
 RunTestFramework([ PTR CreateWRDTestSchema
                  , PTR TestWRDBrowser
+                 , PTR TestWRDBrowserCloseDelete
                  , PTR TestWRDBrowserGoto
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"]]]]);

@@ -30,6 +30,9 @@
       <action name="mergeentity" ellipsis="true" onexecute="domergeentity">
         <enableon source="results_frees" min="1" max="1" checkflags="can_edit_entity" requirefocus="true" />
       </action>
+      <action name="closeentity" onexecute="docloseentity">
+        <enableon source="results_frees" min="1" checkflags="can_close_entity" requirefocus="true" />
+      </action>
       <action name="deleteentity" onexecute="dodeleteentity">
         <!-- FIXME: Support multiple -->
         <enableon source="results_frees" min="1" checkflags="can_edit_entity" requirefocus="true" />
@@ -95,6 +98,7 @@
         <divider />
         <item action="editentity" />
         <item action="mergeentity" />
+        <item action="closeentity" />
         <item action="deleteentity" />
         <item action="editregistry" />
         <item action="editsource" />
@@ -129,18 +133,24 @@
       </menu>
       <menu name="resultscontextmenu">
         <item action="editentity" />
+        <item action="closeentity" />
         <item action="deleteentity" />
         <item action="showhistory" />
         <item action="editsource" />
         <divider />
         <item action="addlink" />
       </menu>
+      <menu name="deleteentitymenu">
+        <item action="closeentity" />
+        <item action="deleteentity" />
+      </menu>
     </menus>
 
     <toolbar name="buttons">
       <button action="newfree" icon="tollium:actions/add" tid="~add" />
       <button action="editentity" icon="tollium:actions/edit" />
-      <button action="deleteentity" icon="tollium:actions/delete" />
+      <!-- the menu opens on click; the action only disables the button when neither close nor delete is possible -->
+      <button action="deleteentity" icon="tollium:actions/delete" menu="deleteentitymenu" tid="~delete" />
       <divider />
       <button action="managetypes" icon="tollium:database/types" />
       <button action="manageschemas" icon="tollium:database/schema" />
@@ -172,7 +182,7 @@
               <!-- box tid=".searchresults" height="1pr" -->
               <panel height="1pr">
                 <list name="results_frees"
-                      flags="can_edit_entity can_add_link"
+                      flags="can_edit_entity can_close_entity can_add_link"
                       onfocusin="onmainlistfocus"
                       onselect="onselectentity"
                       openaction="editentity"

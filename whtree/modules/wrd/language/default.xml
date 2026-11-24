@@ -68,7 +68,8 @@
         <text tid="auditlog">Login events</text>
         <text tid="authsettings">Login settings</text>
         <text tid="authtexts">Authentication page texts</text>
-        <text tid="deleteentity">Delete</text>
+        <text tid="closeentity">Close entity</text>
+        <text tid="deleteentity">Delete entity</text>
         <text tid="deletelink">Delete link</text>
         <text tid="editentity">Edit</text>
         <text tid="editlink">Edit link</text>
@@ -122,6 +123,8 @@
     </textgroup>
     <textgroup gid="messages">   <!-- browser.messages -->
       <text tid="cannotdeletetype">The base types WRD_PERSON, WRD_ORGANIZATION and WRD_RELATION may not be deleted.</text>
+      <text tid="closeentities">Are you sure you want to close the selected entities?</text>
+      <text tid="closeentity">Are you sure you want to close the selected entity?</text>
       <text tid="confirmextendwrdauth">Are you sure you want to add the types required for WRD authentication?</text>
       <text tid="confirmmergeentity">Are you sure you want to merge the originally selected entity into the entity you just selected ?</text>
       <text tid="confirmupdatewrdauth">Are you sure you want to update the types needed for WRD authentication?</text>
