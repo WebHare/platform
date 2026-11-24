@@ -72,8 +72,8 @@ export class PageMetadata {
   /** OpenGraph metadata; usually preferred by social media sharing */
   openGraph: OpenGraphMetadata = {};
 
-  /** Additional consilio fields to index with frontend content. Use camelCase names, they will be converted to
-   * snake_case (also for nested records) as catalog fields are case insensitive, eg `pageType` is indexed as `page_type` */
+  /** Additional consilio fields to index with frontend content. Use camelCase names (eg `pageType`, `imageUrl`):
+   * they're converted to snake_case (also in nested records) so HareScript can access them, eg `pageType` is indexed as `page_type` */
   readonly consilioFields: Record<string, ConsilioFieldValue> = {}; //TODO shouldn't consilio offer a type for this?
 
   //mapping from lowercased prefix to [prefix,namespace] pairs for case-insensitive lookups
