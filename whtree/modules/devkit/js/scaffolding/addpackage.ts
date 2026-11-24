@@ -1,8 +1,9 @@
 import { backendConfig } from "@webhare/services";
-import { existsSync, mkdirSync, readFileSync, rmdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmdirSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { fixJSPackages, type PackageJson } from "@mod-platform/js/devsupport/jspackages";
 import { simpleGit } from "simple-git";
+import { readJSONFile } from "@mod-platform/js/cli/cli-tools";
 
 interface PackageRef {
   type: "git";
@@ -58,7 +59,7 @@ export async function addPackage(module: string, parsed: PackageRef, options?: {
 
   //Prepare to add it as a workspace
   const modulePackageJson = modroot + "package.json";
-  const packageJson = JSON.parse(readFileSync(modulePackageJson, "utf8")) as PackageJson;
+  const packageJson = await readJSONFile<PackageJson>(modulePackageJson);
 
   if (!packageJson.workspaces)
     packageJson.workspaces ||= [];

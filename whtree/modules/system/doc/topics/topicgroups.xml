@@ -5,6 +5,6 @@
   <group title="Backend applications" topics="tollium tollium-components icons publisher-apps" />
   <group title="Frontend applications" topics="frontend-utilities" />
   <group title="WebHare Rich Datastore" topics="wrd wrdauth payments wrd-components" />
-  <group title="Installation and setup" topics="installation changelogs" />
+  <group title="Installation and setup" topics="installation" />
   <group title="Developer support" topics="testframework internals" />
 </topicgroups>

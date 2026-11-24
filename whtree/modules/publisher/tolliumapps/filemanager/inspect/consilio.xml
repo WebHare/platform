@@ -8,6 +8,9 @@
       <action name="inspectsource" onexecute="doinspectsource">
         <enableon source="contentsources" min="1" />
       </action>
+      <action name="indexsource" onexecute="doindexsource">
+        <enableon source="contentsources" min="1" />
+      </action>
     </actions>
     <contents>
       <split type="vertical" splitter="transparent">
@@ -51,6 +54,7 @@
             </cell>
             <cell>
               <button width="1pr" action="inspectsource" />
+              <button width="1pr" action="indexsource" />
             </cell>
           </grid>
         </part>

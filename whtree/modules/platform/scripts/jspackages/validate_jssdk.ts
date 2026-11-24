@@ -15,6 +15,7 @@ import { existsSync } from 'fs';
 import { readAxioms } from '@mod-platform/js/configure/axioms';
 import { listDirectory } from '@webhare/system-tools';
 import type { PackageJson } from "../../js/devsupport/jspackages";
+import { readJSONFile } from "@mod-platform/js/cli/cli-tools";
 
 runCli({
   description: "Validate/lint the WebHare JSSDK packages",
@@ -39,7 +40,7 @@ runCli({
         console.log(`Checking ${pkg.name}`);
 
 
-      const pkgjson = JSON.parse(await readFile(join(pkg.fullPath, "package.json"), "utf8")) as PackageJson;
+      const pkgjson = await readJSONFile<PackageJson>(join(pkg.fullPath, "package.json"));
       if (pkgjson.version !== "") //you can't remove it, npm will put it back
         issues.push({ message: "Version should be empty", toFix: () => pkgjson.version = "" });
       if (pkgjson.private !== true)
