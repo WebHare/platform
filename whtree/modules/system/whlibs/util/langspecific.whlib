@@ -126,13 +126,21 @@ PUBLIC STRING FUNCTION NormalizeText(STRING text, STRING langcode)
 }
 
 /** @short Generate a safe name for a string
-    @long Convert a string into a name which can be safely used as a file or folder name.
+    @long Convert a string into a name which can be safely used as a file or folder name. The result follows `slugify`
+          from `@webhare/std` as closely as possible: the value is lowercased and normalized for the language (which
+          removes accents and writes eg. 'ß' as 'ss' and 'æ' as 'ae'), the characters a-z and 0-9 are kept and every
+          run of other characters becomes a single hyphen. The result never starts or ends with a hyphen. Control
+          characters (U+0000 to U+001F) are removed without leaving a hyphen, and so are combining accents (U+0300 to
+          U+036F) unless the `utf8` option is set.
     @param value Value to use for the name
     @cell options.languagecode Language code to use for normalization (defaults to 'en')
     @cell options.fallback Fallback value. Defaults to 'unknown' - may be localized in the future if language != "en"
-    @cell options.safedots Eliminate dots at begin or end
-    @cell options.tohyphens Additional characters to convert to hyphens
-    @cell options.utf8 Consider all >= 0xC0 utf-8 characters safe (may eliminate zerowidth spaces and similar chars in the future). Disables normalization
+    @cell options.safedots Also keep dots, except at the begin or end of the name. No hyphen is written right before a dot
+    @cell options.tohyphens Characters to convert to hyphens even if they would otherwise be kept. As every character
+          that isn't kept already becomes a hyphen, this is only useful to get rid of dots when using `safedots`, or
+          of specific characters when using `utf8`
+    @cell options.utf8 Also keep all characters from U+00A1 and up (may eliminate zerowidth spaces and similar chars in
+          the future). Disables normalization, so accents and uppercase non-ASCII characters are kept too
     @return Returns a safe name, returns the fallbackvalue if it cannot figure out a safe name*/
 PUBLIC STRING FUNCTION GetSafeName(STRING value, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -149,22 +157,32 @@ PUBLIC STRING FUNCTION GetSafeName(STRING value, RECORD options DEFAULTSTO DEFAU
   IF(NOT options.utf8)
     value := NormalizeText(value, options.languagecode);
 
-  // Allow a-z, 0-9, convert '-', ' ' and '_' -> '-', ignore the rest.
+  // Keep a-z and 0-9, and what the options add to that. Any run of other characters becomes one hyphen, like slugify does
   BOOLEAN createhyphen;
   INTEGER untillen := UCLength(value);
-  STRING hyphenset := "- _\u00A0" || options.tohyphens;
   FOR (INTEGER i := 0; i < untillen; i := i + 1)
   {
     STRING ch := UCSubstring(value, i, 1);
+    INTEGER code := GetUCValue(ch);
 
-    IF (SearchSubstring(hyphenset,ch) != -1) //make it a hyphen (works better than underscore in most situations where you worry about automatic names, eg SEO)
+    IF (code < 32) //slugify removes control characters instead of replacing them with a separator
+      CONTINUE;
+    IF (NOT options.utf8 AND code >= 768 AND code <= 879) //U+0300 - U+036F: combining accents that NormalizeText leaves in, eg. from the decomposed file names macOS uses
+      CONTINUE;
+
+    BOOLEAN keep := (ch >= 'a' AND ch <= 'z') OR (ch >= '0' AND ch <= '9') OR (options.safedots AND ch = '.') OR (options.utf8 AND code >= 161);
+    IF (keep AND options.tohyphens != "" AND SearchSubstring(options.tohyphens, ch) != -1)
+      keep := FALSE;
+
+    IF (NOT keep) //make it a hyphen (works better than underscore in most situations where you worry about automatic names, eg SEO)
     {
       IF(suggestedname != "")
         createhyphen := TRUE;
     }
-    ELSE IF ( (ch >= 'a' AND ch <= 'z') OR (ch >= '0' AND ch <= '9') OR (options.safedots AND ch='.' AND suggestedname != '') OR (options.utf8 AND ch >= '\u00A1'))//include dots, but not at start
+    ELSE IF (ch != '.' OR suggestedname != "") //include dots, but not at start
     {
-      suggestedname := suggestedname || (createhyphen ? '-' : '') || ch;
+      //No hyphen right before a dot, so 'photo (1).jpg' becomes 'photo-1.jpg' and not 'photo-1-.jpg'
+      suggestedname := suggestedname || (createhyphen AND ch != '.' ? '-' : '') || ch;
       createhyphen := FALSE;
     }
   }

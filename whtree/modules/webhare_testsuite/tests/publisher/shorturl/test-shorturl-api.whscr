@@ -2,6 +2,7 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::regex.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/shorturl.whlib";
@@ -62,7 +63,7 @@ PUBLIC MACRO TestShortURLAPI()
 
   RECORD firstlink := testdomain->CreateInternalShortUrl(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-ps-af")->id, [ description := "D1" ]);
   TestEq(TRUE, firstlink.isnew);
-  TestEq(7, Length(firstlink.shortname));
+  TestEq(TRUE, NEW RegEx("^[a-z0-9]{7}$")->Test(firstlink.shortname), `Generated shortname '${firstlink.shortname}' should only consist of 7 letters and digits`);
 
   //Verify the link object
   OBJECT firstlinkobject := OpenWHFSObjectByPath(`/webhare-private/system/shorturl/test.bea.gl/${firstlink.shortname}`);
@@ -78,6 +79,7 @@ PUBLIC MACRO TestShortURLAPI()
   RECORD forcednewlink := testdomain->CreateInternalShortUrl(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-ps-af")->id, [ forcenew := TRUE ]);
   TestEq(TRUE, forcednewlink.isnew);
   TestEq(TRUE, firstlink.shortname != forcednewlink.shortname);
+  TestEq(TRUE, NEW RegEx("^[a-z0-9]{7}$")->Test(forcednewlink.shortname), `Generated shortname '${forcednewlink.shortname}' should only consist of 7 letters and digits`);
 
   RECORD anchorlink := testdomain->CreateInternalShortUrl(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-ps-af")->id, [ append := "?UTM_CAMPAIGN=HARE&Utm_Campaign=Bunny" ]);
   TestEq(TRUE, anchorlink.isnew);

@@ -453,10 +453,10 @@ MACRO MoveTest()
   imp->AddInput(testzip_no_metadata);
   imp->Import(testsite->id);
 
-  OBJECT goudvis := testsite->OpenByPath("no_metadata/goudvis.png");
+  OBJECT goudvis := testsite->OpenByPath("no_metadata/goud-vis.png");
   TestEq(TRUE, ObjectExists(goudvis));
 
-  TestEq(goudvis->id, OpenWHFSObjectByPath("whfs::/webhare-tests/webhare_testsuite.testfolder/webhare_testsuite_movetest/no_metadata/goudvis.png")->id);
+  TestEq(goudvis->id, OpenWHFSObjectByPath("whfs::/webhare-tests/webhare_testsuite.testfolder/webhare_testsuite_movetest/no_metadata/goud-vis.png")->id);
 
   TestEq([whconstant_whfsid_webhare_tests, testfolderobj->id, testsite->id, goudvis->parent, goudvis->id], goudvis->GetWHFSTree());
 
@@ -706,7 +706,7 @@ MACRO InsertPropertiesTest()
   RECORD ARRAY expect_files :=
       [ [ name := "Kastjes en muren 2.pdf", title := IsWasm() ? "" : "Kastjes en muren 2" ]
       , [ name := "docgen_2.tar.gz",        title := "" ]
-      , [ name := "goudvis.png",            title := "" ]
+      , [ name := "goud-vis.png",           title := "" ]
       , [ name := "lorum_ipsum.doc",        title := "" ]
       ];
 
@@ -733,7 +733,7 @@ MACRO ExtendedZipTest()
   RECORD ARRAY expect_files :=
       [ [ name := "Kastjes en muren 2.pdf", title := IsWasm() ? "" : "Kastjes en muren 2" ]
       , [ name := "docgen_2.tar.gz",        title := "" ]
-      , [ name := "goudvis.png",            title := "" ]
+      , [ name := "goud-vis.png",           title := "" ]
       , [ name := "lorum_ipsum.doc",        title := "" ]
       ];
 
@@ -742,7 +742,7 @@ MACRO ExtendedZipTest()
   TestEq(expect_files, got_files);
 
   //The files should be autopublished. Try one
-  OBJECT goudvis := finalfolder->OpenByPath("goudvis.png");
+  OBJECT goudvis := finalfolder->OpenByPath("goud-vis.png");
   TestEq(TRUE, goudvis->publish);
 
   TestEq(TRUE, IsBeingPublished(goudvis->id));
@@ -750,7 +750,7 @@ MACRO ExtendedZipTest()
 
   //Set it to "now published"
   MarkAsPublished(goudvis->id, FALSE);
-  goudvis := finalfolder->OpenByPath("goudvis.png");
+  goudvis := finalfolder->OpenByPath("goud-vis.png");
   TestEq(TRUE, goudvis->publish);
   TestEq(TRUE, GetErrorFromPublished(goudvis->published)=0);
   TestEq(TRUE, GetOncePublishedFromPublished(goudvis->published));
@@ -760,7 +760,7 @@ MACRO ExtendedZipTest()
   imp->AddInput(testzip_no_metadata);
   imp->Import(testsite->id);
 
-  goudvis := finalfolder->OpenByPath("goudvis.png");
+  goudvis := finalfolder->OpenByPath("goud-vis.png");
   TestEq(TRUE, goudvis->publish);
   TestEq(0, GetErrorFromPublished(goudvis->published));//not expecting any effect, we're not overwriting!
   TestEq(TRUE, GetOncePublishedFromPublished(goudvis->published));
@@ -770,7 +770,7 @@ MACRO ExtendedZipTest()
   imp->AddInput(testzip_no_metadata);
   imp->Import(testsite->id);
 
-  goudvis := finalfolder->OpenByPath("goudvis.png");
+  goudvis := finalfolder->OpenByPath("goud-vis.png");
   TestEq(TRUE, goudvis->publish);
   TestEq(TRUE, IsBeingPublished(goudvis->id));
   TestEq(TRUE, GetOncePublishedFromPublished(goudvis->published));

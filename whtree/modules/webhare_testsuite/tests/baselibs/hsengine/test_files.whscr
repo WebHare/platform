@@ -324,7 +324,7 @@ MACRO MiscTest()
   TestEq(DEFAULT BLOB, GetDiskResource(testfile,[allowmissing := TRUE]));
 
   TestEq(FALSE, GenerateTemporaryPathname() = GenerateTemporaryPathname());
-  TestEq("uber-12-strassen-", GetSafeFileName(".Über '12' _Straßen_.?"));
+  TestEq("uber-12-strassen", GetSafeFileName(".Über '12' _Straßen_.?"));
   TestEq("unknown", GetSafeFileName("????? ??????? ?????????"));
   TestEq("index.html", GetSafeFileName("^index.html"));
 
