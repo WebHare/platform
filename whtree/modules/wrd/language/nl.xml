@@ -1352,6 +1352,7 @@
       <text tid="import">Importeren</text>
       <text tid="manageattrs">Attributen</text>
       <text tid="managetypes">Types beheren</text>
+      <text tid="showdiagram">Diagram</text>
     </textgroup>
     <textgroup gid="messages">   <!-- types.messages -->
       <text tid="authnotcorrectlyconfigured">Het authenticatiedomein is niet correct geconfigureerd.</text>
@@ -1369,6 +1370,14 @@
       <text tid="domain">Domein</text>
       <text tid="link">Link</text>
       <text tid="object">Object</text>
+    </textgroup>
+    <textgroup gid="typesdiagram">   <!-- types.typesdiagram -->
+      <text tid="domain">Domein</text>
+      <text tid="noselection">Selecteer een type in het diagram om de attributen te zien</text>
+      <text tid="title">Typediagram van schema '<param p="1"/>'</text>
+      <text tid="zoomfit">Passend maken</text>
+      <text tid="zoomin">Inzoomen</text>
+      <text tid="zoomout">Uitzoomen</text>
     </textgroup>
     <textgroup gid="update">   <!-- types.update -->
       <text tid="classification_of">Classificatie van</text>

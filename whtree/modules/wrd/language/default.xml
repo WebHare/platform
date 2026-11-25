@@ -1352,6 +1352,7 @@
       <text tid="import">Import</text>
       <text tid="manageattrs">Manage attributes</text>
       <text tid="managetypes">Manage types</text>
+      <text tid="showdiagram">Diagram</text>
     </textgroup>
     <textgroup gid="messages">   <!-- types.messages -->
       <text tid="authnotcorrectlyconfigured">The authentication domain is not correctly configured.</text>
@@ -1369,6 +1370,14 @@
       <text tid="domain">Domain</text>
       <text tid="link">Link</text>
       <text tid="object">Object</text>
+    </textgroup>
+    <textgroup gid="typesdiagram">   <!-- types.typesdiagram -->
+      <text tid="domain">Domain</text>
+      <text tid="noselection">Select a type in the diagram to see its attributes</text>
+      <text tid="title">Type diagram of schema '<param p="1"/>'</text>
+      <text tid="zoomfit">Fit to window</text>
+      <text tid="zoomin">Zoom in</text>
+      <text tid="zoomout">Zoom out</text>
     </textgroup>
     <textgroup gid="update">   <!-- types.update -->
       <text tid="classification_of">Classification of</text>
