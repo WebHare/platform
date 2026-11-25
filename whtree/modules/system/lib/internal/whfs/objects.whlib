@@ -148,6 +148,18 @@ RECORD FUNCTION GetCacheablePreviewableTypes()
       ];
 }
 
+/** Schedule analysis of a new file's data (eg. to set its title from PDF metadata) if it has no title
+    @param metadata Metadata of the new file, as inserted into system.fs_objects */
+MACRO ScheduleFileAnalysis(RECORD metadata)
+{
+  IF(CellExists(metadata, "title") OR NOT CellExists(metadata, "data") OR Length(metadata.data) = 0)
+    RETURN;
+
+  RECORD scandata := DecodeScanData(metadata.scandata);
+  IF(scandata.mimetype = "application/pdf" AND scandata.hash != "")
+    ScheduleManagedTask("platform:analyzefiles", [ files := [[ id := metadata.id, hash := scandata.hash ]] ]);
+}
+
 MACRO DefaultAfterMetadataUpdate(RECORD indata)
 {
   INTEGER ARRAY preview_types := GetAdhocCached([ type := "genpreview" ], PTR GetCacheablePreviewableTypes);
@@ -245,10 +257,12 @@ RECORD FUNCTION FixupDataAndType(RECORD newmetadata, RECORD oldversion)
 
   IF(NOT CellExists(newmetadata,'title') AND NOT RecordExists(oldversion)) //autodetect title? (we do it here because we needed the scandata for this)
   {
+    //PDF titles are detected after the file is created, see ScheduleFileAnalysis
     TRY
     {
       RECORD meta := GetDocumentMetadata(CELL[...setwrapped, data]);
-      IF(IsValidUTF8(meta.title)) //PDF titles are not always UTF-8
+      //Only set a title if we found one. A missing 'title' tells CreateFile no title was given
+      IF(meta.title != "" AND IsValidUTF8(meta.title))
         INSERT CELL title := LimitUTF8Bytes(TrimWhitespace(meta.title),256) INTO newmetadata;
     }
     CATCH(OBJECT e)
@@ -1388,6 +1402,7 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject <
     INSERT metadata INTO system.fs_objects;
     ApplyCreationOptions(metadata, options, metadata_had_name);
     commithandler->ObjectCreate(this->parentsite, this->pvt_id, metadata.id, FALSE);
+    ScheduleFileAnalysis(metadata);
 
     // If this is a file with an indexdoc name, make it the indexdoc of this folder.
     // else, if the folder doesn't have an index and the new file can function as one, it becomes the index.
