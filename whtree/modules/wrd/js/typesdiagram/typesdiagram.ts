@@ -37,10 +37,12 @@ interface DiagramType {
 interface InitData {
   types: DiagramType[];
   selected: number;
+  /// The sequence number of the last selection the server received from us
+  selectionseq: number;
 }
 
 interface TypesDiagramHostProtocol {
-  select: { id: number };
+  select: { id: number; seq: number };
 }
 
 type Point = { x: number; y: number };
@@ -145,8 +147,16 @@ class TypesDiagram {
   headerHeight = 40;
   /// Whether the zoom was explicitly set by the user (if not, we'll zoom to fit after layout changes)
   userZoomed = false;
-  /// Incremented for every layout, so an older (async) layout finishing late doesn't overwrite a newer one
+  /// Incremented for every requested layout, so a layout that has been superseded is dropped
   layoutGeneration = 0;
+  /// Layouts run one at a time
+  layoutQueue: Promise<boolean> = Promise.resolve(true);
+  /// Generation of the newest layout that has finished (applied or failed)
+  finishedGeneration = 0;
+  /// Selection received from the server while a layout was running, to apply again once the newest layout has finished
+  pendingServerSelection: number | null = null;
+  /// Sequence number of the last selection we've sent to the server
+  selectionSeq = 0;
   pan: { x: number; y: number; scrollLeft: number; scrollTop: number; moved: boolean; pointerId: number } | null = null;
 
   constructor(parent: HTMLElement) {
@@ -167,6 +177,11 @@ class TypesDiagram {
     // Capture Enter/space on types before Tollium sees them (Enter would activate the screen's default button)
     window.addEventListener("keydown", e => this.onKeyDown(e), true);
     getTheme().addEventListener("change", () => void this.relayout());
+    // Keep the diagram fitted to the window while the user hasn't zoomed
+    new ResizeObserver(() => {
+      if (!this.userZoomed)
+        this.zoomToFit();
+    }).observe(this.container);
   }
 
   createToolbar(parent: HTMLElement) {
@@ -184,7 +199,7 @@ class TypesDiagram {
       button.title = getTid("wrd:types.typesdiagram." + tid);
       button.ariaLabel = button.title;
       button.addEventListener("click", () => {
-        this.userZoomed = true;
+        this.userZoomed = tid !== "zoomfit"; //after 'fit', keep fitting the diagram after layout changes and resizes
         onclick();
       });
       toolbar.append(button);
@@ -200,9 +215,26 @@ class TypesDiagram {
     }
   }
 
-  async setTypes(types: DiagramType[]) {
+  /** Set the types to show
+      @returns Whether the diagram was laid out (false if laying out failed or a newer layout was requested)
+  */
+  async setTypes(types: DiagramType[]): Promise<boolean> {
     this.types = types;
-    await this.relayout();
+    return await this.relayout();
+  }
+
+  /** Apply a selection from the initdata
+      @param typeid - Selected type
+      @param seq - Sequence number of the last selection the server had received from us when it sent this initdata
+  */
+  setSelectedFromServer(typeid: number, seq: number) {
+    // If the server hadn't seen our latest selection yet, its selection is outdated (and eg. an echo of an earlier click)
+    if (seq < this.selectionSeq)
+      return;
+    // A running layout (eg. after a theme change) may replace the boxes, so apply the selection again when it's done
+    if (this.finishedGeneration !== this.layoutGeneration)
+      this.pendingServerSelection = typeid;
+    this.setSelected(typeid, { scrollIntoView: true });
   }
 
   setSelected(typeid: number, { scrollIntoView = false } = {}) {
@@ -216,10 +248,11 @@ class TypesDiagram {
   }
 
   select(typeid: number) {
+    this.pendingServerSelection = null; //the user's selection overrides the server's
     if (typeid === this.selected)
       return;
     this.setSelected(typeid);
-    host.post("select", { id: typeid });
+    host.post("select", { id: typeid, seq: ++this.selectionSeq });
   }
 
   // Layout ------------------------------------------------------------------------------------------------------------
@@ -229,25 +262,53 @@ class TypesDiagram {
     return Math.ceil(this.measureContext.measureText(text).width) + 2;
   }
 
-  async relayout() {
+  /** Lay out the diagram. Layouts run one at a time, a layout that is superseded by a newer one is dropped
+      @returns Whether this layout was applied
+  */
+  relayout(): Promise<boolean> {
     const generation = ++this.layoutGeneration;
+    this.layoutQueue = this.layoutQueue.then(async () => {
+      if (generation !== this.layoutGeneration)
+        return false;
+      let applied = false;
+      try {
+        applied = await this.runLayout(generation);
+      } catch (e) {
+        console.error("Laying out the types diagram failed", e);
+      }
+      if (generation === this.layoutGeneration) { //this is the newest layout
+        this.finishedGeneration = generation;
+        if (this.pendingServerSelection !== null) {
+          const typeid = this.pendingServerSelection;
+          this.pendingServerSelection = null;
+          this.setSelected(typeid, { scrollIntoView: true });
+        }
+      }
+      return applied;
+    });
+    return this.layoutQueue;
+  }
+
+  /** Create and lay out the boxes and relations. They only replace the current ones when the layout is complete, so
+      rendering (eg. after a selection change) keeps working on the current diagram in the meantime */
+  async runLayout(generation: number): Promise<boolean> {
     const style = getComputedStyle(document.documentElement);
     this.fontSize = parseFloat(style.getPropertyValue("--tollium-font-size")) || 12;
     this.fontFamily = style.getPropertyValue("--tollium-font-family").trim() || "sans-serif";
     this.lineHeight = Math.round(this.fontSize * 1.7);
     this.headerHeight = this.lineHeight * 2 + 4;
 
-    this.createBoxes();
-    this.createRelations();
+    const boxes = this.createBoxes();
+    const relations = this.createRelations(boxes);
 
     // First pass: lay out with all attribute ports on the right, then put each port on the side facing its target and
     // lay out again
-    let result = await elk.layout(this.buildGraph());
+    let result = await elk.layout(this.buildGraph(boxes, relations));
     if (generation !== this.layoutGeneration)
-      return;
+      return false;
     const positions = new Map((result.children ?? []).map(child => [child.id, child]));
     let anyWest = false;
-    for (const rel of this.relations)
+    for (const rel of relations)
       if (rel.kind === "assoc" && rel.from !== rel.to) {
         const from = positions.get(nodeId(rel.from)), to = positions.get(nodeId(rel.to));
         if (from && to && (to.x ?? 0) + rel.to.width / 2 < (from.x ?? 0) + rel.from.width / 2) {
@@ -256,22 +317,29 @@ class TypesDiagram {
         }
       }
     if (anyWest) {
-      result = await elk.layout(this.buildGraph());
+      result = await elk.layout(this.buildGraph(boxes, relations));
       if (generation !== this.layoutGeneration)
-        return;
+        return false;
     }
 
-    this.applyLayout(result);
+    TypesDiagram.applyLayout(result, boxes, relations);
+    this.boxes = boxes;
+    this.relations = relations;
+    this.width = Math.ceil(result.width ?? 0);
+    this.height = Math.ceil(result.height ?? 0);
+    if (!boxes.has(this.selected))
+      this.selected = 0;
     if (!this.userZoomed)
       this.zoom = this.getFitZoom();
     this.render();
+    return true;
   }
 
-  createBoxes() {
+  createBoxes(): Map<number, Box> {
+    const boxes = new Map<number, Box>();
     const tags = new Map(this.types.map(type => [type.id, type.tag]));
     const getTag = (id: number) => tags.get(id) ?? `#${id}`;
 
-    this.boxes.clear();
     for (const type of this.types) {
       const rows: AttrRow[] = [];
       const addRows = (attrs: DiagramAttr[], indent: number) => {
@@ -291,49 +359,51 @@ class TypesDiagram {
         this.measure(`«${type.metatype}»`) + 2 * boxPadding,
         ...rows.map(row => this.measure(row.text) + row.indent * indentWidth + 2 * boxPadding)));
       const height = this.headerHeight + Math.max(rows.length * this.lineHeight, boxPadding) + 4;
-      this.boxes.set(type.id, { type, rows, width, height, x: 0, y: 0 });
+      boxes.set(type.id, { type, rows, width, height, x: 0, y: 0 });
     }
+    return boxes;
   }
 
-  createRelations() {
-    this.relations = [];
-    const add = (rel: Pick<Relation, "from" | "to" | "kind" | "row" | "label">) => this.relations.push({ ...rel, portSide: "EAST", points: [], labelPos: null });
-    for (const box of this.boxes.values()) {
+  createRelations(boxes: Map<number, Box>): Relation[] {
+    const relations: Relation[] = [];
+    const add = (rel: Pick<Relation, "from" | "to" | "kind" | "row" | "label">) => relations.push({ ...rel, portSide: "EAST", points: [], labelPos: null });
+    for (const box of boxes.values()) {
       const type = box.type;
       box.rows.forEach((row, idx) => {
-        const target = row.attr.type !== "array" ? this.boxes.get(row.attr.domain) : undefined;
+        const target = row.attr.type !== "array" ? boxes.get(row.attr.domain) : undefined;
         if (target) {
           const many = row.attr.type === "domainarray" || row.indent > 0; //attributes inside arrays can have multiple values too
           add({ from: box, to: target, kind: "assoc", row: idx, label: many ? "*" : row.attr.isrequired ? "1" : "0..1" });
         }
       });
       // wrd_leftentity and wrd_rightentity are shown as relations from box to box
-      const left = type.linkfrom ? this.boxes.get(type.linkfrom) : undefined;
+      const left = type.linkfrom ? boxes.get(type.linkfrom) : undefined;
       if (left)
         add({ from: box, to: left, kind: "link", row: -1, label: type.metatype === "link" ? "left" : "" }); //attachments only have one end
-      const right = type.linkto ? this.boxes.get(type.linkto) : undefined;
+      const right = type.linkto ? boxes.get(type.linkto) : undefined;
       if (right)
         add({ from: box, to: right, kind: "link", row: -1, label: "right" });
-      const parent = type.parenttype ? this.boxes.get(type.parenttype) : undefined;
+      const parent = type.parenttype ? boxes.get(type.parenttype) : undefined;
       if (parent && parent !== box)
         add({ from: box, to: parent, kind: "inherit", row: -1, label: "" });
     }
+    return relations;
   }
 
   getRowCenterY(box: Box, row: number) {
     return box.y + this.headerHeight + 2 + row * this.lineHeight + this.lineHeight / 2;
   }
 
-  buildGraph(): ElkNode {
+  buildGraph(boxes: Map<number, Box>, relations: Relation[]): ElkNode {
     const labelFontSize = this.fontSize - 1;
     const aspectRatio = this.container.clientWidth && this.container.clientHeight ? this.container.clientWidth / this.container.clientHeight : 1.6;
 
-    const children: ElkNode[] = [...this.boxes.values()].map(box => ({
+    const children: ElkNode[] = [...boxes.values()].map(box => ({
       id: nodeId(box),
       width: box.width,
       height: box.height,
       layoutOptions: { "elk.portConstraints": "FIXED_POS" },
-      ports: this.relations
+      ports: relations
         .filter(rel => rel.kind === "assoc" && rel.from === box)
         .map(rel => ({
           id: portId(box, rel.row),
@@ -345,7 +415,7 @@ class TypesDiagram {
         }))
     }));
 
-    const edges: ElkExtendedEdge[] = this.relations.map((rel, idx) => ({
+    const edges: ElkExtendedEdge[] = relations.map((rel, idx) => ({
       id: `e${idx}`,
       // Inheritance is laid out from parent to child, so parents end up above their children
       sources: [rel.kind === "assoc" ? portId(rel.from, rel.row) : nodeId(rel.kind === "inherit" ? rel.to : rel.from)],
@@ -382,9 +452,9 @@ class TypesDiagram {
     };
   }
 
-  applyLayout(result: ElkNode) {
+  static applyLayout(result: ElkNode, boxes: Map<number, Box>, relations: Relation[]) {
     for (const child of result.children ?? []) {
-      const box = this.boxes.get(parseInt(child.id.substring(1)));
+      const box = boxes.get(parseInt(child.id.substring(1)));
       if (box) {
         box.x = child.x ?? 0;
         box.y = child.y ?? 0;
@@ -392,16 +462,13 @@ class TypesDiagram {
     }
 
     const edges = new Map((result.edges ?? []).map(edge => [edge.id, edge as ElkExtendedEdge]));
-    this.relations.forEach((rel, idx) => {
+    relations.forEach((rel, idx) => {
       const edge = edges.get(`e${idx}`);
       const section = edge?.sections?.[0];
       rel.points = section ? [section.startPoint, ...(section.bendPoints ?? []), section.endPoint].map((p: ElkPoint) => ({ x: p.x, y: p.y })) : [];
       const label = edge?.labels?.[0];
       rel.labelPos = label?.x !== undefined && label.y !== undefined ? { x: label.x, y: label.y } : null;
     });
-
-    this.width = Math.ceil(result.width ?? 0);
-    this.height = Math.ceil(result.height ?? 0);
   }
 
   // Rendering ---------------------------------------------------------------------------------------------------------
@@ -620,18 +687,25 @@ class TypesDiagram {
 }
 
 let diagram: TypesDiagram | null = null;
+/// The types currently laid out (as JSON)
 let currentTypes = "";
+/// init messages are processed one at a time (setupGuest doesn't wait for one to finish before starting the next)
+let initQueue = Promise.resolve();
 
-async function init(_context: HostContext, initdata: InitData) {
+async function processInit(initdata: InitData) {
   diagram ??= new TypesDiagram(document.body);
 
   // init is also invoked when only the selection changes (the selection is kept in the initdata), so only relayout when needed
   const types = JSON.stringify(initdata.types);
-  if (types !== currentTypes) {
+  if (types !== currentTypes && await diagram.setTypes(initdata.types || []))
     currentTypes = types;
-    await diagram.setTypes(initdata.types || []);
-  }
-  diagram.setSelected(initdata.selected, { scrollIntoView: true });
+  diagram.setSelectedFromServer(initdata.selected, initdata.selectionseq ?? 0);
+}
+
+function init(_context: HostContext, initdata: InitData) {
+  // Errors thrown by init would block the guest, so log them instead
+  initQueue = initQueue.then(() => processInit(initdata)).catch(e => console.error("Updating the types diagram failed", e));
+  return initQueue;
 }
 
 setupGuest(init, {});

@@ -83,10 +83,8 @@ PUBLIC STATIC OBJECTTYPE ManageTypes EXTEND TolliumScreenBase
   }
 >;
 
-STRING FUNCTION GetMetatypeName(INTEGER metatype)
-{
-  SWITCH (metatype)
-  {
+STRING FUNCTION GetMetatypeName(INTEGER metatype) {
+  SWITCH (metatype) {
     CASE wrd_metatype_object     { RETURN "object"; }
     CASE wrd_metatype_link       { RETURN "link"; }
     CASE wrd_metatype_attachment { RETURN "attachment"; }
@@ -98,14 +96,14 @@ STRING FUNCTION GetMetatypeName(INTEGER metatype)
 /* Shows the WRD types of a schema as a UML class diagram (rendered by the wrd:typesdiagram asset pack inside an iframe)
    with the attributes of the type selected in the diagram next to it
 */
-PUBLIC STATIC OBJECTTYPE TypesDiagram EXTEND TolliumScreenBase
-<
+PUBLIC STATIC OBJECTTYPE TypesDiagram EXTEND TolliumScreenBase <
   OBJECT wrdschema;
   INTEGER selectedtype;
+  /// Sequence number of the last selection received from the diagram, returned in the initdata so it can ignore outdated selections
+  INTEGER selectionseq;
   RECORD ARRAY diagramtypes;
 
-  MACRO Init(RECORD data)
-  {
+  MACRO Init(RECORD data) {
     data := ValidateOptions([ selecttype := 0 ], data);
 
     this->wrdschema := this->contexts->wrdschema;
@@ -144,8 +142,7 @@ PUBLIC STATIC OBJECTTYPE TypesDiagram EXTEND TolliumScreenBase
     ^attrs->Invalidate();
   }
 
-  STRING FUNCTION GetTypeTag(INTEGER findid)
-  {
+  STRING FUNCTION GetTypeTag(INTEGER findid) {
     RETURN SELECT AS STRING tag FROM this->diagramtypes WHERE id = findid;
   }
 
@@ -153,26 +150,21 @@ PUBLIC STATIC OBJECTTYPE TypesDiagram EXTEND TolliumScreenBase
      (with only their domain(array) children). Inherited attributes are shown on the parent type, wrd_leftentity and
      wrd_rightentity are shown as connections between the types themselves.
   */
-  RECORD ARRAY FUNCTION GetDiagramAttributes(OBJECT wrdtype, INTEGER parentid)
-  {
+  RECORD ARRAY FUNCTION GetDiagramAttributes(OBJECT wrdtype, INTEGER parentid) {
     RECORD ARRAY result;
     FOREVERY (RECORD attr FROM SELECT *
                                  FROM wrdtype->ListAttributes(parentid)
                                 WHERE NOT isinherited
                                       AND tag NOT IN [ "WRD_LEFTENTITY", "WRD_RIGHTENTITY" ]
-                             ORDER BY ToUppercase(tag))
-    {
-      IF (attr.attributetypename IN [ "DOMAIN", "DOMAINARRAY" ] AND attr.domain != 0) // eg. WRD_GENDER is a domain without a type
-      {
+                             ORDER BY ToUppercase(tag)) {
+      IF (attr.attributetypename IN [ "DOMAIN", "DOMAINARRAY" ] AND attr.domain != 0) { // eg. WRD_GENDER is a domain without a type
         INSERT [ tag :=        attr.localtag
                , type :=       ToLowercase(attr.attributetypename)
                , domain :=     attr.domain
                , isrequired := attr.isrequired
                , children :=   RECORD[]
                ] INTO result AT END;
-      }
-      ELSE IF (attr.attributetypename = "ARRAY")
-      {
+      } ELSE IF (attr.attributetypename = "ARRAY") {
         RECORD ARRAY children := this->GetDiagramAttributes(wrdtype, attr.id);
         IF (Length(children) > 0)
           INSERT [ tag :=        attr.localtag
@@ -186,18 +178,17 @@ PUBLIC STATIC OBJECTTYPE TypesDiagram EXTEND TolliumScreenBase
     RETURN result;
   }
 
-  RECORD FUNCTION GetDiagramInitData()
-  {
-    RETURN [ types :=    this->diagramtypes
-           , selected := this->selectedtype
+  RECORD FUNCTION GetDiagramInitData() {
+    RETURN [ types :=        this->diagramtypes
+           , selected :=     this->selectedtype
+           , selectionseq := this->selectionseq
            ];
   }
 
-  MACRO OnClientMessage(STRING type, RECORD data)
-  {
-    IF (type = "select")
-    {
+  MACRO OnClientMessage(STRING type, RECORD data) {
+    IF (type = "select") {
       INTEGER newselection := RecordExists(SELECT FROM this->diagramtypes WHERE id = data.id) ? data.id : 0;
+      this->selectionseq := data.seq;
       IF (newselection = this->selectedtype)
         RETURN;
 
@@ -208,8 +199,7 @@ PUBLIC STATIC OBJECTTYPE TypesDiagram EXTEND TolliumScreenBase
     }
   }
 
-  RECORD ARRAY FUNCTION GetAttributeRows(OBJECT wrdtype, INTEGER parentid)
-  {
+  RECORD ARRAY FUNCTION GetAttributeRows(OBJECT wrdtype, INTEGER parentid) {
     RETURN SELECT rowkey :=         tag
                 , tag :=            localtag
                 , title
@@ -234,8 +224,7 @@ PUBLIC STATIC OBJECTTYPE TypesDiagram EXTEND TolliumScreenBase
              FROM attrs;
   }
 
-  RECORD ARRAY FUNCTION OnGetAttrs()
-  {
+  RECORD ARRAY FUNCTION OnGetAttrs() {
     OBJECT wrdtype := this->selectedtype != 0 ? this->wrdschema->GetTypeById(this->selectedtype) : DEFAULT OBJECT;
     IF (NOT ObjectExists(wrdtype))
       RETURN RECORD[];

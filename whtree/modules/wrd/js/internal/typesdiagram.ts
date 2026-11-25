@@ -54,21 +54,34 @@ export interface DiagramType {
   attrs: DiagramAttr[];
 }
 
-const compareTags = (lhs: { tag: string }, rhs: { tag: string }) => lhs.tag.toUpperCase().localeCompare(rhs.tag.toUpperCase());
+/** Sort by uppercased tag, comparing code units like HareScript's ORDER BY ToUppercase(tag) */
+const compareTags = (lhs: { tag: string }, rhs: { tag: string }) => {
+  const left = lhs.tag.toUpperCase(), right = rhs.tag.toUpperCase();
+  return left < right ? -1 : left > right ? 1 : 0;
+};
 
 /** List the attributes of a type as a tree, marking the attributes inherited from the parent type */
 async function getAttributeTree(wrdSchema: AnySchema, typeTag: string, parentTypeTag: string | null): Promise<AttrInfo[]> {
   const wrdType = wrdSchema.getType(typeTag);
-  // Inherited attributes have the same id as the attribute in the parent type (base attributes have no id and are never inherited)
-  const parentAttrIds = new Set(parentTypeTag ? (await wrdSchema.getType(parentTypeTag).listAttributes()).map(attr => attr.id).filter(id => id !== null) : []);
+  // wrdTitle redirected to wrdOrgName is still a base attribute (as in HareScript), so it doesn't own the id it borrowed
+  const isRedirected = (attr: { id: number | null; tag: string }, attrs: Array<{ id: number | null; tag: string }>) =>
+    attr.tag === "wrdTitle" && attr.id !== null && attrs.some(other => other.id === attr.id && other.tag !== "wrdTitle");
+
+  /* Inherited attributes have the same id and tag as the attribute in the parent type (base attributes have no id and are
+     never inherited). Check the tag too: some base attributes are redirected to another attribute and report its id
+     (wrdTitle reports the id of wrdOrgName in types derived from wrdOrganization). Skip those redirected attributes, or
+     they'd replace the tag of the attribute that actually owns the id */
+  const parentAttrList = parentTypeTag ? await wrdSchema.getType(parentTypeTag).listAttributes() : [];
+  const parentAttrs = new Map(parentAttrList.filter(attr => attr.id !== null && !isRedirected(attr, parentAttrList)).map(attr => [attr.id, attr.tag]));
 
   const listLevel = async (parent: string | null, inheritedParent: boolean): Promise<AttrInfo[]> => {
     const attrs = await wrdType.listAttributes(parent);
     const result: AttrInfo[] = [];
     for (const attr of attrs) {
-      const isInherited = inheritedParent || (attr.id !== null && parentAttrIds.has(attr.id));
+      const id = isRedirected(attr, attrs) ? null : attr.id;
+      const isInherited = inheritedParent || (id !== null && parentAttrs.get(id) === attr.tag);
       result.push({
-        id: attr.id,
+        id,
         fullTag: attr.tag,
         tag: attr.tag.split(".").at(-1)!,
         attributeType: attr.attributeType,
