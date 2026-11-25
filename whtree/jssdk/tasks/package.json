@@ -1,0 +1,16 @@
+{
+  "name": "@webhare/tasks",
+  "type": "module",
+  "version": "",
+  "description": "Schedule and manage WebHare managed and timed tasks",
+  "main": "src/tasks.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/tasks.ts"
+    ]
+  },
+  "private": true
+}

@@ -13,7 +13,8 @@ import { whconstant_consilio_catalogtype_managed, whconstant_consilio_catalogtyp
 import "@webhare/env";
 import type { API as OpenSearchAPI, Client as OpenSearchClient } from "@opensearch-project/opensearch";
 import { getStackTrace } from "@webhare/js-api-tools";
-import { scheduleTimedTask, WebHareBlob } from "@webhare/services";
+import { WebHareBlob } from "@webhare/services";
+import { scheduleTimedTask } from "@webhare/tasks";
 import { encodeHSON } from "@webhare/hscompat";
 import { loadlib } from "@webhare/harescript";
 import type { AttachedIndex, CatalogListEntry, CatalogSuffix } from "./types";

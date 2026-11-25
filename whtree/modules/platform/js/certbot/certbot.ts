@@ -1,5 +1,5 @@
 import { getTid } from "@webhare/gettid";
-import { retrieveTaskResult, scheduleTask } from "@webhare/services";
+import { retrieveTaskResult, scheduleTask } from "@webhare/tasks";
 import { beginWork, commitWork } from "@webhare/whdb";
 import { createPrivateKey, X509Certificate } from "node:crypto";
 import { lookupKey, splitPEMCertificateBundle } from "../webserver/keymgmt";

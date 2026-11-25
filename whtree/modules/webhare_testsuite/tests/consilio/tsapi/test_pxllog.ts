@@ -2,7 +2,8 @@ import * as test from "@webhare/test-backend";
 import { anonymizeIPAddress } from "@mod-platform/js/logging/parsersupport.ts";
 import { parseAndValidateModuleDefYMLText } from "@mod-webhare_testsuite/js/config/testhelpers";
 import { buildPxlParser, getYMLPxlConfigs, type PxlDocType } from "@mod-platform/js/logging/pxllog";
-import { backendConfig, readLogLines, scheduleTimedTask } from "@webhare/services";
+import { backendConfig, readLogLines } from "@webhare/services";
+import { scheduleTimedTask } from "@webhare/tasks";
 import { sendPxl, setPxlOptions } from "@webhare/frontend/src/pxl"; //we may be able to use @webhare/frontend iff it stops loading CSS
 import { readJSONLogLines } from "@mod-system/js/internal/logging";
 import { generateRandomId } from "@webhare/std";

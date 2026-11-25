@@ -15,9 +15,8 @@ import {
   resolveResource,
   ResourceDescriptor,
   type LoggableRecord,
-  type TaskRequest,
-  type TaskResponse,
 } from "@webhare/services";
+import type { TaskRequest, TaskResponse } from "@webhare/tasks";
 import { getAllModuleYAMLs } from "@webhare/services/src/moduledefparser";
 import { addDuration, pick, throwError, toCamelCase, type ToSnakeCase } from "@webhare/std";
 import { listDirectory } from "@webhare/system-tools";
