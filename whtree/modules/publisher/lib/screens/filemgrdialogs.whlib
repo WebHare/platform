@@ -185,7 +185,7 @@ PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase <
 
     //Add the types
     RECORD ARRAY rows := SELECT rowkey := "type:" || id
-                              , title := GetTid(title)
+                              , title := GetTid(title) ?? scopedtype ?? namespace
                               , icon := ^types->GetIcon(tolliumicon ?? whconstant_publisher_fileiconfallback)
                               , contenttype := namespace
                               , type := id
