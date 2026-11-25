@@ -555,8 +555,9 @@ class TypesDiagram {
     for (const box of this.boxes.values())
       this.renderBox(box, boxesGroup);
 
+    // Restore the focus without scrolling, or the focused box would snap back into view after the user scrolled it away
     if (focusedTypeId)
-      this.svgRoot.querySelector<SVGGElement>(`.type[data-typeid="${focusedTypeId}"]`)?.focus();
+      this.svgRoot.querySelector<SVGGElement>(`.type[data-typeid="${focusedTypeId}"]`)?.focus({ preventScroll: true });
 
     // Let tests know we've rendered
     try {
@@ -638,8 +639,16 @@ class TypesDiagram {
     }
   }
 
+  /** Whether the event is on one of the container's scrollbars. The browser handles dragging those itself and doesn't
+      report the pointer moves, so a scrollbar drag would look like a click on the background */
+  isOnScrollbar(event: PointerEvent) {
+    const rect = this.container.getBoundingClientRect();
+    const x = event.clientX - rect.left - this.container.clientLeft, y = event.clientY - rect.top - this.container.clientTop;
+    return x >= this.container.clientWidth || y >= this.container.clientHeight;
+  }
+
   onPointerDown(event: PointerEvent) {
-    if (event.button !== 0 || this.getTypeIdFromEvent(event))
+    if (event.button !== 0 || this.getTypeIdFromEvent(event) || this.isOnScrollbar(event))
       return;
     this.pan = { x: event.clientX, y: event.clientY, scrollLeft: this.container.scrollLeft, scrollTop: this.container.scrollTop, moved: false, pointerId: event.pointerId };
     this.container.setPointerCapture(event.pointerId);
@@ -660,7 +669,8 @@ class TypesDiagram {
   onPointerUp(event: PointerEvent) {
     if (!this.pan || event.pointerId !== this.pan.pointerId)
       return;
-    const wasClick = !this.pan.moved;
+    // Not a click if the diagram scrolled in the meantime (eg. by the scroll wheel while the button was down)
+    const wasClick = !this.pan.moved && this.container.scrollLeft === this.pan.scrollLeft && this.container.scrollTop === this.pan.scrollTop;
     this.endPan();
     if (wasClick) //clicking the background clears the selection
       this.select(0);
