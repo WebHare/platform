@@ -333,6 +333,7 @@ test.runTests(
         const rte = rtetest.getRTE(test.getWin(), 'structured');
         const selection = rte.getEditor().getSelectionRange();
         test.eq(1, selection.querySelectorAll("img").length);
+        test.eq(0, rte.qSA(".wh-rtd__img--uploading").length, "The uploaded image should no longer be marked as uploading");
         tt.comp(":Rewrite").click();
         await test.waitForUI();
       }
