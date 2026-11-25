@@ -7,6 +7,7 @@ LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/payments.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 
 
@@ -110,7 +111,20 @@ PUBLIC STATIC OBJECTTYPE TypesDiagram EXTEND TolliumScreenBase
     this->wrdschema := this->contexts->wrdschema;
     this->frame->title := this->GetTid(".title", this->wrdschema->tag);
 
-    RECORD ARRAY types := this->wrdschema->ListTypes();
+    this->LoadDiagramTypes();
+    IF (RecordExists(SELECT FROM this->diagramtypes WHERE id = data.selecttype))
+      this->selectedtype := data.selecttype;
+
+    ^diagram->InitializeWithAssetpack("wrd:typesdiagram", this->GetDiagramInitData());
+  }
+
+  MACRO LoadDiagramTypes() {
+    IF (^typescriptnames->value) {
+      // Gathered in TypeScript using the TypeScript names. Type ids are the same, so the selection is kept
+      this->diagramtypes := CallJS("mod::wrd/js/internal/typesdiagram.ts#getTypesDiagramData", this->wrdschema->tag);
+      RETURN;
+    }
+
     this->diagramtypes :=
         SELECT id
              , tag
@@ -120,13 +134,14 @@ PUBLIC STATIC OBJECTTYPE TypesDiagram EXTEND TolliumScreenBase
              , linkfrom
              , linkto
              , attrs := this->GetDiagramAttributes(this->wrdschema->GetTypeById(id), 0)
-          FROM types
+          FROM this->wrdschema->ListTypes()
       ORDER BY ToUppercase(tag);
+  }
 
-    IF (RecordExists(SELECT FROM types WHERE id = data.selecttype))
-      this->selectedtype := data.selecttype;
-
-    ^diagram->InitializeWithAssetpack("wrd:typesdiagram", this->GetDiagramInitData());
+  MACRO OnTypeScriptNamesChange() {
+    this->LoadDiagramTypes();
+    ^diagram->UpdateInitData(this->GetDiagramInitData());
+    ^attrs->Invalidate();
   }
 
   STRING FUNCTION GetTypeTag(INTEGER findid)
@@ -207,10 +222,30 @@ PUBLIC STATIC OBJECTTYPE TypesDiagram EXTEND TolliumScreenBase
          ORDER BY ToUppercase(tag);
   }
 
+  RECORD ARRAY FUNCTION GetTypeScriptAttributeRows(RECORD ARRAY attrs, RECORD ARRAY titles) {
+    RETURN SELECT rowkey :=         fulltag
+                , tag
+                , title :=          id != 0 ? (SELECT AS STRING titles.title FROM titles WHERE titles.id = attrs.id) : ""
+                , type :=           attributetype
+                , domain
+                , subnodes :=       Length(children) > 0 ? this->GetTypeScriptAttributeRows(children, titles) : RECORD[]
+                , expanded :=       TRUE
+                , listrowclasses := isinherited ? [ "grayedout" ] : STRING[]
+             FROM attrs;
+  }
+
   RECORD ARRAY FUNCTION OnGetAttrs()
   {
     OBJECT wrdtype := this->selectedtype != 0 ? this->wrdschema->GetTypeById(this->selectedtype) : DEFAULT OBJECT;
-    RETURN ObjectExists(wrdtype) ? this->GetAttributeRows(wrdtype, 0) : RECORD[];
+    IF (NOT ObjectExists(wrdtype))
+      RETURN RECORD[];
+
+    IF (^typescriptnames->value) {
+      // The TypeScript API doesn't offer attribute titles, so take them from the HareScript attributes (base attributes have no id and no title)
+      RECORD ARRAY titles := SELECT id, title FROM wrdtype->ListAttributes(-1) WHERE id != 0;
+      RETURN this->GetTypeScriptAttributeRows(CallJS("mod::wrd/js/internal/typesdiagram.ts#getTypeAttributes", this->wrdschema->tag, this->selectedtype), titles);
+    }
+    RETURN this->GetAttributeRows(wrdtype, 0);
   }
 >;
 

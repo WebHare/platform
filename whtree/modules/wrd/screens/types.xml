@@ -82,7 +82,7 @@
     </body>
   </screen>
 
-  <screen name="typesdiagram" tid=".title" width="180x" height="55x" allowresize="true" footerbuttons="close" gid=".typesdiagram">
+  <screen name="typesdiagram" width="180x" height="55x" allowresize="true" gid=".typesdiagram" tid=".title">
     <body spacers="none">
       <split type="horizontal" height="1pr">
         <part width="2pr">
@@ -93,7 +93,7 @@
                 width="1pr"
                 height="1pr"
                 minwidth="40x"
-                borders="left"
+                borders="none"
                 emptytid=".noselection"
                 ongetrows="ongetattrs"
                 rowkeytype="string"
@@ -106,6 +106,19 @@
         </part>
       </split>
     </body>
+
+    <footer>
+      <grid width="1pr">
+        <cell width="1pr">
+          <line>
+            <checkbox name="typescriptnames" labeltid=".typescriptnames" onchange="ontypescriptnameschange" title="" />
+          </line>
+        </cell>
+        <cell>
+          <defaultformbuttons buttons="close" />
+        </cell>
+      </grid>
+    </footer>
   </screen>
 
   <screen name="edittype" width="65x" allowresize="true" footerbuttons="ok cancel" gid="types.update">

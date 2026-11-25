@@ -1375,6 +1375,7 @@
       <text tid="domain">Domein</text>
       <text tid="noselection">Selecteer een type in het diagram om de attributen te zien</text>
       <text tid="title">Typediagram van schema '<param p="1"/>'</text>
+      <text tid="typescriptnames">TypeScript-namen tonen</text>
       <text tid="zoomfit">Passend maken</text>
       <text tid="zoomin">Inzoomen</text>
       <text tid="zoomout">Uitzoomen</text>
