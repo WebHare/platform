@@ -7,6 +7,8 @@ LOADLIB "wh::regex.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -17,6 +19,7 @@ LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/history.whlib";
 LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::webhare_testsuite/lib/publisher/testsupport.whlib";
@@ -896,10 +899,31 @@ MACRO DraftRTDTypeTest() {
   workflowmgr->Save();
   testfw->CommitWork();
 
-  TestEq(TRUE, testfw->browser->GotoWebPage(GetPreviewLink(workflowmgr->__GetDraftObject()->id)));
+  //The draft lives in /webhare-private/, its applytester should evaluate the apply rules for the original file
+  OBJECT draft := workflowmgr->__GetDraftObject();
+  TestEq(TRUE, IsReadonlyWHFSSpace(draft->whfspath));
+  OBJECT liveapplytester := GetApplyTesterForObject(rtdfile->id);
+  OBJECT draftapplytester := GetApplyTesterForObject(draft->id);
+  TestEq(rtdfile->parentsite, draftapplytester->objsite);
+  TestEq(rtdfile->parent, draftapplytester->objparent);
+  TestEq(liveapplytester->GetRTDTypeSettings(), draftapplytester->GetRTDTypeSettings());
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(GetPreviewLink(draft->id)));
   OBJECT customstyle := testfw->browser->QS("div.mycustomstyle");
   TestEq(TRUE, ObjectExists(customstyle), "Draft should render MYCUSTOMSTYLE, not fall back to a normal paragraph");
   TestEq("Draft custom style", customstyle->textcontent);
+
+  //A content link renders the linked document with the RTD type that applies at the content link's location, not the linked document's
+  testfw->BeginWork();
+  OBJECT contentlink := GetTestsuiteTempFolder()->CreateFile([ name := "tabletest-contentlink", type := whconstant_whfstype_contentlink, filelink := rtdfile->id, publish := TRUE ]);
+  testfw->CommitWork();
+
+  RECORD contentlinkrtdsettings := GetApplyTesterForObject(contentlink->id)->GetRTDTypeSettings();
+  TestEq(TRUE, contentlinkrtdsettings.rtdtype != liveapplytester->GetRTDTypeSettings().rtdtype, "Test assumes the content link gets a different RTD type than the linked document");
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(GetPreviewLink(contentlink->id)));
+  TestEq(FALSE, ObjectExists(testfw->browser->QS("div.mycustomstyle")), "The content link's RTD type has no MYCUSTOMSTYLE");
+  TestEq(TRUE, testfw->browser->QS("body")->textcontent LIKE "*Live custom style*");
 }
 
 //Test whether files that receive updates but had no history at all, properly get an import entry
