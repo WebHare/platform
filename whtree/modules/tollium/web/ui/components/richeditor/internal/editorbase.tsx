@@ -2868,10 +2868,17 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     using lock = dompack.flagUIBusy();
     void (lock);
 
-    const properurl = await getFormService().getUploadedFileFinalURL(await getFileAsDataURL(filetoupload));
+    let properurl;
+    try {
+      properurl = await getFormService().getUploadedFileFinalURL(await getFileAsDataURL(filetoupload));
+    } catch (e) {
+      imgnode.remove(); //don't leave the placeholder behind
+      throw e;
+    }
     imgnode.src = properurl;
     this.knownimages.push(imgnode.src);
     imgnode.classList.add("wh-rtd__img");
+    imgnode.classList.remove("wh-rtd__img--uploading");
 
     //drop width/height form external images
     imgnode.removeAttribute("width");
