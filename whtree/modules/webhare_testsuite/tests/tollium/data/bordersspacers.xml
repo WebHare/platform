@@ -1,0 +1,33 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         gid="bordersspacers">
+
+  <screen name="bordersspacers" implementation="none" title="Borders and spacers">
+    <body>
+      <statuspanel name="status_default" type="info" />
+      <statuspanel name="status_all" type="info" borders="all" />
+
+      <grid>
+        <row>
+          <cell name="cell_default_0" />
+          <cell name="cell_default_1" />
+        </row>
+        <row>
+          <cell name="cell_all_0" spacers="all" />
+          <cell name="cell_all_1" spacers="all" />
+        </row>
+      </grid>
+
+      <tabs name="servertabs" type="server">
+        <tab name="tab_default" title="Default" />
+        <tab name="tab_all" title="All" spacers="all" />
+        <tab name="tab_usedefault" title="Default keyword" spacers="default" />
+      </tabs>
+
+      <!-- switched to type="server" by the test after the screen has been initialized -->
+      <tabs name="switchedtabs" type="regular">
+        <tab name="switchedtab_all" title="All" spacers="all" />
+      </tabs>
+    </body>
+  </screen>
+
+</screens>

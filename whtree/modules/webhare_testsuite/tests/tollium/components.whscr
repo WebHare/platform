@@ -60,7 +60,42 @@ ASYNC MACRO TestCustomImplementation()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+RECORD FUNCTION Sides(RECORD bordersspacers)
+{
+  RETURN CELL[ bordersspacers.top, bordersspacers.right, bordersspacers.bottom, bordersspacers.left ];
+}
+
+ASYNC MACRO TestBordersSpacers()
+{
+  RECORD nosides := [ top := FALSE, right := FALSE, bottom := FALSE, left := FALSE ];
+  RECORD allsides := [ top := TRUE, right := TRUE, bottom := TRUE, left := TRUE ];
+
+  OBJECT screen := GetTestController()->LoadScreen(Resolve("data/bordersspacers.xml#bordersspacers"));
+  // Tabs are often switched to type="server" after the screen has been initialized, which should keep an explicit 'all'
+  screen->switchedtabs->type := "server";
+  AWAIT ExpectScreenChange(+1, PTR screen->RunModal());
+
+  // A statuspanel has a default bottom border, which should not override an explicit 'all'
+  TestEq(CELL[...nosides, bottom := TRUE], Sides(TT("status_default")->borders));
+  TestEq(allsides, Sides(TT("status_all")->borders));
+
+  // All but the leftmost grid column get a left spacer by default, an explicit 'all' should keep the left spacer
+  TestEq(nosides, Sides(TT("cell_default_0")->spacers));
+  TestEq(CELL[...nosides, left := TRUE], Sides(TT("cell_default_1")->spacers));
+  TestEq(allsides, Sides(TT("cell_all_0")->spacers));
+  TestEq(allsides, Sides(TT("cell_all_1")->spacers));
+
+  // Tabs inside a server tabs component lose their spacers by default, but not when explicitly set
+  TestEq(nosides, Sides(TT("tab_default")->spacers));
+  TestEq(allsides, Sides(TT("tab_all")->spacers));
+  TestEq(nosides, Sides(TT("tab_usedefault")->spacers));
+  TestEq(allsides, Sides(TT("switchedtab_all")->spacers));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 RunTestFramework([ PTR MultilineComponent
                  , PTR YoutubeComponent
                  , PTR TestCustomImplementation
+                 , PTR TestBordersSpacers
                  ]);
