@@ -242,6 +242,10 @@ PUBLIC STATIC OBJECTTYPE Level2Widget EXTEND WidgetBase
                           , rtd := PTR this->rtd->RenderAllObjects()
                           ]);
   }
+
+  UPDATE PUBLIC MACRO RenderEmail(OBJECT mailcomposer) {
+    this->Render();
+  }
 >;
 
 PUBLIC STATIC OBJECTTYPE Level2Widget_OverrideSearch EXTEND Level2Widget
