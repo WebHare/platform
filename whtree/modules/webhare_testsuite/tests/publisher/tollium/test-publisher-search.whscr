@@ -14,7 +14,7 @@ LOADLIB "mod::tollium/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 
-OBJECT linksrtdfile, lisartdfile, lisamarkdownfile, sysoptestfolder, lisatestfolder;
+OBJECT linksrtdfile, lisartdfile, lisamarkdownfile, privatertdfile, sysoptestfolder, lisatestfolder;
 STRING todaysuniqueword := GeneratePassword("Grosse", 22);
 
 MACRO PrepIt()
@@ -48,6 +48,15 @@ MACRO PrepIt()
       [ data := [ type := "publisher:markdown"
                 , text := StringToBlob(`# Markdown\nThis is [link 43](http://www.example.net/link43) and word up: MD${todaysuniqueword}`)
                 ]
+      ]);
+
+  //A file in a webhare-private folder that the testsuite's moduledefinition adds to the WHFS index
+  OBJECT privatefolder := OpenWHFSPrivateFolder("webhare_testsuite")->EnsureFolder([ name := "addtowhfsindex" ])->EnsureFolder([ name := "anywhere" ]);
+  IF(ObjectExists(privatefolder->OpenByName("private-search.rtd")))
+    privatefolder->OpenByName("private-search.rtd")->RecycleSelf();
+  privatertdfile := privatefolder->CreateFile([name := "private-search.rtd", type := richdoctype->id, publish:=FALSE]);
+  richdoctype->SetInstanceData(privatertdfile->id,
+      [ data := [ htmltext := StringToBlob(`<html><head></head><body><p class="normal">PP${todaysuniqueword}</p></body></html>`) ]
       ]);
 
   OBJECT indexpromise := MakeChangesIndexedPromise();
@@ -145,6 +154,28 @@ ASYNC MACRO Search()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+ASYNC MACRO SearchWHFSPrivate()
+{
+  //Files in webhare-private can only be found if the user has chosen to show webhare-private in the publisher
+  RECORD privatesearch := [ filters := [ [ type := "publisher:text", value := [ textquery := "PP" || todaysuniqueword ] ] ] ];
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := ["Search"], target := DEFAULT RECORD ]));
+  TT("filelist")->folderfilter->contents->SetFilterData(privatesearch);
+  TT("filelist")->filter->TolliumClick();
+  TestEq(RECORD[], TT("filelist")->rows);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  testfw->GetUserObject("sysop")->SetRegistryKey("publisher.filemgr.showwhfsprivate", TRUE);
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := ["Search"], target := DEFAULT RECORD ]));
+  TT("filelist")->folderfilter->contents->SetFilterData(privatesearch);
+  TT("filelist")->filter->TolliumClick();
+  TestEq(INTEGER[ privatertdfile->id ], SELECT AS INTEGER ARRAY rowkey FROM TT("filelist")->rows);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  testfw->GetUserObject("sysop")->SetRegistryKey("publisher.filemgr.showwhfsprivate", FALSE);
+}
+
 ASYNC MACRO SearchDirectly()
 {
   { //test direct searches used by dashboard
@@ -237,6 +268,7 @@ ASYNC MACRO SearchAsBart()
 
 RunTestframework([ PTR PrepIt
                  , PTR Search
+                 , PTR SearchWHFSPrivate
                  , PTR SearchDirectly
                  , PTR SearchAsLisa
                  , PTR SearchAsBart
