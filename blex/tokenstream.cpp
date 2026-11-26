@@ -524,7 +524,7 @@ void NormalizeChar(uint32_t ch, std::string *buffer, Blex::Lang::Language lang)
                 {
                         // Remove umlaut and append "e"
                         uint32_t accentless = RemoveAccentLatin[ch - 0xC0];
-                        if(!(accentless & 0xDF))
+                        if (accentless >= 'A' && accentless <= 'Z')
                             accentless |= 0x20;
 
                         buffer->push_back(char(accentless));
