@@ -95,6 +95,10 @@ class PGSQLNativeTransactionDriver : public PGSQLTransactionDriverBase
         std::unique_ptr< QueryResult > ExecQuery(Query &query, bool asyncresult);
         bool CheckResultStatus(std::unique_ptr< NativeQueryResult > const &res);
         bool WaitForResult();
+        /** Cancel the running command and discard its results, so the connection can be used for the next command
+            @return True if the connection is idle again, false if the cancel request failed, the connection broke, the
+                results couldn't be read within 10 seconds or the VM must abort */
+        bool CancelAndDiscardResults();
         std::pair< std::unique_ptr< QueryResult >, bool > GetLastResult();
 
     public:
