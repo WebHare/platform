@@ -38,6 +38,7 @@ MACRO TestWHFSType() {
   TestEQ(TRUE, htmltype.isacceptableindex);
   TestEq(whconstant_whfstype_htmlfile,htmltype.id);
   TestEq("http://www.webhare.net/xmlns/publisher/htmlfile", htmltype.namespace);
+  TestEq("platform:filetypes.html", htmltype.scopedtype);
   Testeq([".html"], htmltype.extensions);
   TestEq(htmltype, DescribeContentTypeById(whconstant_whfstype_htmlfile, [isfolder := FALSE]));
   TestEQ(TRUE, htmltype.blobiscontent);
@@ -75,6 +76,7 @@ MACRO TestWHFSType() {
   unrecognized := DescribeContentTypeById(999999999, [ isfolder := TRUE, mockifmissing := TRUE ]);
   TestEq(999999999, unrecognized.id);
   TestEq(":#999999999", unrecognized.title);
+  TestEq("", unrecognized.scopedtype);
   TestEq("tollium:folders/normal", unrecognized.tolliumicon);
   TestEq("", unrecognized.siteprofile);
   TestEq(0, unrecognized.line);
@@ -82,6 +84,7 @@ MACRO TestWHFSType() {
   unrecognized := DescribeContentTypeById(999999999, [ isfolder := FALSE, mockifmissing := TRUE ]);
   TestEq(999999999, unrecognized.id);
   TestEq(":#999999999", unrecognized.title);
+  TestEq("", unrecognized.scopedtype);
   TestEq("tollium:files/application_x-webhare-unknown", unrecognized.tolliumicon);
 
   RECORD appportaltype := DescribeContentTypeById(LookupContentTypeByName("http://www.webhare.net/xmlns/tollium/applicationportal").id);

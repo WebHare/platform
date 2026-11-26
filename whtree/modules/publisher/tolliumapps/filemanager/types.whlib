@@ -93,7 +93,7 @@ PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase
     types := forfolder ? this->foldertypes : this->filetypes;
 
     RETURN SELECT rowkey := id || "x"
-                , title := GetTid(title)
+                , title := GetTid(title) ?? scopedtype ?? namespace
                 , icon := 0
                 , template := 0
                 //, namespace
