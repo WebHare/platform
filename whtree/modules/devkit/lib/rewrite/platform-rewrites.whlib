@@ -48,7 +48,7 @@ CONSTANT RECORD ARRAY fixelements :=
   [ [ namespace := "*",        localnames := ["*"],        attributesorder :=  ["composition","cellname","name" //composition=.. name=.. had 1000+ hits, name=.. composition=.. was close to 500.. so close call
                                                                                ,"type","width","height","minwidth","minheight"]
                                                                                 //applicability goes at the end
-                                                         , attributestailorder := [ "webhareversion", "ifenvironset", "unlessenvironset", "minservertype", "maxservertype", "restrictservers" ]
+                                                         , attributestailorder := [ "webhareversion", "ifenvironset", "unlessenvironset", "minservertype", "maxservertype", "restrictservers", "ifserverroles", "unlessserverroles" ]
                                                          , tidattributes := ["tid"]
 
     ]

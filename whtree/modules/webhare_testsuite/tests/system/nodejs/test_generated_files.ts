@@ -1,11 +1,11 @@
 import * as test from "@webhare/test";
 import * as fs from "fs";
-import { applyConfiguration, backendConfig, signalOnEvent } from "@webhare/services";
+import { applyConfiguration, backendConfig, getServerRoles, hasServerRole, signalOnEvent } from "@webhare/services";
 import { generateKyselyDefs } from "@mod-system/js/internal/generation/gen_whdb";
 import { checkModule, installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
 import { buildGeneratorContext } from "@mod-system/js/internal/generation/generator";
 import { getCacheableJSONConfig, getExtractedConfig, invalidateGeneratedFilesCache, writeCacheableJSONConfig } from "@mod-system/js/internal/configuration";
-import { enableDevKit, parseModuleFolderName } from "@mod-system/js/internal/generation/gen_config_nodb";
+import { enableDevKit, resolveServerRoles, parseModuleFolderName, parseServerRoles } from "@mod-system/js/internal/generation/gen_config_nodb";
 import { generatePropertyName, generateTypeName } from "@mod-system/js/internal/generation/gen_wrd";
 import { deleteTestModule } from "@webhare/test-backend";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -57,6 +57,42 @@ async function testCacheableJSONConfig() {
   }
 }
 
+
+async function testServerRoles() {
+  test.eq([], parseServerRoles(undefined));
+  test.eq([], parseServerRoles(""));
+  test.eq(["mymod:aa", "mymod:bb", "other:c-d"], parseServerRoles(" mymod:bb,mymod:aa  other:c-d mymod:aa"));
+  test.eq(["mymod:aa"], parseServerRoles(["mymod:aa", "nomodule", "mymod:", ":tag", "mymod:Upper", "mymod:aa:bb", "mod:reserved", "mymod:a", "mymod:_x", "mymod:x-", 42]));
+
+  //Restore mode ignores both the environment and the stored roles, then the environment wins from the stored roles
+  test.eq(["platform:production", "platform:restored"], resolveServerRoles(["mymod:stored"], "production", { WEBHARE_ISRESTORED: "1", WEBHARE_SERVERROLES: "mymod:env" }));
+  test.eq(["mymod:env", "mymod:env2", "platform:test"], resolveServerRoles(["mymod:stored"], "test", { WEBHARE_SERVERROLES: "mymod:env2 mymod:env" }));
+  test.eq(["mymod:stored", "platform:acceptance"], resolveServerRoles(["mymod:stored"], "acceptance", { WEBHARE_SERVERROLES: "" }));
+  test.eq(["platform:development"], resolveServerRoles([], "development", {}));
+
+  //Built-in roles are always derived, never taken from the stored roles or WEBHARE_SERVERROLES
+  test.eq(["mymod:stored", "platform:ci", "platform:development"], resolveServerRoles(["mymod:stored", "platform:production", "platform:restored"], "development", { WEBHARE_CI: "1" }));
+  test.eq(["platform:test"], resolveServerRoles([], "test", { WEBHARE_SERVERROLES: "platform:ci platform:production" }));
+
+  //A restored server only has the built-in roles derived for it: no stored roles, no WEBHARE_SERVERROLES, and no built-in names passed through either
+  test.eq(["platform:restored", "platform:test"], resolveServerRoles(["mymod:stored"], "test", { WEBHARE_ISRESTORED: "1" }));
+  test.eq(["platform:restored", "platform:test"], resolveServerRoles([], "test", { WEBHARE_ISRESTORED: "1", WEBHARE_SERVERROLES: "mymod:env" }));
+  test.eq(["platform:restored", "platform:test"], resolveServerRoles(["platform:production", "platform:ci"], "test", { WEBHARE_ISRESTORED: "1", WEBHARE_SERVERROLES: "platform:acceptance mymod:env" }));
+  test.eq(["platform:ci", "platform:restored", "platform:test"], resolveServerRoles(["mymod:stored"], "test", { WEBHARE_ISRESTORED: "1", WEBHARE_CI: "1" }));
+
+  test.assert(backendConfig.serverRoles.includes(`platform:${backendConfig.dtapstage}`));
+
+  //Runtime API
+  test.eq(backendConfig.serverRoles, getServerRoles());
+  test.assert(hasServerRole(`platform:${backendConfig.dtapstage}`));
+  test.assert(!hasServerRole("webhare_testsuite:neverset"));
+  test.throws(/Invalid server role name 'primary'/, () => hasServerRole("primary"));
+  const declared = getExtractedConfig("serverroles").roles;
+  test.eq({ name: "platform:restored", title: "platform:module.serverroles.restored", isBuiltin: true },
+    declared.find(_ => _.name === "platform:restored"));
+  test.eq(["platform:acceptance", "platform:ci", "platform:development", "platform:production", "platform:restored", "platform:test"],
+    declared.filter(_ => _.isBuiltin).map(_ => _.name).sort());
+}
 
 async function testWebHareConfig() {
   test.eq("DshopsProdSkw", generateTypeName("dshops-prod-skw"));
@@ -124,6 +160,18 @@ async function testWebHareConfig() {
     onGenerate: "mod::webhare_testsuite/js/reports/testreport.ts#generateTestReportNoConfig",
     outputFormat: "application/x-webhare-spreadsheet"
   }, reports.reports.find(_ => _.name === "webhare_testsuite:testreport_noconfig"));
+
+  const serverRoles = getExtractedConfig("serverroles");
+  test.eq({
+    name: "webhare_testsuite:primary",
+    title: ":Primary server",
+    isBuiltin: false
+  }, serverRoles.roles.find(_ => _.name === "webhare_testsuite:primary"));
+  test.eq({
+    name: "webhare_testsuite:secondary",
+    title: "webhare_testsuite:module.secondaryrole",
+    isBuiltin: false
+  }, serverRoles.roles.find(_ => _.name === "webhare_testsuite:secondary"));
 }
 
 async function testBasics() {
@@ -359,6 +407,7 @@ export type RPCDependencyResult = { value: Awaited<ReturnType<GetRPCClientInterf
 
 test.runTests([
   testCacheableJSONConfig,
+  testServerRoles,
   testModuleRPCDependencies,
   testBasics,
   testWebHareConfig,

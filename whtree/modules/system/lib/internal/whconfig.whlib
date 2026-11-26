@@ -139,6 +139,34 @@ PUBLIC RECORD FUNCTION GetcachedWebHareConfig()
   RETURN GetAdhocCached([ type := "config" ], PTR GetCacheableWebHareConfig);
 }
 
+/** Read the active server roles from an already decoded platform.json */
+STRING ARRAY FUNCTION ReadServerRoles(RECORD config) {
+  RETURN CellExists(config."public", "serverroles") ? STRING ARRAY(config."public".serverroles) : STRING[];
+}
+
+/** @short Get the server roles that are active on this server
+    @topic modules/config
+    @public
+    @loadlib mod::system/lib/configure.whlib
+    @return Full role names, sorted, eg 'mymodule:primary'. Includes the built-in roles such as 'platform:production' and, in restore mode, 'platform:restored'
+*/
+PUBLIC STRING ARRAY FUNCTION GetServerRoles() {
+  RETURN ReadServerRoles(DecodeJSONBlob(GetDiskResource(__SYSTEM_WHCOREPARAMETERS().basedataroot || "config/platform.json")));
+}
+
+/** @short Check whether a server role is active on this server
+    @topic modules/config
+    @public
+    @loadlib mod::system/lib/configure.whlib
+    @param role Full role name, eg 'mymodule:primary'
+    @return True if the role is active
+*/
+PUBLIC BOOLEAN FUNCTION HasServerRole(STRING role) {
+  IF(role NOT LIKE "?*:?*")
+    THROW NEW Exception(`Invalid server role name '${role}', expected a full role name such as 'mymodule:primary'`);
+  RETURN role IN GetServerRoles();
+}
+
 PUBLIC RECORD FUNCTION GetMyApplicabilityInfo()
 {
   RECORD config := DecodeJSONBlob(GetDiskResource(__SYSTEM_WHCOREPARAMETERS().basedataroot || "config/platform.json"));
@@ -149,6 +177,7 @@ PUBLIC RECORD FUNCTION GetMyApplicabilityInfo()
          , servername := GetEnvironmentVariable("WEBHARE_SERVERNAME") ?? GetcachedWebHareConfig().servername
          , modules := (SELECT AS STRING ARRAY ToLowercase(name) FROM modules)
          , modversions := (SELECT AS STRING ARRAY CellExists(value,'version') ? value.version : "" FROM modules)
+         , serverroles := ReadServerRoles(config)
          ];
 }
 
@@ -256,6 +285,17 @@ PUBLIC STRING FUNCTION GetApplicabilityError(RECORD webhareversioninfo, RECORD r
     IF(NOT anymatch)
       RETURN `Restricted to servers: ${ToLowercase(Detokenize(restrictions.restrictservers,", "))}, current: ${webhareversioninfo.servername}`;
   }
+
+  // Server roles. Peers running an older WebHare don't send any, and stored restrictions may predate them
+  STRING ARRAY serverroles := CellExists(webhareversioninfo, "serverroles") ? webhareversioninfo.serverroles : STRING[];
+  STRING ARRAY ifserverroles := CellExists(restrictions, "ifserverroles") ? restrictions.ifserverroles : STRING[];
+  STRING ARRAY unlessserverroles := CellExists(restrictions, "unlessserverroles") ? restrictions.unlessserverroles : STRING[];
+  IF(Length(ifserverroles) > 0 AND NOT RecordExists(SELECT FROM ToRecordArray(ifserverroles, "role") WHERE role IN serverroles)) //any of the roles is enough
+    RETURN `Requires one of the server roles: ${Detokenize(ifserverroles, ", ")}, current: ${Detokenize(serverroles, ", ") ?? "none"}`;
+  FOREVERY(STRING role FROM unlessserverroles)
+    IF(role IN serverroles)
+      RETURN `Forbidden server role '${role}' is active`;
+
   RETURN "";
 }
 PUBLIC RECORD FUNCTION ReadApplicableToWebHareNode(OBJECT xmlnode, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -266,6 +306,8 @@ PUBLIC RECORD FUNCTION ReadApplicableToWebHareNode(OBJECT xmlnode, RECORD option
                      , minservertype :=      xmlnode->GetAttribute(options.prefix || "minservertype")
                      , maxservertype :=      xmlnode->GetAttribute(options.prefix || "maxservertype")
                      , restrictservers :=    ParseXSList(ToUppercase(xmlnode->GetAttribute(options.prefix || "restrictservers")))
+                     , ifserverroles :=      ParseXSList(xmlnode->GetAttribute(options.prefix || "ifserverroles"))
+                     , unlessserverroles :=  ParseXSList(xmlnode->GetAttribute(options.prefix || "unlessserverroles"))
                      , ifenvironset :=       ParseXSList(xmlnode->GetAttribute(options.prefix || "ifenvironset"))
                      , unlessenvironset :=   ParseXSList(xmlnode->GetAttribute(options.prefix || "unlessenvironset"))
                      , ifmodules :=          xmlnode->GetAttribute(options.prefix || "ifmodules")
@@ -274,6 +316,8 @@ PUBLIC RECORD FUNCTION ReadApplicableToWebHareNode(OBJECT xmlnode, RECORD option
                           OR appl.minservertype != ""
                           OR appl.maxservertype != ""
                           OR Length(appl.restrictservers) > 0
+                          OR Length(appl.ifserverroles) > 0
+                          OR Length(appl.unlessserverroles) > 0
                           OR Length(appl.ifenvironset) > 0
                           OR Length(appl.unlessenvironset) > 0
                           OR appl.ifmodules != ""

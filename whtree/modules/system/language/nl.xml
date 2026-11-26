@@ -1172,8 +1172,12 @@
         <text tid="scripttimeout">Script time-out</text>
         <text tid="security">Beveiliging</text>
         <text tid="server">Server</text>
-        <text tid="servername">Server name</text>
-        <text tid="servertype">Server type (OTAP)</text>
+        <text tid="servername">Servernaam</text>
+        <text tid="serverroles">Serverrollen</text>
+        <text tid="serverroles-env">De serverrollen worden ingesteld door de host (WEBHARE_SERVERROLES) en kunnen hier niet gewijzigd worden.</text>
+        <text tid="serverroles-env-restored">Deze server staat in restore-modus, daarom zijn alleen de ingebouwde rollen actief. Na het verlaten van de restore-modus gelden de rollen die door de host ingesteld zijn (WEBHARE_SERVERROLES), indien aanwezig.</text>
+        <text tid="serverroles-restored">Deze server staat in restore-modus, daarom zijn de rollen die hier ingesteld zijn niet actief. Wijzigingen gaan in na het verlaten van de restore-modus.</text>
+        <text tid="servertype">Servertype (OTAP)</text>
         <text tid="servertype-acceptance">Acceptatie</text>
         <text tid="servertype-development">Ontwikkeling</text>
         <text tid="servertype-production">Productie</text>
@@ -1357,6 +1361,8 @@
         <text tid="recheck-scheduled">Een recheck voor dit probleem is ingepland</text>
         <text tid="runintervalchecks">Intervalchecks inplannen</text>
         <text tid="server">Serverversie</text>
+        <text tid="serverroles">Serverrollen</text>
+        <text tid="serverroles-none">Geen</text>
         <text tid="since">Sinds</text>
         <text tid="snooze">Snooze</text>
         <text tid="snoozed_until">Gesnoozed tot <param p="1"/></text>

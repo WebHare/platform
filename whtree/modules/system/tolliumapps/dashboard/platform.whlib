@@ -79,6 +79,7 @@ PUBLIC STATIC OBJECTTYPE PlatformPanel EXTEND DashboardPanelBase <
       restoreinfo := restoreinfo = "1" ? " / restored" : " (" || restoreinfo || ")";
 
     ^txtServer->value      := versioninfo.versionname || " " || GetDTAPStage() || restoreinfo;
+    ^txtServerRoles->value := this->GetServerRolesDescription();
     ^buildinfo->value      := versioninfo.built;
     ^buildinfo->visible    := versioninfo.built != "";
     ^txtPlatform->value    := systemdescr;
@@ -90,6 +91,24 @@ PUBLIC STATIC OBJECTTYPE PlatformPanel EXTEND DashboardPanelBase <
                                   this->tolliumuser->FormatDateTime(webserverboottime, "minutes", TRUE, FALSE));
 
     ^results->Invalidate();
+  }
+
+  STRING FUNCTION GetServerRolesDescription() {
+    STRING ARRAY roles := GetServerRoles();
+    IF(Length(roles) = 0)
+      RETURN this->GetTid(".serverroles-none");
+
+    RECORD ARRAY declared := __GetExtractedConfig("serverroles").roles;
+    RECORD ARRAY described;
+    FOREVERY(STRING role FROM roles) {
+      RECORD match := SELECT * FROM declared WHERE name = role;
+      INSERT [ name := role, roletitle := RecordExists(match) AND match.title != "" ? GetTid(match.title) : "" ] INTO described AT END;
+    }
+
+    // Sort by title, then by full role name. Roles without a title sort by their full name
+    RETURN Detokenize((SELECT AS STRING ARRAY roletitle != "" ? roletitle || " (" || name || ")" : name
+                         FROM described
+                     ORDER BY ToUppercase(roletitle ?? name), name), ", ");
   }
 
   MACRO OnWithHistoryChange()

@@ -6,7 +6,7 @@ import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import { readFile } from "node:fs/promises";
 import type { ConfigFile } from "@webhare/services/src/config";
 
-import { appendSlashWhenMissing, isValidDTAPStage, parseRetiredSecrets, updateWebHareConfigWithoutDB, type PartialConfigFile } from "./gen_config_nodb";
+import { appendSlashWhenMissing, resolveServerRoles, isValidDTAPStage, parseRetiredSecrets, parseServerRoles, updateWebHareConfigWithoutDB, type PartialConfigFile } from "./gen_config_nodb";
 import { reloadBackendConfig } from "../configuration";
 import { __createRawConnection } from "@webhare/whdb/src/impl";
 import { readRegistryKey } from "@webhare/services/src/registry";
@@ -64,6 +64,10 @@ async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: boolean
         finalconfig.secrets.retired = parseRetiredSecrets(parsed);
       }
       finalconfig.defaultImageFormat = (await readRegistryKey<ConfigFile["defaultImageFormat"]>("platform:cache.defaultimageformat") ?? finalconfig.defaultImageFormat) || "keep";
+
+      //the default is needed when the registry key hasn't been created yet ('wh apply registry' runs after us)
+      finalconfig.storedServerRoles = parseServerRoles(await readRegistryKey("system:global.serverroles", ""));
+      finalconfig.public.serverRoles = resolveServerRoles(finalconfig.storedServerRoles, finalconfig.public.dtapstage);
 
       return finalconfig;
     } finally {

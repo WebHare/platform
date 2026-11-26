@@ -91,6 +91,8 @@ interface WebHareVersionInfo {
   /** Module versions, corresponding to modules array. Added as separate member (instead of replacing modules with an object or map) because WebHareVersionInfo appears in external APIs (peering) */
   modversions: string[];
   env: Record<string, string | undefined>;
+  /** Active server roles. Optional because WebHareVersionInfo appears in external APIs (peering) and older WebHares don't send it */
+  serverroles?: string[];
 }
 
 function getEnvironment(unsafeEnv: boolean): Record<string, string> {
@@ -107,7 +109,8 @@ export function getMyApplicabilityInfo({ unsafeEnv = false } = {}): WebHareVersi
     servername: backendConfig.serverName,
     modules: mods.map(([name]) => name),
     modversions: mods.map(([, mod]) => mod.version || ''),
-    env: getEnvironment(unsafeEnv)
+    env: getEnvironment(unsafeEnv),
+    serverroles: [...backendConfig.serverRoles ?? []]
   };
 }
 
@@ -175,6 +178,10 @@ export function getApplicabilityError(webhareversioninfo: WebHareVersionInfo, re
   if (restrictions.serverNames && !regExpFromWildcards(restrictions.serverNames, { caseInsensitive: true }).test(webhareversioninfo.servername))
     return `Restricted to servers: ${restrictions.serverNames.join(", ")}, current: ${webhareversioninfo.servername}`;
 
+  //Any of the listed roles is enough
+  if (restrictions.serverRoles?.length && !restrictions.serverRoles.some(role => webhareversioninfo.serverroles?.includes(role)))
+    return `Requires one of the server roles: ${restrictions.serverRoles.join(", ")}, current: ${webhareversioninfo.serverroles?.join(", ") || "none"}`;
+
   return null;
 }
 
@@ -198,6 +205,10 @@ export function readApplicableToWebHareNode(xmlnode: Element, prefix: string): I
   if (restrictservers.length > 0)
     restrictions.serverNames = restrictservers;
 
+  const ifserverroles = getAttr(xmlnode, prefix + "ifserverroles", []);
+  if (ifserverroles.length > 0)
+    restrictions.serverRoles = ifserverroles;
+
   const ifenvironset = getAttr(xmlnode, prefix + "ifenvironset", []);
   if (ifenvironset.length > 0)
     restrictions.envVars = ifenvironset;
@@ -209,6 +220,10 @@ export function readApplicableToWebHareNode(xmlnode: Element, prefix: string): I
        the same effect( otherwise it would only fail if *all* unlessEnvironSet vars are set */
     restrictions.not = unlessenvironset.map((envvar) => ({ envVars: [envvar] }));
   }
+
+  const unlessserverroles = getAttr(xmlnode, prefix + "unlessserverroles", []);
+  if (unlessserverroles.length > 0) //a single 'not' rule fails if any of the roles is active, as serverRoles is any-of
+    restrictions.not = [...restrictions.not ?? [], { serverRoles: unlessserverroles }];
 
   const ifmodules = getAttr(xmlnode, prefix + "ifmodules");
   if (ifmodules.length)

@@ -1,11 +1,14 @@
 <?wh
 
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
@@ -18,6 +21,8 @@ LOADLIB "mod::tollium/lib/internal/support.whlib";
 PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
 <
   RECORD ARRAY save_servertype_options;
+  STRING ARRAY builtinroles;
+  STRING ARRAY storedroles;
 
   MACRO Init()
   {
@@ -34,6 +39,7 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
 
     ^servername->value := GetServerName();
     ^servertype->value := GetDTAPStage();
+    this->InitServerRoles();
     ^displayname->value := ReadRegistryKey("system.backend.layout.title");
     ^defaultimageformat->SetValueIfValid(ReadRegistryKey("platform.cache.defaultimageformat"));
 
@@ -77,6 +83,11 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
       WriteRegistryKey("system.global.servertype",^servertype->value);
     IF(^servername->enabled)
       WriteRegistryKey("system.global.servername", ^servername->value);
+    //built-in roles are derived from the environment and DTAP stage, never stored
+    STRING ARRAY newroles := SortArray(ArrayDelete(^serverroles->value, this->builtinroles));
+    BOOLEAN roleschanged := ^serverroles->enabled AND Detokenize(newroles, " ") != Detokenize(this->storedroles, " ");
+    IF(roleschanged)
+      WriteRegistryKey("system.global.serverroles", Detokenize(newroles, " "));
     WriteRegistryKey("system.backend.layout.title", ^displayname->value);
 
     IF(NOT work->HasFailed())
@@ -141,9 +152,58 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
     BroadcastEvent("system:internal.configdata", DEFAULT RECORD);
     BroadcastEvent("system:config.servertype", DEFAULT RECORD);
     UpdateSystemConfigurationRecord();
-    ApplyWebHareConfiguration([ subsystems := ["config.base"], source := "WebHare backend settings"]);
+    //Server roles affect which rules apply (ifWebHare serverRoles, ifserverroles), so changing them needs the full configuration
+    ApplyWebHareConfiguration([ subsystems := roleschanged ? ["all"] : ["config.base"], source := "WebHare backend settings"]);
 
     RETURN TRUE;
+  }
+
+  MACRO InitServerRoles() {
+    RECORD ARRAY declared := __GetExtractedConfig("serverroles").roles;
+    this->builtinroles := SELECT AS STRING ARRAY name FROM declared WHERE isbuiltin;
+
+    STRING ARRAY stored;
+    FOREVERY(STRING role FROM Tokenize(ReadRegistryKey("system.global.serverroles"), " "))
+      IF(role != "" AND role NOT IN stored AND role NOT IN this->builtinroles)
+        INSERT role INTO stored AT END;
+
+    // When WEBHARE_SERVERROLES is set, the host decides the roles, see resolveServerRoles. The list then shows the active
+    // roles (read-only), as the configured roles aren't active. Otherwise it shows the configured roles, plus the active
+    // built-in roles
+    BOOLEAN hostroles := GetEnvironmentVariable("WEBHARE_SERVERROLES") != "";
+    STRING ARRAY shown := hostroles ? GetServerRoles()
+                          : stored CONCAT (SELECT AS STRING ARRAY role FROM ToRecordArray(GetServerRoles(), "role") WHERE role IN this->builtinroles);
+
+    // Built-in roles are shown read-only, checked when active. Keep shown roles that no installed module declares, so they
+    // stay visible and saving doesn't drop them
+    RECORD ARRAY options := SELECT rowkey := name
+                                 , roletitle := title != "" ? GetTid(title) : ""
+                                 , enabled := NOT isbuiltin
+                              FROM declared;
+    FOREVERY(STRING role FROM shown)
+      IF(role NOT IN (SELECT AS STRING ARRAY rowkey FROM options))
+        INSERT [ rowkey := role, roletitle := "", enabled := TRUE ] INTO options AT END;
+
+    // Sort by title, then by full role name. Roles without a title sort by their full name
+    ^serverroles->options := SELECT rowkey
+                                  , title := roletitle != "" ? roletitle || " (" || rowkey || ")" : rowkey
+                                  , enabled
+                               FROM options
+                           ORDER BY ToUppercase(roletitle ?? rowkey), rowkey;
+    this->storedroles := SortArray(stored);
+    ^serverroles->value := shown;
+
+    // In restore mode the configured roles aren't active, but they can still be changed, eg to set this server's own roles
+    // before leaving restore mode. With WEBHARE_SERVERROLES the list is read-only, so saving can't overwrite them. With
+    // both, only the built-in roles are active, and the host's roles apply after leaving restore mode
+    BOOLEAN restored := GetEnvironmentVariable("WEBHARE_ISRESTORED") != "";
+    STRING notetid := hostroles ? (restored ? ".serverroles-env-restored" : ".serverroles-env")
+                      : restored ? ".serverroles-restored"
+                      : "";
+    ^serverroles->enabled := NOT hostroles;
+    ^serverroleslockedpanel->visible := notetid != "";
+    IF(notetid != "")
+      ^serverroleslocked->value := this->GetTid(notetid);
   }
 
   MACRO RefreshGLobalDashboard(BOOLEAN iscommit)

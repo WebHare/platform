@@ -257,6 +257,15 @@ test.runTests(
       await test.load(test.getCompTestPage('select', { type: 'checkboxlist', rowkeytype: 34 })); // TypeID(STRING) = 34
     },
 
+    "checkboxlist disabled option",
+    async function () {
+      // A disabled option keeps its checkbox, but it can't be toggled
+      const checkboxes = [...test.compByName("componentpanel").querySelectorAll<HTMLInputElement>('.listrow input[type=checkbox]')];
+      test.eq(3, checkboxes.length);
+      test.assert(!checkboxes[0].disabled);
+      test.assert(checkboxes[2].disabled);
+    },
+
     {
       name: 'checkboxlist_enabletest_disabled',
       test: async function () {

@@ -74,6 +74,7 @@
       <panel name="mainpanel" borders="top" spacers="left bottom">
         <heading tid=".general" />
         <text name="txtServer" selectable="true" tid=".server" />
+        <text name="txtServerRoles" selectable="true" tid=".serverroles" wordwrap="true" />
         <text name="buildinfo" selectable="true" />
         <text name="txtPlatform" selectable="true" tid=".platform" wordwrap="true" />
         <text name="txtDateTime" selectable="true" tid=".datetime" />

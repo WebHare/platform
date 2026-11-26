@@ -228,6 +228,21 @@ async function testCLISubCommandParse() {
     }
   }, []));
 
+  //A nested subcommand level without a subcommand must be reported too, not reach a missing main()
+  await test.throws(/No subcommand specified/, () => parse({
+    options: {},
+    subCommands: {
+      "group": {
+        subCommands: {
+          "cmd": {
+            options: {},
+            arguments: [],
+          },
+        }
+      },
+    }
+  }, ["group"]));
+
   test.eq({
     cmd: ["cmd"],
     args: {},

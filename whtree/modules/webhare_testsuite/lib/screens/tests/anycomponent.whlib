@@ -433,6 +433,8 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
           [ [ rowkey := "first",  title := "First option" ]
           , [ rowkey := "second", title := "Second option" ]
           ];
+      IF (this->comp->type = "checkboxlist") //a disabled option should keep its checkbox, but it can't be toggled
+        INSERT [ rowkey := "disabled", title := "Disabled option", enabled := FALSE ] INTO options AT END;
     }
 
     IF (^enableontarget1_include->value OR ^enableontarget2_include->value)

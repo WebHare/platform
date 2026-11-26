@@ -18,6 +18,7 @@
   <textgroup gid="module">   <!-- module -->
     <text tid="eventservertest">Eventserver test message</text>
     <text tid="eventservertest-desc">Message count: <param p="1"/></text>
+    <text tid="secondaryrole">Secundaire server</text>
     <text tid="testaction">Testactie</text>
     <text tid="webruleset">Test webruleset</text>
     <textgroup gid="testsite">   <!-- module.testsite -->
