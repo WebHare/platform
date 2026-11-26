@@ -904,7 +904,10 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase <
             AND options.fornode->parentnode->GetAttribute("role") = "thankyou";
         BOOLEAN is_handler := ObjectExists(options.fornode->parentnode)
             AND options.fornode->parentnode->namespaceuri = xmlns_forms AND options.fornode->parentnode->localname = "handlers";
-        comp := CELL[ name, on_thankyou_page, is_handler ];
+        // Handlers only run for cancelled results if they have 'cancel' in their handlertaskfor
+        BOOLEAN handles_cancel := is_handler
+            AND RecordExists(SELECT FROM GetFormHandlerDef(options.fornode->namespaceuri, options.fornode->localname) WHERE "cancel" IN handlertaskfor);
+        comp := CELL[ name, on_thankyou_page, is_handler, handles_cancel ];
       }
       // For the confirmation handler itself, the submittype source isn't available at all (it runs before the actual form submission)
       IF (NOT RecordExists(comp) OR comp.name != "mailconfirmationhandler")
@@ -917,15 +920,18 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase <
         {
           INSERT [ rowkey := "change", title := this->GetTid(".formsubmittype-change") ] INTO submittypes AT END;
 
-          // 'cancel' is only available for components on the 'thankyou' page
+          // 'cancel' is only available for components on the 'thankyou' page and for handlers that run for cancelled results
           // Note that if we don't have a comp, we just return everything for formatting and validation purposes
-          IF (NOT RecordExists(comp) OR comp.on_thankyou_page)
+          IF (NOT RecordExists(comp) OR comp.on_thankyou_page OR comp.handles_cancel)
             INSERT [ rowkey := "cancel", title := this->GetTid(".formsubmittype-cancel") ] INTO submittypes AT END;
         }
 
         IF (this->confirmationhandler != DEFAULT OBJECT)
         {
-          submittypes := submittypes CONCAT this->confirmationhandler->GetConfirmationFormSubmitTypesForComp(comp);
+          // The confirmation handler may offer types we already have (eg. the payment handler offers 'cancel' too)
+          STRING ARRAY have := SELECT AS STRING ARRAY rowkey FROM submittypes;
+          submittypes := submittypes CONCAT
+              SELECT * FROM this->confirmationhandler->GetConfirmationFormSubmitTypesForComp(comp) WHERE rowkey NOT IN have;
         }
 
         INSERT [ rowkey := "formsubmittype"

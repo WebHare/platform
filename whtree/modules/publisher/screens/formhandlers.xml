@@ -56,13 +56,14 @@
     </compositions>
 
     <body>
-      <textedit composition="row"
+      <textedit name="email"
+                composition="row"
                 cellname="email"
                 width="1pr"
                 required="true"
                 tid="~email"
                 validationchecks="email-maysendto" />
-      <p:formcondition composition="row" cellname="condition" scope="backend" />
+      <p:formcondition name="condition" composition="row" cellname="condition" scope="backend" />
     </body>
   </screen>
 
