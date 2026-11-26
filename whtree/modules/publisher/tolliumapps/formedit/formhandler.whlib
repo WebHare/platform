@@ -14,7 +14,6 @@ PUBLIC STATIC OBJECTTYPE EditHandler EXTEND TolliumScreenBase
   //
 
   OBJECT node;
-  PUBLIC PROPERTY __node(node, -);
   BOOLEAN existing;
   RECORD compdef;
   OBJECT compextension;
@@ -31,6 +30,9 @@ PUBLIC STATIC OBJECTTYPE EditHandler EXTEND TolliumScreenBase
 
     this->frame->savestatebasekey := `${this->frame->savestatebasekey}(${data.compdef.qname})`;
     this->node := data.node;
+    // Set before any condition value is set or subscreen is opened, so form conditions in this screen, its tab
+    // extensions and its subscreens know which node they're editing
+    this->contexts->^editnode := this->node;
     this->existing := data.existing;
     this->compdef := data.compdef;
     this->frame->title := data.compdef.title;
