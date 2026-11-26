@@ -36,6 +36,8 @@ done
 WEBHARE_DATAROOT="$(mktemp -d)"
 mkdir -p "$WEBHARE_DATAROOT"
 export WEBHARE_DATAROOT
+# Only the builtin modules are needed to finalize WebHare. External modules may depend on modules that aren't in the dummy dataroot
+export WEBHARE_MODULEPATHS=
 logWithTime "Finalizing WebHare in $WEBHARE_DATAROOT"
 
 getwebhareversion
