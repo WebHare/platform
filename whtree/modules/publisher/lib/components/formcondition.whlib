@@ -17,7 +17,7 @@ STATIC OBJECTTYPE ConditionContext
 
   MACRO NEW(OBJECT comp)
   {
-    this->sources := comp->contexts->formcomponentapi->GetConditionSources(CELL[ comp->scope, fornode := comp->owner->__node ]);
+    this->sources := comp->contexts->formcomponentapi->GetConditionSources(CELL[ comp->scope, fornode := comp->contexts->^editnode ]);
   }
 >;
 
@@ -73,7 +73,7 @@ PUBLIC OBJECTTYPE FormCondition EXTEND TolliumFragmentBase
 
   MACRO DoEdit()
   {
-    IF (Length(this->contexts->^conditioncontext->conditionsources) = 0)
+    IF (Length(this->GetConditionContext()->conditionsources) = 0)
     {
       this->owner->RunSimpleScreen("warning", GetTid("publisher:components.formcondition.createoptionsfirst"));
       RETURN;
@@ -94,12 +94,19 @@ PUBLIC OBJECTTYPE FormCondition EXTEND TolliumFragmentBase
   // Property getters/setters
   //
 
-  MACRO SetValue(RECORD value)
+  OBJECT FUNCTION GetConditionContext()
   {
     // The condition sources cannot be read in PreInitComponent, as EditComponent::Init hasn't run yet and we don't have any
-    // form component context, so just initialize it here if not already initialized
+    // form component context, so initialize it on first use. This may be in DoEdit, as SetValue isn't called for new rows
+    // in a row edit screen.
     IF (NOT ObjectExists(this->contexts->^conditioncontext))
       this->contexts->^conditioncontext := NEW ConditionContext(this);
+    RETURN this->contexts->^conditioncontext;
+  }
+
+  MACRO SetValue(RECORD value)
+  {
+    this->GetConditionContext();
 
     TRY
     {
