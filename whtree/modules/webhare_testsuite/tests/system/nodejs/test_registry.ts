@@ -1,11 +1,14 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { loadlib } from "@webhare/harescript";
 import { defaultDateTime } from "@webhare/hscompat";
+import { getTypedArray, HareScriptType } from "@webhare/hscompat/src/hson";
 import { readRegistryKey, writeRegistryKey, getRegistryKeyEventMasks, WebHareBlob, readRegistryNode, type RegistryKeyOfType } from "@webhare/services";
 import { deleteRegistryKey, deleteRegistryNode, signalOnRegistryKeyChange, splitRegistryKey } from "@webhare/services/src/registry";
 import { Money } from "@webhare/std";
 import * as test from "@webhare/test-backend";
 import { beginWork, commitWork, db, runInWork } from "@webhare/whdb";
+import { spawnSync } from "node:child_process";
+import { YAML } from "@webhare/deps";
 
 async function testLowLevel() {
   test.eq({
@@ -178,8 +181,107 @@ async function testModuleDefs() {
 
 }
 
+function runRegistryCommand(args: string[], input = "") {
+  const result = spawnSync("wh", ["registry", ...args], { encoding: "utf-8", input });
+  return { status: result.status, stdout: result.stdout, stderr: result.stderr };
+}
+
+// Tests the 'wh registry' list, export and import subcommands. Uses its own (undeclared) keys below webhare_testsuite_cli
+async function testCLI() {
+  const node = "webhare_testsuite:webhare_testsuite_cli";
+  const recordValue = {
+    suppliers: getTypedArray(HareScriptType.RecordArray, []),
+    price: Money.fromNumber(1.5),
+    big: 2n ** 40n,
+    ratio: 2.5,
+    when: new Date("2024-01-01T00:00:00Z"),
+  };
+
+  await runInWork(async () => {
+    await db<PlatformDB>().deleteFrom("system.flatregistry").where("name", "like", "%webhare_testsuite_cli%").execute();
+    await writeRegistryKey(`${node}.string`, "cli test", { createIfNeeded: true });
+    await writeRegistryKey(`${node}.record`, recordValue, { createIfNeeded: true });
+    await writeRegistryKey(`${node}.float`, 2.5, { createIfNeeded: true });
+    await writeRegistryKey(`${node}.instant`, Temporal.Instant.from("2024-01-01T00:00:00Z"), { createIfNeeded: true });
+    await writeRegistryKey(`${node}.withblob`, { logo: WebHareBlob.from("hello") }, { createIfNeeded: true });
+  });
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: list accepts multiple masks and shows types and descriptions, but no values
+  const list = runRegistryCommand(["list", "--json", `${node}.?tring`, `${node}.record`, "system:webserver.security.cookiesecret", "publisher:publication.maxpublishtime"]);
+  test.eq([
+    { name: "publisher:publication.maxpublishtime", type: "integer", description: "Maximum publication time (seconds)" },
+    { name: "system:webserver.security.cookiesecret", type: "string", description: "Secret key used to encrypt/sign cookies" },
+    { name: `${node}.record`, type: "record", description: "" },
+    { name: `${node}.string`, type: "string", description: "" },
+  ], JSON.parse(list.stdout), "publisher:publication.* is declared by the system module, its description must be found without listing a system: key");
+
+  test.eqPartial({ status: 1, stderr: /No registry keys match the mask 'webhare_testsuite:nosuchnode\.\*'/ }, runRegistryCommand(["list", `${node}.*`, "webhare_testsuite:nosuchnode.*"]));
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: export outputs the values as YAML, or JSON on request, and skips values containing a blob
+  const exported = runRegistryCommand(["export", `${node}.*`]);
+  test.eq(0, exported.status);
+  test.eq(/Skipped 1 key.*blob.*'webhare_testsuite:webhare_testsuite_cli.withblob'/, exported.stderr);
+  const exportedKeys = YAML.parse(exported.stdout);
+  test.eq("cli test", exportedKeys[`${node}.string`]);
+  test.eq(false, `${node}.withblob` in exportedKeys);
+
+  const exportedJSON = runRegistryCommand(["export", "--json", `${node}.string`]);
+  test.eq({ [`${node}.string`]: "cli test" }, JSON.parse(exportedJSON.stdout));
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: importing unchanged values doesn't rewrite them, so nothing loses its type
+  const rawBefore = await db<PlatformDB>().selectFrom("system.flatregistry").select(["name", "data"]).where("name", "like", "%webhare_testsuite_cli%").orderBy("name").execute();
+  const reimport = runRegistryCommand(["import", "--json", "-"], exported.stdout);
+  test.eq({ imported: [], unchanged: [`${node}.float`, `${node}.instant`, `${node}.record`, `${node}.string`], skipped: [] }, JSON.parse(reimport.stdout));
+  test.eq(rawBefore, await db<PlatformDB>().selectFrom("system.flatregistry").select(["name", "data"]).where("name", "like", "%webhare_testsuite_cli%").orderBy("name").execute());
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: import restores changed values, including their types
+  await runInWork(async () => {
+    await writeRegistryKey(`${node}.string`, "overwritten");
+    await writeRegistryKey(`${node}.record`, { suppliers: [{ name: "x" }], price: Money.fromNumber(3), big: 1n, ratio: 7.5, when: new Date("2025-01-01T00:00:00Z") });
+    await writeRegistryKey(`${node}.instant`, null);
+  });
+
+  test.eqPartial({ status: 0, stderr: "" }, runRegistryCommand(["import", "-"], exported.stdout));
+  test.eq("cli test", await readRegistryKey<string>(`${node}.string`));
+  test.eq(Temporal.Instant.from("2024-01-01T00:00:00Z"), await readRegistryKey<Temporal.Instant>(`${node}.instant`));
+  test.eq(recordValue, await readRegistryKey<typeof recordValue>(`${node}.record`));
+  test.eq(/"suppliers":ra\[\]/, (await db<PlatformDB>().selectFrom("system.flatregistry").select("data").where("name", "=", "webhare_testsuite.webhare_testsuite_cli.record").executeTakeFirstOrThrow()).data, "The empty array must keep its RECORD ARRAY type");
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: import refuses changes it can't store faithfully
+  test.eqPartial({ status: 1, stderr: /Cannot import 'webhare_testsuite:webhare_testsuite_cli.float'.*float/ }, runRegistryCommand(["import", "-"], YAML.stringify({ [`${node}.float`]: 3 })));
+  test.eqPartial({ status: 0 }, runRegistryCommand(["import", "-"], YAML.stringify({ [`${node}.float`]: 3.5 })));
+  test.eq(3.5, await readRegistryKey<number>(`${node}.float`));
+  test.eqPartial({ status: 1, stderr: /Cannot import 'webhare_testsuite:webhare_testsuite_cli.record'.*float/ }, runRegistryCommand(["import", "-"], YAML.stringify({ [`${node}.record`]: { ...exportedKeys[`${node}.record`], ratio: 3 } })));
+  test.eq(recordValue, await readRegistryKey<typeof recordValue>(`${node}.record`));
+
+  test.eqPartial({ status: 1, stderr: /Cannot import 'webhare_testsuite:webhare_testsuite_cli.withblob'.*blob/ }, runRegistryCommand(["import", "-"], YAML.stringify({ [`${node}.withblob`]: { logo: "x" } })));
+  test.eq("hello", await (await readRegistryKey<{ logo: WebHareBlob }>(`${node}.withblob`)).logo.text());
+
+  test.eqPartial({ status: 1, stderr: /^Error: Cannot read 'nosuchfile.yml': ENOENT/ }, runRegistryCommand(["import", "nosuchfile.yml"]));
+  test.eqPartial({ status: 1, stderr: /Invalid registry key name 'nocolon' in '-', expected 'module:node.key'/ }, runRegistryCommand(["import", "-"], YAML.stringify({ nocolon: 1 })));
+
+  test.eqPartial({ status: 1, stderr: /Cannot import 'webhare_testsuite:webhare_testsuite_cli.string'.*got Integer but expected String/ }, runRegistryCommand(["import", "-"], YAML.stringify({ [`${node}.string`]: 42 })));
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: importing unknown keys fails without changing anything, unless --skip-unknown is set
+  const withUnknown = YAML.stringify({ [`${node}.string`]: "second import", [`${node}.nosuchkey`]: 42 });
+  test.eqPartial({ status: 1, stderr: /do not exist.*'webhare_testsuite:webhare_testsuite_cli.nosuchkey'/ }, runRegistryCommand(["import", "-"], withUnknown));
+  test.eq("cli test", await readRegistryKey<string>(`${node}.string`));
+
+  const skipUnknown = runRegistryCommand(["import", "--json", "--skip-unknown", "-"], withUnknown);
+  test.eq({ imported: [`${node}.string`], unchanged: [], skipped: [`${node}.nosuchkey`] }, JSON.parse(skipUnknown.stdout));
+  test.eq("second import", await readRegistryKey<string>(`${node}.string`));
+  await test.throws(/No such registry key/, () => readRegistryKey<number>(`${node}.nosuchkey`));
+}
+
 test.runTests([
   testLowLevel,
   testRegistry,
-  testModuleDefs
+  testModuleDefs,
+  testCLI
 ]);

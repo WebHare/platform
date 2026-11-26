@@ -140,7 +140,7 @@ export async function writeRegistryKey(key: string, value: unknown, options?: { 
 
     const newvaltype = determineType(value);
     if (curvaltype !== newvaltype)
-      throw new Error(`Invalid type in registry for registry key '${key}', got ${getHSTypeName(curvaltype)} but expected ${getHSTypeName(newvaltype)}`);
+      throw new Error(`Invalid type in registry for registry key '${key}', got ${getHSTypeName(newvaltype)} but expected ${getHSTypeName(curvaltype)}`);
   }
 
   const newvalue = encodeHSON(value as IPCMarshallableData);
