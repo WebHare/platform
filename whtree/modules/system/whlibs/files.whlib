@@ -740,7 +740,9 @@ PUBLIC STRING FUNCTION GenerateTemporaryPathnameFromBasepath(STRING basepath) __
 PUBLIC STRING FUNCTION GetTempDir() __ATTRIBUTES__ (EXTERNAL);
 
 /** @short Generate a filename from a string
-    @long Convert a string into a name which can be safely used as a file or folder name.
+    @long Convert a string into a name which can be safely used as a file or folder name. This is %GetSafeName with the
+          `safedots` option: a-z, 0-9 and dots are kept and every run of other characters becomes a single hyphen. The
+          name doesn't start or end with a dot or hyphen, and no hyphen is written right before a dot.
     @param value Value to use for the name
     @return Returns a filename that can be safely used as a file or folder name. Returns 'unknown' if it cannot figure out a proper filename */
 PUBLIC STRING FUNCTION GetSafeFileName(STRING value)

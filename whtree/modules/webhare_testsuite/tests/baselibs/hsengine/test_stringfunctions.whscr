@@ -3,6 +3,7 @@ LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
 
 RECORD ARRAY errors;
 RECORD result;
@@ -276,10 +277,139 @@ MACRO UTF8Test()
   TestEq("uber-12-strassen", GEtSafeNAme(".Über '12' _Straßen_.?", [utf8:=FALSE]));
   TestEq("unknown", GetSafeName(":::"));
   TestEq("weetniet", GetSafeName(":::", [ fallback := "weetniet"]));
-  TestEq("ab", GetSafeName("a:b"));
-  TestEq("a-b", GetSafeName("a:b", [ tohyphens := ":" ]));
+  TestEq("a-b", GetSafeName("a:b"));
+  TestEq("a-b", GetSafeName("a:b", [ tohyphens := ":" ])); //tohyphens isn't needed for this anymore
+
+  //tohyphens still matters for characters that the other options keep
+  TestEq("a.b-c", GetSafeName("a.b:c", [ safedots := TRUE ]));
+  TestEq("a-b-c", GetSafeName("a.b:c", [ safedots := TRUE, tohyphens := "." ]));
+  TestEq("大学特色", GetSafeName("大学特色", [ utf8 := TRUE ]));
+  TestEq("大-特色", GetSafeName("大学特色", [ utf8 := TRUE, tohyphens := "学" ]));
+  TestEq("大-特", GetSafeName("学大学特学", [ utf8 := TRUE, tohyphens := "学" ]), "No hyphens at the start or end");
+
+  //utf8 keeps U+00A1 and up as is, but other characters that aren't kept become a hyphen too
+  TestEq("é-final", GetSafeName("é.final", [ utf8 := TRUE ]));
+  TestEq("what-s-new", GetSafeName("What's new?", [ utf8 := TRUE ]));
+  TestEq("€-5", GetSafeName("€ 5", [ utf8 := TRUE ]));
+  TestEq("anchor", GetSafeName("?!", [ utf8 := TRUE, fallback := "anchor" ]));
+
+  //normalization depends on the language
+  TestEq("angstrom", GetSafeName("ångström"));
+  TestEq("angstroem", GetSafeName("ångström", [ languagecode := "de" ]));
 
   CloseTest("TestStringFunctions: UTF8Test");
+}
+
+STRING FUNCTION Slugify(STRING input, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  VARIANT slug := RecordExists(options) ? CallJS("@webhare/std#slugify", input, options) : CallJS("@webhare/std#slugify", input);
+  RETURN TypeID(slug) = TypeID(STRING) ? slug : "(null)";
+}
+
+MACRO GetSafeNameVsSlugifyTest()
+{
+  OpenTest("TestStringFunctions: GetSafeNameVsSlugifyTest");
+
+  /* GetSafeName is meant to return what slugify from @webhare/std returns. 'expect' is what both must return,
+     and "(null)" stands for slugify returning null, where GetSafeName returns its fallback */
+  RECORD ARRAY same := [
+    [ input := "Avon TrailRider 2 Packshot F+R With Shadows", expect := "avon-trailrider-2-packshot-f-r-with-shadows" ],
+    [ input := "é.final",                 expect := "e-final" ],
+    [ input := "My Photo (1)",            expect := "my-photo-1" ],
+    [ input := "+++",                     expect := "(null)" ],
+    [ input := "",                        expect := "(null)" ],
+    [ input := "Straße",                  expect := "strasse" ],
+    [ input := "STRAẞE µm",               expect := "stra-e-m" ],
+    [ input := "Łódź",                    expect := "odz" ],
+    [ input := "Wałęsa",                  expect := "wa-esa" ],
+    [ input := "Þór ð",                   expect := "or" ],
+    [ input := "ñandú çà ÿ",              expect := "nandu-ca-y" ],
+    [ input := "ÀÉÎÕÜ Ünïcödé",           expect := "aeiou-unicode" ],
+    [ input := "€ 5",                     expect := "5" ],
+    [ input := "đ Đ",                     expect := "(null)" ],
+    [ input := "大学",                    expect := "(null)" ],
+    [ input := "АБВ",                     expect := "(null)" ],
+    [ input := "①",                       expect := "(null)" ],
+    [ input := "a\tb",                    expect := "ab" ], //control characters are removed, not replaced
+    [ input := "a\nb",                    expect := "ab" ],
+    [ input := "\x1Fab",                  expect := "ab" ],
+    [ input := "a\x7Fb",                  expect := "a-b" ],
+    [ input := "e\u0301a",                expect := "ea" ], //a decomposed é
+    [ input := "Cafe\u0301 Zuid",         expect := "cafe-zuid" ],
+    [ input := "a\u00A0b",                expect := "a-b" ],
+    [ input := "a\u200Bb",                expect := "a-b" ], //zero width space
+    [ input := "a\u00ADb",                expect := "a-b" ], //soft hyphen
+    [ input := "What's new?",             expect := "what-s-new" ],
+    [ input := "Q&A",                     expect := "q-a" ],
+    [ input := "v1.2",                    expect := "v1-2" ],
+    [ input := ".a.",                     expect := "a" ],
+    [ input := "a..b",                    expect := "a-b" ],
+    [ input := "a - .b",                  expect := "a-b" ],
+    [ input := "x_y-z",                   expect := "x-y-z" ],
+    [ input := "--a--b--",                expect := "a-b" ],
+    [ input := "  spaced   out  ",        expect := "spaced-out" ],
+    [ input := "C++ & C#",                expect := "c-c" ],
+    [ input := "100%",                    expect := "100" ],
+    [ input := "foo@example.com",         expect := "foo-example-com" ],
+    [ input := "^index.html",             expect := "index-html" ],
+    [ input := ".Über '12' _Straßen_.?",  expect := "uber-12-strassen" ],
+    [ input := ":::",                     expect := "(null)" ],
+    [ input := " a:b ",                   expect := "a-b" ]
+  ];
+
+  FOREVERY (RECORD row FROM same) {
+    TestEq(row.expect, Slugify(row.input), `slugify('${EncodeJava(row.input)}')`);
+    TestEq(row.expect, GetSafeName(row.input, [ fallback := "(null)" ]), `GetSafeName('${EncodeJava(row.input)}')`);
+  }
+
+  /* Where they differ. GetSafeName normalizes with NormalizeText, which knows more letters than the NFD normalization
+     slugify uses, but returns an empty string for some input */
+  RECORD ARRAY different := [
+    [ input := "æther",           safename := "aether",         slug := "ther" ], //NormalizeText transliterates letters that have no decomposition
+    [ input := "Søren Ångström",  safename := "soren-angstrom", slug := "s-ren-angstrom" ],
+    [ input := "Œuvre",           safename := "oeuvre",         slug := "uvre" ],
+    [ input := "İstanbul ığdır",  safename := "istanbul-igdir", slug := "istanbul-gd-r" ],
+    [ input := "ĳ IJ",            safename := "ij-ij",          slug := "ij" ],
+    [ input := "ŀ ŉ ſ",           safename := "l-n-s",          slug := "(null)" ],
+    [ input := "ﬁx",              safename := "(null)",         slug := "x" ], //NormalizeText returns an empty string for text with a ligature
+    [ input := "ａｂｃ x",        safename := "(null)",         slug := "x" ] //.. and for text with fullwidth letters
+  ];
+
+  FOREVERY (RECORD row FROM different) {
+    TestEq(row.slug, Slugify(row.input), `slugify('${EncodeJava(row.input)}')`);
+    TestEq(row.safename, GetSafeName(row.input, [ fallback := "(null)" ]), `GetSafeName('${EncodeJava(row.input)}')`);
+  }
+
+  /* safedots compares to slugify's keep: ".", except that GetSafeName doesn't allow a name to start or end with a dot
+     and doesn't write a hyphen right before a dot. 'slug' is only set where slugify returns something else */
+  RECORD ARRAY withdots := [
+    [ input := "é.final",                 expect := "e.final",                slug := "" ],
+    [ input := "^index.html",             expect := "index.html",             slug := "" ],
+    [ input := "F+R v1.2.JPG",            expect := "f-r-v1.2.jpg",           slug := "" ],
+    [ input := "a..b",                    expect := "a..b",                   slug := "" ],
+    [ input := "a. b",                    expect := "a.-b",                   slug := "" ],
+    [ input := "foo@example.com",         expect := "foo-example.com",        slug := "" ],
+    [ input := "????? ??????? ?????????", expect := "(null)",                 slug := "" ],
+    [ input := ".a.",                     expect := "a",                      slug := ".a." ],
+    [ input := "...",                     expect := "(null)",                 slug := "..." ],
+    [ input := ".htaccess",               expect := "htaccess",               slug := ".htaccess" ],
+    [ input := "a. -",                    expect := "a",                      slug := "a." ],
+    [ input := "My Photo (1).jpg",        expect := "my-photo-1.jpg",         slug := "my-photo-1-.jpg" ],
+    [ input := "a - .b",                  expect := "a.b",                    slug := "a-.b" ],
+    [ input := ".Über '12' _Straßen_.?",  expect := "uber-12-strassen",       slug := ".uber-12-strassen-." ],
+    //A hyphen is only dropped right before a dot, not right after one. This asymmetry is intentional
+    [ input := "a. - b",                  expect := "a.-b",                   slug := "" ],
+    [ input := "a - . - b",               expect := "a.-b",                   slug := "a-.-b" ],
+    [ input := "Report v2. (final).pdf",  expect := "report-v2.-final.pdf",   slug := "report-v2.-final-.pdf" ]
+  ];
+
+  FOREVERY (RECORD row FROM withdots) {
+    TestEq(row.slug ?? row.expect, Slugify(row.input, [ keep := "." ]), `slugify('${EncodeJava(row.input)}', { keep: "." })`);
+    TestEq(row.expect, GetSafeName(row.input, [ safedots := TRUE, fallback := "(null)" ]), `GetSafeName('${EncodeJava(row.input)}', [ safedots := TRUE ])`);
+    TestEq(row.expect = "(null)" ? "unknown" : row.expect, GetSafeFileName(row.input), `GetSafeFileName('${EncodeJava(row.input)}')`);
+  }
+
+  CloseTest("TestStringFunctions: GetSafeNameVsSlugifyTest");
 }
 
 /*** Left [54] ***/
@@ -960,3 +1090,4 @@ SubstringTest();
 MiscTest();
 CodingTest();
 UTF8Test();
+GetSafeNameVsSlugifyTest();

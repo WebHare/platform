@@ -552,7 +552,7 @@ MACRO UnpackingSiteVsNonsite()
   RECORD ARRAY expect_files :=
       [ [ name := "Kastjes en muren 2.pdf", title := IsWasm() ? "" : "Kastjes en muren 2" ]
       , [ name := "docgen_2.tar.gz",        title := "" ]
-      , [ name := "goudvis.png",            title := "" ]
+      , [ name := "goud-vis.png",           title := "" ]
       , [ name := "lorum_ipsum.doc",        title := "" ]
       ];
 

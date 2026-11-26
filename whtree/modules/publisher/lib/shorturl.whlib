@@ -1,7 +1,6 @@
 <?wh
 
 LOADLIB "wh::crypto.whlib";
-LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
@@ -308,7 +307,9 @@ STATIC OBJECTTYPE ShortURLDomain
       INTEGER counter;
       WHILE( TRUE )
       {
-        options.shortname := Left(GetSafeFileName(EncodeBase64(GetMD5Hash(targeturl || counter))), shorturl_codelength);
+        // Use only the letters and digits of the hash. GetSafeFileName would turn the other base64 characters into hyphens
+        STRING hash := ToLowercase(EncodeBase64(GetMD5Hash(targeturl || counter)));
+        options.shortname := Left(Substitute(Substitute(Substitute(hash, "+", ""), "/", ""), "=", ""), shorturl_codelength);
         IF( NOT RecordExists(SELECT FROM system.fs_objects WHERE parent = this->folder.id AND name = VAR options.shortname))
           BREAK;
         counter := counter + 1;

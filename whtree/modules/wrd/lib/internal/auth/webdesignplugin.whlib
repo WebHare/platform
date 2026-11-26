@@ -246,7 +246,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
     this->pvt_webcontext := webcontext;
 
     this->pvt_config.wrd_schema := ExpandContextVariables(webcontext, this->pvt_config.wrd_schema);
-    this->cookiename := ExpandContextVariables(webcontext, this->pvt_config.cookie_name) ?? "webharelogin-" || GetSafeName(this->pvt_config.wrd_schema, [ tohyphens := ":" ]);
+    this->cookiename := ExpandContextVariables(webcontext, this->pvt_config.cookie_name) ?? "webharelogin-" || GetSafeName(this->pvt_config.wrd_schema);
     this->wrdauthconfig := GetWRDAuthConfig(this->pvt_config.wrd_schema);
   }
 
