@@ -42,6 +42,12 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   /// Type of currentl search, DEFAULT OBJECT if none selected
   OBJECT result_type;
 
+  /// Query that loads the rows of the results list (without the search filters), see ReloadResults
+  RECORD results_query;
+
+  /// Ids of the entities found by the current search
+  INTEGER ARRAY result_ids;
+
   BOOLEAN viewer_follows_main;
 
   PUBLIC MACRO Init(RECORD data)
@@ -315,6 +321,8 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     {
       // If the last selected tab was "Free search", and the type and attribute pulldowns have a value, the "Free search"
       ^results_frees->rows := DEFAULT RECORD ARRAY;
+      this->results_query := DEFAULT RECORD;
+      this->result_ids := INTEGER[];
 
       this->current_entity := 0;
       this->current_type := DEFAULT OBJECT;
@@ -341,15 +349,20 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   PUBLIC MACRO DoMergeEntity()
   {
-    INTEGER mergeinto := RunWRDEntitySelectDialog(this, this->current_type, 0);
+    INTEGER mergeinto := RunWRDEntitySelectDialog(this, this->current_entitylisttype, 0);
     IF(mergeinto = 0 OR this->RunMessageBox(".confirmmergeentity") != "yes")
       RETURN;
 
+    INTEGER mergefrom := ^results_frees->selection.id;
     OBJECT work := this->BeginWork();
-    this->current_type->GetEntity(^results_frees->selection.id)->MergeEntityInto(mergeinto);
-    this->current_type->GetEntity(^results_frees->selection.id)->CloseEntity();
-    work->Finish();
-    this->RefreshEntity(); //FIXME how to refresh the search
+    OBJECT entityobj := this->current_entitylisttype->GetEntity(mergefrom);
+    entityobj->MergeEntityInto(mergeinto);
+    entityobj->CloseEntity();
+    IF (NOT work->Finish())
+      RETURN;
+
+    this->ReloadResults([ mergefrom, mergeinto ]);
+    this->RefreshEntity();
   }
 
   PUBLIC MACRO DoEditEntity()
@@ -360,6 +373,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     RECORD selection := ^results_frees->selection;
     IF(RunWRDEntityEditDialog(this, this->result_type, selection.id) != 0)
     {
+      this->ReloadResults(INTEGER[ selection.id ]);
       // Update the preview panel (the right panel)
       this->RefreshEntity();
     }
@@ -367,11 +381,9 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   PUBLIC MACRO DoCloseEntity()
   {
-    // sorted for the RecordLowerBound lookups below
     RECORD ARRAY selected :=
         SELECT rowkey
-          FROM ^results_frees->selection
-      ORDER BY rowkey;
+          FROM ^results_frees->selection;
 
     IF (this->RunSimpleScreen("confirm", GetTid(Length(selected) > 1 ? "wrd:browser.messages.closeentities" : "wrd:browser.messages.closeentity")) != "yes")
       RETURN;
@@ -382,45 +394,22 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     OBJECT closetype := this->current_entitylisttype;
     // Entities that were deleted after the search are missing here
     RECORD ARRAY entities :=
-        SELECT *
-          FROM closetype->RunQuery(
-                  [ outputcolumns := [ rowkey := "WRD_ID", creationdate := "WRD_CREATIONDATE", limitdate := "WRD_LIMITDATE" ]
-                  , filters := [ [ field := "WRD_ID", matchtype := "IN", value := SELECT AS INTEGER ARRAY rowkey FROM selected ] ]
-                  , historymode := "all"
-                  ])
-      ORDER BY rowkey;
+        closetype->RunQuery(
+            [ outputcolumns := [ rowkey := "WRD_ID", creationdate := "WRD_CREATIONDATE", limitdate := "WRD_LIMITDATE" ]
+            , filters := [ [ field := "WRD_ID", matchtype := "IN", value := SELECT AS INTEGER ARRAY rowkey FROM selected ] ]
+            , historymode := "all"
+            ]);
 
+    // The row may be stale: don't move the close date of an entity that was closed (or changed to start later) in the meantime
     FOREVERY (RECORD entity FROM entities)
-    {
-      // The row may be stale: don't move the close date of an entity that was closed (or changed to start later) in the meantime
       IF (entity.creationdate <= now AND entity.limitdate > now)
-      {
         closetype->UpdateEntity(entity.rowkey, [ wrd_limitdate := now ]);
-        entities[#entity].limitdate := now;
-      }
-    }
 
     IF (NOT work->Finish())
       RETURN;
 
-    // The results list also shows closed entities, so update the closed rows instead of removing them. Only remove the rows
-    // of entities that were deleted in the meantime
-    RECORD ARRAY rows;
-    FOREVERY (RECORD row FROM ^results_frees->rows)
-    {
-      RECORD pos := RecordLowerBound(entities, row, [ "ROWKEY" ]);
-      IF (pos.found)
-      {
-        row.limitdate := entities[pos.position].limitdate;
-        row.style := this->GetAvailabilityStyle(now, row.creationdate, row.limitdate);
-        row.can_close_entity := FALSE;
-      }
-      ELSE IF (RecordLowerBound(selected, row, [ "ROWKEY" ]).found)
-        CONTINUE;
-
-      INSERT row INTO rows AT END;
-    }
-    ^results_frees->rows := rows;
+    // The results list also shows closed entities, so their rows are updated. Rows of entities that were deleted in the meantime disappear
+    this->ReloadResults(SELECT AS INTEGER ARRAY rowkey FROM selected);
     this->RefreshEntity();
   }
 
@@ -461,9 +450,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       }
 
       IF (work->Finish())
-      {
-        DELETE FROM ^results_frees->rows   WHERE rowkey IN delete_entries;
-      }
+        this->ReloadResults(delete_entries);
     }
   }
 
@@ -530,10 +517,16 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
         RecordExists(SELECT FROM this->contexts->wrdschema->ListTypes() AS types
                            WHERE (linkfrom = type->id OR linkto = type->id));
 
+    BOOLEAN can_edit_entity := this->frame->flags.right_readwrite; // FIXME (can we define rights on entity level? if not, is that a needed feature?)
+    DATETIME now := GetCurrentDatetime();
+
     RETURN SELECT *
-                , can_edit_entity := this->frame->flags.right_readwrite // FIXME (can we define rights on entity level? if not, is that a needed feature?)
+                , can_edit_entity := can_edit_entity
                 , can_add_link := link_available
                 , type := type
+                , style := this->GetAvailabilityStyle(now, creationdate, limitdate)
+                // only entities that are currently live can be closed
+                , can_close_entity := can_edit_entity AND creationdate <= now AND limitdate > now
              FROM results;
   }
 
@@ -641,7 +634,6 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     RECORD listinfo := this->GetListAttributesAsQuery(type, prefs, DEFAULT STRING ARRAY);
 
     RECORD query := listinfo.query;
-    query.sources[0].filters := query.sources[0].filters CONCAT filters;
     query.sources[0].outputcolumns := MakeMergedRecord(query.sources[0].outputcolumns, [ rowkey := "wrd_id", id := "wrd_id" ]);
 
     INSERT CELL creationdate := "WRD_CREATIONDATE" INTO query.sources[0].outputcolumns;
@@ -658,23 +650,58 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
                                          , type := outputcelltype
                                       FROM listinfo.extracols;
 
-    RECORD ARRAY results := this->contexts->wrdschema->RunQuery(query);
-
-    DATETIME now := GetCurrentDateTime();
-    results := SELECT *
-                    , style := this->GetAvailabilityStyle(now, creationdate, limitdate)
-                    // only entities that are currently live can be closed
-                    , can_close_entity := can_edit_entity AND creationdate <= now AND limitdate > now
-                 FROM this->EnrichSearchResults(results, type);
-
-    ^results_frees->rows := results;
+    // Search only once, for the ids. The rows are then loaded by id, so they can be reloaded after a change (see ReloadResults)
+    // Sorted, so ReloadResults can use LowerBound
+    this->result_ids := GetSortedSet(
+        SELECT AS INTEGER ARRAY rowkey
+          FROM this->contexts->wrdschema->RunQuery(
+                  [ sources := [ [ type := type
+                                 , name := "basetype"
+                                 , filters := filters
+                                 , outputcolumns := [ rowkey := "WRD_ID" ]
+                                 , historymode := "all"
+                                 ] ]
+                  ]));
+    this->results_query := query;
     this->result_type := type;
+
     ^frame->flags.account_type_selected := ToUppercase(type->tag) = "WRD_PERSON" OR
       (ObjectExists(this->contexts->wrdschema->accounttype) AND type->tag = this->contexts->wrdschema->accounttype->tag);
 
-    INTEGER nr_results:= LENGTH(results);
+    ^results_frees->rows := this->LoadResultRows(this->result_ids);
+    this->resultcount->value := ToString(Length(^results_frees->rows));
     this->resultcount->visible:= TRUE;
-    this->resultcount->value := ToString(nr_results);
+  }
+
+  /// Load the rows of the results list for the specified entities. Entities that were deleted since are left out
+  RECORD ARRAY FUNCTION LoadResultRows(INTEGER ARRAY ids)
+  {
+    RECORD query := this->results_query;
+    query.sources[0].filters := [ [ field := "WRD_ID", matchtype := "IN", value := ids ] ];
+
+    RETURN
+        SELECT *
+          FROM this->EnrichSearchResults(this->contexts->wrdschema->RunQuery(query), this->result_type)
+      ORDER BY rowkey;
+  }
+
+  /// Reload the rows of the specified entities after they were changed. Entities that the current search didn't find are ignored
+  MACRO ReloadResults(INTEGER ARRAY ids)
+  {
+    // eg. the entity that another entity was merged into may not be in the results list
+    // Sort both lists and use LowerBound, as a plain IN is quadratic when all rows of a large list are selected
+    ids := SELECT AS INTEGER ARRAY id FROM ToRecordArray(GetSortedSet(ids), "id") WHERE LowerBound(this->result_ids, id).found;
+
+    RECORD ARRAY rows :=
+        SELECT *
+          FROM ^results_frees->rows
+         WHERE NOT LowerBound(ids, rowkey).found;
+
+    ^results_frees->rows :=
+        SELECT *
+          FROM rows CONCAT this->LoadResultRows(ids)
+      ORDER BY rowkey;
+    this->resultcount->value := ToString(Length(^results_frees->rows));
   }
 
   STRING FUNCTION GetAvailabilityStyle(DATETIME now, DATETIME creationdate, DATETIME limitdate)
@@ -972,6 +999,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
     IF(this->LoadScreen(".editsource", [ entityid := ^results_frees->value[0] ])->RunModal() = "ok")
     {
+      this->ReloadResults(INTEGER[ ^results_frees->value[0] ]);
       this->RefreshEntity();
       this->RefreshDataViewer();
     }
