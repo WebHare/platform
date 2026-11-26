@@ -1,11 +1,11 @@
-import { cancelManagedTasks } from "@webhare/services/src/tasks";
+import { cancelTask } from "@webhare/tasks";
 import { beginWork, commitWork } from "@webhare/whdb/src/whdb";
 
 
 export async function testCancelManagedTasks(ids: number[]) {
   await beginWork();
-  const res = await cancelManagedTasks(ids);
+  const res = await cancelTask(ids);
   await commitWork();
 
-  return res.runningTasksStopped();
+  return res.tasksCancelled();
 }

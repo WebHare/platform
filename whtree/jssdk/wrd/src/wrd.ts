@@ -11,7 +11,7 @@ import { broadcastOnCommit, db } from "@webhare/whdb";
 import type { WRDAttributeType, WRDMetaType, WRDInsertable, WRDUpdatable, AnySchemaType, SchemaTypeDefinitionModern, MatchObjectQueryable } from "./types";
 import { isValidWRDSchemaTag } from "./wrdsupport";
 import { wrdFinishHandler } from "./finishhandler";
-import { scheduleTask, scheduleTimedTask } from "@webhare/services";
+import { scheduleTask, scheduleTimedTask } from "@webhare/tasks";
 
 export { getSchemaSettings, updateSchemaSettings } from "./settings";
 export { importIntoWRDSchema } from "./import";

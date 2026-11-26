@@ -1,6 +1,6 @@
 import { listStoredKeyPairs, openStoredKeyPair } from "@mod-platform/js/webserver/keymgmt";
 import { runCli } from "@webhare/cli";
-import { describeTask, listTasks, scheduleTask } from "@webhare/services";
+import { describeTask, listTasks, scheduleTask } from "@webhare/tasks";
 import { toSnakeCase } from "@webhare/std";
 import { beginWork, commitWork } from "@webhare/whdb";
 

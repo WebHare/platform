@@ -4,7 +4,8 @@ WEBHARE_DEBUG=assetpacks wh service debug platform:assetpacks
 */
 
 import type { ServiceControllerFactoryFunction, BackendServiceController, BackendEvent } from "@webhare/services";
-import { BackendServiceConnection, broadcast, logDebug, scheduleTask, subscribe, toFSPath } from "@webhare/services";
+import { BackendServiceConnection, broadcast, logDebug, subscribe, toFSPath } from "@webhare/services";
+import { scheduleTask } from "@webhare/tasks";
 import { throwError, wrapSerialized } from "@webhare/std";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import { buildRecompileSettings, recompile } from "@mod-platform/js/assetpacks/compiletask";

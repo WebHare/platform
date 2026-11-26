@@ -25,8 +25,9 @@ export type { LoggableRecord } from "./logmessages";
 export { ResourceDescriptor, isResourceDescriptor, mapExternalWHFSRef, unmapExternalWHFSRef, exportFileAsFetch, type ExportOptions, type ExportedResource, type ResourceSource, type ResizedImage, type ResizeMethod } from "./descriptor";
 export { lockMutex, hasMutex, type Mutex } from "./mutex";
 
-export { TaskRequest, scheduleTask, scheduleTimedTask, retrieveTaskResult, cancelTask, cancelManagedTasks, listTasks, describeTask, retryTask } from "./tasks";
-export type { TaskFunction, TaskResponse } from "./tasks";
+//Task APIs moved to @webhare/tasks. These re-exports remain for existing modules
+export { TaskRequest, scheduleTask, scheduleTimedTask, retrieveTaskResult, cancelTask, listTasks, describeTask } from "@webhare/tasks";
+export type { TaskResponse } from "@webhare/tasks";
 
 export { readRegistryKey, writeRegistryKey, getRegistryKeyEventMasks, readRegistryNode, deleteRegistryKey, deleteRegistryNode, signalOnRegistryKeyChange, type RegistryKeys, type RegistryKeyOfType } from "./registry";
 export { WebHareBlob } from "./webhareblob";

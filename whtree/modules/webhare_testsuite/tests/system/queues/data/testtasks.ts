@@ -1,4 +1,5 @@
-import { type TaskRequest, type TaskResponse, openBackendService, readRegistryKey, scheduleTask } from "@webhare/services";
+import { openBackendService, readRegistryKey } from "@webhare/services";
+import { type TaskRequest, type TaskResponse, scheduleTask } from "@webhare/tasks";
 import { beginWork } from "@webhare/whdb";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { sleep } from "@webhare/std";

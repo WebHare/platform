@@ -2,7 +2,8 @@ import { buildGeneratorContext, updateGeneratedFiles } from '@mod-system/js/inte
 import { generatorTypes, type GeneratorType } from '@mod-system/js/internal/generation/shared';
 import { loadlib } from '@webhare/harescript';
 import { beginWork, commitWork } from '@webhare/whdb';
-import { backendConfig, broadcast, lockMutex, logDebug, openBackendService, scheduleTimedTask } from "@webhare/services";
+import { backendConfig, broadcast, lockMutex, logDebug, openBackendService } from "@webhare/services";
+import { scheduleTimedTask } from "@webhare/tasks";
 import { updateWebHareConfigFile } from '@mod-system/js/internal/generation/gen_config';
 import { updateConsilioCatalogs } from './consilio';
 import { updateTypeScriptInfrastructure } from '@mod-system/js/internal/generation/gen_typescript';

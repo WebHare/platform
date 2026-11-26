@@ -1,6 +1,7 @@
 import { wrd } from "@webhare/wrd";
 import { loadlib } from "@webhare/harescript/src/contextvm";
-import { scheduleTimedTask, writeRegistryKey } from "@webhare/services";
+import { writeRegistryKey } from "@webhare/services";
+import { scheduleTimedTask } from "@webhare/tasks";
 import { omit } from "@webhare/std";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";

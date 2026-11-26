@@ -1,6 +1,7 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { parseTrace } from "@webhare/js-api-tools";
-import { BackendServiceConnection, cancelTask, describeTask, listTasks, retrieveTaskResult, retryTask, runBackendService, scheduleTask, writeRegistryKey } from "@webhare/services";
+import { BackendServiceConnection, runBackendService, writeRegistryKey } from "@webhare/services";
+import { cancelTask, describeTask, flushTasks, listTasks, retrieveTaskResult, retryTask, scheduleTask } from "@webhare/tasks";
 import * as test from "@webhare/test-backend";
 import { beginWork, commitWork, db } from "@webhare/whdb";
 
@@ -321,7 +322,40 @@ async function testDoubleSchedule(engine: "hs" | "js") {
   await test.wait(() => (messages.length === 4 * iters), { timeout: 3000_000 }); // default 1 minute is not enough
 }
 
+async function testFlushTasks() {
+  const start = Temporal.Now.instant();
+  const taskname = "webhare_testsuite:ping_js";
+
+  //flushTasks should return at once when there are no unfinished tasks. Fail the test instead of hanging it if it doesn't
+  const flushAtOnce = async () => {
+    let timer: NodeJS.Timeout | undefined;
+    try {
+      await Promise.race([
+        flushTasks([taskname], { createdAfter: start }),
+        new Promise((_, reject) => timer = setTimeout(() => reject(new Error(`flushTasks did not return although all tasks have finished`)), 5000))
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  await flushAtOnce(); //no tasks yet
+
+  await beginWork();
+  const taskid = await scheduleTask(taskname, { ping: 42, extraping: 44 }); //schedules a second ping_js task when run
+  await commitWork();
+
+  await flushTasks([taskname], { createdAfter: start, deadline: "PT2M" });
+  test.eq([], await listTasks(taskname, { createdAfter: start, onlyPending: true }), "flushTasks should wait for the task and the task it scheduled");
+  const tasks = await listTasks(taskname, { createdAfter: start });
+  test.eq(2, tasks.length);
+  test.assert(tasks.some(task => task.id === taskid));
+
+  await flushAtOnce(); //all tasks have finished now
+}
+
 test.runTests([
+  testFlushTasks,
   () => testFailingTask("hs"),
   () => testFailingTask("js"),
   () => testCancellableTask("hs"),
