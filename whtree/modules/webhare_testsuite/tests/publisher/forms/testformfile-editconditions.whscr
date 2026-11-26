@@ -72,6 +72,13 @@ MACRO TestBuildConditionalForm()
   firstnamefield->SetAttribute("tid", "tollium:tilde.firstname");
   firstnamefield->SetAttribute("autocomplete", "given-name");
 
+  // Add a mail handler with a recipient, for which we'll edit the condition in its row edit screen
+  OBJECT mailhandler := formdef->AddHandler("mailresultshandler");
+  mailhandler->SetAttribute("subject", "Conditional form");
+  OBJECT mailto := mailhandler->ownerdocument->CreateElementNS(mailhandler->namespaceuri, "mailto");
+  mailto->SetAttribute("email", "existing@beta.webhare.net");
+  mailhandler->AppendChild(mailto);
+
   // Save the file
   formdefs->SaveToWHFS(conditionalformfile);
   testfw->CommitWork();
@@ -245,8 +252,56 @@ ASYNC MACRO TestEditConditions()
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
 }
 
+ASYNC MACRO TestEditConditionInSubscreen()
+{
+  // Open the editor
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ conditionalformfile->whfspath ], target := DEFAULT RECORD ]));
+
+  // Select and edit the mail handler
+  TT("doceditor->questions")->selection := RECORD(SELECT * FROM TT("doceditor->questions")->rows WHERE rowkey LIKE "handler-*");
+  TestEq(TRUE, RecordExists(TT("doceditor->questions")->selection));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Edit"));
+
+  // Edit the condition of the existing recipient in its row edit screen
+  // Note: this doesn't reproduce the crash this was added for, as the handler screen's own condition field has already
+  // created the condition context, which the row edit screen inherits. That crash happened in row edit screens of handlers
+  // without such a field (eg. the Connect handler)
+  TT("fragment1!mailto!list")->selection := TT("fragment1!mailto!list")->rows[0];
+  AWAIT ExpectScreenChange(+1, PTR TT("fragment1!mailto")->editbutton->TolliumClick);
+  AWAIT ExpectScreenChange(+1, PTR TTClick("condition!edit"));
+  TT("fragment1!field")->value := "formsubmittype";
+  AWAIT ExpectScreenChange(+1, PTR TTClick("fragment1!select_in"));
+  // The test site allows submit types and this handler also runs for cancelled results, so 'cancel' should be offered
+  TestEq([ EncodeHSON("new"), EncodeHSON("change"), EncodeHSON("cancel") ], SELECT AS STRING ARRAY rowkey FROM TT("value")->options);
+  TT("value")->value := [ EncodeHSON("cancel") ];
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK")); // select values
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK")); // edit condition
+  TestEq([ field := "formsubmittype", matchtype := "IN", value := VARIANT[ "cancel" ] ], TT("condition")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK")); // edit recipient
+  TestEq([ field := "formsubmittype", matchtype := "IN", value := VARIANT[ "cancel" ] ], TT("fragment1!mailto")->value[0].condition);
+
+  // Add a new recipient and edit its condition before it has a value
+  // Note: for the same reason, this doesn't reproduce the crash when editing the condition of a new row either
+  AWAIT ExpectScreenChange(+1, PTR TT("fragment1!mailto")->addbutton->TolliumClick);
+  TT("email")->value := "new@beta.webhare.net";
+  AWAIT ExpectScreenChange(+1, PTR TTClick("condition!edit"));
+  TT("fragment1!field")->value := "formsubmittype";
+  AWAIT ExpectScreenChange(+1, PTR TTClick("fragment1!select_in"));
+  TT("value")->value := [ EncodeHSON("new") ];
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK")); // select values
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK")); // edit condition
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK")); // edit recipient
+  TestEq(2, Length(TT("fragment1!mailto")->value));
+  TestEq([ field := "formsubmittype", matchtype := "IN", value := VARIANT[ "new" ] ], TT("fragment1!mailto")->value[1].condition);
+
+  // Close the handler and the editor without saving
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel); // edit handler
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel); // editor
+}
+
 RunTestframework([ PTR TestBuildConditionalForm
                  , PTR TestEditConditions
+                 , PTR TestEditConditionInSubscreen
                  ]
                 ,[ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                 ]

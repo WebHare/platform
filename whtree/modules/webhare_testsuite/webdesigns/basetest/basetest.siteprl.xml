@@ -525,6 +525,11 @@
     <formintegration allowmaxsignups="false" />
   </apply>
 
+  <apply comment="Tested by publisher.forms.testformfile-editconditions">
+    <to type="file" pathmask="/webtools/conditionalform" />
+    <formintegration allowsubmittype="true" />
+  </apply>
+
   <apply>
     <to type="file" pathmask="/webtools/paymenthandlerform" />
     <to type="file" pathmask="/webtools/apipayment" />
