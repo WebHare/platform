@@ -190,6 +190,10 @@ interpreted.
 - A warning shown to users was put there for a reason. Don't let a change remove one without replacing what it
   protected against.
 
+### Algorithmic complexity
+
+- Look out for O(N^2) or higher complexity in loops and nested operations when handling large datasets.
+
 ### Tests
 
 - A test reproduces the problem the way a developer or user would hit it. A test that builds internal objects,
