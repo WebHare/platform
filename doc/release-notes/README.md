@@ -3,6 +3,9 @@
 One file per minor version (eg. `6.2.md` for WebHare 6.2.x), describing incompatibilities and deprecations, things
 you should do when upgrading to that version and other things that are nice to know.
 
+Notes for the version in development may also be in separate files in a directory per version (eg. `6.2/`) until they
+are merged into the version's file before a release.
+
 ## Unskippable upgrades
 Some upgrades cannot be skipped. These are:
 - 3.10.xx: You should upgrade to the latest 3.10 version before switching to WebHare 4
