@@ -264,6 +264,9 @@ MACRO UTF8Test()
   TestEq("ptÄËÜÖ", UCSubString("ÜberhauptÄËÜÖ",7));
 
   TestEq("€", Normalizetext("€", "nl")); //make sure utf8 passes through
+  TestEq("aeeeieoeueaeeeieoeue", NormalizeText("ÄËÏÖÜäëïöü", "de"));
+  TestEq("aeiouaeiou", NormalizeText("ÄËÏÖÜäëïöü", "nl"));
+  TestEq("ueber-aerger", GetSafeName("Über Ärger", [ languagecode := "de" ]));
   TestEq("ab", GetSafeName("\x1Fab"));
   TestEq("ab", GetSafeName("\x1Fab", [utf8:=TRUE]));
   TestEq("a-b", GetSafeName("a\u00A0b"));
