@@ -7,6 +7,7 @@ LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/payments.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 
 
@@ -76,6 +77,165 @@ PUBLIC STATIC OBJECTTYPE ManageTypes EXTEND TolliumScreenBase
     this->RunScreen("#deletetype", [ type := type ]);
   }
 
+  MACRO DoShowDiagram()
+  {
+    this->RunScreen("#typesdiagram", [ selecttype := ^types->value ]);
+  }
+>;
+
+STRING FUNCTION GetMetatypeName(INTEGER metatype) {
+  SWITCH (metatype) {
+    CASE wrd_metatype_object     { RETURN "object"; }
+    CASE wrd_metatype_link       { RETURN "link"; }
+    CASE wrd_metatype_attachment { RETURN "attachment"; }
+    CASE wrd_metatype_domain     { RETURN "domain"; }
+  }
+  RETURN "";
+}
+
+/* Shows the WRD types of a schema as a UML class diagram (rendered by the wrd:typesdiagram asset pack inside an iframe)
+   with the attributes of the type selected in the diagram next to it
+*/
+PUBLIC STATIC OBJECTTYPE TypesDiagram EXTEND TolliumScreenBase <
+  OBJECT wrdschema;
+  INTEGER selectedtype;
+  /// Sequence number of the last selection received from the diagram, returned in the initdata so it can ignore outdated selections
+  INTEGER selectionseq;
+  RECORD ARRAY diagramtypes;
+
+  MACRO Init(RECORD data) {
+    data := ValidateOptions([ selecttype := 0 ], data);
+
+    this->wrdschema := this->contexts->wrdschema;
+    this->frame->title := this->GetTid(".title", this->wrdschema->tag);
+
+    this->LoadDiagramTypes();
+    IF (RecordExists(SELECT FROM this->diagramtypes WHERE id = data.selecttype))
+      this->selectedtype := data.selecttype;
+
+    ^diagram->InitializeWithAssetpack("wrd:typesdiagram", this->GetDiagramInitData());
+  }
+
+  MACRO LoadDiagramTypes() {
+    IF (^typescriptnames->value) {
+      // Gathered in TypeScript using the TypeScript names. Type ids are the same, so the selection is kept
+      this->diagramtypes := CallJS("mod::wrd/js/internal/typesdiagram.ts#getTypesDiagramData", this->wrdschema->tag);
+      RETURN;
+    }
+
+    this->diagramtypes :=
+        SELECT id
+             , tag
+             , title
+             , metatype := GetMetatypeName(metatype)
+             , parenttype
+             , linkfrom
+             , linkto
+             , attrs := this->GetDiagramAttributes(this->wrdschema->GetTypeById(id), 0)
+          FROM this->wrdschema->ListTypes()
+      ORDER BY ToUppercase(tag);
+  }
+
+  MACRO OnTypeScriptNamesChange() {
+    this->LoadDiagramTypes();
+    ^diagram->UpdateInitData(this->GetDiagramInitData());
+    ^attrs->Invalidate();
+  }
+
+  STRING FUNCTION GetTypeTag(INTEGER findid) {
+    RETURN SELECT AS STRING tag FROM this->diagramtypes WHERE id = findid;
+  }
+
+  /* Returns the attributes to show in the diagram: domain and domainarray attributes, and arrays containing those
+     (with only their domain(array) children). Inherited attributes are shown on the parent type, wrd_leftentity and
+     wrd_rightentity are shown as connections between the types themselves.
+  */
+  RECORD ARRAY FUNCTION GetDiagramAttributes(OBJECT wrdtype, INTEGER parentid) {
+    RECORD ARRAY result;
+    FOREVERY (RECORD attr FROM SELECT *
+                                 FROM wrdtype->ListAttributes(parentid)
+                                WHERE NOT isinherited
+                                      AND tag NOT IN [ "WRD_LEFTENTITY", "WRD_RIGHTENTITY" ]
+                             ORDER BY ToUppercase(tag)) {
+      IF (attr.attributetypename IN [ "DOMAIN", "DOMAINARRAY" ] AND attr.domain != 0) { // eg. WRD_GENDER is a domain without a type
+        INSERT [ tag :=        attr.localtag
+               , type :=       ToLowercase(attr.attributetypename)
+               , domain :=     attr.domain
+               , isrequired := attr.isrequired
+               , children :=   RECORD[]
+               ] INTO result AT END;
+      } ELSE IF (attr.attributetypename = "ARRAY") {
+        RECORD ARRAY children := this->GetDiagramAttributes(wrdtype, attr.id);
+        IF (Length(children) > 0)
+          INSERT [ tag :=        attr.localtag
+                 , type :=       "array"
+                 , domain :=     0
+                 , isrequired := attr.isrequired
+                 , children :=   children
+                 ] INTO result AT END;
+      }
+    }
+    RETURN result;
+  }
+
+  RECORD FUNCTION GetDiagramInitData() {
+    RETURN [ types :=        this->diagramtypes
+           , selected :=     this->selectedtype
+           , selectionseq := this->selectionseq
+           ];
+  }
+
+  MACRO OnClientMessage(STRING type, RECORD data) {
+    IF (type = "select") {
+      INTEGER newselection := RecordExists(SELECT FROM this->diagramtypes WHERE id = data.id) ? data.id : 0;
+      this->selectionseq := data.seq;
+      IF (newselection = this->selectedtype)
+        RETURN;
+
+      this->selectedtype := newselection;
+      ^attrs->Invalidate();
+      // Keep the selection in the initdata, so it's restored if the iframe is reloaded
+      ^diagram->UpdateInitData(this->GetDiagramInitData());
+    }
+  }
+
+  RECORD ARRAY FUNCTION GetAttributeRows(OBJECT wrdtype, INTEGER parentid) {
+    RETURN SELECT rowkey :=         tag
+                , tag :=            localtag
+                , title
+                , type :=           GetTid("wrd:types.attributes.types." || ToLowercase(attributetypename))
+                , domain :=         domain != 0 ? this->GetTypeTag(domain) : ""
+                , subnodes :=       attributetypename = "ARRAY" ? this->GetAttributeRows(wrdtype, id) : RECORD[]
+                , expanded :=       TRUE
+                , listrowclasses := isinherited ? [ "grayedout" ] : STRING[]
+             FROM wrdtype->ListAttributes(parentid)
+         ORDER BY ToUppercase(tag);
+  }
+
+  RECORD ARRAY FUNCTION GetTypeScriptAttributeRows(RECORD ARRAY attrs, RECORD ARRAY titles) {
+    RETURN SELECT rowkey :=         fulltag
+                , tag
+                , title :=          id != 0 ? (SELECT AS STRING titles.title FROM titles WHERE titles.id = attrs.id) : ""
+                , type :=           attributetype
+                , domain
+                , subnodes :=       Length(children) > 0 ? this->GetTypeScriptAttributeRows(children, titles) : RECORD[]
+                , expanded :=       TRUE
+                , listrowclasses := isinherited ? [ "grayedout" ] : STRING[]
+             FROM attrs;
+  }
+
+  RECORD ARRAY FUNCTION OnGetAttrs() {
+    OBJECT wrdtype := this->selectedtype != 0 ? this->wrdschema->GetTypeById(this->selectedtype) : DEFAULT OBJECT;
+    IF (NOT ObjectExists(wrdtype))
+      RETURN RECORD[];
+
+    IF (^typescriptnames->value) {
+      // The TypeScript API doesn't offer attribute titles, so take them from the HareScript attributes (base attributes have no id and no title)
+      RECORD ARRAY titles := SELECT id, title FROM wrdtype->ListAttributes(-1) WHERE id != 0;
+      RETURN this->GetTypeScriptAttributeRows(CallJS("mod::wrd/js/internal/typesdiagram.ts#getTypeAttributes", this->wrdschema->tag, this->selectedtype), titles);
+    }
+    RETURN this->GetAttributeRows(wrdtype, 0);
+  }
 >;
 
 PUBLIC OBJECTTYPE AddType EXTEND TolliumScreenBase

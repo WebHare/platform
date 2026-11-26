@@ -8,3 +8,7 @@ wrdSchemas:
   idp:
     abstract: true
     schema: data/wrdschemas/idp.wrdschema.xml
+assetPacks:
+  typesdiagram:
+    entryPoint: js/typesdiagram/typesdiagram.ts
+    supportedLanguages: [en, nl]

@@ -22,6 +22,7 @@
       <action name="deltype" onexecute="dodeltype" shortcut="del">
         <enableon source="types" min="1" max="1" />
       </action>
+      <action name="showdiagram" onexecute="doshowdiagram" />
     </actions>
 
     <menus>
@@ -55,6 +56,7 @@
                   newcontextmenu="emptyspace"
                   ongetrows="ongettypes"
                   openaction="manageattrs"
+                  rowkeytype="integer"
                   selectcontextmenu="modifydomain"
                   selectmode="single">
               <column name="tag" type="text" tid="tolliumapps.common.tag" />
@@ -71,10 +73,52 @@
               <button width="1pr" action="manageattrs" />
             </panel>
             <button width="1pr" action="import" />
+            <panel spacers="top">
+              <button width="1pr" action="showdiagram" />
+            </panel>
           </cell>
         </row>
       </grid>
     </body>
+  </screen>
+
+  <screen name="typesdiagram" width="180x" height="55x" allowresize="true" gid=".typesdiagram" tid=".title">
+    <body spacers="none">
+      <split type="horizontal" height="1pr">
+        <part width="2pr">
+          <iframe name="diagram" width="1pr" height="1pr" minwidth="60x" minheight="30x" onclientmessage="onclientmessage" />
+        </part>
+        <part width="1pr">
+          <list name="attrs"
+                width="1pr"
+                height="1pr"
+                minwidth="40x"
+                borders="none"
+                emptytid=".noselection"
+                ongetrows="ongetattrs"
+                rowkeytype="string"
+                selectmode="single">
+            <column name="tag" type="text" tid="tolliumapps.common.tag" tree="true" />
+            <column name="title" type="text" tid="~title" />
+            <column name="type" type="text" width="16x" tid="tolliumapps.common.attrtype" />
+            <column name="domain" type="text" width="16x" />
+          </list>
+        </part>
+      </split>
+    </body>
+
+    <footer>
+      <grid width="1pr">
+        <cell width="1pr">
+          <line>
+            <checkbox name="typescriptnames" labeltid=".typescriptnames" onchange="ontypescriptnameschange" title="" />
+          </line>
+        </cell>
+        <cell>
+          <defaultformbuttons buttons="close" />
+        </cell>
+      </grid>
+    </footer>
   </screen>
 
   <screen name="edittype" width="65x" allowresize="true" footerbuttons="ok cancel" gid="types.update">
