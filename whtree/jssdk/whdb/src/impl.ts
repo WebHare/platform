@@ -541,13 +541,15 @@ export type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "comm
 const connsymbol = Symbol("WHDBConnection");
 const workqueuesymbol = Symbol("WorkQueueSymbol");
 
-export function getConnection(): WHDBConnection {
-  return ensureScopedResource(connsymbol, () => new WHDBConnectionImpl, async (conn) => {
-    if (conn.isWorkOpen())
-      await conn.rollbackWork();
+async function disposeConnection(conn: WHDBConnectionImpl) {
+  if (conn.isWorkOpen())
+    await conn.rollbackWork();
 
-    return await conn.close();
-  });
+  await conn.close();
+}
+
+export function getConnection(): WHDBConnection {
+  return ensureScopedResource(connsymbol, () => new WHDBConnectionImpl, disposeConnection);
 }
 
 /** Stash the current work object, opening a new connection (with potential new work) */
@@ -567,7 +569,10 @@ export async function popWork() {
     throw new Error(`No work to pop`);
 
   const oldconn = getScopedResource<WHDBConnectionImpl>(connsymbol);
-  setScopedResource(connsymbol, stack.pop());
+  const outer = stack.pop();
+  setScopedResource(connsymbol, undefined);
+  if (outer)
+    ensureScopedResource(connsymbol, () => outer, disposeConnection);
   if (oldconn)
     await oldconn.close();
 }
