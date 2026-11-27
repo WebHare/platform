@@ -1,13 +1,13 @@
 // @webhare/cli: Manage WebHare file system (WHFS)
 
-import { createWHFSExportZip, describeWHFSType, lookupURL, openFileOrFolder, openSite, storeWHFSExport, type ExportWHFSOptions, type WHFSFile } from '@webhare/whfs';
+import { createWHFSExportZip, describeWHFSType, importIntoWHFS, lookupURL, openFileOrFolder, openSite, storeWHFSExport, type ExportWHFSOptions, type WHFSFile } from '@webhare/whfs';
 import { CLIRuntimeError, CLISyntaxError, enumOption, floatOption, intOption, runCli, type CLIArgumentType } from "@webhare/cli";
 import { countWHFSTypeUsage, describeContentType, findContentType, getAllContentTypes, getTypeName, listContentTypes, metaTypeCategories, type DescribedWHFSType, type ListedWHFSType } from '@mod-platform/js/cli/whfs-types';
 import type { CSPContentType } from '@webhare/whfs/src/siteprofiles';
 import { getBestMatch } from "@webhare/js-api-tools";
 import { storeDiskFile } from "@webhare/system-tools";
 import type { PlatformDB } from '@mod-platform/generated/db/platform';
-import { db, runInWork, sql } from '@webhare/whdb';
+import { beginWork, db, runInWork, sql } from '@webhare/whdb';
 import { selectFSWHFSPath } from '@webhare/whdb/src/functions';
 import { whconstant_whfsid_versions, whconstant_whfsid_whfs_snapshots } from '@mod-system/js/internal/webhareconstants';
 import { applyWHFSObjectUpdates, exportWHSFObject } from '@mod-platform/openapi/api/whfs';
@@ -264,6 +264,55 @@ runCli({
           await storeDiskFile(args.target, archive, { overwrite: true });
         } else
           throw new CLISyntaxError("Target must be a folder (ending with '/') or a .whexport.zip file");
+      }
+    },
+    "import": {
+      description: "Import files and folders from a folder on disk (in the format written by 'wh whfs export') into a WHFS folder. If the source is an exported folder itself (eg. 'out/myfolder' after exporting 'myfolder' to 'out/') its contents are imported into the target folder and its type, properties and instances replace those of the target folder (also without --overwrite), otherwise the source's files and folders are added to the target folder. Nothing is imported if there are errors",
+      flags: {
+        "v,verbose": "Show each object while importing",
+        "dry-run": "Show what would be created and updated, but don't change anything. Links and instance data aren't validated",
+        "overwrite": "Overwrite existing files and folders (otherwise they're reported as errors). Instances they have that aren't in the source are kept",
+        "allow-resource-imports": "Allow the import to refer to resources (eg. mod::) on this server",
+      },
+      options: {
+        "sub-path": { description: "Only import this path inside the source. Missing folders above it are created as plain folders" },
+      },
+      arguments: [
+        { name: "<source>", description: "Folder on disk to import" },
+        { name: "<target>", description: "Path or ID of the WHFS folder to import into" },
+      ],
+      main: async ({ opts, args }) => {
+        const target = await resolveWHFSPathArgument(args.target, { allowRoot: true });
+        if (!target.isFolder)
+          throw new CLIRuntimeError(`Target '${args.target}' is not a folder`);
+        await using work = opts.dryRun ? null : await beginWork();
+        const result = await importIntoWHFS(args.source, target, {
+          dryRun: opts.dryRun,
+          ifExists: opts.overwrite ? "overwrite" : undefined,
+          subPath: opts.subPath,
+          allowResourceImports: opts.allowResourceImports,
+          onProgress: opts.verbose ? progress => console.error(`Importing ${progress.subPath}`) : undefined
+        });
+
+        const hasErrors = result.messages.some(msg => msg.type === "error");
+        if (work) {
+          if (hasErrors)
+            await work.rollback();
+          else
+            await work.commit();
+        }
+
+        if (opts.json) {
+          console.log(JSON.stringify({ messages: result.messages, actions: result.actions, imported: Boolean(work) && !hasErrors }, null, 2));
+        } else {
+          for (const action of result.actions)
+            console.log(`${action.action.padEnd(7)} ${action.subPath || "."}`);
+          for (const msg of result.messages)
+            console.error(`${msg.type}: ${msg.subPath || "."}: ${msg.message}`);
+          if (hasErrors && work)
+            console.error("Nothing was imported because of these errors");
+        }
+        return hasErrors ? 1 : 0;
       }
     },
     "get-output-path": {

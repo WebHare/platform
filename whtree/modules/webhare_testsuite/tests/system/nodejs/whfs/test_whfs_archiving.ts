@@ -2,12 +2,19 @@ import { YAML } from "@webhare/deps";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { buildRTD, ResourceDescriptor, toFSPath } from "@webhare/services";
 import { beginWork, commitWork, rollbackWork } from "@webhare/whdb";
-import { importIntoWHFS, storeWHFSExport, whfsType, type ImportWHFSProgress, type WHFSFolder } from "@webhare/whfs";
+import { importIntoWHFS, openFolder, storeWHFSExport, whfsType, type ImportWHFSAction, type ImportWHFSProgress, type WHFSFolder } from "@webhare/whfs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { existsSync, readFileSync } from 'node:fs';
 import { listDirectory } from "@webhare/system-tools";
+
+const importTreeSource = toFSPath("mod::webhare_testsuite/tests/system/nodejs/data/whfs/");
+
+/** Sort actions by path so tests don't depend on processing order */
+function sortActions(actions: ImportWHFSAction[]) {
+  return actions.toSorted((a, b) => a.subPath.localeCompare(b.subPath));
+}
 
 /** Read all files in an export as a path => content map */
 async function readExport(dir: string) {
@@ -236,8 +243,151 @@ async function testWHFSImportFolderCase() {
   const caseTarget = await target.createFolder("case-target");
   const caseResult = await importIntoWHFS(join(workdir, "case"), caseTarget);
   test.eq([], caseResult.messages);
+  test.eq(["Case-Source", "Case-Source/Mixed-Case", "Case-Source/Mixed-Case/index"], caseResult.actions.map(action => action.subPath));
   await commitWork();
   test.eq(["Case-Source/Mixed-Case", "Case-Source/Mixed-Case/index", "Case-Source"].sort(), (await caseTarget.listRecursive()).map(entry => entry.path).sort());
+}
+
+// Verifies dry runs, the reported actions, the 'modified' option, importing onto a folder, the 'subPath' option and instance filters of importIntoWHFS
+async function testWHFSImportActions() {
+  const target = await test.getTestSiteJSTemp();
+  const expectCreated: ImportWHFSAction[] = [
+    "import-tree",
+    "import-tree/no-meta-dir",
+    "import-tree/no-meta-dir/no-meta-subdir",
+    "import-tree/no-meta-dir/no-meta-subdir/README.md",
+    "import-tree/no-meta-dir/no-meta-subdir/snowbeagle.webp",
+    "import-tree/rootfile",
+    "import-tree/subdir",
+    "import-tree/subdir/goudvis-contentlink",
+    "import-tree/subdir/goudvis.png",
+    "import-tree/subdir/index",
+  ].map(subPath => ({ subPath, action: "create" }));
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: A dry run into an empty folder reports everything as created, but creates nothing
+  await beginWork();
+  const importTree = await target.createFolder("dest-actions");
+  await commitWork();
+
+  const dryRun = await importIntoWHFS(importTreeSource, importTree, { dryRun: true, allowResourceImports: true });
+  test.eq([], dryRun.messages);
+  test.eq(expectCreated, sortActions(dryRun.actions));
+  test.eq([], await importTree.list());
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: The real import reports the same actions, and gives every object the requested modification date
+  const modified = Temporal.Instant.from("2026-01-02T03:04:05Z");
+  await beginWork();
+  const importResult = await importIntoWHFS(importTreeSource, importTree, { modified, allowResourceImports: true });
+  test.eq([], importResult.messages);
+  test.eq(expectCreated, sortActions(importResult.actions));
+  await commitWork();
+
+  for (const entry of await importTree.listRecursive(["modified", "created"])) {
+    test.eq(modified, entry.modified, `modified of '${entry.path}'`);
+    test.eq(modified, entry.created, `created of '${entry.path}'`);
+  }
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Overwriting reports updates, and leaves objects that aren't in the source alone
+  await beginWork();
+  const tree = await importTree.openFolder("import-tree");
+  await tree.createFile("extra-file", { type: "platform:filetypes.richdocument" });
+  const keepFolder = await tree.createFolder("keep-folder");
+  await keepFolder.createFile("inside-keep-folder", { type: "platform:filetypes.richdocument" });
+  await (await tree.createFolder("extra-folder")).createFile("inside-extra-folder", { type: "platform:filetypes.richdocument" });
+  await commitWork();
+
+  const overwriteDryRun = await importIntoWHFS(importTreeSource, importTree, { dryRun: true, ifExists: "overwrite", allowResourceImports: true });
+  //Folders without metadata (no-meta-dir) aren't touched once they exist, so they don't appear as updated
+  test.eq(expectCreated.filter(action => !action.subPath.endsWith("-dir") && !action.subPath.endsWith("-subdir")).map(action => ({ ...action, action: "update" as const })), sortActions(overwriteDryRun.actions));
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: A source that is an exported folder itself is imported onto the target folder, which keeps its name
+  const folderSource = join(importTreeSource, "import-tree");
+  const expectOnto: ImportWHFSAction[] = [
+    { subPath: "", action: "update" }, //the target folder itself
+    ...expectCreated.filter(action => action.subPath !== "import-tree").map(action => ({ ...action, subPath: action.subPath.slice("import-tree/".length) }))
+  ];
+
+  await beginWork();
+  await target.createFolder("dest-onto");
+  await commitWork();
+
+  const ontoDryRun = await importIntoWHFS(folderSource, await target.openFolder("dest-onto"), { dryRun: true, allowResourceImports: true });
+  test.eq([], ontoDryRun.messages);
+  test.eq(expectOnto, sortActions(ontoDryRun.actions));
+  test.eq("", (await target.openFolder("dest-onto")).title);
+
+  await beginWork();
+  const ontoResult = await importIntoWHFS(folderSource, await target.openFolder("dest-onto"), { allowResourceImports: true });
+  test.eq([], ontoResult.messages);
+  test.eq(expectOnto, sortActions(ontoResult.actions));
+  await commitWork();
+
+  const ontoFolder = await target.openFolder("dest-onto");
+  test.eq(["no-meta-dir", "rootfile", "subdir"], (await ontoFolder.list()).map(entry => entry.name).sort());
+  await verifyImportTree(ontoFolder);
+
+  await test.throws(/can't be imported onto the WHFS root folder/, importIntoWHFS(folderSource, await openFolder(null, { allowRoot: true }), { dryRun: true }));
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: 'subPath' imports only that part of the source, and still resolves links to the rest of the target
+  await beginWork();
+  const subPathResult = await importIntoWHFS(folderSource, ontoFolder, { subPath: "subdir", ifExists: "overwrite", allowResourceImports: true });
+  test.eq([], subPathResult.messages); //subdir/index links to no-meta-dir, which isn't in this import
+  test.eq([
+    { subPath: "subdir", action: "update" },
+    { subPath: "subdir/goudvis-contentlink", action: "update" },
+    { subPath: "subdir/goudvis.png", action: "update" },
+    { subPath: "subdir/index", action: "update" },
+  ], sortActions(subPathResult.actions));
+  await commitWork();
+
+  //It works for a single file, and for a source that contains the exported folder
+  const subPathFileResult = await importIntoWHFS(importTreeSource, importTree, { subPath: "/import-tree/subdir/goudvis.png", dryRun: true, ifExists: "overwrite" });
+  test.eq([{ subPath: "import-tree/subdir/goudvis.png", action: "update" }], subPathFileResult.actions);
+
+  //Folders above the subPath that don't exist yet are created as plain folders. Importing them later completes them
+  await beginWork();
+  const subPathNew = await target.createFolder("dest-subpath");
+  const subPathNewResult = await importIntoWHFS(folderSource, subPathNew, { subPath: "subdir/goudvis.png", allowResourceImports: true });
+  test.eq([], subPathNewResult.messages);
+  test.eq([{ subPath: "subdir", action: "create" }, { subPath: "subdir/goudvis.png", action: "create" }], sortActions(subPathNewResult.actions));
+  test.eq("platform:foldertypes.default", (await subPathNew.openFolder("subdir")).type);
+  test.eq("", (await subPathNew.openFolder("subdir")).title);
+  test.eq("", (await target.openFolder("dest-subpath")).title, "The target folder is outside the subPath too");
+
+  const subPathCompleteResult = await importIntoWHFS(folderSource, subPathNew, { ifExists: "overwrite", allowResourceImports: true });
+  test.eq([], subPathCompleteResult.messages);
+  test.eq("platform:foldertypes.system", (await subPathNew.openFolder("subdir")).type);
+  test.eq("My subfolder", (await subPathNew.openFolder("subdir")).title);
+  await commitWork();
+
+  await test.throws(/was not found in/, importIntoWHFS(folderSource, ontoFolder, { subPath: "nosuchdir", dryRun: true }));
+  await test.throws(/Invalid subPath/, importIntoWHFS(folderSource, ontoFolder, { subPath: "../subdir", dryRun: true }));
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: filterInstance can drop instances on import
+  await beginWork();
+  const filteredTree = await target.createFolder("dest-filtered");
+  const seen: string[] = [];
+  const filteredResult = await importIntoWHFS(importTreeSource, filteredTree, {
+    allowResourceImports: true,
+    filterInstance: ({ subPath, whfsType: type, data }) => {
+      seen.push(`${subPath}:${type}`);
+      return subPath === "import-tree" && type === "http://www.webhare.net/xmlns/beta/test" ? null : data;
+    }
+  });
+  test.eq([], filteredResult.messages);
+  await commitWork();
+
+  test.assert(seen.includes("import-tree:http://www.webhare.net/xmlns/beta/test"));
+  test.assert(!seen.some(entry => entry.endsWith(":platform:virtual.objectdata")), "objectdata isn't an instance and shouldn't be filtered");
+  const filteredRoot = await filteredTree.openFolder("import-tree");
+  test.eq([], (await whfsType("http://www.webhare.net/xmlns/beta/test").get(filteredRoot.id)).arraytest);
+  test.eq("The Tree To Import", filteredRoot.title);
 }
 
 // Verifies that exports are deterministic by default, includeInfo, exporting a subpath and filtering instances on export
@@ -295,6 +445,27 @@ async function testWHFSExportOptions() {
   test.assert(filteredTypes.includes("platform:virtual.objectdata"));
   test.assert(!filteredTypes.includes("http://www.webhare.net/xmlns/beta/test"));
   test.assert(existsSync(join(workdir, "filtered", "import-tree/subdir/index.whfs.yml")));
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: A folder that gets a new index document through the import still gets the import's modification date
+  await beginWork();
+  const indexSource = await target.createFolder("index-source");
+  await (await indexSource.createFolder("with-index")).createFile("index.html", { type: "platform:filetypes.richdocument" });
+  await commitWork();
+
+  await storeWHFSExport(join(workdir, "index"), [indexSource]);
+
+  const modified = Temporal.Instant.from("2026-01-02T03:04:05Z");
+  await beginWork();
+  const indexTarget = await target.createFolder("index-target");
+  const indexResult = await importIntoWHFS(join(workdir, "index"), indexTarget, { modified });
+  test.eq([], indexResult.messages);
+  await commitWork();
+
+  const importedFolder = await indexTarget.openFolder("index-source/with-index");
+  test.eq((await importedFolder.openFile("index.html")).id, importedFolder.indexDoc);
+  for (const entry of await indexTarget.listRecursive(["modified"]))
+    test.eq(modified, entry.modified, `modified of '${entry.path}'`);
 }
 
 test.runTests([
@@ -304,5 +475,6 @@ test.runTests([
   testWHFSExportWithResourceLinks,
   testRTDImageRoundTrip,
   testWHFSImportFolderCase,
+  testWHFSImportActions,
   testWHFSExportOptions,
 ]);

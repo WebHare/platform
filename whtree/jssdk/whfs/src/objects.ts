@@ -685,7 +685,7 @@ export class WHFSFolder extends WHFSBaseObject {
     // If this is a file with an indexdoc name, make it the indexdoc of this folder.
     // else, if the folder doesn't have an index and the new file can function as one, it becomes the index.
     if (/* options.setindex OR*/ whconstant_webserver_indexpages.includes(name.toLowerCase())) {
-      await this.update({ indexDoc: id });
+      await this.update({ indexDoc: id, ...metadata?.modified ? { modified: metadata.modified } : {} }); //an explicit modification date goes for us too
     }
 
     return id;

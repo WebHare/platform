@@ -14,6 +14,7 @@ import { importIntExtLink, type ExportedBlobReference, type ImportOptions } from
 import type { ExportedIntExtLink } from '@webhare/services/src/intextlink';
 import { beginWork, commitWork } from '@webhare/whdb';
 import { WebHareMemoryBlob } from '@webhare/services/src/webhareblob';
+import type { WHFSInstanceFilter } from './export';
 
 export type ImportWHFSProgress = {
   subPath: string;
@@ -26,7 +27,28 @@ export type ImportWHFSOptions = {
     from: string;
     to: string;
   }>;
+  /** Report the actions the import would take, but don't change anything. Instance data and links aren't validated in a dry run */
+  dryRun?: boolean;
+  /** Only import this path inside the source, eg. "subdir" or "subdir/myfile". Objects outside it aren't imported or
+   * updated, but links to them are still resolved against the target folder. Folders above the path that don't exist
+   * yet in the target folder are created as plain folders, without the type, properties and instances the source has
+   * for them, and are reported as "create" actions. Importing those folders later with `ifExists: "overwrite"`
+   * completes them. Use it to import a part of a full export, or an export made with the `subPath` export option */
+  subPath?: string;
+  /** Modification date (and creation date for new objects) to set on every object the import creates or updates.
+   * Defaults to the time the import started */
+  modified?: Temporal.Instant;
+  /** Called for every instance before it's imported. Return the (modified) data to import, or null to skip the instance.
+   * The `subPath` it gets is relative to the target folder, like in `actions`. That's the path the export used, unless
+   * the source is an exported folder itself: then it lacks the name of that folder, and is empty for the folder itself */
+  filterInstance?: WHFSInstanceFilter;
 } & Pick<ImportOptions, "allowResourceImports">;
+
+export type ImportWHFSAction = {
+  /** Path of the object relative to the target folder. Empty for the target folder itself */
+  subPath: string;
+  action: "create" | "update";
+};
 
 export interface ImportWHFSResult {
   messages: Array<{
@@ -34,6 +56,8 @@ export interface ImportWHFSResult {
     type: "error" | "warning";
     message: string;
   }>;
+  /** Objects created or updated by the import (or that would be, for a dry run), in the order they were processed */
+  actions: ImportWHFSAction[];
 }
 
 type ImportItem = {
@@ -116,35 +140,69 @@ export async function resolveVirtualMetadata(target: WHFSObject | null, inData: 
 
 class ImportSession {
   result: ImportWHFSResult = {
-    messages: []
+    messages: [],
+    actions: []
   };
   items;
   outputMap;
-  importDT = Temporal.Now.instant();
+  importDT;
+  /** Lowercased subpaths for which an action has been recorded */
+  recordedActions = new Set<string>();
   public targetFolder: WHFSFolder;
   public options?: ImportWHFSOptions;
+  /** Lowercased subpath to limit the import to, empty to import everything */
+  subPath: string;
 
   constructor(items: CombinedImportItem[], targetFolder: WHFSFolder, options?: ImportWHFSOptions) {
     this.targetFolder = targetFolder;
     this.options = options;
+    this.subPath = toCLocaleLowercase(options?.subPath ?? "");
+    this.importDT = options?.modified ?? Temporal.Now.instant();
     items.sort(compareProperties(["subPath"])); //ensure parent folders come before their children
     this.items = new Map(items.map(item => [toCLocaleLowercase(item.subPath), item]));
     this.outputMap = new Map<string, WHFSObject>([["", targetFolder]]); //maps source subpaths to their corresponding WHFSFolder in the target (starting with the root)
   }
 
-  async ensureFolder(subPath: string): Promise<WHFSFolder | null> {
+  /** Is this item one we should import? Assets and items outside the requested subPath aren't */
+  isSelected(item: CombinedImportItem): boolean {
+    if (item.subPath.includes('^'))
+      return false; //this is an asset belonging to another file
+    const lcPath = toCLocaleLowercase(item.subPath);
+    return !this.subPath || lcPath === this.subPath || lcPath.startsWith(this.subPath + "/");
+  }
+
+  addAction(subPath: string, action: ImportWHFSAction["action"]) {
+    const key = toCLocaleLowercase(subPath);
+    if (this.recordedActions.has(key))
+      return;
+    this.recordedActions.add(key);
+    this.result.actions.push({ subPath, action });
+  }
+
+  /** Get the folder to store an item in, creating it if needed
+   * @returns The folder, null if the path is blocked by a file, or "new" if the folder doesn't exist yet in a dry run
+   */
+  async ensureFolder(subPath: string): Promise<WHFSFolder | null | "new"> {
     const wantPath = dirname(subPath); //ensureFolder should be called with the path of the metadata file, but we need to create folders based on the path, so we need to get the directory of the metadata file
     let pathsofar = '', currentFolder = this.targetFolder;
     if (wantPath === '.' || !wantPath)
       return currentFolder;
 
-    for (const pathEntry of wantPath.split('/')) {
+    const pathEntries = wantPath.split('/');
+    for (const [idx, pathEntry] of pathEntries.entries()) {
       pathsofar += '/' + toCLocaleLowercase(pathEntry);
       let tryfolder: WHFSObject | null = this.outputMap.get(pathsofar) || null;
       if (!tryfolder) {
         tryfolder = await currentFolder.openFileOrFolder(pathEntry, { allowMissing: true });
-        if (!tryfolder)
-          tryfolder = await currentFolder.createFolder(pathEntry);
+        if (!tryfolder) {
+          if (this.options?.dryRun) { //this folder and everything below it will be new
+            for (let i = idx; i < pathEntries.length; ++i)
+              this.addAction(pathEntries.slice(0, i + 1).join('/'), "create");
+            return "new";
+          }
+          tryfolder = await currentFolder.createFolder(pathEntry, { created: this.importDT, modified: this.importDT });
+          this.addAction(pathEntries.slice(0, idx + 1).join('/'), "create");
+        }
 
         this.outputMap.set(pathsofar, tryfolder);
       }
@@ -186,7 +244,7 @@ class ImportSession {
 
     //It doesn't exist yet. We expect anything we could refer to to have an whfs.yaml metadata so look straight for that one
     const futureItem = this.items.get(toCLocaleLowercase(findSubPath));
-    if (futureItem) {
+    if (futureItem && this.isSelected(futureItem)) {
       if (!futureItem.id)
         futureItem.id = await nextWHFSObjectId();
 
@@ -237,8 +295,25 @@ class ImportSession {
       typeinfo = getType("platform:filetypes.unknown")!; //FIXME type detect
     }
 
+    //An item without a path is the metadata of the exported folder itself. It's applied to the target folder, which keeps its name
+    const isTarget = item.subPath === "";
+    const exists = isTarget ? this.targetFolder : storeFolder === "new" ? null : await storeFolder.openFileOrFolder(item.name, { allowMissing: true });
+    if (isTarget && !typeinfo.foldertype) {
+      this.result.messages.push({ subPath: item.subPath, type: "error", message: `Type '${meta?.type}' is not a folder type` });
+      return;
+    }
+    if (exists && !isTarget && this.options?.ifExists !== "overwrite") {
+      this.result.messages.push({ subPath: item.subPath, type: "error", message: `Cannot import '${item.name}' at '${exists.whfsPath}' - a ${exists.isFolder ? "folder" : "file"} with that name already exists` });
+      return;
+    }
+
+    if (storeFolder === "new" || this.options?.dryRun) { //storeFolder is only "new" in a dry run
+      this.addAction(item.subPath, exists ? "update" : "create");
+      return;
+    }
+
     const importOptions: ImportOptions = {
-      unmapWhfsLink: ref => this.unmapWhfsLink(storeFolder.whfsPath + (typeinfo.foldertype ? item.name + "/" : ""), item.subPath, ref),
+      unmapWhfsLink: ref => this.unmapWhfsLink(storeFolder.whfsPath + (typeinfo.foldertype && !isTarget ? item.name + "/" : ""), item.subPath, ref),
       importFile: file => this.importFile(typeinfo.foldertype ? item.subPath : dirname(item.subPath), item.subPath, file, this.options),
       ...pick(this.options || {}, ["allowResourceImports"])
     };
@@ -254,12 +329,6 @@ class ImportSession {
 
     if (item.id)
       baseMetadata.id = item.id; //pre-allocated ID
-
-    const exists = await storeFolder.openFileOrFolder(item.name, { allowMissing: true });
-    if (exists && this.options?.ifExists !== "overwrite") {
-      this.result.messages.push({ subPath: item.subPath, type: "error", message: `Cannot import '${item.name}' at '${storeFolder.whfsPath}' - a ${exists.isFolder ? "folder" : "file"} with that name already exists` });
-      return;
-    }
 
     if (item.blob) {
       baseMetadata.data = await ResourceDescriptor.fromBlob(await item.blob());
@@ -282,13 +351,21 @@ class ImportSession {
       });
     }
 
-    this.outputMap.set("/" + toCLocaleLowercase(item.subPath), finalObj);
+    if (!isTarget)
+      this.outputMap.set("/" + toCLocaleLowercase(item.subPath), finalObj);
+    this.addAction(item.subPath, exists ? "update" : "create");
 
     for (const instance of meta?.instances || []) {
       if (instance.whfsType === "platform:virtual.objectdata")
         continue;
+      let data: object | null = instance.data as object || {};
+      if (this.options?.filterInstance) {
+        data = this.options.filterInstance({ subPath: item.subPath, whfsType: instance.whfsType, data });
+        if (!data)
+          continue;
+      }
       const typeHandler = whfsType(instance.whfsType);
-      await typeHandler.set(finalObj.id, instance.data as object || {}, { isVisibleEdit: false, ...importOptions });
+      await typeHandler.set(finalObj.id, data, { isVisibleEdit: false, ...importOptions });
     }
   }
 }
@@ -300,7 +377,10 @@ function collapseMetadata(items: ImportItem[]): CombinedImportItem[] {
 
   //first add all items that have metadata
   for (const [subpath, item] of itemMap) {
-    if (subpath.endsWith("/^folder.whfs.yml")) {
+    if (subpath === "^folder.whfs.yml") { //the source is an exported folder itself. this is the metadata for the target folder
+      outItems.push({ name: "", subPath: "", metadata: item.blob });
+      itemMap.delete(subpath); //mark metadata as processed
+    } else if (subpath.endsWith("/^folder.whfs.yml")) {
       outItems.push({
         name: dirname(item.subPath).split('/').pop()!, //get the folder name from the path (not from the lowercased key)
         subPath: dirname(item.subPath),
@@ -331,7 +411,16 @@ function filterItems(item: ImportItem) {
 }
 
 /** Import data into WHFS
- * @param source - unpacked archive or path on disk containing files/folders to import
+ *
+ * Overwriting an object (with `ifExists: "overwrite"`) replaces its type and properties and sets the instances the
+ * source has for it. Instances the object already had but that aren't in the source, or that `filterInstance` leaves
+ * out, are kept.
+ * @param source - unpacked archive or path on disk containing files/folders to import. If this is an exported folder
+ *   itself (eg. `out/myfolder` after exporting `myfolder` to `out/`, recognized by the `^folder.whfs.yml` in its root)
+ *   its contents are imported straight into the target folder and its type, properties and instances are applied to
+ *   the target folder like an overwrite, also without `ifExists: "overwrite"`. The target folder keeps its name.
+ *   Otherwise the files and folders in the source are imported as children of the target folder
+ * @param targetFolder - Folder to import into
  */
 export async function importIntoWHFS(source: UnpackArchiveResult | string, targetFolder: WHFSFolder, options?: ImportWHFSOptions): Promise<ImportWHFSResult> {
   if (typeof source !== "string")
@@ -361,12 +450,25 @@ export async function importIntoWHFS(source: UnpackArchiveResult | string, targe
 
   const collapsedItems = collapseMetadata(items);
 
+  //Is the source an exported folder itself, to be imported onto the target folder?
+  const isFolderSource = collapsedItems.some(item => item.subPath === "");
+  if (isFolderSource && !targetFolder.id)
+    throw new Error(`Source '${source}' is an exported folder, which can't be imported onto the WHFS root folder`);
+
+  if (options?.subPath !== undefined) {
+    const parts = options.subPath.split('/').filter(part => part); //ignores leading, trailing and repeated slashes
+    if (!parts.length || parts.some(part => part === "." || part === ".." || part.includes('^')))
+      throw new Error(`Invalid subPath '${options.subPath}'`);
+    options = { ...options, subPath: parts.join('/') };
+  }
+
   const importer = new ImportSession(collapsedItems, targetFolder, options);
+  const selectedItems = [...importer.items.values()].filter(item => importer.isSelected(item));
+  if (options?.subPath && !selectedItems.length)
+    throw new Error(`The subPath '${options.subPath}' was not found in '${source}'`);
 
   //TODO when replacing we should figure out all existing IDs
-  for (const item of importer.items.values()) {
-    if (item.subPath.includes('^'))
-      continue; //this is an asset belonging to another file. just ignore
+  for (const item of selectedItems) {
     importer.options?.onProgress?.({ subPath: item.subPath });
     await importer.import(item);
   }

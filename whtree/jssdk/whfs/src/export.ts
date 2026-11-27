@@ -36,7 +36,9 @@ import { Readable } from 'node:stream';
 
 
 /** Filter for instance data during export or import
- * @param instance - The instance. `subPath` is the path of the object it belongs to, as used in the export (eg. "my-folder/my-image.jpg")
+ * @param instance - The instance. `subPath` is the path of the object it belongs to. On export it starts with the name
+ *   of the exported folder (eg. "my-folder/my-image.jpg"). On import it's relative to the import's target folder, which
+ *   is the same path unless the source of the import is an exported folder itself (then it's "my-image.jpg")
  * @returns The (modified) data to export or import, or null to leave out the instance
  */
 export type WHFSInstanceFilter = (instance: { subPath: string; whfsType: string; data: object }) => object | null;
