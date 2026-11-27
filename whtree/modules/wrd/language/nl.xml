@@ -68,7 +68,8 @@
         <text tid="auditlog">Inlog-events</text>
         <text tid="authsettings">Inloginstellingen</text>
         <text tid="authtexts">Teksten authenticatiepagina's</text>
-        <text tid="deleteentity">Verwijderen</text>
+        <text tid="closeentity">Entiteit afsluiten</text>
+        <text tid="deleteentity">Entiteit verwijderen</text>
         <text tid="deletelink">Koppeling verwijderen</text>
         <text tid="editentity">Bewerken</text>
         <text tid="editlink">Koppeling bewerken</text>
@@ -122,6 +123,8 @@
     </textgroup>
     <textgroup gid="messages">   <!-- browser.messages -->
       <text tid="cannotdeletetype">De basistypes WRD_PERSON, WRD_ORGANIZATION en WRD_RELATION mogen niet worden verwijderd.</text>
+      <text tid="closeentities">Weet je zeker dat je de geselecteerde entiteiten wil afsluiten?</text>
+      <text tid="closeentity">Weet je zeker dat je de geselecteerde entiteit wil afsluiten?</text>
       <text tid="confirmextendwrdauth">Weet je zeker dat je de types die nodig zijn voor WRD authenticatie wil toevoegen?</text>
       <text tid="confirmmergeentity">Weet je zeker dat je de oorspronkelijke geselecteerde entiteit wil samenvoegen in de zojuist geselecteerde entiteit?</text>
       <text tid="confirmupdatewrdauth">Weet je zeker dat je de types die nodig zijn voor WRD authenticatie wil updaten?</text>
