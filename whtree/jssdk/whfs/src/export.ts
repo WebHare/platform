@@ -4,6 +4,7 @@ import { describeWHFSType } from "./describe";
 import { listInstances } from "./listinstances";
 import { openFile, openFileOrFolder, type WHFSFile, type WHFSFolder, type WHFSObject } from "./objects";
 import { whfsType, type ExportedInstance } from "./contenttypes";
+import { compareProperties } from "@webhare/std";
 import { basename, dirname, join, relative } from "node:path";
 import { listDirectory, storeDiskFile } from "@webhare/system-tools";
 import { mkdir } from "node:fs/promises";
@@ -34,9 +35,25 @@ import { Readable } from 'node:stream';
 */
 
 
+/** Filter for instance data during export or import
+ * @param instance - The instance. `subPath` is the path of the object it belongs to. On export it starts with the name
+ *   of the exported folder (eg. "my-folder/my-image.jpg"). On import it's relative to the import's target folder, which
+ *   is the same path unless the source of the import is an exported folder itself (then it's "my-image.jpg")
+ * @returns The (modified) data to export or import, or null to leave out the instance
+ */
+export type WHFSInstanceFilter = (instance: { subPath: string; whfsType: string; data: object }) => object | null;
+
 export interface ExportWHFSOptions {
   /** A list of resource paths that may contain resources to be linked to. */
   linkResourcesFrom?: string[];
+  /** Add a header comment (WebHare version, server and export date) and each object's creation and modification date.
+   * Without it, exporting unchanged objects again gives identical files. The import ignores this information */
+  includeInfo?: boolean;
+  /** Only export the object at this path inside the source folder (and its contents, if it's a folder). It's stored at
+   * the same location as in a full export, and links are still mapped relative to the source folder */
+  subPath?: string;
+  /** Called for every instance before it's exported. Return the (modified) data to export, or null to leave out the instance */
+  filterInstance?: WHFSInstanceFilter;
   /** Callback on progress change. May be invoked multiple times for the same path to add other progress information */
   onProgress?: (progress: { subPath: string }) => void;
 }
@@ -75,11 +92,13 @@ export async function getVirtualObjectData(obj: WHFSObject, { includeData }: { i
   };
 }
 
-async function buildExportMetadata(obj: WHFSObject, exportOptions: ExportOptions & { export: true }) {
+async function buildExportMetadata(obj: WHFSObject, subPath: string, exportOptions: ExportOptions & { export: true }, options?: ExportWHFSOptions) {
   const exportMeta = {
     type: obj.type,
-    created: obj.created.toString(),
-    modified: obj.modified.toString(),
+    ...!options?.includeInfo ? {} : {
+      created: obj.created.toString(),
+      modified: obj.modified.toString(),
+    },
     instances: [] as ExportedInstance[]
   };
   exportMeta.instances.push({
@@ -93,10 +112,16 @@ async function buildExportMetadata(obj: WHFSObject, exportOptions: ExportOptions
       continue;
 
 
-    const data = await whfsType(instance.scopedType || instance.namespace).get(obj.id, exportOptions);
+    const whfsTypeName = instance.scopedType || instance.namespace;
+    let data: object | null = await whfsType(whfsTypeName).get(obj.id, exportOptions) || {};
+    if (options?.filterInstance) {
+      data = options.filterInstance({ subPath, whfsType: whfsTypeName, data });
+      if (!data)
+        continue;
+    }
     exportMeta.instances.push({
-      whfsType: instance.scopedType || instance.namespace,
-      data: data || {}
+      whfsType: whfsTypeName,
+      data
     });
   }
 
@@ -116,7 +141,7 @@ class WHFSExportContext {
     this.options = options;
   }
 
-  async exportFileAsAsset(storePath: string, file: WebHareBlob, info: { extension: string | null }): Promise<ExportedBlobReference | undefined> {
+  async exportFileAsAsset(storePath: string, file: WebHareBlob, info: { extension: string | null }, modified: Temporal.Instant): Promise<ExportedBlobReference | undefined> {
     if (this.options?.linkResourcesFrom) {
       this.availableResources ||= await buildResourceMap(this.options.linkResourcesFrom);
       const match = this.availableResources.get(await hashStream(file.stream()));
@@ -130,7 +155,7 @@ class WHFSExportContext {
     const counter = (this.assetCounters.get(storePath || "") || 0) + 1;
     this.assetCounters.set(storePath || "", counter);
     const assetPath = `${storePath}^${counter}${info.extension ?? ".dat"}`;
-    await this.target.addFile(assetPath, file.stream(), new Date());
+    await this.target.addFile(assetPath, file.stream(), modified);
     return { asset: basename(assetPath) };
   }
 
@@ -138,11 +163,23 @@ class WHFSExportContext {
     if (!Array.isArray(sources))
       sources = [sources];
 
+    if (this.options?.subPath && sources.length > 1)
+      throw new Error(`The subPath option can only be used when exporting a single folder`);
+
     for (const source of sources) {
       if (!source.isFolder)
         throw new Error(`Source '${source.whfsPath}' is not a folder`);
 
-      await this.exportWHFSTree(source, source, dirname(source.name));
+      let item: WHFSObject = source, basePath = dirname(source.name);
+      if (this.options?.subPath) {
+        item = await source.openFileOrFolder(this.options.subPath);
+        if (item.id === source.id || !item.whfsPath.startsWith(source.whfsPath))
+          throw new Error(`The subPath '${this.options.subPath}' must refer to an object inside '${source.whfsPath}'`);
+        //Use the names as stored in WHFS to build the path to the item
+        const parentPath = dirname(item.whfsPath.slice(source.whfsPath.length).replace(/\/$/, ""));
+        basePath = `${basePath}/${source.name}${parentPath === "." ? "" : "/" + parentPath}`;
+      }
+      await this.exportWHFSTree(source, item, basePath);
     }
   }
 
@@ -155,21 +192,20 @@ class WHFSExportContext {
 
     const exportOptions: ExportOptions & { export: true } = {
       export: true,
-      exportFile: (file, info) => this.exportFileAsAsset(storeBasePath, file, info),
+      exportFile: (file, info) => this.exportFileAsAsset(storeBasePath, file, info, item.modified),
       mapWhfsLink: link => mapWhfsLink(start, item.isFolder ? item.whfsPath : dirname(item.whfsPath), link)
     };
 
-    const meta = await buildExportMetadata(item, exportOptions);
-    const header = `# Export of ${item.isFolder ? "folder" : "file"} "${item.sitePath}" from WebHare v${backendConfig.whVersion} on ${backendConfig.serverName} at ${new Date().toISOString()}\n`;
+    const meta = await buildExportMetadata(item, entryPath.replace(/^\.\//, ""), exportOptions, this.options);
+    const header = !this.options?.includeInfo ? "" : `# Export of ${item.isFolder ? "folder" : "file"} "${item.sitePath}" from WebHare v${backendConfig.whVersion} on ${backendConfig.serverName} at ${new Date().toISOString()}\n`;
     const metadataPath = `${storeBasePath}.whfs.yml`;
     await this.target.addFile(metadataPath, header + YAML.stringify(meta), item.modified);
 
     if (item.isFolder) {
       await this.target.addFolder(entryPath, item.modified);
-      for (const entry of await item.list()) {
+      //list() doesn't guarantee an order, and the order of the entries in a zip should be the same for every export
+      for (const entry of (await item.list()).sort(compareProperties(["name"])))
         await this.exportWHFSTree(start, await openFileOrFolder(entry.id), entryPath);
-
-      }
     } else {
       const typeinfo = await describeWHFSType(item.type);
       if (typeinfo.metaType === "fileType" && typeinfo.hasData) {
@@ -209,6 +245,11 @@ export function createWHFSExportZip(source: WHFSObject | WHFSObject[], options?:
 }
 
 /** Export WHFS objects to disk
+ *
+ * Existing files in the target directory are overwritten, but files left there by an earlier export aren't removed. If
+ * you export into a directory that isn't empty, objects that were deleted since that earlier export are still in it
+ * and come back when you import it.
+ @param target Directory to export to
  @param source A WHFS object or array of objects to export.
 */
 export async function storeWHFSExport(target: string, source: WHFSObject | WHFSObject[], options?: ExportWHFSOptions): Promise<void> {
