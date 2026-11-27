@@ -3,6 +3,7 @@
 // TODO move/integrate this into `wh debug`, reconsider command names then (and add dashes)
 
 import bridge from "@mod-system/js/internal/whmanager/bridge";
+import { formatTable } from "@mod-platform/js/cli/output";
 import { type DebugMgrClientLink, DebugMgrClientLinkRequestType } from "@mod-system/js/internal/whmanager/debug";
 import { WHMProcessType } from '@mod-system/js/internal/whmanager/whmanager_rpcdefs';
 import { spawn, spawnSync } from "node:child_process";
@@ -109,7 +110,7 @@ runCli({
             name: p.name,
             arguments: JSON.parse(p.parameters?.arguments ?? "[]")
           }));
-          console.table(showList, ["pid", "name", "arguments"]);
+          console.log(formatTable(showList, ["pid", "name", "arguments"]));
         }
       }
     }, "getenvironment": {
@@ -271,7 +272,7 @@ runCli({
       description: "Get the currently registered global IPC ports",
       main: async () => {
         const ports = await bridge.getPortList();
-        console.table(ports);
+        console.log(formatTable(ports));
       }
     },
     "get-compiled-version": {
@@ -315,7 +316,7 @@ runCli({
             console.log(JSON.stringify(list));
           else {
             if (list.length)
-              console.table(list.map(l => ({ ...l, matchingworkers: l.matchingworkers.map(w => w.workerid).join(", ") })), ["pid", "name", "processcode", "matchingworkers"]);
+              console.log(formatTable(list.map(l => ({ ...l, matchingworkers: l.matchingworkers.map(w => w.workerid).join(", ") })), ["pid", "name", "processcode", "matchingworkers"]));
             else
               console.log(`No workers found with an id starting with ${JSON.stringify(args.instance)}`);
           }

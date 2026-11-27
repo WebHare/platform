@@ -226,6 +226,17 @@ async function testInstanceData() {
 
   test.eq([{ getId: testfile.id, passThrough: 42, str: "String", aRecord: { x: 42, y: 43, mixedcase: 44, my_money: Money.fromNumber(4.5) } }],
     await testtype.enrich([{ getId: testfile.id, passThrough: 42 }], "getId", ["str", "aRecord"]));
+  test.eq([{ getId: testfile.id, str: "String", myWhfsRef: "site::webhare_testsuite.testsite/tmp/testfile.txt" }],
+    await testtype.enrich([{ getId: testfile.id }], "getId", ["str", "myWhfsRef"], { export: true }));
+  test.eq([{ getId: testfile.id }], await testtype.enrich([{ getId: testfile.id }], "getId", []));
+
+  //enrichBySettingId gets the data of embedded instances. null gives the defaults
+  const genericInstance1 = whfsType("http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1");
+  test.eq([{ settingId, passThrough: 1, str1: "str1" }, { settingId: null, passThrough: 2, str1: "" }],
+    await genericInstance1.enrichBySettingId([{ settingId, passThrough: 1 }, { settingId: null, passThrough: 2 }], "settingId", ["str1"]));
+  test.eq([{ settingId, str1: "str1" }, { settingId: null }], //export leaves out default values
+    await genericInstance1.enrichBySettingId([{ settingId }, { settingId: null }], "settingId", ["str1"], { export: true }));
+  await test.throws(/No instance found for setting id/, () => genericInstance1.enrichBySettingId([{ settingId: -1 }], "settingId", ["str1"]));
 
   const expWhfsRefs = pick(await testtype.get(testfile.id, { export: true }), ["myWhfsRef", "myWhfsRefArray"]);
   test.eq("site::webhare_testsuite.testsite/tmp/testfile.txt", expWhfsRefs.myWhfsRef);
@@ -342,6 +353,11 @@ async function testInstanceData() {
 
   const directinstance = await whfsType("platform:filetypes.richdocument").getBySettingId(outFormInstance[dbLoc].id);
   test.eq({ tag: "p", items: [{ text: "asdf def" }] }, directinstance.data?.blocks[0]);
+
+  //Get multiple embedded instances (from different documents) at once
+  const enrichedInstances = await whfsType("platform:filetypes.richdocument").enrichBySettingId([{ id: outFormInstance[dbLoc].id }, { id: outHTMLDocInstance[dbLoc].id }], "id", ["data"]);
+  test.eq({ tag: "p", items: [{ text: "asdf def" }] }, enrichedInstances[0].data?.blocks[0]);
+  test.eq((inComposedHTMLDoc.instances.get('_1ra7ve1TrCw-ussv14O-g')?.data.data as RichTextDocument).blocks[0], enrichedInstances[1].data?.blocks[0]);
 
   const exportedComposedForm = (await testtype.get(testfile.id, { export: true })).aForm;
   test.eqPartial({

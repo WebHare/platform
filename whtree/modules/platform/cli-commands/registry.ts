@@ -1,6 +1,7 @@
 // @webhare/cli: Manage registry keys
 
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
+import { formatTable } from "@mod-platform/js/cli/output";
 import { CLIRuntimeError, enumOption, runCli } from "@webhare/cli";
 import { decodeHSON, determineType, encodeHSON, getHSTypeName, HareScriptType, setHareScriptType, type IPCMarshallableData } from "@webhare/hscompat/src/hson";
 import { createWebHarePasswordHash } from "@webhare/hscompat/src/passwords";
@@ -154,7 +155,7 @@ runCli({
         if (opts.json)
           console.log(JSON.stringify(output, null, 2));
         else
-          console.table(output);
+          console.log(formatTable(output));
       }
     },
     export: {

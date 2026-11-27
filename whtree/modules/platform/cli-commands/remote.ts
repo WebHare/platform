@@ -1,6 +1,7 @@
 // @webhare/cli: Connect to remote WebHare servers
 
 import { deletePeerRegistrations, getPeerServerToken, listPeers } from "@mod-platform/js/remote/connect";
+import { formatTable } from "@mod-platform/js/cli/output";
 import { commonFlags } from "@mod-platform/js/cli/cli-tools";
 import { CLIRuntimeError, enumOption, runCli } from "@webhare/cli";
 import { regExpFromWildcards } from "@webhare/std";
@@ -34,7 +35,7 @@ runCli({
         else if (!peers.length)
           console.log("No peers");
         else
-          console.table(peers.map(peer => ({
+          console.log(formatTable(peers.map(peer => ({
             url: peer.url,
             title: peer.title,
             registered: peer.authServer !== null,
@@ -42,7 +43,7 @@ runCli({
             expired: peer.tokenExpires ? peer.tokenExpires.getTime() < Date.now() : "",
             scopes: peer.scopes?.join(" ") ?? "",
             lastUse: peer.lastUse?.toString() ?? ""
-          })));
+          }))));
       }
     },
     connect: {

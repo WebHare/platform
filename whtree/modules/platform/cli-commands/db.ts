@@ -1,4 +1,5 @@
 import { readPlatformConf } from "@mod-platform/js/configure/axioms";
+import { formatTable } from "@mod-platform/js/cli/output";
 import { enumOption, intOption, runCli } from "@webhare/cli";
 import { toFSPath } from "@webhare/services";
 import { pick } from "@webhare/std";
@@ -24,7 +25,7 @@ runCli({
         } else if (!info.translist.length) {
           console.log("No active transactions");
         } else {
-          console.table(pick(info.translist, ["pid", "owner", "backendStart", "state"]));
+          console.log(formatTable(pick(info.translist, ["pid", "owner", "backendStart", "state"])));
         }
       }
     },
@@ -71,7 +72,7 @@ runCli({
         if (opts.json) {
           console.log(JSON.stringify(sequences, null, 2));
         } else {
-          console.table(sequences);
+          console.log(formatTable(sequences));
         }
       }
     },
@@ -236,7 +237,7 @@ runCli({
         if (opts.format === "json")
           console.log(JSON.stringify(results, null, 2));
         else {
-          console.table(results.map(r => ({
+          console.log(formatTable(results.map(r => ({
             tableName: r.tableName,
             totalSizeMB: (r.totalsize / (1024 * 1024)).toFixed(3) + " MB",
             tableSizeMB: (r.tablesize / (1024 * 1024)).toFixed(3) + " MB",
@@ -244,7 +245,7 @@ runCli({
             blobSizeMB: (r.blobSize / (1024 * 1024)).toFixed(3) + " MB",
             dedupBlobSizeMB: (r.dedupBlobSize / (1024 * 1024)).toFixed(3) + " MB",
             liveRowEstimate: r.liverowestimate
-          })));
+          }))));
         }
       }
     }

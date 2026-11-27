@@ -204,17 +204,28 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
     return (await db<PlatformDB>()
       .selectFrom("system.fs_instances").select("id").where("fs_type", "=", this.descr.id).where("fs_object", "=", fsobj).executeTakeFirst())?.id || null;
   }
-  private async getCurrentSettings(instanceIds: readonly number[], descr: WHFSTypeBase, keysToSet?: readonly string[]) {
+  /** Get the settings of instances
+   * @param instanceIds - Instances to get the settings for
+   * @param descr - Type of the instances (or of the embedded instances, if underSettings is set)
+   * @param options - Options:
+   *   keysToSet - Only get the settings for these (toplevel) members
+   *   underSettings - Get the settings of the instances embedded in these settings instead of the toplevel settings
+   */
+  private async getCurrentSettings(instanceIds: readonly number[], descr: WHFSTypeBase, { keysToSet, underSettings }: { keysToSet?: readonly string[]; underSettings?: readonly number[] } = {}) {
     const dbsettings: FSSettingsRow[] = [];
     let query = db<PlatformDB>()
       .selectFrom("system.fs_settings")
       .selectAll()
       .where("fs_instance", "in", instanceIds);
 
+    if (underSettings)
+      query = query.where("parent", "in", underSettings);
     if (keysToSet) {
       const memberIds = descr.members.filter(_ => keysToSet.includes(_.name)).map(_ => _.id);
+      if (!memberIds.length)
+        return [];
       query = query.where(qb => qb("fs_member", "in", memberIds));
-    } else
+    } else if (!underSettings)
       query = query.where(qb => qb("parent", "is", null));
 
     let worklist = await query.execute();
@@ -251,7 +262,7 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
       .execute();
     const instanceIds = instanceIdMapping.map(_ => _.id);
     const instanceInfo = new Map(instanceIdMapping.map(_ => [_.fs_object, _]));
-    const cursettings = instanceIds.length ? await this.getCurrentSettings(instanceIds, this.descr, properties || undefined) : [];
+    const cursettings = instanceIds.length ? await this.getCurrentSettings(instanceIds, this.descr, { keysToSet: properties || undefined }) : [];
     const groupedSettings = Map.groupBy(cursettings, _ => _.fs_instance);
     const getMembers = properties ? this.descr.members.filter(_ => properties.includes(_.name as string)) : this.descr.members;
 
@@ -286,44 +297,91 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
   async getBySettingId(id: number, options?: ExportOptions): Promise<GetFormat>;
 
   async getBySettingId(id: number, options?: ExportOptions): Promise<GetFormat | ExportFormat> {
-    this.descr ??= await describeWHFSType(this.ns);
+    const bulkdata = await this.getBulkBySettingId([id], null, options);
+    return bulkdata.get(id) as GetFormat | ExportFormat;
+  }
 
-    const settingInfo = await db<PlatformDB>()
+  /** Get the data of embedded instances. Only loads the settings of these instances, not of the instances embedding them
+   * @param settingIds - Setting ids of the embedded instances. null gives the default instance
+   * @param properties - Members to get, null for all members
+   * @param options - Export options
+   * @returns Map of setting id to the instance data
+   */
+  private async getBulkBySettingId(settingIds: Array<number | null>, properties: string[] | null, options?: ExportOptions): Promise<Map<number | null, unknown>> {
+    this.descr ??= await describeWHFSType(this.ns);
+    const ids = [...new Set(settingIds.filter(id => id !== null))];
+    const settingInfo = ids.length ? await db<PlatformDB>()
       .selectFrom("system.fs_settings")
       .innerJoin("system.fs_instances", "system.fs_instances.id", "system.fs_settings.fs_instance")
       .innerJoin("system.fs_objects", "system.fs_objects.id", "system.fs_instances.fs_object")
-      .select(["system.fs_objects.creationdate", "system.fs_instances.id"])
-      .where("system.fs_settings.id", "=", id)
-      .executeTakeFirst();
-    if (!settingInfo)
-      throw new Error(`No instance found for setting id ${id}`);
+      .select(["system.fs_settings.id", "system.fs_instances.id as instanceId", "system.fs_objects.creationdate"])
+      .where("system.fs_settings.id", "in", ids)
+      .execute() : [];
+    const infoById = new Map(settingInfo.map(_ => [_.id, _]));
+    const missing = ids.find(id => !infoById.has(id));
+    if (missing)
+      throw new Error(`No instance found for setting id ${missing}`);
 
-    const getMembers = this.descr.members;
-    const settings = await this.getCurrentSettings([settingInfo.id], this.descr);
-    const decoderContext = {
-      allsettings: settings,
-      cc: settingInfo.creationdate ? getUnifiedCC(settingInfo.creationdate) : 0,
-      export: false,
-      ...options
-    };
+    const cursettings = ids.length ? await this.getCurrentSettings([...new Set(settingInfo.map(_ => _.instanceId))], this.descr, { keysToSet: properties || undefined, underSettings: ids }) : [];
+    const groupedSettings = Map.groupBy(cursettings, _ => _.fs_instance);
+    const getMembers = properties ? this.descr.members.filter(_ => properties.includes(_.name as string)) : this.descr.members;
 
-    const result = await getData(getMembers, id, decoderContext) as GetFormat | ExportFormat;
-    return result;
+    const retval = new Map<number | null, unknown>();
+    for (const id of settingIds) {
+      if (retval.has(id))
+        continue;
+      const info = id !== null ? infoById.get(id) : undefined;
+      const decoderContext = {
+        allsettings: groupedSettings.get(info?.instanceId || 0) || [],
+        cc: info?.creationdate ? getUnifiedCC(info.creationdate) : 0,
+        export: false,
+        ...options
+      };
+      retval.set(id, await getData(getMembers, id, decoderContext));
+    }
+    return retval;
   }
 
+  /** Add instance data to rows referring to files or folders
+   * @param data - Rows to enrich
+   * @param field - Field containing the id of the file or folder
+   * @param properties - Members to add
+   * @param options - Export options. If 'export' is set, the members are added in their export format
+   * @returns The rows with the requested members added
+   */
   async enrich<
     DataRow extends { [K in EnrichKey]: number | null },
     EnrichKey extends keyof DataRow & NumberOrNullKeys<DataRow>,
-    AddKey extends keyof GetFormat = never>(data: DataRow[], field: EnrichKey, properties: AddKey[]): Promise<Array<DataRow & Pick<GetFormat, AddKey>>> {
+    AddKey extends keyof ExportFormat = never>(data: DataRow[], field: EnrichKey, properties: AddKey[], options: ExportOptions & { export: true }): Promise<Array<DataRow & Pick<ExportFormat, AddKey>>>;
+  async enrich<
+    DataRow extends { [K in EnrichKey]: number | null },
+    EnrichKey extends keyof DataRow & NumberOrNullKeys<DataRow>,
+    AddKey extends keyof GetFormat = never>(data: DataRow[], field: EnrichKey, properties: AddKey[], options?: ExportOptions): Promise<Array<DataRow & Pick<GetFormat, AddKey>>>;
 
-    const fsObjIds: number[] = data.map(_ => _[field] as number);
-    const bulkdata = await this.getBulk(fsObjIds, properties as string[]);
+  async enrich(data: Array<Record<string, unknown>>, field: string, properties: string[], options?: ExportOptions): Promise<Array<Record<string, unknown>>> {
+    const bulkdata = await this.getBulk(data.map(_ => _[field] as number), properties, options);
+    return data.map(row => ({ ...row, ...bulkdata.get(row[field] as number) as object }));
+  }
 
-    const results: Array<DataRow & Pick<GetFormat, AddKey>> = [];
-    for (const row of data) //@ts-expect-error should be able to assume it works. besides we'll rewrite this API anyway to actually be efficient
-      results.push({ ...row, ...bulkdata.get(row[field]) });
+  /** Add instance data to rows referring to embedded instances, eg. widgets in rich text documents
+   * @param data - Rows to enrich
+   * @param field - Field containing the setting id of the embedded instance (as returned in dbLoc or by getBySettingId)
+   * @param properties - Members to add
+   * @param options - Export options. If 'export' is set, the members are added in their export format
+   * @returns The rows with the requested members added
+   */
+  async enrichBySettingId<
+    DataRow extends { [K in EnrichKey]: number | null },
+    EnrichKey extends keyof DataRow & NumberOrNullKeys<DataRow>,
+    AddKey extends keyof ExportFormat = never>(data: DataRow[], field: EnrichKey, properties: AddKey[], options: ExportOptions & { export: true }): Promise<Array<DataRow & Pick<ExportFormat, AddKey>>>;
+  async enrichBySettingId<
+    DataRow extends { [K in EnrichKey]: number | null },
+    EnrichKey extends keyof DataRow & NumberOrNullKeys<DataRow>,
+    AddKey extends keyof GetFormat = never>(data: DataRow[], field: EnrichKey, properties: AddKey[], options?: ExportOptions): Promise<Array<DataRow & Pick<GetFormat, AddKey>>>;
 
-    return results;
+  async enrichBySettingId(data: Array<Record<string, unknown>>, field: string, properties: string[], options?: ExportOptions): Promise<Array<Record<string, unknown>>> {
+    const bulkdata = await this.getBulkBySettingId(data.map(_ => _[field] as number | null), properties, options);
+    return data.map(row => ({ ...row, ...bulkdata.get(row[field] as number | null) as object }));
   }
 
   async set(id: number, data: SetFormat, options?: InstanceSetOptions): Promise<void> {
@@ -340,7 +398,7 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
 
     //TODO bulk insert once we've prepared all settings
     const keysToSet = Object.keys(data);
-    const cursettings = instanceId && keysToSet.length ? await this.getCurrentSettings([instanceId], this.descr, keysToSet) : [];
+    const cursettings = instanceId && keysToSet.length ? await this.getCurrentSettings([instanceId], this.descr, { keysToSet }) : [];
 
     const setter = new RecursiveSetter(cursettings);
     appendToArray(setter.toinsert, await setData(this.descr.members, data, options));

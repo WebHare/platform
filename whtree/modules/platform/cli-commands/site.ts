@@ -1,6 +1,7 @@
 // @webhare/cli: Manage WebHare sites (WHFS)
 
 import { CLISyntaxError, enumOption, runCli, type CLIArgumentType } from "@webhare/cli";
+import { formatTable } from "@mod-platform/js/cli/output";
 import type { PlatformDB } from '@mod-platform/generated/db/platform';
 import { beginWork, db } from '@webhare/whdb';
 import { commonFlags } from '@mod-platform/js/cli/cli-tools';
@@ -148,7 +149,7 @@ runCli({
         if (opts.json)
           console.log(JSON.stringify(sitesWithWhfsPaths));
         else
-          console.table(sitesWithWhfsPaths);
+          console.log(formatTable(sitesWithWhfsPaths));
       }
     },
     "get": {
@@ -273,7 +274,7 @@ runCli({
         if (opts.json)
           console.log(JSON.stringify(toShow));
         else
-          console.table(toShow);
+          console.log(formatTable(toShow));
       },
     },
     "list-webfeatures": {
@@ -291,7 +292,7 @@ runCli({
         if (opts.json)
           console.log(JSON.stringify(toShow));
         else
-          console.table(toShow);
+          console.log(formatTable(toShow));
       }
     },
     "add-webfeature": {
