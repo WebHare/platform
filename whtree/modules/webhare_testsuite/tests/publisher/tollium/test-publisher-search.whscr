@@ -126,7 +126,7 @@ ASYNC MACRO Search()
   //=== Search by widget type
   searchscreen->filtercomps[0]->^filtertype->value := "publisher:widgettype";
   AWAIT ExpectScreenChange(+1, PTR searchscreen->filtercomps[0]->^selectqueryselectbutton->TolliumClick);
-  TT("groups")->selection := SELECT * FROM TT("groups")->rows WHERE title IN ["General","General (publisher)"];
+  TT("groups")->selection := SELECT * FROM TT("groups")->rows WHERE title IN ["General","General (platform)"];
   TT("contenttypes")->value := "http://www.webhare.net/xmlns/publisher/embedvideo";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
