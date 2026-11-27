@@ -1,10 +1,9 @@
 // @webhare/cli: Manage WebHare sites (WHFS)
 
-import { CLISyntaxError, enumOption, runCli, type CLIArgumentType } from "@webhare/cli";
+import { CLIRuntimeError, CLISyntaxError, enumOption, runCli, type CLIArgumentType } from "@webhare/cli";
 import type { PlatformDB } from '@mod-platform/generated/db/platform';
 import { beginWork, db } from '@webhare/whdb';
 import { commonFlags } from '@mod-platform/js/cli/cli-tools';
-import { loadlib } from '@webhare/harescript';
 import { getBestMatch } from "@webhare/js-api-tools";
 import { listSites, listWHFSObjects, openSite, whfsType } from "@webhare/whfs";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
@@ -97,38 +96,6 @@ const webFeatureOption: CLIArgumentType<WebFeature> = {
   },
   description: "WebHare web feature",
 };
-
-async function updateSiteWebRoot(site: Awaited<ReturnType<typeof siteOption.parseValue>>, webRoot: Awaited<ReturnType<typeof webRootOption.parseValue>>) {
-  const analyze_new_location = await loadlib("mod::publisher/lib/siteapi.whlib").TestSiteOutputAvailability(site.id, webRoot.webserver, webRoot.path) as {
-    success: boolean;
-    siteonlocation: number;
-    sitecontaininglocation: number;
-    neededfolders: Array<{ site: number; parent: number; name: string }>;
-  };
-  if (!analyze_new_location.success) {
-    if (analyze_new_location.siteonlocation) {
-      const conflict = await db<PlatformDB>()
-        .selectFrom("system.sites")
-        .where("system.sites.id", "=", analyze_new_location.siteonlocation)
-        .select(["system.sites.id", "system.sites.name"])
-        .executeTakeFirstOrThrow();
-      console.error(`Site ${conflict.name} already exists on the specified output location`);
-    }
-    if (analyze_new_location.sitecontaininglocation) {
-      const conflict = await db<PlatformDB>()
-        .selectFrom("system.sites")
-        .where("system.sites.id", "=", analyze_new_location.sitecontaininglocation)
-        .select(["system.sites.id", "system.sites.name"])
-        .executeTakeFirstOrThrow();
-      console.error(`Site ${conflict.name} contains the specified output location`);
-    }
-    for (const conflict of analyze_new_location.neededfolders) {
-      console.error(`Needed folder conflict: site ${conflict.site}, parent ${conflict.parent}, name ${conflict.name}`);
-    }
-    return 1;
-  }
-  await (await loadlib("mod::publisher/lib/siteapi.whlib").OpenSite(site.id)).UpdateSiteMetadata({ outputweb: webRoot.webserver, outputfolder: webRoot.path });
-}
 
 runCli({
   description: '',
@@ -266,9 +233,11 @@ runCli({
         if (Object.keys(directUpdatable).length)
           await site.update(directUpdatable);
         if (newWebRoot) {
-          const retval = await updateSiteWebRoot(args.site, newWebRoot);
-          if (retval)
-            return retval;
+          try {
+            await site.setOutput({ webServer: newWebRoot.webserver, folder: newWebRoot.path });
+          } catch (e) {
+            throw new CLIRuntimeError((e as Error).message);
+          }
         }
         await work.commit();
       },

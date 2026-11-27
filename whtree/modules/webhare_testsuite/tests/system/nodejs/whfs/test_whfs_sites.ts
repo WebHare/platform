@@ -96,9 +96,75 @@ async function testUpdateSite() {
   await commitWork();
 }
 
+// Verifies setting a site's output to a folder on a webserver and to a foreign folder in another site
+async function testSiteOutput() {
+  const site = await openSite(siteName);
+  const testSite = await test.getTestSiteJS();
+  const tmpFolder = await test.getTestSiteJSTemp();
+  test.assert(testSite.outputWeb);
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Publishing to a free folder on a webserver. The folder is normalized
+  await beginWork();
+  await site.setOutput({ webServer: testSite.outputWeb, folder: "testoutput//webhare_testsuite.sitetest" });
+  test.eq(testSite.outputWeb, site.outputWeb);
+  test.eq("/testoutput/webhare_testsuite.sitetest/", site.outputFolder);
+  test.eq(new URL("/testoutput/webhare_testsuite.sitetest/", testSite.webRoot).toString(), site.webRoot);
+  test.eq(site.webRoot, (await openSite(site.id)).webRoot);
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Locations used by another site are refused, and so are locations inside one without a foreign folder
+  await test.throws(/Site 'webhare_testsuite.testsitejs' is already published at/, site.setOutput({ webServer: testSite.outputWeb, folder: testSite.outputFolder }));
+  await test.throws(/Site 'webhare_testsuite.testsitejs' needs a foreign folder at 'tmp\/nosuchfolder\/'/, site.setOutput({ webServer: testSite.outputWeb, folder: testSite.outputFolder + "tmp/nosuchfolder" }));
+  await test.throws(/Invalid webserver #0/, site.setOutput({ webServer: 0, folder: "/" }));
+  test.eq("/testoutput/webhare_testsuite.sitetest/", (await openSite(site.id)).outputFolder, "A refused output changes nothing");
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Publishing into another site creates a foreign folder there, and its missing parents as normal folders
+  await site.setOutput({ site: testSite, folder: "tmp/out-a/out-b/out-c" });
+  test.eq(testSite.outputWeb, site.outputWeb);
+  test.eq(testSite.outputFolder + "tmp/out-a/out-b/out-c/", site.outputFolder);
+  test.eq(testSite.webRoot + "tmp/out-a/out-b/out-c/", site.webRoot);
+  test.eq("platform:foldertypes.default", (await tmpFolder.openFolder("out-a")).type);
+  test.eq("platform:foldertypes.default", (await tmpFolder.openFolder("out-a/out-b")).type);
+  test.eq("platform:foldertypes.extern", (await tmpFolder.openFolder("out-a/out-b/out-c")).type);
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: A path below an existing foreign folder needs nothing created
+  await site.setOutput({ site: testSite, folder: "tmp/out-a/out-b/out-c/deeper" });
+  test.eq(testSite.webRoot + "tmp/out-a/out-b/out-c/deeper/", site.webRoot);
+  test.eq(null, await tmpFolder.openFolder("out-a/out-b/out-c/deeper", { allowMissing: true }));
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: An empty normal folder is converted to a foreign folder, anything else in the way is an error
+  await tmpFolder.createFolder("out-empty");
+  const fullFolder = await tmpFolder.createFolder("out-full");
+  await fullFolder.createFile("a-file");
+
+  await site.setOutput({ site: testSite, folder: "tmp/out-empty" });
+  test.eq(testSite.webRoot + "tmp/out-empty/", site.webRoot);
+  test.eq("platform:foldertypes.extern", (await tmpFolder.openFolder("out-empty")).type);
+
+  await test.throws(/out-full\/' is not empty/, site.setOutput({ site: testSite, folder: "tmp/out-full" }));
+  await test.throws(/a-file' is a file/, site.setOutput({ site: testSite, folder: "tmp/out-full/a-file/sub" }));
+  await test.throws(/Invalid folder/, site.setOutput({ site: testSite, folder: "tmp/../out-full" }));
+  await test.throws(/cannot be published into itself/, site.setOutput({ site, folder: "self" }));
+  test.eq(testSite.webRoot + "tmp/out-empty/", site.webRoot);
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Removing the output, after which the site can't be published into
+  await site.setOutput(null);
+  test.eq(null, site.outputWeb);
+  test.eq("", site.outputFolder);
+  test.eq(null, (await openSite(site.id)).webRoot);
+  await test.throws(/that site has no output/, testSite.setOutput({ site, folder: "sub" }));
+  await commitWork();
+}
+
 test.runTests([
   test.resetWTS,
   prepare,
   testCreateSite,
   testUpdateSite,
+  testSiteOutput,
 ]);

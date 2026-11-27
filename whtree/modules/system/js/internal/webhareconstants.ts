@@ -76,6 +76,9 @@ export const whconstant_webserver_hstrustedportoffset = 3;
 /// fs_types.id of whfstype http://www.webhare.net/xmlns/publisher/normafolder
 export const whconstant_whfstype_normalfolder = 0;
 
+/// Foreign folder (a part of a site that is managed elsewhere)
+export const whconstant_whfstype_foreignfolder = 1;
+
 /// fs_types.id of whfstype http://www.webhare.net/xmlns/publisher/systemfolder
 export const whconstant_whfstype_systemfolder = 2;
 

@@ -96,6 +96,15 @@ async function testSiteCli() {
     test.eq("Described by the CLI", (await openSite(testSite.id)).description);
   }
 
+  // STORY: refuse an output location that's already in use
+  {
+    const hsTestSite = await test.getTestSiteHS();
+    const conflictResult = spawnSync("wh", ["site", "update", testSite.name, "--field", "webRoot", hsTestSite.webRoot], { shell: false, encoding: "utf-8" });
+    test.eq(1, conflictResult.status, "update command should fail for a location that's in use");
+    test.eq(/Site 'webhare_testsuite.testsite' is already published at/, conflictResult.stderr);
+    test.eq(oldWebRoot, (await openSite(testSite.id)).webRoot);
+  }
+
   // STORY: update command with schema-failing data
   {
     const input = YAML.stringify({

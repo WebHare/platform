@@ -1,6 +1,7 @@
 import { broadcastOnCommit, db, isWorkOpen, sql, type Selectable, type Updateable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { loadlib } from "@webhare/harescript";
+import { whconstant_webservertype_interface, whconstant_whfsid_webharebackend, whconstant_whfstype_foreignfolder } from "@mod-system/js/internal/webhareconstants";
 import { type WHFSFile, type WHFSFolder, __openWHFSObj, openFolder, type OpenWHFSObjectOptions } from "./objects";
 import { excludeKeys, formatPathOrId } from "./support";
 import { whfsFinishHandler } from "./finishhandler";
@@ -54,6 +55,134 @@ export type CreateSiteOptions = {
   /** The reason the site is locked */
   lockReason?: string;
 };
+
+/** Where to publish a site:
+ * - `webServer` and `folder`: in a folder on a webserver
+ * - `site` and `folder`: in a foreign folder inside another site. The folder is created if needed
+ */
+export type SiteOutput = {
+  /** Id of the webserver that hosts the site */
+  webServer: number;
+  /** Folder inside the webserver, eg. `/` or `/subsite/` */
+  folder: string;
+} | {
+  /** Site to publish into. It must have an output itself */
+  site: Site;
+  /** Path of the foreign folder inside that site, eg. `testoutput/mysite`. Missing parent folders are created as normal folders */
+  folder: string;
+};
+
+const foreignFolderType = "platform:foldertypes.extern";
+const normalFolderType = "platform:foldertypes.default";
+
+/** Normalize an output folder to an absolute path that starts and ends with a slash */
+function normalizeOutputFolder(folder: string): string {
+  const parts: string[] = [];
+  for (const part of folder.split("/")) {
+    if (part === "..")
+      parts.pop();
+    else if (part && part !== ".")
+      parts.push(part);
+  }
+  return parts.length ? `/${parts.join("/")}/` : "/";
+}
+
+type NeededForeignFolder = {
+  /** Site that has to contain the foreign folder */
+  inSite: number;
+  /** Path of the foreign folder inside that site */
+  path: string;
+  /** Site that is published at the location of the foreign folder */
+  forSite: number;
+};
+
+/** Check whether a site that publishes `subPath` (relative to its own output) has a foreign folder covering it
+ * @returns True if any folder along the path is a foreign folder */
+async function hasForeignFolderAt(siteId: number, subPath: string): Promise<boolean> {
+  let current: number = siteId;
+  for (const name of subPath.split("/").filter(Boolean)) {
+    const child = await db<PlatformDB>()
+      .selectFrom("system.fs_objects")
+      .select(["id", "isfolder", "type"])
+      .where("parent", "=", current)
+      .where(sql`upper(name)`, "=", sql`upper(${name})`)
+      .executeTakeFirst();
+
+    if (!child || !child.isfolder)
+      return false;
+    if (child.type === whconstant_whfstype_foreignfolder)
+      return true;
+    current = child.id;
+  }
+  return false;
+}
+
+/** Test whether a site can be published at a location
+ * @param forSite - The site we're testing for
+ * @param webServer - Id of the webserver
+ * @param folder - Normalized output folder
+ * @param options - containedOnly: only check the sites we would contain, not the site that would contain us
+ * @returns The first problem found, or null if the location is available */
+async function findOutputConflict(forSite: number, webServer: number, folder: string, options?: { containedOnly?: boolean }): Promise<{ siteOnLocation: number } | { neededFolder: NeededForeignFolder } | null> {
+  const others = await db<PlatformDB>()
+    .selectFrom("system.sites")
+    .select(["id", "outputfolder"])
+    .where("outputweb", "=", webServer)
+    .where("id", "!=", forSite)
+    .execute();
+
+  const upperFolder = folder.toUpperCase();
+
+  //Find the site that contains this folder. It needs a foreign folder at our location
+  const containing = options?.containedOnly ? undefined : others.filter(site => upperFolder.startsWith(site.outputfolder.toUpperCase())).sort((lhs, rhs) => rhs.outputfolder.length - lhs.outputfolder.length)[0];
+  if (containing) {
+    const subPath = folder.substring(containing.outputfolder.length);
+    if (!subPath) //they are identical
+      return { siteOnLocation: containing.id };
+    if (!await hasForeignFolderAt(containing.id, subPath))
+      return { neededFolder: { inSite: containing.id, path: subPath, forSite } };
+  }
+
+  //Now find any sites that would be contained by us. We need foreign folders at their locations
+  for (const contained of others.filter(site => site.outputfolder.toUpperCase().startsWith(upperFolder))) {
+    const subPath = contained.outputfolder.substring(folder.length);
+    if (!subPath) //they are identical
+      return { siteOnLocation: contained.id };
+    if (!await hasForeignFolderAt(forSite, subPath))
+      return { neededFolder: { inSite: forSite, path: subPath, forSite: contained.id } };
+  }
+  return null;
+}
+
+/** Ensure a foreign folder exists at a path inside a site. Missing parents are created as normal folders */
+async function ensureForeignFolder(site: Site, path: string): Promise<void> {
+  const parts = path.split("/").filter(Boolean);
+  if (!parts.length || parts.some(part => part === "." || part === ".."))
+    throw new Error(`Invalid folder '${path}' for a foreign folder in site '${site.name}'`);
+
+  let current = await openFolder(site.id);
+  for (const [idx, name] of parts.entries()) {
+    const isLast = idx === parts.length - 1;
+    const child = await current.openFileOrFolder(name, { allowMissing: true });
+    if (!child) {
+      current = await current.createFolder(name, { type: isLast ? foreignFolderType : normalFolderType });
+      continue;
+    }
+
+    if (!child.isFolder)
+      throw new Error(`Cannot create a foreign folder at '${path}' in site '${site.name}': '${child.whfsPath}' is a file`);
+    if (child.type === foreignFolderType)
+      return; //anything below a foreign folder is outside the site
+    if (isLast) {
+      if (child.type !== normalFolderType)
+        throw new Error(`Cannot create a foreign folder at '${path}' in site '${site.name}': '${child.whfsPath}' is a folder of type '${child.type}'`);
+      if ((await child.list()).length)
+        throw new Error(`Cannot create a foreign folder at '${path}' in site '${site.name}': '${child.whfsPath}' is not empty`);
+      await child.update({ type: foreignFolderType });
+    }
+    current = child;
+  }
+}
 
 async function getSiteName(id: number): Promise<string> {
   return (await db<PlatformDB>().selectFrom("system.sites").select("name").where("id", "=", id).executeTakeFirst())?.name ?? `#${id}`;
@@ -223,6 +352,67 @@ export class Site {
       return;
 
     await this.finishUpdate(republish);
+    await this.reload();
+  }
+
+  /** Set where the site is published
+   * @param output - The new output, or null to stop publishing the site. Publishing into another site creates a foreign
+   *   folder there, or converts an empty normal folder into one
+   * @throws If another site already uses the location, or a foreign folder is needed that we can't create */
+  async setOutput(output: SiteOutput | null) {
+    let webServer: number | null = null, folder = "";
+    if (output && "site" in output) {
+      const parentSite = await loadSite(output.site.id);
+      if (!parentSite)
+        throw new Error(`No such site ${formatPathOrId(output.site.id)}`);
+      if (parentSite.id === this.id)
+        throw new Error(`Site '${this.name}' cannot be published into itself`);
+      if (!parentSite.outputweb)
+        throw new Error(`Site '${this.name}' cannot be published into site '${parentSite.name}': that site has no output`);
+
+      webServer = parentSite.outputweb;
+      folder = normalizeOutputFolder(parentSite.outputfolder + output.folder);
+    } else if (output) {
+      if (!output.webServer)
+        throw new Error(`Invalid webserver #${output.webServer}, pass null to setOutput to stop publishing a site`);
+
+      webServer = output.webServer;
+      folder = normalizeOutputFolder(output.folder);
+    }
+
+    if (webServer && this.id === whconstant_whfsid_webharebackend) {
+      const outputServer = await db<PlatformDB>().selectFrom("system.webservers").select("type").where("id", "=", webServer).executeTakeFirst();
+      if (outputServer?.type !== whconstant_webservertype_interface)
+        throw new Error(`Webserver #${webServer} is not an interface webserver, and not acceptable for the WebHare backend site`);
+      if (folder !== "/")
+        throw new Error(`Output folder '${folder}' is not acceptable for the WebHare backend site, the output folder MUST be '/'`);
+    }
+
+    const checkConflicts = async (server: number, options?: { containedOnly?: boolean }) => {
+      const conflict = await findOutputConflict(this.id, server, folder, options);
+      if (conflict && "siteOnLocation" in conflict)
+        throw new Error(`Site '${await getSiteName(conflict.siteOnLocation)}' is already published at the new output folder '${folder}'`);
+      if (conflict) {
+        const { inSite, path, forSite } = conflict.neededFolder;
+        throw new Error(`Site '${await getSiteName(inSite)}' needs a foreign folder at '${path}' to publish site '${await getSiteName(forSite)}' there`);
+      }
+    };
+    const outputChanged = webServer !== this.dbrow.outputweb || folder !== this.dbrow.outputfolder;
+
+    if (output && "site" in output) { //do this even if our output doesn't change, the folder may have been removed
+      if (outputChanged && webServer) //check the sites we would contain first, so a refused output doesn't leave new folders behind
+        await checkConflicts(webServer, { containedOnly: true });
+      await ensureForeignFolder(output.site, output.folder);
+    }
+
+    if (!outputChanged)
+      return;
+
+    if (webServer)
+      await checkConflicts(webServer);
+
+    await db<PlatformDB>().updateTable("system.sites").set({ outputweb: webServer, outputfolder: folder }).where("id", "=", this.id).execute();
+    await this.finishUpdate(Boolean(webServer));
     await this.reload();
   }
 }
