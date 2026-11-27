@@ -1,13 +1,14 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { beginWork, commitWork } from "@webhare/whdb";
 import { createSite, listSites, openFolder, openSite } from "@webhare/whfs";
-import { whconstant_whfsid_webhare_tests } from "@mod-system/js/internal/webhareconstants";
+import { whconstant_whfsid_webhare_tests, whconstant_whfsid_webharebackend } from "@mod-system/js/internal/webhareconstants";
 
 const siteName = "webhare_testsuite.sitetest";
 const renamedSiteName = "webhare_testsuite.sitetest-renamed";
+const ensuredSiteName = "webhare_testsuite.sitetest-ensured";
 
 async function recycleTestSites() {
-  for (const name of [siteName, renamedSiteName]) {
+  for (const name of [siteName, renamedSiteName, ensuredSiteName]) {
     const site = await openSite(name, { allowMissing: true });
     if (site)
       await (await openFolder(site.id)).recycle();
@@ -161,10 +162,52 @@ async function testSiteOutput() {
   await commitWork();
 }
 
+// Verifies ensureTestSite creates, reuses and recycles test sites published below the backend's testoutput
+async function testEnsureTestSite() {
+  const backendSite = await openSite(whconstant_whfsid_webharebackend);
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: A new test site is created in /webhare-tests/ and published in the backend's testoutput folder
+  await test.throws(/requires open work/, test.ensureTestSite(ensuredSiteName));
+
+  await beginWork();
+  await test.throws(/Invalid test site name/, test.ensureTestSite("nodots"));
+  await test.throws(/Invalid test site name/, test.ensureTestSite("webhare_testsuite.UpperCase"));
+  await test.throws(/No such module 'webhare_testsuite_nosuchmodule'/, test.ensureTestSite("webhare_testsuite_nosuchmodule.site"));
+
+  const site = await test.ensureTestSite(ensuredSiteName, { webDesign: "webhare_testsuite:basetestjs" });
+  test.eq(`/webhare-tests/${ensuredSiteName}/`, (await openFolder(site.id)).whfsPath);
+  test.eq(backendSite.webRoot + `testoutput/${ensuredSiteName}/`, site.webRoot);
+  test.eq("webhare_testsuite:basetestjs", await site.getWebDesign());
+  test.eq(null, await site.getWebFeatures());
+  await (await openFolder(site.id)).createFile("a-file");
+  await commitWork();
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Ensuring it again keeps the site and its contents, and applies the requested webfeatures
+  await beginWork();
+  const again = await test.ensureTestSite(ensuredSiteName, { webDesign: "webhare_testsuite:basetestjs", webFeatures: ["platform:identityprovider"] });
+  test.eq(site.id, again.id);
+  test.eq(["platform:identityprovider"], await again.getWebFeatures());
+  test.assert(await again.openFile("a-file", { allowMissing: true }));
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: recycleContents empties the site, recycleSite replaces it
+  const emptied = await test.ensureTestSite(ensuredSiteName, { recycleContents: true, webDesign: "webhare_testsuite:basetestjs" });
+  test.eq(site.id, emptied.id);
+  test.eq(null, await emptied.openFile("a-file", { allowMissing: true }));
+
+  const replaced = await test.ensureTestSite(ensuredSiteName, { recycleSite: true, webDesign: "webhare_testsuite:basetestjs" });
+  test.assert(replaced.id !== site.id);
+  test.eq(backendSite.webRoot + `testoutput/${ensuredSiteName}/`, replaced.webRoot);
+  await commitWork();
+}
+
 test.runTests([
   test.resetWTS,
   prepare,
   testCreateSite,
   testUpdateSite,
   testSiteOutput,
+  testEnsureTestSite,
 ]);

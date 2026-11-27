@@ -6,12 +6,12 @@ declare module "@webhare/test-backend" {
 }
 
 import * as test from "@webhare/test";
-import { beginWork, db } from "@webhare/whdb";
+import { beginWork, db, isWorkOpen } from "@webhare/whdb";
 import { loadlib } from "@webhare/harescript";
-import { lookupURL, openFileOrFolder, openFolder, openSite, type WHFSObject } from "@webhare/whfs";
+import { createSite, isValidName, lookupURL, openFileOrFolder, openFolder, openSite, type Site, type WHFSFolder, type WHFSObject } from "@webhare/whfs";
 import { convertWaitPeriodToDate, generateRandomId, isDate, throwError, type WaitPeriod } from "@webhare/std";
 import { createSchema, deleteSchema, listSchemas, wrd, type AnySchemaType, type WRDSchemaType } from "@webhare/wrd";
-import { whconstant_wrd_testschema } from "@mod-system/js/internal/webhareconstants";
+import { whconstant_whfsid_webhare_tests, whconstant_whfsid_webharebackend, whconstant_wrd_testschema } from "@mod-system/js/internal/webhareconstants";
 import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import { getAuthorizationInterface, type AuthAuditEvent, type AuthEventData, type AuthorizationInterface } from "@webhare/auth";
 import { getAuditEvents } from "@webhare/auth/src/audit";
@@ -396,6 +396,72 @@ export function guardEventLoop() {
   };
   process.on("beforeExit", retval.gotEventLoopEnd);
   return retval;
+}
+
+export interface EnsureTestSiteOptions {
+  /** Recycle the site if it already exists, and create a new one */
+  recycleSite?: boolean;
+  /** Recycle the contents of the site if it already exists, but keep the site itself */
+  recycleContents?: boolean;
+  /** Webdesign the test site should have */
+  webDesign?: string;
+  /** Webfeatures the test site should have */
+  webFeatures?: string[];
+}
+
+/** Get the `/webhare-tests/` folder that holds all test sites, creating it if needed */
+async function ensureWHFSTestRoot(): Promise<WHFSFolder> {
+  const testRoot = await openFolder(whconstant_whfsid_webhare_tests, { allowMissing: true });
+  if (!testRoot)
+    return await (await openFolder(null, { allowRoot: true })).createFolder("webhare-tests", { id: whconstant_whfsid_webhare_tests });
+
+  //we don't accept the folder outside the root so whfsPaths are always known
+  if (testRoot.whfsPath !== "/webhare-tests/")
+    throw new Error(`The WHFS test root (#${whconstant_whfsid_webhare_tests}) should be at '/webhare-tests/' but is at '${testRoot.whfsPath}'`);
+  return testRoot;
+}
+
+/** Set up a test site. It's created as `/webhare-tests/<name>` and published to `/testoutput/<name>/` on the WebHare backend's webserver
+ * @param name - Name for the site. Must be of the form `<testingmodule>.<subfolder>`, in lowercase (use `xyz.testsite` if you have to)
+ * @param options - What to do with an existing site, and the webdesign and webfeatures to apply
+ * @returns The site */
+export async function ensureTestSite(name: string, options?: EnsureTestSiteOptions): Promise<Site> {
+  if (!isWorkOpen())
+    throw new Error(`ensureTestSite requires open work`);
+  if (!isValidName(name) || name.toLowerCase() !== name || !/^[^.]+\..+$/.test(name))
+    throw new Error(`Invalid test site name '${name}'`);
+
+  const moduleName = name.split(".")[0];
+  if (!backendConfig.module[moduleName])
+    throw new Error(`No such module '${moduleName}'`);
+
+  const backendSite = await openSite(whconstant_whfsid_webharebackend);
+  if (!backendSite.outputWeb)
+    throw new Error(`The backend site '${backendSite.name}' requires an output webserver (usually set up automatically by WEBHARE_CI=1)`);
+
+  const testRoot = await ensureWHFSTestRoot();
+  let site = await openSite(name, { allowMissing: true });
+  if (site && options?.recycleSite) {
+    await (await openFolder(site.id)).recycle();
+    site = null;
+  }
+
+  if (site) {
+    const root = await openFolder(site.id);
+    if (options?.recycleContents) {
+      for (const item of await root.list())
+        await (await openFileOrFolder(item.id)).recycle();
+    }
+
+    if (root.parent !== testRoot.id) //TODO use a TypeScript API to move objects once there is one
+      await (await loadlib("mod::system/lib/whfs.whlib").OpenWHFSObject(root.id)).MoveTo(await loadlib("mod::system/lib/whfs.whlib").OpenWHFSObject(testRoot.id), "");
+  } else {
+    site = await createSite((await testRoot.ensureFolder(name)).id);
+  }
+
+  await site.update({ webDesign: options?.webDesign ?? "", webFeatures: options?.webFeatures ?? [] });
+  await site.setOutput({ webServer: backendSite.outputWeb, folder: `/testoutput/${name}/` }); //the backend site has a 'testoutput' foreign folder
+  return site;
 }
 
 export async function deleteTestModule(name: string) {
