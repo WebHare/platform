@@ -5,6 +5,7 @@
   <test script="test_wrd_tsapi_2.ts" />
   <test script="test_wrd_events.ts" />
   <test script="test_wrd_metadata.ts" />
+  <test script="test_wrd_cache_failures.ts" />
   <test script="test_wrd_errors.ts" />
   <test script="test_wrd_history.ts" />
   <test script="test_wrd_eximport.ts" />
