@@ -117,22 +117,29 @@ VARIANT FUNCTION Coalesce(VARIANT v, VARIANT v2) {
 
 PUBLIC MACRO VerifyTSHistory(INTEGER fileid) {
   RECORD ARRAY hs_history;
-  FOREVERY(RECORD entry FROM ListObjectHistory(fileid, [ include_autosaves := TRUE ])) {
-    INSERT CELL[ entry.id
-               , entry.name
-               , entry.type
-               , user_auth_object := Ternary(entry.user != 0, entry.user, DEFAULT RECORD)
-               , user_data := entry.userdata
-               , entry.when
-               , snapshot := Ternary(entry.snapshot != 0, entry.snapshot, DEFAULT RECORD)
-               , entry.version
-               , is_active := entry.isactive
-               //FIXME userdata
-               ] INTO hs_history AT END;
+  //TypeScript's listHistory should return the same entries as ListObjectHistory, both with and without autosaves
+  FOREVERY(BOOLEAN include_autosaves FROM [ FALSE, TRUE ]) {
+    hs_history := RECORD[];
+    FOREVERY(RECORD entry FROM ListObjectHistory(fileid, CELL[ include_autosaves ])) {
+      INSERT CELL[ entry.id
+                 , entry.name
+                 , entry.type
+                 , user_auth_object := Ternary(entry.user != 0, entry.user, DEFAULT RECORD)
+                 , user_data := entry.userdata
+                 , entry.when
+                 , snapshot := Ternary(entry.snapshot != 0, entry.snapshot, DEFAULT RECORD)
+                 , entry.version
+                 , is_active := entry.isactive
+                 //FIXME userdata
+                 ] INTO hs_history AT END;
+    }
+
+    RECORD ARRAY ts_history := CallJS([ camelcase := TRUE ], "mod::webhare_testsuite/js/whfs.ts#listObjHistory", fileid, CELL[ include_autosaves ]);
+    TestEq(hs_history, ts_history, `include_autosaves: ${include_autosaves ? "TRUE" : "FALSE"}`);
   }
 
-  RECORD ARRAY ts_history := CallJS([ camelcase := TRUE ], "mod::webhare_testsuite/js/whfs.ts#listObjHistory", fileid);
-  TestEq(hs_history, ts_history);
+  //and both should leave out autosaves by default
+  TestEq((SELECT AS INTEGER ARRAY id FROM ListObjectHistory(fileid)), (SELECT AS INTEGER ARRAY id FROM CallJS([ camelcase := TRUE ], "mod::webhare_testsuite/js/whfs.ts#listObjHistory", fileid)));
 
   RECORD whfs_list := CallJS([ camelcase := TRUE ], "@webhare/whfs#listWHFSObjects", [ "currentFinal", "currentDraft" ], [ "ids" := [ fileid ] ]);
 

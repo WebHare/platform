@@ -9,7 +9,7 @@ import { convertToWillPublish, formatPathOrId, getFSObjectData, isHistoricWHFSSp
 import * as std from "@webhare/std";
 import { backendConfig, encryptForThisServer, IntExtLink, readRegistryKey, type WebHareBlob } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
-import { whconstant_historytype_approved, whconstant_historytype_created, whconstant_webserver_indexpages, whconstant_whfsid_private_rootsettings, whconstant_historytype_final } from "@mod-system/js/internal/webhareconstants";
+import { whconstant_historytype_approved, whconstant_historytype_created, whconstant_webserver_indexpages, whconstant_whfsid_private_rootsettings, whconstant_historytype_final, whconstant_historytype_autosave, whconstant_historytype_abandoned_autosave, whconstant_historytypes } from "@mod-system/js/internal/webhareconstants";
 import { selectFSFullPath, selectFSHighestParent, selectFSIsActive, selectFSLink, selectFSObjectBaseURL, selectFSPublish, selectFSWHFSPath, selectSitesWebRoot } from "@webhare/whdb/src/functions";
 import { whfsFinishHandler } from "./finishhandler";
 import { listInstances, type ListInstancesOptions, type ListInstancesResult } from "./listinstances";
@@ -32,31 +32,41 @@ export interface FsObjectRow extends Selectable<PlatformDB, "system.fs_objects">
   publish: boolean;
 }
 
-const eventNames = [
-  "recycled", //0 whconstant_historytype_recycled
-  "saved",    //1 whconstant_historytype_saved
-  "abandoned-autosave",  //2 whconstant_historytype_abandoned_autosave
-  "abandoned-draft",     //3 whconstant_historytype_abandoned_draft
-  "created",  //4 whconstant_historytype_created
-  "approved", //5 whconstant_historytype_approved
-  "autosave", //6 whconstant_historytype_autosave
-  "import",   //7 whconstant_historytype_import
-  "final"     //8 whconstant_historytype_final
-] as const;
+/** The kind of event a history entry records:
+    - `created`: the object was created
+    - `import`: the state of an object that had no history yet, recorded as its first version
+    - `saved`: saved as a draft
+    - `final`: a version was finalized, ie. applied to the object itself
+    - `approved`: a version was approved for publication
+    - `autosave`: an automatic save of a version being edited
+    - `abandoned-autosave`, `abandoned-draft`: earlier autosaves (and drafts) were discarded
+    - `recycled`: the object was moved to the recycle bin
+*/
+export type HistoryEntryType = typeof whconstant_historytypes[number];
 
-type HistoryEntryType = NonNullable<typeof eventNames[number]>;
-
-type HistoryEntry = {
+/** An entry in the history of a WHFS object, as returned by WHFSObject.listHistory */
+export type HistoryEntry = {
+  /** Id of the history entry */
   id: number;
   type: HistoryEntryType;
+  /** Id of the authobject of the user who caused this entry, null if unknown or done by the system */
   userAuthObject: number | null;
   userData: object | null; //FIXME document this object
   when: Temporal.Instant;
+  /** Id of the WHFS object holding the contents of this version, null if this entry has no snapshot */
   snapshot: number | null;
+  /** Version number, eg. "1.0". Empty if this entry isn't a version */
   version: string;
+  /** Name recorded with this entry, empty if the entry did not set a name */
   name: string;
+  /** Whether this entry is the current active (last created, approved or finalized) version */
   isActive: boolean;
 };
+
+export interface ListHistoryOptions {
+  /** Also return the `autosave` and `abandoned-autosave` entries. Defaults to false */
+  includeAutosaves?: boolean;
+}
 
 type BaseFSObjectMetadata = {
   id?: number;
@@ -528,11 +538,19 @@ abstract class WHFSBaseObject {
     finishHandler.objectUpdate(this.parentSite, this.parent, this.id, this.isFolder);
   }
 
-  async listHistory(): Promise<Array<HistoryEntry>> {
-    const dbHistory = await db<PlatformDB>().
+  /** List the history of this object, oldest entry first
+      @param options - Options
+      @returns The history entries. Autosaves are only included if `includeAutosaves` is set
+  */
+  async listHistory(options?: ListHistoryOptions): Promise<HistoryEntry[]> {
+    let query = db<PlatformDB>().
       selectFrom("system.fs_history").
       select(["id", "type", "user", "userdata", "when", "snapshot", "version", "currentname"]).
-      where("fs_object", "=", this.id).
+      where("fs_object", "=", this.id);
+    if (!options?.includeAutosaves)
+      query = query.where("type", "not in", [whconstant_historytype_autosave, whconstant_historytype_abandoned_autosave]);
+
+    const dbHistory = await query.
       orderBy("when", "asc").
       orderBy("id", "asc").
       execute();
@@ -541,9 +559,9 @@ abstract class WHFSBaseObject {
       || h.type === whconstant_historytype_created
       || h.type === whconstant_historytype_final)?.id;
 
-    return dbHistory.filter(h => eventNames[h.type]).map(h => ({
+    return dbHistory.filter(h => whconstant_historytypes[h.type]).map(h => ({
       id: h.id,
-      type: eventNames[h.type] as HistoryEntryType,
+      type: whconstant_historytypes[h.type],
       userAuthObject: h.user,
       userData: decodeHSONorJSONRecord(h.userdata, { typed: true }),
       when: Temporal.Instant.fromEpochMilliseconds(h.when.getTime()),

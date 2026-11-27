@@ -100,6 +100,6 @@ export async function fetchPreviewAsDoc(toPreview: string | number, urlVars: Rec
   return { ...parseResponse(await fetchResult.text()), headers: fetchResult.headers, url: link.toString(), id: whfsobj.id };
 }
 
-export async function listObjHistory(id: number) {
-  return await (await whfs.openFileOrFolder(id)).listHistory();
+export async function listObjHistory(id: number, options?: whfs.ListHistoryOptions) {
+  return await (await whfs.openFileOrFolder(id)).listHistory(options);
 }

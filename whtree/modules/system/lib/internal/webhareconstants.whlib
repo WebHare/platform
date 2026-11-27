@@ -145,6 +145,7 @@ PUBLIC CONSTANT INTEGER whconstant_historytype_import := 7;
 /// fs_history.type final - generate when a version is finalized, ie applied to the original fsobject. it should be an x.0 version with a full snapshot
 PUBLIC CONSTANT INTEGER whconstant_historytype_final := 8;
 
+/// Names of the fs_history.type values, indexed by their database value. Must be kept in sync with whconstant_historytypes in mod::system/js/internal/webhareconstants.ts
 PUBLIC CONSTANT STRING ARRAY whconstant_historytypes :=
   [ "recycled"   //0 whconstant_historytype_recycled
   , "saved"      //1 whconstant_historytype_saved

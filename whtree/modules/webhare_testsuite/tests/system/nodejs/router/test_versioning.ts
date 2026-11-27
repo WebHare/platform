@@ -2,7 +2,7 @@ import { fetchPreviewAsDoc } from "@mod-webhare_testsuite/js/whfs";
 import * as test from "@mod-webhare_testsuite/js/wts-backend.ts";
 import { throwError } from "@webhare/std";
 import { beginWork, commitWork } from "@webhare/whdb";
-import { listInstances, lookupURL, whfsType, type WHFSTypeName } from "@webhare/whfs";
+import { listInstances, lookupURL, whfsType, type HistoryEntry, type WHFSTypeName } from "@webhare/whfs";
 import { openWorkflowManager } from "@webhare/whfs/src/workflow";
 import { generateForm } from "../data/whfs-testhelpers";
 
@@ -89,8 +89,43 @@ async function testVersionedStaticPage() {
   }
 }
 
+// Verify which entries listHistory returns, and that they match the exported HistoryEntry type
+async function testListHistory() {
+  const tmp = await test.getTestSiteJSTemp();
+
+  await using work = await beginWork();
+  const file = await tmp.createFile("listhistory", { type: "webhare_testsuite:base_test.testsuite_rtd_ts", publish: true });
+  await whfsType("platform:filetypes.richdocument").set(file.id, { data: [{ p: "This is version #1" }] });
+  test.eq([], await file.listHistory(), "No history is recorded until a workflow manager touches the file");
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: An unsaved edit is only recorded as an autosave, which listHistory leaves out by default
+  const workflowMgr = await openWorkflowManager(file.id, {
+    useWorkflow: true,
+    workflowTypes: ["platform:filetypes.richdocument"],
+    assumeWriteAccess: true
+  });
+  await workflowMgr.set("platform:filetypes.richdocument", { data: [{ p: "This is version #2" }] });
+
+  test.eqPartial([{ type: "import", version: "1.0", isActive: false }], await file.listHistory());
+  test.eqPartial([{ type: "import", version: "1.0" }], await file.listHistory({ includeAutosaves: false }));
+  const withAutosaves: HistoryEntry[] = await file.listHistory({ includeAutosaves: true });
+  test.eqPartial([{ type: "import", version: "1.0" }, { type: "autosave" }], withAutosaves);
+  test.assert(withAutosaves[1].snapshot, "An autosave has a snapshot");
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Finalizing adds the new active version
+  await workflowMgr.save({ finalize: true });
+  await work.commit();
+
+  const history = await file.listHistory();
+  test.eqPartial([{ type: "import", version: "1.0", isActive: false }, { type: "final", version: "2.0", isActive: true }], history);
+  test.eq(history, (await file.listHistory({ includeAutosaves: true })).filter(entry => entry.type !== "autosave" && entry.type !== "abandoned-autosave"));
+}
+
 test.runTests([
   test.reset,
   testVersionedForm,
-  testVersionedStaticPage
+  testVersionedStaticPage,
+  testListHistory
 ]);
