@@ -498,6 +498,7 @@
     <to type="file" pathmask="/testpages/wrdauthtest-form" />
     <to type="file" pathmask="/testpages/formtest" />
     <to type="file" pathmask="/testpages/v2videotest.rtd" />
+    <to type="file" pathmask="/testpages/vimeovideotest.rtd" />
     <to type="file" pathmask="/testpages/consenttest.rtd" />
     <to type="folder" pathmask="/" />  <!-- needed to test testpage -->
     <to type="all" pathmask="*/tmp/tabletest.rtd" />
@@ -587,6 +588,7 @@
 
   <apply>
     <to type="all" pathmask="*/v2videotest.rtd" />
+    <to type="all" pathmask="*/vimeovideotest.rtd" />
     <to type="all" pathmask="*/consenttest.rtd" />
     <videowidget breakpoints="200 400" />
   </apply>

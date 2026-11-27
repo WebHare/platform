@@ -140,7 +140,7 @@ ASYNC MACRO Search()
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
   TT("filelist")->filter->TolliumClick();
-  TestEq([ "consenttest.rtd", "simpletest.rtd", "v2videotest.rtd" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows ORDER BY name);
+  TestEq([ "consenttest.rtd", "simpletest.rtd", "v2videotest.rtd", "vimeovideotest.rtd" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows ORDER BY name);
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
