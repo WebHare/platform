@@ -6,10 +6,10 @@ declare module "@webhare/test-backend" {
 }
 
 import * as test from "@webhare/test";
-import { beginWork, db } from "@webhare/whdb";
+import { beginWork } from "@webhare/whdb";
 import { loadlib } from "@webhare/harescript";
 import { lookupURL, openFileOrFolder, openFolder, openSite, type WHFSObject } from "@webhare/whfs";
-import { convertWaitPeriodToDate, generateRandomId, isDate, throwError, type WaitPeriod } from "@webhare/std";
+import { convertWaitPeriodToDate, generateRandomId, throwError, type WaitPeriod } from "@webhare/std";
 import { createSchema, deleteSchema, listSchemas, wrd, type AnySchemaType, type WRDSchemaType } from "@webhare/wrd";
 import { whconstant_wrd_testschema } from "@mod-system/js/internal/webhareconstants";
 import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
@@ -19,11 +19,7 @@ import { __closeDatabase } from "@webhare/geoip";
 import { type IntExtLink, type Instance, openBackendService, backendConfig, signalOnEvent } from "@webhare/services";
 import { isInstance } from "@webhare/services/src/richdocument";
 import type { ExportedInstance, WHFSTypeName, ExportedTypedInstance, TypedInstanceData } from "@webhare/whfs/src/contenttypes";
-import { getPrioOrErrorFromPublished, getWHFSDescendantIds } from "@webhare/whfs/src/support";
-import bridge from "@mod-system/js/internal/whmanager/bridge";
-import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { selectFSPublish, selectFSWHFSPath } from "@webhare/whdb/src/functions";
-import type { EventCompletionLink } from "@webhare/whfs/src/finishhandler";
+import { __waitForPublication, waitForEventCompletions as whfsWaitForEventCompletions } from "@webhare/whfs/src/publication";
 import { generateTestPageToken } from "./support";
 import { setTestPageToken } from "@webhare/test-frontend";
 import { launchPuppeteer, type Puppeteer } from "@webhare/deps";
@@ -176,82 +172,8 @@ export async function getLastAuthAuditEvent<S extends SchemaTypeDefinition, Type
     @param deadline Error out when the wait hasn't completed after this time
 */
 export async function waitForEventCompletions(deadline: WaitPeriod) {
-  deadline = convertWaitPeriodToDate(deadline).toTemporalInstant();
-  const link = bridge.connect<EventCompletionLink>("system:eventcompletion", { global: true });
-  try {
-    await link.activate();
-    while (true) {
-      const rec = await link.doRequest({ type: "havependingcompletions" });
-      if (!rec.result)
-        break;
-      if (Temporal.Instant.compare(Temporal.Now.instant(), deadline) >= 0)
-        throw new Error("system:eventcompletion isn't completing");
-      await test.sleep(10);
-
-    }
-  } finally {
-    link.close();
-  }
-}
-
-export async function isStillPublishing(folderIds: number[], onlyFileId: number, startingPoint: string, acceptErrors: boolean, expectErrorsFor: number[]): Promise<boolean> {
-  const objects = await db<PlatformDB>()
-    .selectFrom("system.fs_objects")
-    .select(["id", "isfolder", "published", "errordata", selectFSWHFSPath().as("whfspath"), selectFSPublish().as("publish"),])
-    .$call(query => onlyFileId ?
-      query.where("id", "=", onlyFileId) :
-      query.where("isfolder", "=", false).where("parent", "in", folderIds))
-    .execute();
-  for (const o of objects) {
-    if (o.publish && (o.published % 100000) > 0 && (o.published % 100000) < 100)
-      return true;
-  }
-
-  let isScheduled = false;
-  const service = await openBackendService("publisher:publication");
-  try {
-    const scheduled = await service.testFilesScheduled(objects.map(o => o.id));
-    isScheduled = scheduled.length > 0;
-  } finally {
-    service.close();
-  }
-
-  for (const expected of expectErrorsFor) {
-    const obj = objects.find(o => o.id === expected);
-    if (!obj)
-      throw new Error(`Expected publication of file #${expected} to fail but it's not inside ${startingPoint}`);
-    if (getPrioOrErrorFromPublished(obj.published) === 0)
-      throw new Error(`Publication of file ${obj.whfspath} (#${expected}) unexpectedly succeeded`);
-  }
-  if (!acceptErrors) {
-    let firsterror: string | null = null;
-    for (const o of objects) {
-      if (expectErrorsFor.indexOf(o.id) === -1 && getPrioOrErrorFromPublished(o.published) !== 0) {
-        const error = `Publication error for #${o.id} (${o.whfspath}): errorcode ${getPrioOrErrorFromPublished(o.published)}${o.errordata ? "," + o.errordata : ""}`;
-        console.error(error);
-        firsterror ??= error;
-      }
-    }
-    if (firsterror)
-      throw new Error(`${firsterror} - you may need to pass accepterrors := TRUE to WaitForPublishCompletion if this was intentional\n`);
-  }
-
-  return isScheduled;
-}
-
-function getMinWaitMs(until: Array<Temporal.Instant | Temporal.Duration | Date | number | undefined>) {
-  const now = Date.now();
-  return Math.min(...until.map(u => {
-    if (u === undefined || u === null)
-      return Infinity;
-    if (isDate(u))
-      return u.getTime() - now;
-    if (typeof u === "number")
-      return u;
-    if ("epochMilliseconds" in u)
-      return u.epochMilliseconds - now;
-    return u.total({ unit: "milliseconds" });
-  }));
+  if (!await whfsWaitForEventCompletions(convertWaitPeriodToDate(deadline).toTemporalInstant()))
+    throw new Error("system:eventcompletion isn't completing");
 }
 
 export async function waitForOutputAnalyzer(folders: number[], deadline: Temporal.Instant) {
@@ -283,9 +205,7 @@ export async function waitForPublishCompletion(startingPoint: number | string | 
   /// Explicit file IDs we accept and expect an error for
   expectErrorsFor?: number[];
 } = {}): Promise<boolean> {
-  options.deadline = convertWaitPeriodToDate(options.deadline ?? Temporal.Now.instant().add({ hours: 1 })).toTemporalInstant();
-  if (!options.skipEventCompletion)
-    await waitForEventCompletions(options.deadline);
+  const deadline = convertWaitPeriodToDate(options.deadline ?? Temporal.Now.instant().add({ hours: 1 })).toTemporalInstant();
 
   if (typeof startingPoint === "string" && startingPoint.match(/^https?:/)) {
     const urlinfo = await lookupURL(new URL(startingPoint));
@@ -295,39 +215,36 @@ export async function waitForPublishCompletion(startingPoint: number | string | 
   } else if (typeof startingPoint !== "object" || startingPoint === null)
     startingPoint = await openFileOrFolder(startingPoint, { allowRoot: true });
 
-  const folderIds = (startingPoint.isFolder ? [startingPoint.id, ...await getWHFSDescendantIds([startingPoint.id], true, false)] : [startingPoint.parent]).filter(_ => _ !== null);
-
-  let wait: PromiseWithResolvers<boolean> | null = null;
-  const cb = bridge.on("event", data => {
-    if (data.name.startsWith("publisher:publish.folder.") && folderIds.includes((data.data as { folder: number }).folder))
-      wait?.resolve(true);
+  const start = startingPoint;
+  const result = await __waitForPublication([start], {
+    deadline,
+    skipEventCompletion: options.skipEventCompletion,
+    waitingIntervalMs: options.reportFrequencyMs,
+    onWaiting: () => console.error(`Publication of ${start.whfsPath} (#${start.id}) still isn't complete...`)
   });
 
-  try {
-    let nextFeedback = options.reportFrequencyMs ? Temporal.Now.instant().add({ milliseconds: options.reportFrequencyMs }) : undefined;
-    while (true) {
-      wait = Promise.withResolvers();
-      if (!await isStillPublishing(folderIds, startingPoint.isFolder ? 0 : startingPoint.id, startingPoint.whfsPath, options.acceptErrors ?? false, options.expectErrorsFor ?? []))
-        break;
-
-      if (options.deadline && Temporal.Instant.compare(Temporal.Now.instant(), options.deadline) >= 0)
-        return false;
-
-      if (nextFeedback && Temporal.Instant.compare(Temporal.Now.instant(), nextFeedback) >= 0) {
-        console.error(`Publication of ${startingPoint.whfsPath} (#${startingPoint.id}) still isn't complete...`);
-        nextFeedback = Temporal.Now.instant().add({ milliseconds: options.reportFrequencyMs! });
-      }
-
-      // Wait max 1 sec, retry immediately if we get a notification.
-      const currentWait = wait;
-      setTimeout(() => currentWait.resolve(false), getMinWaitMs([1000, options.deadline, nextFeedback]));
-      await wait.promise;
-    }
-
-    return true;
-  } finally {
-    bridge.off(cb);
+  const expectErrorsFor = options.expectErrorsFor ?? [];
+  for (const expected of expectErrorsFor) {
+    if (!result.fileIds.includes(expected))
+      throw new Error(`Expected publication of file #${expected} to fail but it's not inside ${start.whfsPath}`);
+    if (result.completed && !result.failed.some(f => f.id === expected))
+      throw new Error(`Publication of file #${expected} unexpectedly succeeded`);
   }
+
+  if (!options.acceptErrors) {
+    let firsterror: string | null = null;
+    for (const failure of result.failed) {
+      if (expectErrorsFor.includes(failure.id))
+        continue;
+      const error = `Publication error for #${failure.id} (${failure.whfsPath}): errorcode ${failure.error}${failure.errorData ? "," + failure.errorData : ""}`;
+      console.error(error);
+      firsterror ??= error;
+    }
+    if (firsterror)
+      throw new Error(`${firsterror} - you may need to pass accepterrors := TRUE to WaitForPublishCompletion if this was intentional\n`);
+  }
+
+  return result.completed;
 }
 
 /** Replace the system's geoip database with a test version - or revert that */

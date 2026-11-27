@@ -143,7 +143,7 @@ export function setFlagInPublished(published: number, flag_to_set: number, setfl
 }
 
 /** Get all ids from a specific starting point
-    @param basefolder - Starting folder
+    @param basefolder - Starting folder (0 for the WHFS root)
     @param maximumdepth - Maximum depth. Depth=1 only gets the direct subfolders. Suggested
     @param returnfolders - Return folders too
     @returns The descendants - does not include the basefolders themselves */
@@ -157,13 +157,12 @@ export async function getWHFSDescendantIds(basefolders: number[], returnfolders:
     maximumdepth = 32; //safety against corrupted databases
 
   while (maximumdepth >= 1 && currentlevel.length > 0) {
-    //If we're not returning files, don't even get them
-    const currentsubsSQL = db<PlatformDB>().selectFrom("system.fs_objects").select(["id", "isfolder"])
-      .where("parent", "in", currentlevel);
-    if (!returnfiles)
-      currentsubsSQL.where("isfolder", "=", true);
-
-    const currentsubs = await currentsubsSQL.execute();
+    //Objects directly below the root have no parent. If we're not returning files, don't even get them
+    const parents = currentlevel;
+    const currentsubs = await db<PlatformDB>().selectFrom("system.fs_objects").select(["id", "isfolder"])
+      .where(qb => parents.includes(0) ? qb.or([qb("parent", "in", parents), qb("parent", "is", null)]) : qb("parent", "in", parents))
+      .$if(!returnfiles, qb => qb.where("isfolder", "=", true))
+      .execute();
     currentlevel = currentsubs.filter(sub => sub.isfolder).map(sub => sub.id);
     appendToArray(allsubs, currentsubs.filter(sub => returnfolders || !sub.isfolder).map(sub => sub.id));
     --maximumdepth;

@@ -26,6 +26,7 @@ export { openFile, openFolder, openFileOrFolder, nextWHFSObjectId } from "./obje
 export { openSite, listSites, type Site } from "./sites";
 export { lookupURL, type LookupURLOptions, type LookupURLResult } from "./lookupurl";
 export { listWHFSObjects, type WHFSListResult, type WHFSRecursiveListResult } from "./list.ts";
+export { republishWHFSObjects, waitForPublication, type RepublishOptions, type WaitForPublicationOptions, type WaitForPublicationResult, type PublicationFailure } from "./publication";
 
 export { createWHFSExportZip, storeWHFSExport, type ExportWHFSOptions } from "./export";
 export { importIntoWHFS, type ImportWHFSOptions, type ImportWHFSResult, type ImportWHFSProgress } from "./import";
