@@ -159,7 +159,7 @@ PUBLIC STATIC OBJECTTYPE Sites EXTEND DashboardPanelBase
 
   MACRO OnViewBrowserList(OBJECT openhandler)
   {
-    openhandler->SendURL(^sitelist->selection[0].url);
+    openhandler->SendURL(^siteslist->selection[0].url);
   }
 
   MACRO DoShowInNewPublishers()
