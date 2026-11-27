@@ -525,6 +525,7 @@ MACRO ArchivingWithoutmetadataVsStraightInsert()
   }
   CompareFSItems(firstfolder->OpenByName("typetest.6"), firstfolder->OpenByName("typetest.7"), TRUE);
   testfw->CommitWork();
+  testfw->FlushTasks([ "platform:analyzefiles" ]); //let the PDFs get their titles, so later comparisons don't race with it
 
   //now overwrite the files without metadata. this destroyed contenttype instances earlier (hooks generated them before killinstances came around to wipe 'm all)
   testfw->BeginWork();
@@ -547,10 +548,14 @@ MACRO UnpackingSiteVsNonsite()
   RECORD ARRAY a_files := UnpackArchive(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/no_metadata.zip"));
   UPDATE a_files SET path := "typetest.8";
   RECORD imp := ImportWHFSArchive(sitefolder, Archive(a_files), [ overwrite := TRUE ]);
+  testfw->CommitWork();
+  testfw->FlushTasks([ "platform:analyzefiles" ]); //PDF titles are set by this task after commit
+
+  testfw->BeginWork();
   CompareFSItems(firstfolder->OpenByName("typetest.7"), sitefolder->OpenByName("typetest.8"), TRUE);
 
   RECORD ARRAY expect_files :=
-      [ [ name := "Kastjes en muren 2.pdf", title := IsWasm() ? "" : "Kastjes en muren 2" ]
+      [ [ name := "Kastjes en muren 2.pdf", title := "Kastjes en muren 2" ]
       , [ name := "docgen_2.tar.gz",        title := "" ]
       , [ name := "goud-vis.png",           title := "" ]
       , [ name := "lorum_ipsum.doc",        title := "" ]

@@ -702,18 +702,23 @@ MACRO InsertPropertiesTest()
     testsite->CreateFile([ name := IsValidWHFSName(rec.name,FALSE) ? rec.name : GetSafefilename(rec.name), data := rec.data ]);
   }
 
-  // Automatic parsing of metadata for PDFs is not enabled in WASM mode
+  // PDF titles are set by the platform:analyzefiles task after the files are committed
   RECORD ARRAY expect_files :=
-      [ [ name := "Kastjes en muren 2.pdf", title := IsWasm() ? "" : "Kastjes en muren 2" ]
+      [ [ name := "Kastjes en muren 2.pdf", title := "" ]
       , [ name := "docgen_2.tar.gz",        title := "" ]
       , [ name := "goud-vis.png",           title := "" ]
       , [ name := "lorum_ipsum.doc",        title := "" ]
       ];
 
   RECORD ARRAY got_files := SELECT name, title FROM system.fs_objects WHERE parent = testsite->id ORDER BY name;
-
   TestEq(expect_files, got_files);
-  testfw->RollbackWork();
+
+  testfw->CommitWork();
+  testfw->FlushTasks([ "platform:analyzefiles" ]);
+
+  expect_files[0].title := "Kastjes en muren 2";
+  got_files := SELECT name, title FROM system.fs_objects WHERE parent = testsite->id ORDER BY name;
+  TestEq(expect_files, got_files);
 }
 
 MACRO ExtendedZipTest()
@@ -729,9 +734,9 @@ MACRO ExtendedZipTest()
   imp->AddInput(testzip_no_metadata);
   imp->Import(testsite->id);
 
-  // Automatic parsing of metadata for PDFs is not enabled in WASM mode
+  // PDF titles are only set after commit by the platform:analyzefiles task (tested by InsertPropertiesTest)
   RECORD ARRAY expect_files :=
-      [ [ name := "Kastjes en muren 2.pdf", title := IsWasm() ? "" : "Kastjes en muren 2" ]
+      [ [ name := "Kastjes en muren 2.pdf", title := "" ]
       , [ name := "docgen_2.tar.gz",        title := "" ]
       , [ name := "goud-vis.png",           title := "" ]
       , [ name := "lorum_ipsum.doc",        title := "" ]

@@ -6,6 +6,7 @@ import { db, sql } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { convertToWillPublish, isPublish, isQueuedForPublication, PubPrio_DirectEdit } from "./support";
 import { applyConfiguration, openBackendService } from "@webhare/services";
+import { scheduleTasks } from "@webhare/tasks/src/impl";
 import bridge, { type IPCLinkType } from "@mod-system/js/internal/whmanager/bridge";
 import { selectFSHighestParent } from "@webhare/whdb/src/functions";
 import { loadlib } from "@webhare/harescript";
@@ -39,6 +40,9 @@ type EventCompletionResponses = {
 };
 
 export type EventCompletionLink = IPCLinkType<EventCompletionRequest, EventCompletionResponses>;
+
+/** Maximum number of files per platform:analyzefiles task (each file takes about 70 bytes of the 4K task data limit) */
+const analyzeFilesBatchSize = 25;
 
 
 async function performEmptyWHFSMetadataUpdate(commitHandler: WHFSFinishHandler, id: number, options: { republish: true }) {
@@ -104,6 +108,9 @@ class WHFSFinishHandler extends HSVMMarshallableOpaqueObject implements FinishHa
 
   /// List of ofs object that should have an empty update performed
   private _emptyUpdates = new Set<number>();
+
+  /// New files to analyze after commit (eg. to set a title from PDF metadata), with the hash of their data
+  private _filesToAnalyze = new Map<number, string>();
 
   /// Completion events to send to the completion handler
   private _completionEvents: WHFSCompletionEvent[] = [];
@@ -283,6 +290,12 @@ class WHFSFinishHandler extends HSVMMarshallableOpaqueObject implements FinishHa
       await loadlib("mod::consilio/lib/internal/fetcher_linkcheck.whlib").ProcessLinkCheckedSettings(setHareScriptType(this._linkCheckSettings.values().toArray(), HareScriptType.Integer64Array));
 
     await this.analyzeAndscheduleFolderEvents();
+
+    if (this._filesToAnalyze.size) {
+      //Schedule the files in batches, so importing an archive doesn't create a task per file (but keep the task data well within its 4K limit)
+      const batches = Map.groupBy(this._filesToAnalyze.entries().map(([id, hash]) => ({ id, hash })), (_, idx) => Math.floor(idx / analyzeFilesBatchSize));
+      await scheduleTasks("platform:analyzefiles", batches.values().map(files => ({ files })).toArray());
+    }
   }
 
   async onCommit() {
@@ -376,6 +389,16 @@ class WHFSFinishHandler extends HSVMMarshallableOpaqueObject implements FinishHa
    */
   objectCreate(parentSite: number | null, folderId: number | null, objectId: number, isFolder: boolean) {
     this.addObjectEvent(parentSite, folderId, objectId, "create", isFolder);
+  }
+
+  /** Called when a new file needs analysis of its data
+   * Sideeffects upon commit:
+   * - a platform:analyzefiles task is scheduled for the file
+   * @param fileId - File to analyze
+   * @param hash - Hash of the file's data. The analysis is skipped if the data has changed in the meantime
+   */
+  analyzeFile(fileId: number, hash: string) {
+    this._filesToAnalyze.set(fileId, hash);
   }
 
   /** Called when a file or folder is updated

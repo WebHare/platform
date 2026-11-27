@@ -850,84 +850,6 @@ Blex::StringPair CRC32Hasher::FinalizeHash()
         return Blex::StringPair(reinterpret_cast<char*>(hash), reinterpret_cast<char*>(hash) + CRC32HashLen);
 }
 
-RC4::RC4()
-: x(0)
-, y(0)
-{
-}
-
-RC4::RC4(void const *inkey, unsigned keylen)
-{
-        InitKey(inkey,keylen);
-}
-
-void RC4::InitKey(void const *inkey, unsigned keylen)
-{
-        uint8_t const *key=static_cast<uint8_t const*>(inkey);
-        x=0;
-        y=0;
-        for (unsigned i = 0; i < 256; ++i)
-            state[i] = uint8_t(i);
-
-        unsigned index1 = 0;
-        unsigned index2 = 0;
-        for (unsigned i = 0; i < 256; ++i)
-        {
-                index2 = (key[index1] + state[i] + index2) % 256;
-                std::swap(state[i], state[index2]);
-                index1 = (index1 + 1) % keylen;
-        }
-}
-
-void RC4::CryptBuffer(void *inbuffer, unsigned bufferlen)
-{
-        uint8_t *buffer=static_cast<uint8_t*>(inbuffer);
-        while(bufferlen>0)
-        {
-                x = (x + 1) % 256;
-                y = (state[x] + y) % 256;
-                std::swap(state[x],state[y]);
-                *buffer ^= state[(state[x] + state[y]) % 256];
-                ++buffer;
-                --bufferlen;
-        }
-}
-
-uint8_t RC4::CryptByte(uint8_t inbyte)
-{
-        CryptBuffer(&inbyte,1);
-        return inbyte;
-}
-
-RC4CryptingStream::RC4CryptingStream(Blex::Stream &in)
-: Stream(true)
-, in(in)
-{
-}
-RC4CryptingStream::~RC4CryptingStream()
-{
-}
-void RC4CryptingStream::InitKey(void const *key, unsigned keylen)
-{
-        crypt.InitKey(key,keylen);
-}
-std::size_t RC4CryptingStream::Read(void *buf,std::size_t maxbufsize)
-{
-        std::size_t bytesread = in.Read(buf,maxbufsize);
-        crypt.CryptBuffer(buf,bytesread);
-        return bytesread;
-}
-std::size_t RC4CryptingStream::Write(const void *buf, std::size_t maxbufsize)
-{
-        std::vector<uint8_t> temp(static_cast<const char*>(buf), static_cast<const char*>(buf) + maxbufsize);
-        crypt.CryptBuffer(temp.data(),maxbufsize);
-        return in.Write(temp.data(),maxbufsize);
-}
-bool RC4CryptingStream::EndOfStream()
-{
-        return in.EndOfStream();
-}
-
 static const char b64t[65] =
 "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
@@ -1832,13 +1754,6 @@ Blex::StringPair MD5::FinalizeHash()
 
         Process(finaldata, padbytes + sizeof(uint64_t));
         return Blex::StringPair(reinterpret_cast<char*>(&buf), reinterpret_cast<char*>(&buf) + Blex::MD5HashLen);
-}
-
-void GetMD5Hash(const void *data, unsigned len, void *hashstore)
-{
-        Blex::MD5 retval;
-        retval.Process(data,len);
-        memcpy(hashstore, retval.Finalize(), MD5HashLen);
 }
 
 /*
