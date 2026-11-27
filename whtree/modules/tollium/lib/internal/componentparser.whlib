@@ -188,18 +188,18 @@ PUBLIC RECORD FUNCTION ParseBordersSpacers(STRING celldata)
     border.right := "right" IN borders;
     border.bottom := "bottom" IN borders;
     border.left := "left" IN borders;
-    /* usedefault is used to mark the borders not having been explicitly set
-       in XML. we need that in two cases:
-       - ensuring all but the leftmost column of a grid have a left spacer by default
-       - ensuring individual tabs inside a tabs type=server get their spacers removed
-
-       moving the first one to parser time is hard, because you need to take rowspan
-       of higher rows into account, but doable. the second one is impossible, as tabs
-       are often switched from regular to server during Init. we just can't fix that
-       one at parse time
-    */
-    border.usedefault := "default" IN borders;
   }
+  /* usedefault is used to mark the borders not having been explicitly set
+     in XML. we need that in two cases:
+     - ensuring all but the leftmost column of a grid have a left spacer by default
+     - ensuring individual tabs inside a tabs type=server get their spacers removed
+
+     moving the first one to parser time is hard, because you need to take rowspan
+     of higher rows into account, but doable. the second one is impossible, as tabs
+     are often switched from regular to server during Init. we just can't fix that
+     one at parse time
+  */
+  border.usedefault := "default" IN borders;
   RETURN border;
 }
 
