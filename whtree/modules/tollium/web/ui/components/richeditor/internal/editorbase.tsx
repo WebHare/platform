@@ -1,6 +1,4 @@
 /* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from "@webhare/dompack";
 import { debugFlags } from "@webhare/env";
 import * as scrollmonitor from '@mod-tollium/js/internal/scrollmonitor';
@@ -23,12 +21,11 @@ import * as domlevel from "./domlevel";
 import * as support from "./support";
 import * as icons from '@mod-tollium/js/icons';
 import Range from './dom/range';
-import type { BlockStyle, ExternalStructureDef } from "./parsedstructure";
-import { encodeString } from "@webhare/std";
+import type { BlockStyle, CellStyle, ExternalStructureDef, ParsedStructure } from "./parsedstructure";
+import { encodeString, throwError } from "@webhare/std";
 import { getFileAsDataURL, requestFile } from '@webhare/upload';
-import type { ActionState, GetPlainTextMethod, GetPlainTextOptions, RTEComponent } from './types';
+import type { ActionState, GetPlainTextMethod, GetPlainTextOptions, RTEComponent, RTEWidget, TargetInfo } from './types';
 import { RTECompBase } from './rtecompbase';
-import { handleCopyEvent } from "./clipboard";
 import { copyPastedImageStyleDimensions, downloadPastedImage, validatePastedImage } from "./utils";
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -137,7 +134,7 @@ function GetNodeXML_Attributes(node: Element) {
 }
 
 function undoMutationEvents(ancestor: Element, records: MutationRecord[], recordrecords: boolean) {
-  const redoRecords = [];
+  const redoRecords: MutationRecord[] = [];
   let redoObserver;
 
   if (recordrecords) {
@@ -261,7 +258,7 @@ class EditorUndoItem {
     if (!this.redoRecords)
       throw new Error(`Redo records not available`);
     undoMutationEvents(this.editor.getBody(), this.redoRecords, false);
-    this.editor.selectRange(this.postselection);
+    this.editor.selectRange(this.postselection ?? throwError("Undo item is not finished yet"));
   }
 }
 
@@ -320,7 +317,7 @@ export interface EditorBaseOptions {
   cssinstance: string | null;
   csslinks: string[] | null;
   csscode: string;
-  preloadedcss: { addcss: Array<{ type: string; src: string }> } | null;
+  preloadedcss: styleloader.CSSRefRequester | null;
   breakupnodes: string[];
   htmlclass: string;
   bodyclass: string;
@@ -335,12 +332,64 @@ export interface EditorBaseOptions {
   language: string;
 }
 
-export default class EditorBase extends RTECompBase implements RTEComponent {
-  structure: ExternalStructureDef | undefined;
+/// A text style (eg bold or a hyperlink), named by its (normalized) node name. Can also hold preserved attributes
+export type TextStyleRecord = { nodeName: string } & Record<string, string>;
+
+/// Describes an inline element to wrap the selection in, or to remove from it
+export interface SurroundElementInfo {
+  element: string;
+  ///True to wrap the selection in the element, false to remove the element from the selection
+  wrapin: boolean;
+  attrs?: Record<string, string | null>;
+  splitprohibits?: string[];
+  splitblockelements?: boolean;
+  avoidwhitespace?: boolean;
+  subtags?: string[];
+}
+
+/// Settings passed to updateTarget. Which of them are used depends on the type of the target
+export interface UpdateTargetSettings {
+  //for hyperlinks
+  destroy?: boolean;
+  target?: string;
+  //for hyperlinks (the URL) and images (the link around the image)
+  link?: string | { link: string; target?: string } | null;
+  //for tables and cells
+  removetable?: boolean;
+  datacell?: { row: number; col: number };
+  tablestyletag?: string;
+  tablecaption?: string;
+  cellstyletag?: string;
+  //for embedded objects
+  type?: "replace" | "remove";
+  data?: RTEWidget;
+  //for images
+  width?: number | string;
+  height?: number | string;
+  alttext?: string;
+  align?: string;
+}
+
+export interface RTEAction {
+  action: string;
+  size?: { x: number; y: number };
+  actiontargetinfo?: TargetInfo;
+  actiontarget?: { __node: HTMLElement };
+  subaction?: string;
+  rte?: EditorBase;
+}
+
+type PreservedLocators = domlevel.PreservedLocatorList | null | undefined;
+
+export default abstract class EditorBase extends RTECompBase implements RTEComponent {
+  static TextFormattingState: typeof TextFormattingState;
+
+  /** The parsed structure, only set by the structured editor */
+  structure: ParsedStructure | null = null;
   blockroots: string[];
   lastselectionstate = new TextFormattingState;
-  toolbar = null;
-  addcss = [];
+  toolbar: RTEToolbar | null = null;
+  addcss: styleloader.CSSRef[] = [];
   /** Whether document is dirty. Initial set to true to avoid firing events during init */
   dirty = true;
   original_value = "<neverset>";
@@ -350,8 +399,43 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   private pastedfiles = new Map<string, File>();
   language: string;
   bodydiv;
-  undopos: number;
-  undostack: { finished: boolean }[];
+  undopos = 0;
+  undostack: EditorUndoItem[] = [];
+  /** Hidden contenteditable node whose content we change to get an entry on the browser's undo stack */
+  undonode: HTMLDivElement | null = null;
+  private undoselectitf: SelectionInterface | null = null;
+  private undoNodeMutationObserver?: MutationObserver;
+
+  private selectionitf: SelectionInterface;
+  /** Our copy of the current selection */
+  currentrange: Range | null = null;
+  /** Currently busy selecting range. Needed for synchronous event selectionchange */
+  selectingrange = false;
+  /** Needed to ignore range setting when refocusing body */
+  private ignorenextfocus = false;
+  delayedsurrounds: SurroundElementInfo[] = [];
+  breakupnodes: string[] = [];
+  /** Selector for the elements that respond to action-properties */
+  properties_selector = "img, a[href]";
+
+  // input event stuff
+  private oninputhandlers: Array<{ name: string; callback: () => void }> = [];
+  private activeinputhandler = '';
+  private attachedinputevents = false;
+  private inputeventfunction: ((event: Event) => void) | null = null;
+  private frameeventsregistered = false;
+  private _mouseupcallback: (event: MouseEvent) => void;
+
+  tableeditors: tablesupport.TableEditor[] = [];
+  private tableeditorstatechangedelay: ReturnType<typeof setTimeout> | null = null;
+  private updatetableeditorssetupdone = false;
+  private fontslistener: (() => void) | null = null;
+  private repeatupdatetableuntil: number | null = null;
+  private scheduledupdatetableeditors = false;
+  private repeatupdatetabletimeout?: ReturnType<typeof setTimeout>;
+  private repeatupdatetableanimframe?: number;
+  private scrollmonitor: scrollmonitor.Monitor;
+  private _langtexts?: Record<string, Record<string, string>>;
 
   private allChangeObserver: MutationObserver;
   private allChangeObserverActive = false;
@@ -376,7 +460,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     //Create two divs inside the container, which will play the role of HTML and BODY
     this.bodydiv = dompack.create("div", {
       className: "wh-rtd wh-rtd-editor wh-rtd__body wh-rtd-editor-bodynode wh-rtd-theme-default " + this.options.bodyclass,
-      on: { "dompack:takefocus": evt => this._takeSafeFocus(evt) },
+      on: { "dompack:takefocus": (evt: Event) => this._takeSafeFocus(evt) },
       childNodes: originalcontent
     });
     this.htmldiv.append(this.bodydiv);
@@ -397,7 +481,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     let margins = 'none';
     if (this.options.structure && this.options.structure.contentareawidth) {
       if (this.options.contentarea) {
-        this.bodydiv.parentNode.classList.add('wh-rtd-withcontentarea');
+        this.htmldiv.classList.add('wh-rtd-withcontentarea');
         this.bodydiv.classList.add('wh-rtd__body--contentarea');
       }
       this.bodydiv.style.width = this.options.structure.contentareawidth; //NOTE: already contains 'px'
@@ -408,64 +492,18 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     if (margins !== 'none') //include -active if -any- margin is present. should replace wh-rtd-withcontentarea and wh-rtd__body--contentarea eventually
       this.htmldiv.classList.add("wh-rtd--margins-active");
 
-    const editoropts = {
-      log: this.options.log,
-      breakupnodes: this.options.breakupnodes,
-      editembeddedobjects: this.options.editembeddedobjects,
-      allowundo: this.options.structure && this.options.allowundo
-    };
-
-    if (this.options.structure) {
+    if (this.options.structure && this.options.allowundo) {
       /*
       NOTE: contenteditable makes the node focusable, however the wh-rtd__undoholder is a hidden node we don't want to be focused.
       We prevent it from appearing in (and messing up) tabnavigation we also add tabindex="-1" in addition to the contenteditable="true".
       */
-
-      if (this.options.allowundo) {
-        this.undonode = <div contenteditable="true" class="wh-rtd__undoholder" tabindex="-1" />;
-        this.container.appendChild(this.undonode);
-      }
-
-      editoropts.structure = this.options.structure; //FIXME limit structure to what is needed here
-    } else {
-      editoropts.allowtags = this.options.allowtags;
+      const undonode = <div contenteditable="true" class="wh-rtd__undoholder" tabindex="-1" /> as HTMLDivElement;
+      this.undonode = undonode;
+      this.container.appendChild(undonode);
     }
 
     this.selectionitf = new SelectionInterface(this.bodydiv);
-
-    this.selectingrange = false; // Currently busy selecting range. Needed for synchronous event selectionchange
-    this.ignorenextfocus = false; // Needed to ignore range setting when refocusing body
-
-    this.ultypes = ["", "disc", "circle", "square"];
-    this.oltypes = ["", "decimal", "lower-roman", "upper-roman"];
-
-    this.delayedsurrounds = [];
-
-    // Undo stuff
-    this.undostack = [];
-    this.undopos = 0;
-    this.undoselectitf = null;
-
-    // input event stuff
-    this.oninputhandlers = [];
-    this.activeinputhandler = '';
-
-    this.tableeditors = [];
-    this.repeatupdatetableuntil = null;
-    this.attachedinputevents = false;
-    this.inputeventfunction = null;
     this.blockroots = ['body', 'td', 'th'];
-
-    this.tableeditorstatechangedelay = null;
-
-    if (this.undonode)
-      options.allowundo = true;
-
-    //elements that respond to action-properties
-    this.properties_selector = "img, a[href]";
-
-    if (this.onload)
-      this.onload();
 
     this._mouseupcallback = e => this._gotMouseUp(e);
 
@@ -521,21 +559,23 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   // Helper functions
   //
 
-  _takeSafeFocus(evt) {
+  _takeSafeFocus(evt: Event) {
     //TODO? An alternative approach might be to have the ScrollMonitor watch focus events ?
     //take focus but save scroll position  (ADDME for non-body nodes too!)
     evt.preventDefault();
 
-    const scrollleft = evt.target.parentNode.scrollLeft;
-    const scrolltop = evt.target.parentNode.scrollTop;
+    const target = evt.target as HTMLElement;
+    const parent = target.parentNode as HTMLElement;
+    const scrollleft = parent.scrollLeft;
+    const scrolltop = parent.scrollTop;
 
-    evt.target.focus(); //on chrome, focus resets scroll position. https://bugs.chromium.org/p/chromium/issues/detail?id=75072
+    target.focus(); //on chrome, focus resets scroll position. https://bugs.chromium.org/p/chromium/issues/detail?id=75072
 
-    evt.target.parentNode.scrollLeft = scrollleft;
-    evt.target.parentNode.scrollTop = scrolltop;
+    parent.scrollLeft = scrollleft;
+    parent.scrollTop = scrolltop;
   }
 
-  _gotContextMenu(event) {
+  _gotContextMenu(event: MouseEvent) {
     // with ctrl-shift, don't react on the event, fallback to browser menu
     if (event.ctrlKey && event.shiftKey)
       return;
@@ -552,7 +592,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
 
     const actiontarget = selectionstate.propstarget ? support.getTargetInfo({ __node: selectionstate.propstarget }) : null;
 
-    const menuitems = [];
+    const menuitems: Array<{ action: string; title: string } | null> = [];
     for (const menuitem of
       [
         { action: "table-addrow-before", title: getTid("tollium:components.rte.table_addrow_before") },
@@ -588,17 +628,18 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     if (!menuitems.some(_ => _))
       return; //no non-null items, don't open it
 
-    const contextmenu = <ul onClick={evt => this._activateRTDMenuItem(evt, actiontarget)}>
+    const contextmenu = <ul onClick={(evt: MouseEvent) => this._activateRTDMenuItem(evt, actiontarget)}>
       {menuitems.map(item => item ? <li data-action={item.action}>{item.title}</li> : <li class="divider" />)}
     </ul>;
 
-    menu.openAt(contextmenu, event, { eventnode: this.node });
+    menu.openAt(contextmenu, event);
   }
 
-  _activateRTDMenuItem(evt, actiontarget) {
+  _activateRTDMenuItem(evt: MouseEvent, actiontarget: TargetInfo | null) {
     dompack.stop(evt);
-    const item = evt.target.closest('li');
-    this.executeAction(item.dataset.action, actiontarget);
+    const item = (evt.target as HTMLElement).closest('li');
+    if (item?.dataset.action)
+      this.executeAction(item.dataset.action, actiontarget);
   }
 
   //get the current dirty flag
@@ -629,10 +670,10 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   //
   // Callbacks
   //
-  _gotClick(event) {
+  _gotClick(event: MouseEvent) {
     dompack.stop(event); //no click should ever escape an RTE area
 
-    const linkel = event.target.closest('a[href]');
+    const linkel = (event.target as HTMLElement).closest<HTMLAnchorElement>('a[href]');
     if (linkel
       && linkel.href.match(/^https?:/)
       && (!this.isEditable() || dompack.isMultiSelectKey(event))) {
@@ -640,7 +681,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     }
   }
 
-  _gotPageClick(event) {
+  _gotPageClick(event: MouseEvent) {
     if (!this.isEditable())
       return;
 
@@ -663,7 +704,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     rtdstatenode.classList.toggle('wh-rtd--readonly', this.options.readonly);
   }
 
-  _gotStateChange(event?) {
+  _gotStateChange() {
     this._fireStateChange();
     this._checkDirty();
   }
@@ -677,21 +718,21 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   // Action and content API
   //
 
-  updateTarget(actiontarget, settings) {
+  updateTarget(actiontarget: TargetInfo, settings: UpdateTargetSettings) {
     const undolock = this.getUndoLock();
 
-    const node = actiontarget.__node;
+    const node = actiontarget.__node ?? throwError("Action target has no node");
     if (node.matches('a'))
-      this._updateHyperlink(actiontarget.__node, settings);
+      this._updateHyperlink(node as HTMLAnchorElement, settings);
     else if (node.matches('td,th'))
-      this._updateCell(actiontarget.__node, settings);
+      this._updateCell(node as HTMLTableCellElement, settings);
     else if (node.matches('table'))
-      this._updateTable(actiontarget.__node, settings);
+      this._updateTable(node as HTMLTableElement, settings);
     else if (node.matches('.wh-rtd-embeddedobject')) {
       if (node.classList.contains("wh-rtd-embeddedobject")) {
         //we'll simply reinsert
         if (settings) {
-          if (settings.type === 'replace') {
+          if (settings.type === 'replace' && settings.data) {
             this.updateEmbeddedObject(node, settings.data);
           } else if (settings.type === 'remove') {
             this.removeEmbeddedObject(node);
@@ -699,25 +740,26 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
         }
       }
     } else if (node.matches('img')) {
+      const img = node as HTMLImageElement;
       if (settings.width)
-        node.setAttribute("width", settings.width);
+        img.setAttribute("width", String(settings.width));
       else
-        node.removeAttribute("width");
+        img.removeAttribute("width");
       if (settings.height)
-        node.setAttribute("height", settings.height);
+        img.setAttribute("height", String(settings.height));
       else
-        node.removeAttribute("height");
+        img.removeAttribute("height");
 
-      node.align = '';
-      node.alt = settings.alttext;
-      node.className = "wh-rtd__img" + (settings.align === 'left' ? " wh-rtd__img--floatleft" : settings.align === "right" ? " wh-rtd__img--floatright" : "");
+      img.align = '';
+      img.alt = settings.alttext as string;
+      img.className = "wh-rtd__img" + (settings.align === 'left' ? " wh-rtd__img--floatleft" : settings.align === "right" ? " wh-rtd__img--floatright" : "");
 
-      let link = node.closest('A');
+      let link = img.closest<HTMLAnchorElement>('A');
       if (link && !settings.link) //remove the hyperlink
       {
-        link.replaceWith(node);
-        this.selectNodeOuter(node);
-      } else if (settings.link) //add or update a hyperlink
+        link.replaceWith(img);
+        this.selectNodeOuter(img);
+      } else if (settings.link && typeof settings.link === "object") //add or update a hyperlink
       {
         if (!link) {
           //replace the image with the link
@@ -737,7 +779,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     undolock.close();
   }
 
-  _updateHyperlink(node, settings) {
+  _updateHyperlink(node: HTMLAnchorElement, settings: UpdateTargetSettings) {
     const undolock = this.getUndoLock();
 
     if (settings.destroy) //get rid of the hyperlink
@@ -746,7 +788,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
       this.removeHyperlink();
     } else {
       if ('link' in settings)
-        node.setAttribute("href", settings.link);
+        node.setAttribute("href", settings.link as string);
       if ('target' in settings)
         if (settings.target)
           node.target = settings.target;
@@ -758,23 +800,24 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     undolock.close();
   }
 
-  _updateTable(table, settings) {
+  _updateTable(table: HTMLTableElement | null, settings: UpdateTargetSettings) {
     if (settings.removetable) {
-      this.removeTable(table);
+      this.removeTable(table ?? throwError("No table to remove"));
       return;
     }
 
     const editor = tablesupport.getEditorForNode(table);
     if (editor) {
-      editor.setFirstDataCell(settings.datacell.row, settings.datacell.col);
-      editor.setStyleTag(settings.tablestyletag);
-      editor.setCaption(settings.tablecaption);
+      const datacell = settings.datacell ?? throwError("Missing 'datacell' in table settings");
+      editor.setFirstDataCell(datacell.row, datacell.col);
+      editor.setStyleTag(settings.tablestyletag as string);
+      editor.setCaption(settings.tablecaption as string);
     }
   }
 
-  _updateCell(node, settings) {
+  _updateCell(node: HTMLTableCellElement, settings: UpdateTargetSettings) {
     //apply cell update before table updates... the table might destroy our node! (eg if it gets replaced by a TH)
-    this.setCellStyle(node, settings.cellstyletag);
+    this.setCellStyle(node, settings.cellstyletag as string);
     this._updateTable(node.closest('table'), settings);
   }
 
@@ -810,7 +853,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     return Array.from(this.getBody().querySelectorAll<T>(selector));
   }
 
-  getButtonNode(actionname) {
+  getButtonNode(actionname: string) {
     return this.toolbarnode.querySelector('.wh-rtd-button[data-button=' + actionname + ']');
   }
 
@@ -849,7 +892,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     this.bodydiv.focus();
   }
 
-  setEnabled(enabled) {
+  setEnabled(enabled: boolean) {
     if (enabled === this.options.enabled)
       return;
 
@@ -870,7 +913,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     }
   }
 
-  setReadonly(readonly) {
+  setReadonly(readonly: boolean) {
     if (readonly === this.options.readonly)
       return;
 
@@ -891,12 +934,12 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     }
   }
 
-  setHTMLClass(htmlclass) {
+  setHTMLClass(htmlclass: string) {
     support.replaceClasses(this.htmldiv, this.options.htmlclass, htmlclass);
     this.options.htmlclass = htmlclass;
   }
 
-  setBodyClass(bodyclass) {
+  setBodyClass(bodyclass: string) {
     support.replaceClasses(this.bodydiv, this.options.bodyclass, bodyclass);
     this.options.bodyclass = bodyclass;
   }
@@ -927,27 +970,27 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
       this.undonode.innerHTML = '0';
       this.undoselectitf = new SelectionInterface(this.undonode);
 
-      if (window.MutationObserver) {
-        // Add mutation observer to undonode, so we'll get notifified on changes
-        this.undoNodeMutationObserver = new MutationObserver(evt => this.gotUndoChange('mutation', evt));
-        this.undoNodeMutationObserver.observe(
-          this.undonode,
-          {
-            characterData: true,
-            subtree: true,
-            childList: true
-          });
-      } else
-        this.undonode.addEventListener('input', evt => this.gotUndoChange('input', evt));
+      // Add mutation observer to undonode, so we'll get notifified on changes
+      this.undoNodeMutationObserver = new MutationObserver(() => this.gotUndoChange());
+      this.undoNodeMutationObserver.observe(
+        this.undonode,
+        {
+          characterData: true,
+          subtree: true,
+          childList: true
+        });
 
       // Revert focus back to contentEditable node ASAP
       // - Chrome gives undo node focus upon change
       // - Firefox needs focus to execute InsertHTML
-      this.undonode.addEventListener('focus', evt => this.refocusAfterUndoUpdate(evt));
+      this.undonode.addEventListener('focus', () => this.refocusAfterUndoUpdate());
     }
   }
 
-  gotUndoChange(name, event) {
+  gotUndoChange() {
+    if (!this.undonode)
+      return;
+
     const elt = parseInt(this.undonode.innerHTML);
     //console.log('gotUndoChange', name, event, "new indopos: ", elt, 'current undopos: ', this.undopos);
     if (elt === this.undopos)
@@ -975,18 +1018,19 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
       document.fonts.removeEventListener("loadingdone", this.fontslistener);
 
     if (this.scheduledupdatetableeditors) {
-      cancelAnimationFrame(this.repeatupdatetableanimframe);
+      if (this.repeatupdatetableanimframe !== undefined)
+        cancelAnimationFrame(this.repeatupdatetableanimframe);
       clearTimeout(this.repeatupdatetabletimeout);
     }
 
-    this.bodydiv.contentEditable = false;
+    this.bodydiv.contentEditable = "false";
   }
 
 
-  execCommand(command, p1, p2) {
+  execCommand(command: string, showUI?: boolean, value?: string) {
     try {
       // execCommand should be called on the document, not the editable area (contenteditable/designmode)
-      this.bodydiv.ownerDocument.execCommand(command, p1, p2);
+      this.bodydiv.ownerDocument.execCommand(command, showUI, value);
     } catch (e) {
       if (this.options.log)
         console.log('ExecCommand exception', e);
@@ -1006,7 +1050,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
       \@cell changed
       \@cell range
   */
-  _constrainRangeCrossTDSelections(range) {
+  _constrainRangeCrossTDSelections(range: Range) {
     let changed = false;
     let base = range.getAncestorElement();
 
@@ -1049,7 +1093,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   //
 
   hasFocus() {
-    let active = document.activeElement;
+    let active: Node | null = document.activeElement;
     while (active && active !== this.bodydiv)
       active = active.parentNode;
     return Boolean(active);
@@ -1078,7 +1122,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     return this.selectionitf.getSelectionRange();
   }
 
-  _fixChromeInitialPositionBug(range) {
+  _fixChromeInitialPositionBug(range: Range) {
     const bodynode = this.getBody();
 
     // Fixes chrome positioning the cursor at the first node when the document starts with embedded blocks, and then selecting an empty paragraph after those blocks
@@ -1087,7 +1131,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
       let modified = false;
       for (; ;) {
         const node = loc.getPointedNode();
-        if ((!node) || (node.nodeType !== 1) || node.isContentEditable)
+        if ((!node) || (node.nodeType !== 1) || (node as HTMLElement).isContentEditable)
           break;
         ++loc.offset;
         modified = true;
@@ -1162,56 +1206,57 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   /** Changes the current selection to the passed range
       @param range - Range to select
   */
-  selectRange(range, options?: { skipnormalize?: boolean }) {
+  selectRange(range: Range, options?: { skipnormalize?: boolean }) {
     if (!domlevel.isNodeSplittable(range.start.element))
       throw new Error("Trying to put start of selection within an unsplittable element (" + range.start.element.nodeName + ')');
     if (!domlevel.isNodeSplittable(range.end.element))
       throw new Error("Trying to put end of selection within an unsplittable element (" + range.end.element.nodeName + ')');
 
     const body = this.getBody();
-    this.currentrange = range.clone();
+    const currentrange = range.clone();
+    this.currentrange = currentrange;
 
     if (Range.getLogLevel() & 64)
-      console.log('selectrange before limit', richdebug.getStructuredOuterHTML(body, this.currentrange, true), this.currentrange.start, this.currentrange.end);
-    this.currentrange.limitToNode(body);
+      console.log('selectrange before limit', richdebug.getStructuredOuterHTML(body, currentrange, true), currentrange.start, currentrange.end);
+    currentrange.limitToNode(body);
     if (Range.getLogLevel() & 64)
-      console.log('selectrange after limit', richdebug.getStructuredOuterHTML(body, this.currentrange, true), this.currentrange.start, this.currentrange.end);
+      console.log('selectrange after limit', richdebug.getStructuredOuterHTML(body, currentrange, true), currentrange.start, currentrange.end);
 
     if (!options || !options.skipnormalize) {
-      this.currentrange.normalize(body);
+      currentrange.normalize(body);
       if (Range.getLogLevel() & 64)
-        console.log('selectrange after normalize', richdebug.getStructuredOuterHTML(body, this.currentrange, true), this.currentrange.start, this.currentrange.end);
+        console.log('selectrange after normalize', richdebug.getStructuredOuterHTML(body, currentrange, true), currentrange.start, currentrange.end);
     }
 
     //console.log('B selectingrange set', richdebug.getStructuredOuterHTML(this.getBody(), range, true));
     this.selectingrange = true;
 
     if (this.hasFocus())
-      this.selectionitf.selectRange(this.currentrange);
+      this.selectionitf.selectRange(currentrange);
 
     if (Range.getLogLevel() & 64)
-      console.log('EA selectRange', this.connected, richdebug.getStructuredOuterHTML(body, range, false));
+      console.log('EA selectRange', richdebug.getStructuredOuterHTML(body, range, false));
 
     this.selectingrange = false;
     //console.log('B selectingrange res', richdebug.getStructuredOuterHTML(this.getBody(), this.getSelectionRange(), true));
 
-    this.selectionHasChanged(this.currentrange);
+    this.selectionHasChanged(currentrange);
     this.stateHasChanged();
   }
 
-  setCursorAtLocator(locator) {
+  setCursorAtLocator(locator: domlevel.Locator) {
     this.selectRange(new Range(locator, locator));
   }
 
-  selectNodeInner(node) {
+  selectNodeInner(node: Node) {
     this.selectRange(Range.fromNodeInner(node));
   }
 
-  selectNodeOuter(node) {
+  selectNodeOuter(node: Node) {
     this.selectRange(Range.fromNodeOuter(node));
   }
 
-  collapseSelection(tostart) {
+  collapseSelection(tostart?: boolean) {
     const range = this.getSelectionRange();
     if (tostart)
       range.end.assign(range.start);
@@ -1224,12 +1269,12 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     if (this.options.readonly)
       this.bodydiv.tabIndex = 0; // Even if it's not editable, the body div is still focusable (e.g. for editing specific embedded components)
     else
-      this.bodydiv.contentEditable = true;
+      this.bodydiv.contentEditable = "true";
 
     // No Firefox, we don't want your fancy inline table editing or object resizing (can only be called _after_ editarea is
     // connected, i.e. contentEditable is set)
-    this.execCommand("enableInlineTableEditing", null, "false");
-    this.execCommand("enableObjectResizing", null, "false");
+    this.execCommand("enableInlineTableEditing", false, "false");
+    this.execCommand("enableObjectResizing", false, "false");
 
     this.stateHasChanged();
   }
@@ -1237,7 +1282,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     if (this.options.readonly)
       this.bodydiv.tabIndex = -1;
     else
-      this.bodydiv.contentEditable = false;
+      this.bodydiv.contentEditable = "false";
 
     this.stateHasChanged();
   }
@@ -1258,13 +1303,13 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     icons.loadMissingImages({ node: this.getBody() });
   }
 
-  SetBreakupNodes(nodenames) {
+  SetBreakupNodes(nodenames?: string[] | null) {
     if (nodenames && nodenames.length)
       this.breakupnodes = nodenames;
     else
       this.breakupnodes = [];
   }
-  onFocus(event) {
+  onFocus(event: FocusEvent) {
     // Restore the focus on onfocus event. But don't if focusing because of a click on editable stuff
     if (this.currentrange && !this.ignorenextfocus) {
       this.selectionitf.selectRange(this.currentrange);
@@ -1272,8 +1317,8 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
 
     // Need to explicitly disable inline table editing here, doing it once just isn't enough.
     if (dompack.getBrowser().name === "firefox") {
-      document.execCommand("enableInlineTableEditing", null, "false");
-      document.execCommand("enableObjectResizing", null, "false");
+      document.execCommand("enableInlineTableEditing", false, "false");
+      document.execCommand("enableObjectResizing", false, "false");
     }
 
     this.ignorenextfocus = false;
@@ -1281,7 +1326,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     this.updateTableEditors();
   }
 
-  onFocusIn(event) {
+  onFocusIn(event: FocusEvent) {
     // Restore the selection (FIXME: this might cause problems when focus lies within an embedded object)
     if (this.currentrange && !this.ignorenextfocus)
       this.selectionitf.selectRange(this.currentrange);
@@ -1295,7 +1340,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   //
   //  Formatting
   //
-  applyTextStyle(textstyle, apply) {
+  applyTextStyle(textstyle: string, apply: boolean) {
     //ADDME proper list of textstyles we should prevent?
     if (!['b', 'i', 'u', 'strike', 'sub', 'sup'].includes(textstyle))
       console.warn("ADDME: Didn't test ApplyTextStyle for '" + textstyle + "' yet");
@@ -1314,14 +1359,14 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   //  Contents API
   //
 
-  setCursor(element, offset) {
+  setCursor(element: Node, offset?: number) {
     if (!element)
       throw new Error("Invalid element passed to setCursor");
 
     this.setCursorAtLocator(new domlevel.Locator(element, offset || 0));
   }
 
-  SetSelection(newrange) {
+  SetSelection(newrange: Parameters<typeof Range.fromDOMRange>[0]) {
     this.selectRange(Range.fromDOMRange(newrange));
   }
 
@@ -1330,7 +1375,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     this.stateHasChanged();
   }
 
-  insertTextAtCursor(text) {
+  insertTextAtCursor(text: string) {
     //console.log('setselt: ', richdebug.getStructuredOuterHTML(this.getBody(), Range.fromDOMRange(this.GetSelectionObject().GetRange())));
 
     const range = this.getSelectionRange();
@@ -1342,7 +1387,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     range.start.descendToLeafNode(this.getBody());
 
     // locators.start should now point to a text node, insert the text
-    let textnode = range.start.element;
+    let textnode: Node = range.start.element;
     let textoffset = range.start.offset;
     if (textnode.nodeType !== 3) // If it's not a text node (e.g. in an empty document), create one
     {
@@ -1352,7 +1397,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
         textnode = textnode.appendChild(document.createTextNode(''));
       textoffset = 0;
     }
-    let nodetext = textnode.nodeValue;
+    let nodetext = textnode.nodeValue ?? '';
     nodetext = nodetext.substr(0, textoffset) + text + nodetext.substr(textoffset);
     textnode.nodeValue = nodetext;
 
@@ -1367,14 +1412,15 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   //  Undo API
   //
 
-  _updateUndoNodeForNewUndoItem(item) {
-    this.undonode.focus();
+  _updateUndoNodeForNewUndoItem(item: EditorUndoItem) {
+    const undonode = this.undonode ?? throwError("Recording an undo item requires an undo node");
+    undonode.focus();
 
-    this.undoselectitf.selectRange(Range.fromNodeInner(this.undonode));
-    this.undonode.ownerDocument.execCommand("InsertHTML", false, String(this.undopos));
+    this.undoselectitf?.selectRange(Range.fromNodeInner(undonode));
+    undonode.ownerDocument.execCommand("InsertHTML", false, String(this.undopos));
 
     this.getBody().focus();
-    this.selectRange(item.postselection);
+    this.selectRange(item.postselection ?? throwError("Undo item is not finished yet"));
 
     if (debugFlags.rte)
       console.log('[rte] finished recording undo item', item);
@@ -1384,11 +1430,11 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   /** Ensures the actions within the undo lock are recorded into the browser undo buffer. Nested calls
       are allowed.
   */
-  getUndoLock() {
+  getUndoLock(): UndoLock {
     if (!this.options.allowundo)
       return new UndoLock(this, null);
 
-    const last = this.undostack.length && this.undostack[this.undostack.length - 1];
+    const last = this.undostack.at(-1);
     if (last && !last.finished)
       return new UndoLock(this, last);
 
@@ -1416,7 +1462,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     }
   }
 
-  changeUndoPosition(newpos) {
+  changeUndoPosition(newpos: number) {
     let nothrow = false;
     try {
       while (newpos < this.undopos) {
@@ -1458,7 +1504,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     blockparent: ParentNode;
     islist: boolean;
     isintable: boolean;
-    blockstyle: object | null;
+    blockstyle: BlockStyle | null;
   } {
     // Look out - can also be used within document fragments!
     let root: ParentNode = this.getBody();
@@ -1469,7 +1515,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     let res_blockparent: ParentNode | null = null;
     let res_islist = false;
     let res_isintable = false;
-    let res_blockstyle: object | null = null;
+    let res_blockstyle: BlockStyle | null = null;
 
     let curnode: Node | null = node;
     for (; curnode && curnode !== root; curnode = curnode.parentNode)
@@ -1533,9 +1579,9 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
       @param preservelocators -
       @param undoitem -
   */
-  requireVisibleContentInBlockAfterLocator(locator, preservelocators, undoitem) {
+  requireVisibleContentInBlockAfterLocator(locator: domlevel.Locator, preservelocators?: PreservedLocators, undoitem?: unknown) {
     const blocknode = this.getBlockAtNode(locator.element).contentnode;
-    domlevel.requireVisibleContentInBlockAfterLocator(locator, blocknode, preservelocators, undoitem);
+    domlevel.requireVisibleContentInBlockAfterLocator(locator, blocknode, preservelocators ?? []);
   }
 
   /** Removes a range and move the contents after the ranges inside the block at the start range
@@ -1545,8 +1591,8 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
       \@cell options.normalize Normalize the range before executing
       @returns Locator at place of removed range
   */
-  _removeRangeAndStitch(range: Range, preservelocators: domlevel.PreservedLocatorList, undoitem: unknown, { normalize = true } = {}) {
-    preservelocators = (preservelocators || []).slice();
+  _removeRangeAndStitch(range: Range, inpreservelocators?: PreservedLocators, undoitem?: unknown, { normalize = true } = {}) {
+    let preservelocators = (inpreservelocators || []).slice();
 
     // No need to do work on empty selections
     if (normalize)
@@ -1565,7 +1611,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     // Determine which blocks we start&end in
     const startblock = this.getBlockAtNode(range.start.getNearestNode());
     const endblock = this.getBlockAtNode(range.end.getNearestNode());
-    let blockend = null;
+    let blockend: domlevel.Locator;
 
     // If range end is just before an inner node, we won't append that block
     const endbeforeinnernode = (endblock.node as Node) === range.end.getNearestNode();
@@ -1640,34 +1686,34 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   //
 
   /// Corrects whitespace around a locator, assuming the whitespace after the locator should be visible
-  _correctWhitespaceAroundLocator(locator, undoitem) {
+  _correctWhitespaceAroundLocator(locator: domlevel.Locator, undoitem?: unknown) {
     // pointing to a text node?
     if ([3, 4].includes(locator.getNearestNode().nodeType))
-      locator = domlevel.combineAdjacentTextNodes(locator, null, undoitem);
+      locator = domlevel.combineAdjacentTextNodes(locator, []);
 
     const prevlocator = locator.clone();
     const prevres = prevlocator.scanBackward(this.getBody(), {});
     if (prevres.type === "whitespace")
-      domlevel.rewriteWhitespace(this.getBody(), prevlocator, [locator], undoitem);
+      domlevel.rewriteWhitespace(this.getBody(), prevlocator, [locator]);
 
     if (!prevlocator.equals(locator)) {
       const nextlocator = locator.clone();
       const nextres = nextlocator.scanForward(this.getBody(), {});
       if (nextres.type === "whitespace")
-        domlevel.rewriteWhitespace(this.getBody(), nextlocator, [locator], undoitem);
+        domlevel.rewriteWhitespace(this.getBody(), nextlocator, [locator]);
     }
 
     return locator;
   }
 
-  replaceRangeWithNode(range, newnode, undoitem) {
+  replaceRangeWithNode(range: Range, newnode: Node | null, undoitem?: unknown) {
     if (newnode)
-      range.insertBefore(newnode, [], undoitem);
+      range.insertBefore(newnode, []);
 
     return this._removeRangeAndStitch(range, null, undoitem);
   }
 
-  replaceSelectionWithNode(newnode, select) {
+  replaceSelectionWithNode(newnode: Node, select?: boolean) {
     const undolock = this.getUndoLock();
     const res = this.replaceRangeWithNode(this.getSelectionRange(), newnode, undolock.undoitem);
     if (select)
@@ -1691,7 +1737,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
 
     // First insert the new br node
     const newbr = document.createElement('br');
-    /*var res = */range.insertBefore(newbr, [], undolock.undoitem);
+    range.insertBefore(newbr, []);
 
     // If we had a selection, then remove it
     let loc;
@@ -1712,7 +1758,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   /** Free RTE needs to break blockquotes - the rest of the browser implementation is good enough
       @returns Whether browser implementation is to be used
   */
-  executeHardEnter() {
+  executeHardEnter(): boolean {
     const range = this.getSelectionRange();
 
     // Find blockquotes at start - but don't break through tables
@@ -1723,13 +1769,13 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
         break;
 
       topblockquote = breakparent;
-      breakparent = domlevel.findParent(breakparent.parentNode, ['blockquote', 'th', 'td'], this.getBody());
+      breakparent = breakparent.parentNode ? domlevel.findParent(breakparent.parentNode, ['blockquote', 'th', 'td'], this.getBody()) : null;
     }
 
-    if (topblockquote) {
+    if (topblockquote?.parentNode) {
       const undolock = this.getUndoLock();
-      const parts = domlevel.splitDom(topblockquote.parentNode, [{ locator: range.start, toward: 'end' }], range, undolock.undoitem);
-      parts[1].start.insertNode(document.createElement('br'), [], undolock.undoitem);
+      const parts = domlevel.splitDom(topblockquote.parentNode, [{ locator: range.start, toward: 'end' }], [range]);
+      parts[1].start.insertNode(document.createElement('br'), []);
       this.setCursorAtLocator(parts[1].start);
       undolock.close();
       this.stateHasChanged();
@@ -1743,8 +1789,8 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   //  Dom manipulation, rest
   //
 
-  insertImage(url, width, height) {
-    const img = <img src={url} class="wh-rtd__img" />;
+  insertImage(url: string, width?: number, height?: number) {
+    const img = <img src={url} class="wh-rtd__img" /> as HTMLImageElement;
     if (width && height) {
       img.height = height;
       img.width = width;
@@ -1754,7 +1800,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     this.stateHasChanged();
   }
 
-  insertHyperlink(url, options) {
+  insertHyperlink(url: string, options?: { target?: string }) {
     this._surroundSelection({
       element: 'a',
       wrapin: true,
@@ -1795,7 +1841,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     });
   }
 
-  insertTable(cols, rows) {
+  insertTable(cols: number, rows: number) {
     if (cols <= 0 || rows <= 0)
       return;
 
@@ -1806,27 +1852,20 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
 
     const undolock = this.getUndoLock();
 
-    let startelement = locators.start.element;
-    if (startelement === body)
-      startelement = body.firstChild;
-    else
-      while (startelement.parentNode !== body)
-        startelement = startelement.parentNode;
-
-    let endelement = locators.end.element;
+    let endelement: Node | null = locators.end.element;
     if (endelement === body)
       endelement = body.lastChild;
     else
-      while (endelement.parentNode !== body)
+      while (endelement && endelement.parentNode !== body)
         endelement = endelement.parentNode;
-    endelement = endelement.nextSibling;
+    endelement = endelement?.nextSibling ?? null;
 
     // Create the table
     const tablenode = document.createElement('table');
 
-    tablenode.appendChild(document.createElement('tbody'));
+    const tbody = tablenode.appendChild(document.createElement('tbody'));
     for (let row = 0; row < rows; ++row) {
-      const tr = tablenode.lastChild.appendChild(document.createElement('tr'));
+      const tr = tbody.appendChild(document.createElement('tr'));
       for (let col = 0; col < cols; ++col) {
         const td = tr.appendChild(document.createElement('td'));
         td.appendChild(document.createTextNode((col + 1) + "," + (row + 1)));
@@ -1842,7 +1881,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   _clearFormatting() {
     //ADDME: Only clear formatting of selected contents?
     const body = this.getBody();
-    this.setContentsHTML(GetOuterPlain(body, true));
+    this.setContentsHTML(GetOuterPlain(body));
     this.stateHasChanged();
   }
 
@@ -1852,22 +1891,22 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   //
 
   _registerFrameEventListeners() {
-    if (!this.bodydiv.__wh_rte_doneevents) {
-      this.bodydiv.__wh_rte_doneevents = true;
+    if (!this.frameeventsregistered) {
+      this.frameeventsregistered = true;
       this.bodydiv.addEventListener('focus', this.onFocus.bind(this));
       this.bodydiv.addEventListener('focusin', this.onFocusIn.bind(this));
       new KeyboardHandler.default(this.bodydiv,
         {
-          "Accel+Alt+1": event => this._onStyleSwitch(event, 1),
-          "Accel+Alt+2": event => this._onStyleSwitch(event, 2),
-          "Accel+Alt+3": event => this._onStyleSwitch(event, 3),
-          "Accel+Alt+4": event => this._onStyleSwitch(event, 4),
-          "Accel+Alt+5": event => this._onStyleSwitch(event, 5),
-          "Accel+Alt+6": event => this._onStyleSwitch(event, 6),
-          "Accel+Alt+7": event => this._onStyleSwitch(event, 7),
-          "Accel+Alt+8": event => this._onStyleSwitch(event, 8),
-          "Accel+Alt+9": event => this._onStyleSwitch(event, 9),
-          "Accel+Alt+0": event => this._onStyleSwitch(event, 0)
+          "Accel+Alt+1": (event: KeyboardEvent) => this._onStyleSwitch(event, 1),
+          "Accel+Alt+2": (event: KeyboardEvent) => this._onStyleSwitch(event, 2),
+          "Accel+Alt+3": (event: KeyboardEvent) => this._onStyleSwitch(event, 3),
+          "Accel+Alt+4": (event: KeyboardEvent) => this._onStyleSwitch(event, 4),
+          "Accel+Alt+5": (event: KeyboardEvent) => this._onStyleSwitch(event, 5),
+          "Accel+Alt+6": (event: KeyboardEvent) => this._onStyleSwitch(event, 6),
+          "Accel+Alt+7": (event: KeyboardEvent) => this._onStyleSwitch(event, 7),
+          "Accel+Alt+8": (event: KeyboardEvent) => this._onStyleSwitch(event, 8),
+          "Accel+Alt+9": (event: KeyboardEvent) => this._onStyleSwitch(event, 9),
+          "Accel+Alt+0": (event: KeyboardEvent) => this._onStyleSwitch(event, 0)
         });
       this.bodydiv.addEventListener('keydown', this._gotKeyDown.bind(this));
       this.bodydiv.addEventListener('keypress', this._gotKeyPress.bind(this));
@@ -1892,18 +1931,18 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     return <img class="wh-rtd__img wh-rtd__img--uploading" src={this._getImageDownloadURL()} />;
   }
 
-  _isStillImageDownloadNode(img) {
+  _isStillImageDownloadNode(img: Element) {
     return img.matches('.wh-rtd__img--uploading');
   }
 
-  _gotPaste(event) {
+  _gotPaste(event: ClipboardEvent) {
     if (debugFlags.rte)
       console.log('[rte] paste', this, event);
 
     this.gotPaste(event);
   }
 
-  gotPaste(event): void {
+  gotPaste(event: ClipboardEvent): void {
     const preexistingstylenodes = this.qSA("style");
 
     // Wait for the paste to happen, then
@@ -1925,7 +1964,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
 
     const busylock = dompack.flagUIBusy();
     try {
-      const replacementpromises = [];
+      const replacementpromises: Array<Promise<void>> = [];
       for (const img of imgs) {
         const downloadsrc = img.src;
         //The placeholder keeps the pasted width/height so it takes the space the image will take (they're removed once it's uploaded)
@@ -1978,7 +2017,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
       URL.revokeObjectURL(url);
   }
 
-  _handleUploadedRemoteImage(img, properurl) {
+  _handleUploadedRemoteImage(img: HTMLImageElement, properurl: string | null) {
     img.classList.remove("wh-rtd__img--uploading");
     if (!properurl) {
       img.remove();
@@ -1991,7 +2030,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   }
   /* Surround selection directly if there is a selection, otherwise delay surrounding the selection until there was something
      typed */
-  DelayedSurroundSelection(elementinfo) {
+  DelayedSurroundSelection(elementinfo: SurroundElementInfo) {
     if (this.getSelectionRange().isCollapsed()) {
       //console.log('Delaying SurroundSelection');
 
@@ -2025,28 +2064,30 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
       this.delayedsurrounds.pop();
   }
 
-  _createNodeFromElementInfo(elementinfo) {
+  _createNodeFromElementInfo(elementinfo: SurroundElementInfo) {
     const newnode = document.createElement(elementinfo.element);
     if (elementinfo.attrs) {
       const attrnames = Object.keys(elementinfo.attrs).sort();
-      for (let i = 0; i < attrnames.length; ++i)
-        if (elementinfo.attrs[attrnames[i]] !== null)
-          newnode.setAttribute(attrnames[i], elementinfo.attrs[attrnames[i]]);
+      for (const attrname of attrnames) {
+        const value = elementinfo.attrs[attrname];
+        if (value !== null)
+          newnode.setAttribute(attrname, value);
+      }
     }
     return newnode;
   }
 
-  _canWrapNode(elementinfo, node) {
+  _canWrapNode(elementinfo: SurroundElementInfo, node: Node) {
     if (domlevel.isNodeBlockElement(node))
       return elementinfo.splitblockelements === true;
     return !(elementinfo.splitprohibits && elementinfo.splitprohibits.includes(node.nodeName.toLowerCase()));
   }
 
-  private surroundRange(range, elementinfo) {
+  private surroundRange(range: Range, elementinfo: SurroundElementInfo) {
     //console.log('surroundrange start', richdebug.getStructuredOuterHTML(this.getBody(), range));
     //var result = domlevel.surroundRange(range, elementinfo);
 
-    domlevel.removeNodesFromRange(range, this.getBody(), elementinfo.element, null);
+    domlevel.removeNodesFromRange(range, this.getBody(), elementinfo.element, []);
 
     if (elementinfo.wrapin) {
       domlevel.wrapRange(range, () => this._createNodeFromElementInfo(elementinfo), { onCanWrapNode: node => this._canWrapNode(elementinfo, node) });
@@ -2055,15 +2096,15 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     //console.log('surroundrange end', richdebug.getStructuredOuterHTML(this.getBody(), range));
   }
 
-  private _surroundSelection(elementinfo) {
+  protected _surroundSelection(elementinfo: SurroundElementInfo) {
     const undolock = this.getUndoLock();
 
     const range = this.getSelectionRange();
     if (elementinfo.avoidwhitespace) {
       //Try to remove spaces at begin and end iterator
-      while (range.start.element.nodeType === 3 && range.start.element.textContent[range.start.offset] === ' ' && range.start.compare(range.end) < 0)
+      while (range.start.element.nodeType === 3 && range.start.element.textContent?.[range.start.offset] === ' ' && range.start.compare(range.end) < 0)
         ++range.start.offset;
-      while (range.end.element.nodeType === 3 && range.end.element.textContent[range.end.offset - 1] === ' ' && range.start.compare(range.end) < 0)
+      while (range.end.element.nodeType === 3 && range.end.element.textContent?.[range.end.offset - 1] === ' ' && range.start.compare(range.end) < 0)
         --range.end.offset;
     }
     this.surroundRange(range, elementinfo);
@@ -2072,7 +2113,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     undolock.close();
   }
 
-  selectionHasChanged(selection) {
+  selectionHasChanged(selection: Range) {
     //use this to update CSS etc after a selection change
   }
 
@@ -2095,7 +2136,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     return this.lastselectionstate;
   }
 
-  getTextStyleRecordFromNode(node) {
+  getTextStyleRecordFromNode(node: HTMLElement): TextStyleRecord | null {
     let nodeName = node.nodeName.toLowerCase();
     if (nodeName === 'strong')
       nodeName = 'b';
@@ -2110,25 +2151,25 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     return ({ nodeName: nodeName });
   }
 
-  getAvailableBlockStyles(selstate) {
+  getAvailableBlockStyles(selstate?: TextFormattingState): BlockStyle[] {
     return [];
   }
-  getAvailableCellStyles(selstate) {
+  getAvailableCellStyles(selstate?: TextFormattingState): CellStyle[] {
     return [];
   }
 
-  getFormattingStateForRange(range) {
-    if (Range.getLogLevel() & 16)
-      console.log("gFSR received range", range, range.start, range.end);
-
+  getFormattingStateForRange(inrange: Range | null) {
     const formatting = new TextFormattingState();
 
     // Range might be null, when we have an uninitialized iframe
-    if (!range)
+    if (!inrange)
       return formatting;
 
+    if (Range.getLogLevel() & 16)
+      console.log("gFSR received range", inrange, inrange.start, inrange.end);
+
     // We're modifying range in here
-    range = range.clone();
+    const range = inrange.clone();
 
     /* Word's behaviour:
        if there is a selection:
@@ -2157,7 +2198,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
 
     const anchornode = locator.element && locator.getNearestNode();
 
-    for (let curnode: HTMLElement = anchornode; curnode && curnode !== this.bodydiv; curnode = curnode.parentNode) {
+    for (let curnode = anchornode as HTMLElement | null; curnode && curnode !== this.bodydiv; curnode = curnode.parentNode as HTMLElement | null) {
       switch (curnode.nodeName.toUpperCase()) {
         case 'B': case 'STRONG': /* FIXME shouldn't generate STRONGs! */
         case 'I': case 'EM': /* FIXME shouldn't generate EMs! */
@@ -2172,8 +2213,12 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
           }
           break;
         case 'A':
-          formatting.textstyles.push(this.getTextStyleRecordFromNode(curnode));
-          formatting.hyperlink = true;
+          {
+            const style = this.getTextStyleRecordFromNode(curnode);
+            if (style)
+              formatting.textstyles.push(style);
+            formatting.hyperlink = true;
+          }
           break;
         case 'UL':
           formatting.bulletedlist = true;
@@ -2187,12 +2232,12 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
           break;
 
         case 'TABLE':
-          formatting.tables.push(curnode);
+          formatting.tables.push(curnode as HTMLTableElement);
           formatting.tablestyle = this.structure?.lookupTableStyle(curnode as HTMLTableElement) || null;
           break;
       }
       if (curnode.getAttribute && curnode.getAttribute('align'))
-        alignment = alignment || curnode.getAttribute('align');
+        alignment = alignment || curnode.getAttribute('align') || '';
       else if (curnode.style && curnode.style.textAlign)
         alignment = alignment || curnode.style.textAlign;
     }
@@ -2209,12 +2254,12 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
        - second from ancestor to root
     */
 
-    let relevantnodes = range.querySelectorAll('*');
+    let relevantnodes = range.querySelectorAll('*') as HTMLElement[];
 
     // Filter out non-contenteditable nodes (allow embbeded objects within a contenteditable parent)
-    relevantnodes = relevantnodes.filter(node => node.isContentEditable || (domlevel.isEmbeddedObject(node) && node.parentNode.isContentEditable));
+    relevantnodes = relevantnodes.filter(node => node.isContentEditable || (domlevel.isEmbeddedObject(node) && (node.parentNode as HTMLElement | null)?.isContentEditable));
 
-    for (let curnode = range.getAncestorElement(); curnode && curnode !== this.bodydiv; curnode = curnode.parentNode)
+    for (let curnode = range.getAncestorElement() as HTMLElement | null; curnode && curnode !== this.bodydiv; curnode = curnode.parentNode as HTMLElement | null)
       relevantnodes.push(curnode);
 
     if (Range.getLogLevel() & 16)
@@ -2264,7 +2309,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
 
     const listoptions = this.getAvailableListActions(range);
 
-    const actionparent = domlevel.findParent(anchornode, ['ol', 'ul', 'td', 'th'], this.getBody());
+    const actionparent = domlevel.findParent(anchornode, ['ol', 'ul', 'td', 'th'], this.getBody()) as HTMLElement | null;
     formatting.actionparent = actionparent;
 
     // When the cursor is at the start of the next block, correct the end position to the end of the previous block element.
@@ -2276,12 +2321,12 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     const startblock = this.getBlockAtNode(range.start.element).contentnode;
     const limitblock = this.getBlockAtNode(end_locator.element).contentnode;
 
-    const tdparent = domlevel.findParent(anchornode, ['td', 'th'], this.getBody());
+    const tdparent = domlevel.findParent(anchornode, ['td', 'th'], this.getBody()) as HTMLTableCellElement | null;
     formatting.cellparent = tdparent;
 
-    const allow_td_actions = startblock === limitblock && tdparent;
-    const tableeditor = allow_td_actions && tablesupport.getEditorForNode(tdparent.closest("table"));
-    const tableactionstate = tableeditor && tableeditor.getActionState(tdparent);
+    const allow_td_actions = Boolean(startblock === limitblock && tdparent);
+    const tableeditor = allow_td_actions && tdparent ? tablesupport.getEditorForNode(tdparent.closest("table")) : null;
+    const tableactionstate = tableeditor && tdparent ? tableeditor.getActionState(tdparent) : null;
     const allowwidgets = !formatting.tablestyle || formatting.tablestyle?.allowwidgets;
 
     formatting.actionstate =
@@ -2304,7 +2349,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
       },
       "action-properties":
       {
-        available: formatting.propstarget
+        available: Boolean(formatting.propstarget)
       },
       "object-insert": {
         available: allowwidgets
@@ -2345,12 +2390,12 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
       "ol":
       {
         available: true,
-        active: actionparent && actionparent.nodeName.toLowerCase() === 'ol'
+        active: actionparent?.nodeName.toLowerCase() === 'ol'
       },
       "ul":
       {
         available: true,
-        active: actionparent && actionparent.nodeName.toLowerCase() === 'ul'
+        active: actionparent?.nodeName.toLowerCase() === 'ul'
       },
       "table-addrow-before": { available: allow_td_actions },
       "table-addrow-after": { available: allow_td_actions },
@@ -2358,8 +2403,8 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
       "table-addpara-after": { available: allow_td_actions },
       "table-addcolumn-before": { available: allow_td_actions },
       "table-addcolumn-after": { available: allow_td_actions },
-      "table-deleterow": { available: allow_td_actions && tableeditor && tableeditor.numrows !== 1 },
-      "table-deletecolumn": { available: allow_td_actions && tableeditor && tableeditor.numcolumns !== 1 },
+      "table-deleterow": { available: Boolean(tableeditor && tableeditor.numrows !== 1) },
+      "table-deletecolumn": { available: Boolean(tableeditor && tableeditor.numcolumns !== 1) },
       "table-mergeright": tableactionstate && tableactionstate["table-mergeright"] || { available: false },
       "table-mergedown": tableactionstate && tableactionstate["table-mergedown"] || { available: false },
       "table-splitcols": tableactionstate && tableactionstate["table-splitcols"] || { available: false },
@@ -2371,7 +2416,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     return formatting;
   }
 
-  _isActionAllowed(action) {
+  _isActionAllowed(action: string) {
     if (!this.options.allowtags)
       return true;
 
@@ -2410,7 +2455,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     return true;
   }
 
-  _stripDisallowedTags(formatting) {
+  _stripDisallowedTags(formatting: TextFormattingState) {
     if (formatting && this.options.allowtags) {
       Object.keys(formatting.actionstate).forEach(key => {
         if (!this._isActionAllowed(key))
@@ -2419,15 +2464,15 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     }
   }
 
-  async _gotCopy(event) {
+  async _gotCopy(event: ClipboardEvent) {
   }
 
-  async _gotCut(event) {
+  async _gotCut(event: ClipboardEvent) {
     // Check the dom after a cut
-    this.scheduleCallbackOnInputOrDelay(this.checkDomStructure.bind(this), 'checkdom');
+    this.scheduleCallbackOnInputOrDelay(() => this.checkDomStructure(), 'checkdom');
   }
 
-  _gotSelectionChange(event) {
+  _gotSelectionChange(event: Event | null) {
     if (this.selectingrange) // Currently within our own selection calls, ignore
       return;
 
@@ -2445,17 +2490,17 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   }
 
   // Used on FF only!
-  _gotDOMNodeRemoved(event) {
+  _gotDOMNodeRemoved(event: Event & { relatedNode?: Node | null }) {
     // Node removed that's a child of the content node? Check the dom!
     // Needed because of select all+delete in context menu in ff & no selection change events
     if (event.relatedNode === this.getBody())
-      this.scheduleCallbackOnInputOrDelay(this.checkDomStructure.bind(this), 'checkdom');
+      this.scheduleCallbackOnInputOrDelay(() => this.checkDomStructure(), 'checkdom');
   }
 
   /** Check DOM structure
       @param range - Range (optional, if range not set, use (& restore!) current selection)
   */
-  checkDomStructure(range, preservelocators) {
+  checkDomStructure(range?: Range | null, preservelocators?: PreservedLocators) {
     // extension point for subclasses
   }
 
@@ -2470,29 +2515,30 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     }
   }
 
-  initializeTableEditor(tablenode, resizing) {
+  initializeTableEditor(tablenode: HTMLTableElement, resizing?: unknown) {
     let editor = tablesupport.getEditorForNode(tablenode);
     if (editor) {
       editor.updateResizers();
       return;
     }
 
-    const options = { onStatechange: this.tableEditorStateHasChanged.bind(this), getUndoLock: () => this.getUndoLock() };
-    options.resize_columns = true;
-    options.resize_rows = true;
-    options.resize_table = true;
-
-    editor = new tablesupport.TableEditor(tablenode, this.getBody(), options);
+    editor = new tablesupport.TableEditor(tablenode, this.getBody(), {
+      onStatechange: () => this.tableEditorStateHasChanged(),
+      getUndoLock: () => this.getUndoLock(),
+      resize_columns: true,
+      resize_rows: true,
+      resize_table: true
+    });
     this.tableeditors.push(editor);
   }
 
-  _getResizingOptionsForTable(tablenode) {
+  _getResizingOptionsForTable(tablenode: HTMLTableElement): string[] | null {
     return ['all'];
   }
 
   _getEditableTables() {
-    const retval = [];
-    for (const node of this.qSA("table")) {
+    const retval: Array<{ node: HTMLTableElement; tableresizing: string[] }> = [];
+    for (const node of this.qSA<HTMLTableElement>("table")) {
       if (!node.isContentEditable)
         continue;
       const tableresizing = this._getResizingOptionsForTable(node);
@@ -2518,13 +2564,13 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
 
     // upon the first call we want to setup some measures to
     // be able to react to custom fonts having been loaded
-    if (!this.__updateTableEditorsSetupDone) {
-      this.__updateTableEditorsSetupDone = true;
+    if (!this.updatetableeditorssetupdone) {
+      this.updatetableeditorssetupdone = true;
 
       if (document.fonts && "onloadingdone" in document.fonts) //FF41+ and Chrome 35+ implement this
       {
         //whenever a font is loaded, resize table editors
-        this.fontslistener = this.updateTableEditors.bind(this);
+        this.fontslistener = () => this.updateTableEditors();
         document.fonts.addEventListener("loadingdone", this.fontslistener);
       } else // IE, Edge and Safari
       {
@@ -2536,7 +2582,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     if (this.repeatupdatetableuntil && Date.now() < this.repeatupdatetableuntil && !this.scheduledupdatetableeditors) {
       //reschedule us on the next available frame after 200ms has passed
       this.scheduledupdatetableeditors = true;
-      this.repeatupdatetabletimeout = setTimeout((function () { this.repeatupdatetableanimframe = requestAnimationFrame(this.rescheduledUpdateTableEditors.bind(this)); }).bind(this), 200);
+      this.repeatupdatetabletimeout = setTimeout(() => { this.repeatupdatetableanimframe = requestAnimationFrame(() => this.rescheduledUpdateTableEditors()); }, 200);
     }
   }
 
@@ -2547,7 +2593,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     this.updateTableEditors();
   }
 
-  _executeDeleteByKey(forward) {
+  _executeDeleteByKey(forward: boolean): boolean {
     return false; // let the browser handle it
   }
 
@@ -2556,7 +2602,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   //  Event handling
   //
 
-  _handleKeyCommand(event, names) {
+  _handleKeyCommand(event: KeyboardEvent, names: string[]) {
     for (const keyname of names) {
       switch (keyname) {
         case "Accel+A": {
@@ -2629,15 +2675,15 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     const br = range.start.clone(); br.moveRight(this.getBody());
     const el = range.end.clone(); el.moveLeft(this.getBody());
 
-    console.log('inspectres', richdebug.getStructuredOuterHTML(this.getBody(), { range, b, e, br, el }, { indent: 1 }), bres, eres);
+    console.log('inspectres', richdebug.getStructuredOuterHTML(this.getBody(), { range, b, e, br, el }, { indent: true }), bres, eres);
     console.log({ b, e, br, el });
   }
 
-  _onStyleSwitch(event, style) {
+  _onStyleSwitch(event: KeyboardEvent, style: number) {
     //TODO switch to h1 to h6 / p if allowed by allowedtag?  but for now just let it go through if we're not going to act on the keys...
   }
 
-  _gotKeyDown(event) {
+  _gotKeyDown(event: KeyboardEvent) {
     if (!this.hasFocus()) {
       event.preventDefault();
       console.log("Received keydown without having focus");
@@ -2662,7 +2708,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     return true;
   }
 
-  _gotKeyPress(event) //ADDME generalize/configurable key mappings. should this really be part of the whrte core anyway?
+  _gotKeyPress(event: KeyboardEvent) //ADDME generalize/configurable key mappings. should this really be part of the whrte core anyway?
   {
     if (event.ctrlKey)
       return;
@@ -2710,7 +2756,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     return true;
   }
 
-  _gotKeyUp(event) {
+  _gotKeyUp(event: KeyboardEvent) {
 
     // Don't clear delayed surrounds on enter, so they'll be transferred to the next line
     if (event.key !== "Enter")
@@ -2721,12 +2767,13 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     return true;
   }
 
-  _gotMouseDown(event) {
+  _gotMouseDown(event: MouseEvent) {
     this.ClearDelayedSurrounds();
 
     // When clicking on an image, or embedded object, select it
-    if (event.target.matches('img, .wh-rtd-embeddedobject'))
-      this.selectNodeOuter(event.target);
+    const target = event.target as HTMLElement;
+    if (target.matches('img, .wh-rtd-embeddedobject'))
+      this.selectNodeOuter(target);
 
     this._gotSelectionChange(event);
     this.stateHasChanged();
@@ -2742,7 +2789,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     return true;
   }
 
-  _gotMouseUp(event) {
+  _gotMouseUp(event: MouseEvent) {
     window.removeEventListener('mouseup', this._mouseupcallback);
 
     this.ClearDelayedSurrounds();
@@ -2752,28 +2799,28 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     }, 1);
   }
 
-  _gotMouseClick(event) {
+  _gotMouseClick(event: MouseEvent) {
     // extension point for subclasses
   }
 
-  _gotDoubleClick(event) {
-    if (!event.target || !this.isEditable())
+  _gotDoubleClick(event: MouseEvent) {
+    const target = event.target as HTMLElement | null;
+    if (!target || !this.isEditable())
       return;
     //ADDME should there be more doubleclickable?
-    if (event.target && event.target.nodeName.toUpperCase() === "IMG") { //double click on an image should open the action props
-      this.selectNodeOuter(event.target);
+    if (target.nodeName.toUpperCase() === "IMG") { //double click on an image should open the action props
+      this.selectNodeOuter(target);
       this.executeAction('action-properties');
     }
     event.stopPropagation();
     event.preventDefault();
   }
 
-  setInputEventAttach(attach) {
+  setInputEventAttach(attach: boolean) {
     if (this.attachedinputevents === attach)
       return;
 
-    if (!this.inputeventfunction)
-      this.inputeventfunction = this._detectedInputEvent.bind(this);
+    this.inputeventfunction ||= (event: Event) => this._detectedInputEvent(event);
 
     if (attach) {
       document.addEventListener('selectionchange', this.inputeventfunction);
@@ -2786,7 +2833,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     this.attachedinputevents = attach;
   }
 
-  scheduleCallbackOnInputOrDelay(callback, name) {
+  scheduleCallbackOnInputOrDelay(callback: () => void, name: string) {
     if (this.activeinputhandler === name)
       return;
 
@@ -2802,14 +2849,14 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     this.oninputhandlers.push({ name: name, callback: callback });
   }
 
-  _delayedDetectedInputEvent(event) {
+  _delayedDetectedInputEvent(event: Event | null) {
     if (event)
       Promise.resolve(true).then(() => this._detectedInputEvent(event));
     else
       setTimeout(() => this._detectedInputEvent(null), 1);
   }
 
-  _detectedInputEvent(event) {
+  _detectedInputEvent(event: Event | null) {
     // Currently inside range code, just ignore
     if (this.selectingrange)
       return;
@@ -2829,7 +2876,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     }
   }
 
-  setShowFormatting(show) {
+  setShowFormatting(show: boolean) {
     this.getBody().classList.toggle('wh-rtd-formatting', Boolean(show));
     this.stateHasChanged();
   }
@@ -2837,11 +2884,12 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   getShowFormatting() {
     return this.getBody().classList.contains("wh-rtd-formatting");
   }
-  executeDefaultPropertiesAction(event) {
+  executeDefaultPropertiesAction(event: { target: HTMLElement; detail: RTEAction }) {
     if (event.target.nodeName === 'A') {
-      const url = prompt(this.GetLanguageText('prompt_hyperlink'), event.target.href);
+      const link = event.target as HTMLAnchorElement;
+      const url = prompt(this.GetLanguageText('prompt_hyperlink'), link.href);
       if (url)
-        event.target.href = url;
+        link.href = url;
       return;
     }
   }
@@ -2887,8 +2935,8 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     await dompack.loadImage(imgnode.src); //don't return until the upload is done!
   }
   //FIXME if we can select embeddedobjects, we can merge this into executeAction
-  launchActionPropertiesForNode(node, subaction) {
-    const action = {
+  launchActionPropertiesForNode(node: HTMLElement, subaction: string) {
+    const action: RTEAction = {
       action: 'action-properties',
       actiontarget: { __node: node },
       subaction: subaction,
@@ -2905,7 +2953,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
 
     this.executeDefaultPropertiesAction({ target: node, detail: action });
   }
-  executeAction(action: string | { action: string; size?: { x: number; y: number } }, actiontarget?: TargetInfo | null): void {
+  executeAction(action: string | RTEAction, actiontarget?: TargetInfo | null): void {
     //actiontarget describes the target, and is currently only set for context menu actions but probably every action route should add this
 
     // Fallback for single string argument call without extra parameters - apparently everyone but the 'table' action doe sthis
@@ -2915,7 +2963,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     if (!this._isActionAllowed(action.action))
       return;
 
-    let actionnode = this.container; //FIXME legacy! should just fire to the closest event possible for all actions (so actiontarget needs to include this info?)
+    let actionnode: HTMLElement = this.container; //FIXME legacy! should just fire to the closest event possible for all actions (so actiontarget needs to include this info?)
     if (actiontarget) {
       action.actiontargetinfo = actiontarget;
     } else if (action) {
@@ -2963,7 +3011,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
             this.insertHyperlink(url);
         } break;
       case 'remove_hyperlink':
-        this.RemoveHyperlink();
+        this.removeHyperlink();
         break;
       case 'table':
         if (!action.size)
@@ -3015,8 +3063,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
       case "table-addpara-before":
       case "table-addpara-after":
         {
-          const node = this.getSelectionState().actionparent;
-          const tablenode = node.closest("table");
+          const tablenode = this.getSelectionState().actionparent?.closest("table") ?? throwError("Not inside a table");
           this.insertEmptyParagraph(tablenode, action.action === "table-addpara-after");
         } break;
       case "table-addrow-before":
@@ -3030,14 +3077,15 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
       case "table-splitcols":
       case "table-splitrows":
         {
-          const node = this.getSelectionState().actionparent;
+          //FIXME actionparent is the list (not the cell) if the cursor is inside a list in a table cell - should this use cellparent?
+          const node = this.getSelectionState().actionparent as HTMLTableCellElement | null ?? throwError("Not inside a table");
           const tablenode = node.closest("table");
-          const editor = tablesupport.getEditorForNode(tablenode);
+          const editor = tablesupport.getEditorForNode(tablenode) ?? throwError("Table is not being edited");
           switch (action.action) {
             case "table-addrow-before":
-            case "table-addrow-after": editor.insertRows(node, action.action === "table-addrow-before", 1, node.offsetHeight, { newcell_callback: this._initNewTableCell.bind(this) }); break;
+            case "table-addrow-after": editor.insertRows(node, action.action === "table-addrow-before", 1, node.offsetHeight, { newcell_callback: cell => this._initNewTableCell(cell) }); break;
             case "table-addcolumn-before":
-            case "table-addcolumn-after": editor.insertColumns(node, action.action === "table-addcolumn-before", 1, 32, { newcell_callback: this._initNewTableCell.bind(this) }); break;
+            case "table-addcolumn-after": editor.insertColumns(node, action.action === "table-addcolumn-before", 1, 32, { newcell_callback: cell => this._initNewTableCell(cell) }); break;
             case "table-deleterow": editor.deleteRows(node, 1); break;
             case "table-deletecolumn": editor.deleteColumns(node, 1); break;
             case "table-mergeright": editor.mergeRight(node); break;
@@ -3053,7 +3101,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   /** Initialize a new table cell created by table-addrow/table-addcolumn
       @param cellnode - Table cell node (td or th)
   */
-  _initNewTableCell(cellnode) {
+  _initNewTableCell(cellnode: HTMLTableCellElement) {
     // extension point for subclasses
   }
 
@@ -3119,7 +3167,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     return this._langtexts;
   }
 
-  GetLanguageText(name, param1, param2) {
+  GetLanguageText(name: string, param1 = "", param2 = "") {
     const langtexts = this._getLangTexts();
     if (langtexts[this.language] && langtexts[this.language][name])
       return (langtexts[this.language][name]).split('%1').join(param1).split('%2').join(param2);
@@ -3128,6 +3176,36 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
 
   requireBottomParagraph() {
     // overridden by structured editor
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // To be implemented by the free and structured editor
+  //
+
+  abstract _toggleBulletedList(): void;
+  abstract _toggleNumberedList(): void;
+  abstract addListLevel(): void;
+  abstract removeListLevel(): void;
+  abstract getAvailableListActions(range: Range): { canincrease: boolean; candecrease: boolean };
+
+  _setAlignment(align: string): void {
+    throw new Error("Setting the alignment is not supported by this editor");
+  }
+  updateEmbeddedObject(target: HTMLElement, data: RTEWidget): void {
+    throw new Error("Embedded objects are not supported by this editor");
+  }
+  removeEmbeddedObject(node: HTMLElement): void {
+    throw new Error("Embedded objects are not supported by this editor");
+  }
+  removeTable(node: HTMLTableElement): void {
+    throw new Error("Removing tables is not supported by this editor");
+  }
+  setCellStyle(cell: HTMLTableCellElement, newstyle: string): void {
+    throw new Error("Cell styles are not supported by this editor");
+  }
+  insertEmptyParagraph(sibling: Node, below: boolean): void {
+    throw new Error("Inserting paragraphs is not supported by this editor");
   }
 
   getAvailableStyles(selstate: TextFormattingState) {
@@ -3151,11 +3229,11 @@ export class TextFormattingState {
   isblockwidget = false;
   isinlinewidget = false;
 
-  textstyles = [];
-  propstarget = null;
+  textstyles: TextStyleRecord[] = [];
+  propstarget: HTMLElement | null = null;
 
   actionstate: ActionState = {};
-  actionparent = null; // nearest ol/ul/td/th
+  actionparent: HTMLElement | null = null; // nearest ol/ul/td/th
 
   tables: HTMLTableElement[] = [];
   tablestyle: BlockStyle | null = null;
@@ -3163,11 +3241,14 @@ export class TextFormattingState {
 
   cellparent: HTMLTableCellElement | null = null;
 
-  hasTextStyle(nodeName) {
+  /// Set by the structured editor: the text styles that all blocks in the selection allow
+  limited?: { textstyles: string[] };
+
+  hasTextStyle(nodeName: string) {
     return this.getTextStyleByNodeName(nodeName) !== null;
   }
 
-  getTextStyleByNodeName(nodeName) {
+  getTextStyleByNodeName(nodeName: string) {
     for (let i = 0; i < this.textstyles.length; ++i)
       if (this.textstyles[i].nodeName === nodeName)
         return this.textstyles[i];

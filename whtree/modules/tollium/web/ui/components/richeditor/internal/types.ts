@@ -1,7 +1,6 @@
+import type EditorBase from "./editorbase";
 import type { TextFormattingState } from "./editorbase";
-import type FreeEditor from "./free-editor";
 import type { BlockStyle } from "./parsedstructure";
-import type StructuredEditor from "./structurededitor";
 
 //Might be better to split this into separate interfaces, but for now this is just inferred based on existing code
 export interface TargetInfo {
@@ -17,7 +16,7 @@ export interface TargetInfo {
   tablestyletag?: string;
   numrows?: number;
   numcolumns?: number;
-  datacell?: HTMLElement;
+  datacell?: { row: number; col: number };
   //for embeddedobject:
   instanceref?: string;
   //for image:
@@ -32,8 +31,9 @@ export type GetPlainTextMethod = "converthtmltoplaintext" | "textcontent";
 export type GetPlainTextOptions = Array<"suppress_urls" | "unix_newlines">;
 
 export type RTEContextMenuEvent = CustomEvent<{
-  actiontarget: { type: string };
-  menuitems: Array<{ action: string; title: string }>;
+  actiontarget: TargetInfo | null;
+  /// Menu items to show, with null for a divider
+  menuitems: Array<{ action: string; title: string } | null>;
 }>;
 
 declare global {
@@ -81,5 +81,5 @@ export interface RTEComponent {
   getAvailableBlockStyles(state: TextFormattingState): BlockStyle[];
 
   //TODO needs to be removed, using it means we lack an abstraction
-  getEditor(): FreeEditor | StructuredEditor;
+  getEditor(): EditorBase;
 }
