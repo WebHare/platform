@@ -5,7 +5,7 @@ export async function restartService(serviceName: string) {
   const backendservice = getExtractedConfig("services").backendServices.find((s) => s.name === serviceName);
   if (backendservice) {
     const servicename = `platform:services.${backendservice.serviceClass}` as const;
-    const nodeservices = await openBackendService(servicename);
+    using nodeservices = await openBackendService(servicename);
     await nodeservices.restart(serviceName);
     return;
   }

@@ -44,12 +44,16 @@ class RegisteredService extends ManagedService {
   /// Update actual service to match configured state
   check() {
     //TODO check if we should still be delaying a restart attempt, eg if we're invoked earlier by config reload
+    const idle = !this.service && !this.launchPromise && !this.stopPromise;
+    //A restart is done once the old instance is gone. Clear the flag only then, so multiple restart requests are de-duped
+    if (this.mustRestart && idle)
+      this.mustRestart = false;
+
     const shouldBeRunning = this.shouldStart && this.inConfig && !this.suppressedBy && !this.mustRestart;
-    if (shouldBeRunning && !this.launchPromise && !this.service && !this.stopPromise) { //don't restart if a stop is pending
+    if (shouldBeRunning && idle) { //don't restart if a stop is pending
       if (debugFlags.nodeservices)
         console.log(`${logPrefix} Starting service '${this.descriptor.name}'`);
 
-      this.mustRestart = false; //clear as late as possible to be able to de-dupe multiple restart requests
       this.launchPromise = launchService(this.descriptor);
       this.launchPromise.then(service => this.#launched(service), e => this.#failed(e));
       return;
