@@ -121,6 +121,19 @@ export const whconstant_historytype_import = 7;
 /// fs_history.type final - generate when a version is finalized, ie applied to the original fsobject. it should be an x.0 version with a full snapshot
 export const whconstant_historytype_final = 8;
 
+/** Names of the fs_history.type values, indexed by their database value. Must be kept in sync with whconstant_historytypes in mod::system/lib/internal/webhareconstants.whlib */
+export const whconstant_historytypes = [
+  "recycled", //0 whconstant_historytype_recycled
+  "saved", //1 whconstant_historytype_saved
+  "abandoned-autosave", //2 whconstant_historytype_abandoned_autosave
+  "abandoned-draft", //3 whconstant_historytype_abandoned_draft
+  "created", //4 whconstant_historytype_created
+  "approved", //5 whconstant_historytype_approved
+  "autosave", //6 whconstant_historytype_autosave
+  "import", //7 whconstant_historytype_import
+  "final" //8 whconstant_historytype_final
+] as const;
+
 /// publisher.schedule start publish/republish event
 export const whconstant_publisherschedule_publish = 1;
 
