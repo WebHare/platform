@@ -89,6 +89,13 @@ async function testSiteCli() {
     test.assert((await openSite(testSite.id)).webRoot === oldWebRoot);
   }
 
+  // STORY: update the description
+  {
+    const setResult = spawnSync("wh", ["site", "update", testSite.name, "--field", "description", "Described by the CLI"], { shell: false });
+    test.eq(0, setResult.status, "update command should succeed");
+    test.eq("Described by the CLI", (await openSite(testSite.id)).description);
+  }
+
   // STORY: update command with schema-failing data
   {
     const input = YAML.stringify({

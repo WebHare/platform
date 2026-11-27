@@ -4,16 +4,19 @@ import { createSite, listSites, openFolder, openSite } from "@webhare/whfs";
 import { whconstant_whfsid_webhare_tests } from "@mod-system/js/internal/webhareconstants";
 
 const siteName = "webhare_testsuite.sitetest";
+const renamedSiteName = "webhare_testsuite.sitetest-renamed";
 
-async function recycleTestSite() {
-  const site = await openSite(siteName, { allowMissing: true });
-  if (site)
-    await (await openFolder(site.id)).recycle();
+async function recycleTestSites() {
+  for (const name of [siteName, renamedSiteName]) {
+    const site = await openSite(name, { allowMissing: true });
+    if (site)
+      await (await openFolder(site.id)).recycle();
+  }
 }
 
 async function prepare() {
   await beginWork();
-  await recycleTestSite();
+  await recycleTestSites();
   await commitWork();
 }
 
@@ -57,8 +60,45 @@ async function testCreateSite() {
   await commitWork();
 }
 
+// Verifies updating a site's name, description and lock
+async function testUpdateSite() {
+  const site = await openSite(siteName);
+  const rootFolder = await openFolder(site.id);
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Renaming a site renames its root folder
+  await beginWork();
+  await site.update({ name: renamedSiteName, description: "Site description" });
+  test.eq(renamedSiteName, site.name);
+  test.eq("Site description", site.description);
+  test.eq(renamedSiteName, (await openFolder(site.id)).name);
+  test.eq(null, await openSite(siteName, { allowMissing: true }));
+  test.eq(site.id, (await openSite(renamedSiteName)).id);
+
+  await rootFolder.refresh(); //it was renamed through another object
+  await rootFolder.update({ name: siteName });
+  test.eq(site.id, (await openSite(siteName)).id, "Renaming the site's root folder renames the site too");
+
+  await site.update({ name: siteName });
+  test.eq("Site description", site.description, "Settings we didn't pass are left alone");
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Locking and unlocking a site
+  await site.update({ locked: true, lockReason: "Being tested" });
+  test.eq(true, site.locked);
+  test.eq("Being tested", site.lockReason);
+  test.eq([{ id: site.id, name: siteName, locked: true, lockReason: "Being tested" }], (await listSites(["locked", "lockReason"])).filter(row => row.id === site.id));
+
+  await site.update({ locked: false, lockReason: "" });
+  const reopened = await openSite(site.id);
+  test.eq(false, reopened.locked);
+  test.eq("", reopened.lockReason);
+  await commitWork();
+}
+
 test.runTests([
   test.resetWTS,
   prepare,
   testCreateSite,
+  testUpdateSite,
 ]);

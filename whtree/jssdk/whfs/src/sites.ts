@@ -1,5 +1,6 @@
 import { broadcastOnCommit, db, isWorkOpen, sql, type Selectable, type Updateable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
+import { loadlib } from "@webhare/harescript";
 import { type WHFSFile, type WHFSFolder, __openWHFSObj, openFolder, type OpenWHFSObjectOptions } from "./objects";
 import { excludeKeys, formatPathOrId } from "./support";
 import { whfsFinishHandler } from "./finishhandler";
@@ -37,7 +38,7 @@ interface ListableSiteRow {
   webFeatures: string[] | null;
 }
 
-type UpdateableSiteSettings = Pick<ListableSiteRow, "cdnBaseURL" | "webDesign" | "webFeatures">;
+type UpdateableSiteSettings = Pick<ListableSiteRow, "cdnBaseURL" | "webDesign" | "webFeatures" | "name" | "description" | "locked" | "lockReason">;
 
 export type CreateSiteOptions = {
   /** Name for the site. The site's root folder is renamed to match. Defaults to the name of the folder */
@@ -154,15 +155,47 @@ export class Site {
     return features.length ? features.sort() : null;
   }
 
-  /** Update site settings */
+  private async reload() {
+    const reload = await loadSite(this.id);
+    if (!reload)
+      throw new Error(`Site '${this.name}' (#${this.id}) disappeared after update`);
+
+    this.dbrow = reload;
+  }
+
+  /** Schedule what needs to happen after the site's settings changed
+   * @param republish - Republish the whole site and analyze its output */
+  private async finishUpdate(republish: boolean) {
+    if (republish)
+      await loadlib("mod::publisher/lib/control.whlib").ScheduleFolderRepublish(this.id, /*recursive=*/true, /*non_templates_too=*/true);
+
+    whfsFinishHandler().siteUpdated(this.id, { analyzeOutput: republish });
+    broadcastOnCommit(`system:whfs.sitemeta.${this.id}`);
+  }
+
+  /** Update site settings
+   * @param updates - Settings to change. Changing `name` renames the site's root folder */
   async update(updates: Partial<UpdateableSiteSettings>) {
-    //TODO support outputWeb/outputFolder changes, and then we need to analyzeOutput in our siteUpdated call too
+    let republish = false;
+
+    let changed = false;
+    if (updates.name !== undefined && updates.name !== this.name) {
+      await (await openFolder(this.id)).update({ name: updates.name }); //this updates the name in system.sites too
+      changed = true;
+    }
 
     let metadataupdate: Record<string, unknown> | undefined;
-    if ("webDesign" in updates)
+    if ("webDesign" in updates && updates.webDesign !== await this.getWebDesign()) {
       metadataupdate = { ...metadataupdate, sitedesign: updates.webDesign };
-    if ("webFeatures" in updates)
-      metadataupdate = { ...metadataupdate, webfeatures: updates.webFeatures?.length ? updates.webFeatures.sort() : [] };
+      republish = true;
+    }
+    if ("webFeatures" in updates) {
+      const webFeatures = updates.webFeatures?.length ? [...new Set(updates.webFeatures)].sort() : [];
+      if (JSON.stringify(webFeatures) !== JSON.stringify(await this.getWebFeatures() ?? [])) {
+        metadataupdate = { ...metadataupdate, webfeatures: webFeatures };
+        republish = true;
+      }
+    }
     if (metadataupdate)
       await whfsType("platform:web.sitesettings").set(this.id, metadataupdate);
 
@@ -173,16 +206,24 @@ export class Site {
 
       dbupdates.cdnbaseurl = updates.cdnBaseURL || "";
     }
+    if (updates.description !== undefined)
+      dbupdates.description = updates.description;
+    if (updates.lockReason !== undefined)
+      dbupdates.lockreason = updates.lockReason;
+    if (updates.locked !== undefined && updates.locked !== this.locked) {
+      dbupdates.locked = updates.locked;
+      republish = true; //locked sites aren't published
+    }
 
     if (Object.keys(dbupdates).length) {
       await db<PlatformDB>().updateTable("system.sites").set(dbupdates).where("id", "=", this.id).execute();
     }
 
-    const reload = await loadSite(this.id);
-    if (!reload)
-      throw new Error(`Site ${this.name} (${this.id}) disappeared after update`);
+    if (!changed && !metadataupdate && !Object.keys(dbupdates).length)
+      return;
 
-    this.dbrow = reload;
+    await this.finishUpdate(republish);
+    await this.reload();
   }
 }
 

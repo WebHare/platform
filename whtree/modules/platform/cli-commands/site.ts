@@ -191,7 +191,7 @@ runCli({
     "update": {
       description: "Update site properties",
       options: {
-        field: { description: "Field to update", type: enumOption(["name", "webRoot", "cdnBaseURL", "webDesign", "webFeatures"]) }
+        field: { description: "Field to update", type: enumOption(["name", "description", "webRoot", "cdnBaseURL", "webDesign", "webFeatures"]) }
       },
       arguments: [
         { name: "<site>", description: "Site", type: siteOption },
@@ -199,6 +199,8 @@ runCli({
       ],
       async main({ args, opts }) {
         const updateSchema = z.object({
+          name: z.string().optional(),
+          description: z.string().optional(),
           cdnBaseURL: z.string().optional(),
           webDesign: z.string().optional(),
           webFeatures: z.array(z.string()).optional(),
@@ -218,6 +220,12 @@ runCli({
             }
             value = updateSchema.parse(YAML.parse(args.value));
           } break;
+          case "name": {
+            value = { name: args.value };
+          } break;
+          case "description": {
+            value = { description: args.value };
+          } break;
           case "webDesign": {
             value = { webDesign: args.value };
           } break;
@@ -231,7 +239,7 @@ runCli({
             value = { webRoot: args.value };
           } break;
           default: {
-            throw new CLISyntaxError(`Unknown field: ${opts.field}`);
+            throw new CLISyntaxError(`Unknown field: ${opts.field satisfies never as string}`);
           }
         }
 
@@ -254,7 +262,7 @@ runCli({
         }
 
         await using work = await beginWork();
-        const directUpdatable = pick(value, ["cdnBaseURL", "webDesign", "webFeatures"]);
+        const directUpdatable = pick(value, ["name", "description", "cdnBaseURL", "webDesign", "webFeatures"]);
         if (Object.keys(directUpdatable).length)
           await site.update(directUpdatable);
         if (newWebRoot) {
