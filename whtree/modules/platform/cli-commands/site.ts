@@ -1,10 +1,9 @@
 // @webhare/cli: Manage WebHare sites (WHFS)
 
-import { CLISyntaxError, enumOption, runCli, type CLIArgumentType } from "@webhare/cli";
+import { CLIRuntimeError, CLISyntaxError, enumOption, runCli, type CLIArgumentType } from "@webhare/cli";
 import type { PlatformDB } from '@mod-platform/generated/db/platform';
 import { beginWork, db } from '@webhare/whdb';
 import { commonFlags } from '@mod-platform/js/cli/cli-tools';
-import { loadlib } from '@webhare/harescript';
 import { getBestMatch } from "@webhare/js-api-tools";
 import { listSites, listWHFSObjects, openSite, whfsType } from "@webhare/whfs";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
@@ -98,38 +97,6 @@ const webFeatureOption: CLIArgumentType<WebFeature> = {
   description: "WebHare web feature",
 };
 
-async function updateSiteWebRoot(site: Awaited<ReturnType<typeof siteOption.parseValue>>, webRoot: Awaited<ReturnType<typeof webRootOption.parseValue>>) {
-  const analyze_new_location = await loadlib("mod::publisher/lib/siteapi.whlib").TestSiteOutputAvailability(site.id, webRoot.webserver, webRoot.path) as {
-    success: boolean;
-    siteonlocation: number;
-    sitecontaininglocation: number;
-    neededfolders: Array<{ site: number; parent: number; name: string }>;
-  };
-  if (!analyze_new_location.success) {
-    if (analyze_new_location.siteonlocation) {
-      const conflict = await db<PlatformDB>()
-        .selectFrom("system.sites")
-        .where("system.sites.id", "=", analyze_new_location.siteonlocation)
-        .select(["system.sites.id", "system.sites.name"])
-        .executeTakeFirstOrThrow();
-      console.error(`Site ${conflict.name} already exists on the specified output location`);
-    }
-    if (analyze_new_location.sitecontaininglocation) {
-      const conflict = await db<PlatformDB>()
-        .selectFrom("system.sites")
-        .where("system.sites.id", "=", analyze_new_location.sitecontaininglocation)
-        .select(["system.sites.id", "system.sites.name"])
-        .executeTakeFirstOrThrow();
-      console.error(`Site ${conflict.name} contains the specified output location`);
-    }
-    for (const conflict of analyze_new_location.neededfolders) {
-      console.error(`Needed folder conflict: site ${conflict.site}, parent ${conflict.parent}, name ${conflict.name}`);
-    }
-    return 1;
-  }
-  await (await loadlib("mod::publisher/lib/siteapi.whlib").OpenSite(site.id)).UpdateSiteMetadata({ outputweb: webRoot.webserver, outputfolder: webRoot.path });
-}
-
 runCli({
   description: '',
   flags: {
@@ -191,7 +158,7 @@ runCli({
     "update": {
       description: "Update site properties",
       options: {
-        field: { description: "Field to update", type: enumOption(["name", "webRoot", "cdnBaseURL", "webDesign", "webFeatures"]) }
+        field: { description: "Field to update", type: enumOption(["name", "description", "webRoot", "cdnBaseURL", "webDesign", "webFeatures"]) }
       },
       arguments: [
         { name: "<site>", description: "Site", type: siteOption },
@@ -199,6 +166,8 @@ runCli({
       ],
       async main({ args, opts }) {
         const updateSchema = z.object({
+          name: z.string().optional(),
+          description: z.string().optional(),
           cdnBaseURL: z.string().optional(),
           webDesign: z.string().optional(),
           webFeatures: z.array(z.string()).optional(),
@@ -218,6 +187,12 @@ runCli({
             }
             value = updateSchema.parse(YAML.parse(args.value));
           } break;
+          case "name": {
+            value = { name: args.value };
+          } break;
+          case "description": {
+            value = { description: args.value };
+          } break;
           case "webDesign": {
             value = { webDesign: args.value };
           } break;
@@ -231,7 +206,7 @@ runCli({
             value = { webRoot: args.value };
           } break;
           default: {
-            throw new CLISyntaxError(`Unknown field: ${opts.field}`);
+            throw new CLISyntaxError(`Unknown field: ${opts.field satisfies never as string}`);
           }
         }
 
@@ -254,13 +229,15 @@ runCli({
         }
 
         await using work = await beginWork();
-        const directUpdatable = pick(value, ["cdnBaseURL", "webDesign", "webFeatures"]);
+        const directUpdatable = pick(value, ["name", "description", "cdnBaseURL", "webDesign", "webFeatures"]);
         if (Object.keys(directUpdatable).length)
           await site.update(directUpdatable);
         if (newWebRoot) {
-          const retval = await updateSiteWebRoot(args.site, newWebRoot);
-          if (retval)
-            return retval;
+          try {
+            await site.setOutput({ webServer: newWebRoot.webserver, folder: newWebRoot.path });
+          } catch (e) {
+            throw new CLIRuntimeError((e as Error).message);
+          }
         }
         await work.commit();
       },

@@ -23,7 +23,7 @@ export { isValidName } from "./support";
 
 export type { CreateFileMetadata, CreateFolderMetadata, UpdateFileMetadata, UpdateFolderMetadata, WHFSFile, WHFSFolder, WHFSObject } from "./objects";
 export { openFile, openFolder, openFileOrFolder, nextWHFSObjectId } from "./objects";
-export { openSite, listSites, type Site } from "./sites";
+export { createSite, openSite, listSites, type Site, type CreateSiteOptions, type SiteOutput } from "./sites";
 export { lookupURL, type LookupURLOptions, type LookupURLResult } from "./lookupurl";
 export { listWHFSObjects, type WHFSListResult, type WHFSRecursiveListResult } from "./list.ts";
 
