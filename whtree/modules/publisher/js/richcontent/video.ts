@@ -82,7 +82,11 @@ function initVimeo(node, video, playback) {
   // List of embed parameters Vimeo supports:
   // https://vimeo.zendesk.com/hc/en-us/articles/360001494447-Player-parameters-overview
 
-  const vimeoUrl = new URL(`https://player.vimeo.com/video/${encodeURIComponent(video.id)}`);
+  // Unlisted videos have their privacy hash in their id ("<id>/<hash>"). Vimeo wants it as the first parameter
+  const [vimeoId, unlistedHash] = String(video.id).split("/");
+  const vimeoUrl = new URL(`https://player.vimeo.com/video/${encodeURIComponent(vimeoId)}`);
+  if (unlistedHash)
+    vimeoUrl.searchParams.set("h", unlistedHash);
 
   if (playback.autoplay)
     vimeoUrl.searchParams.set("autoplay", "1");
@@ -114,7 +118,7 @@ function initVimeo(node, video, playback) {
 
   if (video.starttime) {
     // #t=3m28s
-    const t = video.starttime;
+    const t = Math.floor(video.starttime); // starttime is in seconds but can have a fraction
     const minutes = Math.floor(t / 60);
     const seconds = t % 60;
     vimeoUrl.hash = "#t=" + minutes + "m" + seconds + "s";

@@ -227,6 +227,8 @@ PUBLIC OBJECTTYPE SearchVideo EXTEND TolliumScreenBase
   PUBLIC RECORD selectedvideo;
   PUBLIC OBJECT wittylib;
   RECORD ARRAY foundmovies;
+  ///Video and start time parsed from a pasted URL, to set the start time if that video is selected
+  RECORD guessedvideo;
 
   MACRO Init(RECORD data)
   {
@@ -259,6 +261,7 @@ PUBLIC OBJECTTYPE SearchVideo EXTEND TolliumScreenBase
     this->infotextpanel->visible := FALSE;
 
     RECORD tryguess := GuessEmbeddedVideoFromCode(this->movietext->value);
+    this->guessedvideo := tryguess;
     IF(RecordExists(tryguess) AND this->network->IsValidValue(tryguess.network))
     {
       this->network->value := tryguess.network;
@@ -465,7 +468,13 @@ PUBLIC OBJECTTYPE SearchVideo EXTEND TolliumScreenBase
       RETURN FALSE;
     }
 
-    this->selectedvideo := MakeVideoEmbedInstance(video.video.network, video.video.videoid);
+    //Take over the start time if this is the video from a pasted URL
+    BOOLEAN isguessedvideo := RecordExists(this->guessedvideo)
+                              AND CellExists(this->guessedvideo, "starttime")
+                              AND this->guessedvideo.network = video.video.network
+                              AND this->guessedvideo.videoid = video.video.videoid;
+    this->selectedvideo := MakeVideoEmbedInstance(video.video.network, video.video.videoid, isguessedvideo ? CELL[ this->guessedvideo.starttime ] : DEFAULT RECORD);
+
     RETURN TRUE;
   }
 >;

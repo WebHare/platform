@@ -670,6 +670,7 @@ PUBLIC STATIC OBJECTTYPE RTDForm EXTEND FormBase
     work->Finish();
 
     RETURN [ htmltext := RecordExists(^rtd->value) ? BlobToSTring(^rtd->value.htmltext) : ""
+           , videostarttimes := RecordExists(^rtd->value) ? (SELECT AS INTEGER ARRAY instances.data.starttime FROM ^rtd->value.instances WHERE instances.data.whfstype = "http://www.webhare.net/xmlns/publisher/embedvideo") : INTEGER[]
            , img := OmitCells(^img->value, ['DATA'])
            , file := OmitCells(^file->value, ['DATA'])
            , file2 := OmitCells(^file2->value, ['DATA'])
