@@ -6,7 +6,6 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
-LOADLIB "mod::system/lib/resources.whlib";
 
 RECORD FUNCTION TestForeignFolder(OBJECT siteroot, STRING path)
 {
@@ -439,12 +438,6 @@ PUBLIC OBJECT FUNCTION CreateSiteFromFolder(INTEGER rootfolderid)
   INSERT INTO system.sites (id, name, description)
          VALUES(rootfolderid, siteinfo.name, siteinfo.description);
 
-  RunModuleHookTarget("publisher:sites_aftercreation"
-                    , [ id := rootfolderid
-                      , name := siteinfo.name
-                      , root := rootfolderid
-                      , siteowner := 0
-                      ]);
   GetWHFSCommitHandler()->TriggerSiteSettingsCheckOnCommit();
   GetWHFSCommitHandler()->ObjectUpdate(rootfolderid, siteinfo.parent, rootfolderid, TRUE);
   GetWHFSCommitHandler()->SiteUpdated(rootfolderid, [ analyze_output := TRUE, site_profile_refs := TRUE ]);
