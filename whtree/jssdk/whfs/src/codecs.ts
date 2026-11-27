@@ -6,7 +6,7 @@ import { encodeHSON, decodeHSON } from "@webhare/hscompat/src/hson.ts";
 import { dateToParts, makeDateFromParts, } from "@webhare/hscompat/src/datetime.ts";
 import { buildRTDFromCompoundDocument, exportRTDAsCompoundDocument } from "@webhare/hscompat/src/richdocument.ts";
 import type { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
-import { ResourceDescriptor, addMissingScanData, decodeScanData, exportIntExtLink, importIntExtLink, isResourceDescriptor, mapExternalWHFSRef, unmapExternalWHFSRef } from "@webhare/services/src/descriptor";
+import { ResourceDescriptor, addMissingScanData, decodeEmbeddedScanData, decodeScanData, exportIntExtLink, importIntExtLink, isResourceDescriptor, mapExternalWHFSRef, unmapExternalWHFSRef } from "@webhare/services/src/descriptor";
 import { IntExtLink } from "@webhare/services/src/intextlink";
 import { WebHareBlob } from "@webhare/services/src/webhareblob";
 import type { InstanceData, ExportedInstance, InstanceSource, WHFSTypeMember } from "./contenttypes";
@@ -98,7 +98,7 @@ function assertValidDate(value: unknown): asserts value is Date {
     throw new Error(`Date out of range. The year must be between 1 and 9999, got '${value}'`);
 }
 
-async function encodeResourceDescriptor(value: ResourceDescriptor | ExportedResource, opts?: { fileName?: string }): Promise<EncoderBaseReturnValue> {
+async function encodeResourceDescriptor(value: ResourceDescriptor | ExportedResource, opts?: { contentId?: string }): Promise<EncoderBaseReturnValue> {
   const v = value as ResourceDescriptor;
   if (v.resource.size)
     await uploadBlob(v.resource);
@@ -110,9 +110,9 @@ async function encodeResourceDescriptor(value: ResourceDescriptor | ExportedReso
   };
 }
 
-function decodeResourceDescriptor(row: FSSettingsRow, context: DecoderContext) {
+function decodeResourceDescriptor(row: FSSettingsRow, context: DecoderContext, metadata = decodeScanData(row.setting)) {
   const meta = {
-    ...decodeScanData(row.setting),
+    ...metadata,
     dbLoc: { source: 2, id: row.id, cc: context.cc },
     sourceFile: row.fs_object ?? null,
   };
@@ -147,7 +147,7 @@ async function encodeCompoundDocument(toSerialize: CompoundDocument, rootSetting
 
   for (const [contentid, image] of toSerialize.embedded) { //encode images
     settings.push({
-      ...await encodeResourceDescriptor(image, { fileName: contentid }),
+      ...await encodeResourceDescriptor(image, { contentId: contentid }),
       ordering: 1,
     });
   }
@@ -182,9 +182,9 @@ async function encodeCompoundDocument(toSerialize: CompoundDocument, rootSetting
 async function decodeCompoundDocument(settings: FSSettingsRow[], type: CompoundDocumentType, context: DecoderContext) {
   const outdoc = new CompoundDocument(type, settings[0].blobdata!);
   for (const img of settings.filter(s => s.ordering === 1 && s.blobdata)) {
-    const decoded = decodeResourceDescriptor(img, context);
-    if (decoded.fileName)
-      outdoc.embedded.set(decoded.fileName, decoded);
+    const { contentId, metadata } = decodeEmbeddedScanData(img.setting);
+    if (contentId)
+      outdoc.embedded.set(contentId, decodeResourceDescriptor(img, context, metadata));
   }
 
   for (const link of settings.filter(s => s.ordering === 2 && s.fs_object)) {

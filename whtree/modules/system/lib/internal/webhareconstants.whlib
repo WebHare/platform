@@ -242,6 +242,30 @@ PUBLIC CONSTANT STRING ARRAY whconstant_whfstype_membertypes :=
   "record", "", "typedrecord", "", "date", "json", "formdefinition", "compoundhtmldocument" //21-
   ];
 
+/// fs_members.type of the WHFS type members, see whconstant_whfstype_membertypes for their names
+PUBLIC CONSTANT INTEGER whconstant_whfsmembertype_string := 2;
+PUBLIC CONSTANT INTEGER whconstant_whfsmembertype_datetime := 4;
+PUBLIC CONSTANT INTEGER whconstant_whfsmembertype_file := 5;
+PUBLIC CONSTANT INTEGER whconstant_whfsmembertype_boolean := 6;
+PUBLIC CONSTANT INTEGER whconstant_whfsmembertype_integer := 7;
+PUBLIC CONSTANT INTEGER whconstant_whfsmembertype_float := 8;
+PUBLIC CONSTANT INTEGER whconstant_whfsmembertype_money := 9;
+PUBLIC CONSTANT INTEGER whconstant_whfsmembertype_whfsref := 11;
+PUBLIC CONSTANT INTEGER whconstant_whfsmembertype_array := 12;
+PUBLIC CONSTANT INTEGER whconstant_whfsmembertype_whfsrefarray := 13;
+PUBLIC CONSTANT INTEGER whconstant_whfsmembertype_stringarray := 14;
+PUBLIC CONSTANT INTEGER whconstant_whfsmembertype_richdocument := 15;
+PUBLIC CONSTANT INTEGER whconstant_whfsmembertype_intextlink := 16;
+PUBLIC CONSTANT INTEGER whconstant_whfsmembertype_instance := 18;
+PUBLIC CONSTANT INTEGER whconstant_whfsmembertype_url := 19;
+PUBLIC CONSTANT INTEGER whconstant_whfsmembertype_compounddocument := 20;
+PUBLIC CONSTANT INTEGER whconstant_whfsmembertype_record := 21;
+PUBLIC CONSTANT INTEGER whconstant_whfsmembertype_typedrecord := 23;
+PUBLIC CONSTANT INTEGER whconstant_whfsmembertype_date := 25;
+PUBLIC CONSTANT INTEGER whconstant_whfsmembertype_json := 26;
+PUBLIC CONSTANT INTEGER whconstant_whfsmembertype_formdefinition := 27;
+PUBLIC CONSTANT INTEGER whconstant_whfsmembertype_compoundhtmldocument := 28;
+
 //ip address reported by the consilio fetcher
 PUBLIC CONSTANT STRING whconstant_consilio_fetcher_trusted_ip := "100::cccc:ffff";
 

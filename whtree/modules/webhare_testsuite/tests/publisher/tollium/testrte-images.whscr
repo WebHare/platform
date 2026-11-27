@@ -2,6 +2,7 @@
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::internet/urls.whlib";
+LOADLIB "mod::system/lib/cache.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
@@ -71,6 +72,102 @@ OBJECT ASYNC FUNCTION CreateDoc()
 
   RECORD srcimg := SELECT * FROM richvalue.embedded WHERE contentid = Substring(imgs[0]->GetAttribute("src"),4);
   TestEq(inputimg,srcimg.data);
+  TestEq("landscape_5.jpg", srcimg.filename, "An inserted image should keep its file name");
+
+  //Change the image's file name in its properties. The user edits the name without its extension
+  RECORD propsrequest := [ action := "action-properties", subaction := "edit", affectednodeinfo := [ type := "img", src := imginfo.link, alttext := "", align := "", width := imginfo.width, height := imginfo.height, link := DEFAULT RECORD ], actionid:= "XX" ];
+  AWAIT ExpectScreenChange(+1, PTR Rte()->ProcessInboundMessage("properties2", propsrequest));
+  TestEq("landscape_5", topscreen->^filename->value);
+  TestEq(".jpg", topscreen->^extension->value);
+
+  topscreen->^filename->value := "not/valid";
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Ok"), [ messagemask := "*file name is not valid*" ]);
+
+  topscreen->^filename->value := "noname"; //a name we wouldn't store
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Ok"), [ messagemask := "*file name is not valid*" ]);
+
+  topscreen->^filename->value := "My Landscape";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  TestEq("My Landscape.jpg", (SELECT AS STRING filename FROM Rte()->value.embedded));
+  TestEq(inputimg, (SELECT AS BLOB data FROM Rte()->value.embedded));
+
+  //An unchanged name is left alone, and an emptied name removes it
+  AWAIT ExpectScreenChange(+1, PTR Rte()->ProcessInboundMessage("properties2", propsrequest));
+  TestEq("My Landscape", topscreen->^filename->value);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  TestEq("My Landscape.jpg", (SELECT AS STRING filename FROM Rte()->value.embedded));
+
+  AWAIT ExpectScreenChange(+1, PTR Rte()->ProcessInboundMessage("properties2", propsrequest));
+  topscreen->^filename->value := "";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  TestEq(TRUE, (SELECT AS BOOLEAN filename = contentid FROM Rte()->value.embedded), "An image without a file name has its content id as filename");
+
+  AWAIT ExpectScreenChange(+1, PTR Rte()->ProcessInboundMessage("properties2", propsrequest));
+  TestEq("", topscreen->^filename->value);
+  topscreen->^filename->value := "landscape_5";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  TestEq("landscape_5.jpg", (SELECT AS STRING filename FROM Rte()->value.embedded));
+
+  /* An image can have a name the dialog wouldn't accept, eg. set by an import. It has the extension '.jpeg', which
+     is also in use for this type. Such a name is shown, and doesn't stop the user from changing something else */
+  RECORD oddvalue := Rte()->value;
+  oddvalue.embedded[0].filename := 'What "is" this?.jpeg';
+  Rte()->value := oddvalue;
+  propsrequest.affectednodeinfo.src := MakeXMLDocumentFromHTML(StringToBlob(Rte()->GetRenderValue()))->QuerySelector("img")->GetAttribute("src");
+
+  AWAIT ExpectScreenChange(+1, PTR Rte()->ProcessInboundMessage("properties2", propsrequest));
+  TestEq('What "is" this?', topscreen->^filename->value);
+  topscreen->^alttext->value := "Changed";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  TestEq('What "is" this?.jpeg', (SELECT AS STRING filename FROM Rte()->value.embedded), "A name the user didn't change should be left alone");
+
+  //An image without a file name has its content id as filename in the value. That isn't shown as its name
+  oddvalue.embedded[0].filename := oddvalue.embedded[0].contentid;
+  Rte()->value := oddvalue;
+  propsrequest.affectednodeinfo.src := MakeXMLDocumentFromHTML(StringToBlob(Rte()->GetRenderValue()))->QuerySelector("img")->GetAttribute("src");
+
+  AWAIT ExpectScreenChange(+1, PTR Rte()->ProcessInboundMessage("properties2", propsrequest));
+  TestEq("", topscreen->^filename->value);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  TestEq(oddvalue.embedded[0].contentid, (SELECT AS STRING filename FROM Rte()->value.embedded));
+
+  //The name can't be changed in a readonly editor
+  Rte()->readonly := TRUE;
+  AWAIT ExpectScreenChange(+1, PTR Rte()->ProcessInboundMessage("properties2", propsrequest));
+  TestEq(FALSE, topscreen->^filename->enabled);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+  Rte()->readonly := FALSE;
+
+  //An image uploaded by the editor in the browser keeps the name it was uploaded with, as a slug
+  STRING uploaddataurl := "data:image/jpeg;base64," || EncodeBase64(BlobToString(inputimg, -1));
+  STRING namedurl := testfw->browser->CallJSONRPC("/wh_services/publisher/forms", "GetUploadedFileFinalURL", uploaddataurl, "My Kikker.jpg");
+  STRING unnamedurl := testfw->browser->CallJSONRPC("/wh_services/publisher/forms", "GetUploadedFileFinalURL", uploaddataurl); //eg. a pasted image, or a browser still running the previous version
+  //A pasted image can arrive as a data: URL. It has no name either
+  STRING pasteddataurl := "data:image/png;base64," || EncodeBase64(BlobToString(GetWebhareResource("mod::system/web/tests/goudvis.png"), -1));
+  Rte()->TolliumWeb_FormUpdate('<html><body><p class="normal"><img src="' || EncodeValue(namedurl) || '"/> <img src="' || EncodeValue(unnamedurl) || '"/> <img src="' || EncodeValue(pasteddataurl) || '"/></p></body></html>');
+
+  RECORD ARRAY uploaded := Rte()->value.embedded;
+  TestEq(3, Length(uploaded));
+  TestEq(1, Length(SELECT FROM uploaded WHERE filename = "my-kikker.jpg"), "An uploaded image should keep its file name, as a slug");
+  TestEq(2, Length(SELECT FROM uploaded WHERE filename = contentid), "An image uploaded without a name shouldn't get one, got: " || Detokenize((SELECT AS STRING ARRAY filename FROM uploaded), ","));
+
+  //The name of an upload doesn't decide its type
+  BLOB textdata := StringToBlob("Just some text");
+  TestEq(TRUE, WrapBlob(textdata, "x.html").mimetype != WrapBlob(textdata, "").mimetype, "The name should make a difference when scanning, or this test proves nothing");
+  STRING texturl := testfw->browser->CallJSONRPC("/wh_services/publisher/forms", "GetUploadedFileFinalURL", "data:text/plain;base64," || EncodeBase64(BlobToString(textdata, -1)), "x.html");
+  TestEq(WrapBlob(textdata, "").mimetype, GetWrappedSourceFromURL(texturl).mimetype);
+
+  //The name of an upload is whatever the file was called on the uploader's computer. We store a slug of at most 100 characters
+  STRING oddnameurl := testfw->browser->CallJSONRPC("/wh_services/publisher/forms", "GetUploadedFileFinalURL", uploaddataurl, 'C:\\Fotos\\What "is" this? (Final) é.JPEG');
+  STRING longnameurl := testfw->browser->CallJSONRPC("/wh_services/publisher/forms", "GetUploadedFileFinalURL", uploaddataurl, RepeatText("long name ", 20) || ".jpg");
+  STRING unusablenameurl := testfw->browser->CallJSONRPC("/wh_services/publisher/forms", "GetUploadedFileFinalURL", uploaddataurl, "+++.jpg");
+  Rte()->TolliumWeb_FormUpdate('<html><body><p class="normal"><img src="' || EncodeValue(oddnameurl) || '"/> <img src="' || EncodeValue(longnameurl) || '"/> <img src="' || EncodeValue(unusablenameurl) || '"/></p></body></html>');
+  uploaded := Rte()->value.embedded;
+  TestEq(3, Length(uploaded));
+  TestEq([ Left(RepeatText("long-name-", 20), 96) || ".jpg" //cut off at 100 characters
+         , "what-is-this-final-e.jpeg"
+         ], (SELECT AS STRING ARRAY filename FROM uploaded WHERE filename != contentid ORDER BY filename));
+  TestEq(1, Length(SELECT FROM uploaded WHERE filename = contentid), "An upload without a usable name shouldn't get one, got: " || Detokenize((SELECT AS STRING ARRAY filename FROM uploaded), ","));
 
   GetTestController()->GrabInstructions(); //flush
 

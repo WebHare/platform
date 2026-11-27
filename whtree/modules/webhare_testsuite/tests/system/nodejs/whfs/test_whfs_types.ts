@@ -862,8 +862,24 @@ async function testVisitor() {
       ]
     });
 
+  //A form definition stores its images like a rich text document does: with a content id and a file name
+  const formType = whfs.whfsType("webhare_testsuite:global.generic_test_type");
+  const getFormImage = async () => (await formType.get(aboutAFish.id)).aForm?.["compoundDocument"].embedded.get("form-image");
+  await formType.set(aboutAFish.id, { aForm: await generateForm({ text: "A form", embedded: { "form-image": await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true, getHash: true, fileName: "kikker.png" }) } }) });
+  test.eq("kikker.png", (await getFormImage())?.fileName);
+
+  //So does a compound HTML document
+  const getHTMLDocImage = async () => (await formType.get(aboutAFish.id)).aHTMLDoc?.embedded.get("htmldoc-image");
+  await formType.set(aboutAFish.id, { aHTMLDoc: await generateCompoundHTMLDoc({ embedded: { "htmldoc-image": await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true, getHash: true, fileName: "vis.png" }) } }) });
+  test.eq("vis.png", (await getHTMLDocImage())?.fileName);
+
   const aboutAFishData = await whfs.whfsType("platform:filetypes.richdocument").get(aboutAFish.id, { export: true });
   await commitWork();
+
+  const hsRTDType = await loadlib("mod::system/lib/whfs.whlib").openWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  const getContentIds = async () => (await hsRTDType.getInstanceData(aboutAFish.id)).data.embedded.map((embed: { contentid: string }) => embed.contentid) as string[];
+  const originalContentIds = await getContentIds();
+  test.eq(1, originalContentIds.length);
 
   const originalList: Array<whfs.VisitedResourceContext & { fileName: string | null }> = [];
   const startingPoints = [(await test.getTestSiteHS()).id, (await test.getTestSiteJS()).id];
@@ -890,16 +906,34 @@ async function testVisitor() {
   test.eq(originalList, visitedList, "All resources should be visited in identical order");
 
   //Let's actually rewrite
+  let sawHTMLDocImage = false;
   await whfs.visitResources(async (ctx, resource) => {
     if (ctx.fsObject === aboutAFish.id && ctx.fieldType === "richTextDocument") {
       test.eq("platform:filetypes.richdocument", ctx.fsType);
       test.eq("data", ctx.fieldName);
       return await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg");
     }
+    if (ctx.fsObject === aboutAFish.id && ctx.fieldType === "formDefinition") {
+      test.eq("aForm", ctx.fieldName);
+      test.eq("kikker.png", resource.fileName, "We should see the image's file name, not its content id");
+      return await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg", { fileName: "frog.jpg" });
+    }
+    if (ctx.fsObject === aboutAFish.id && ctx.fieldType === "compoundDocument") {
+      test.eq("aHTMLDoc", ctx.fieldName);
+      test.eq("vis.png", resource.fileName, "We should see the image's file name, not its content id");
+      sawHTMLDocImage = true;
+      return await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg", { fileName: "beagle.jpg" });
+    }
   }, { startingPoints, isVisibleEdit: false });
 
+  test.assert(sawHTMLDocImage, "The image in the compound HTML document should have been visited");
+  test.eqPartial({ fileName: "frog.jpg", hash: test.wellKnownHashes.snowbeagleJPG }, (await getFormImage())?.getMetadata(), "The form's image should still be found under its content id");
+  test.eqPartial({ fileName: "beagle.jpg", hash: test.wellKnownHashes.snowbeagleJPG }, (await getHTMLDocImage())?.getMetadata(), "The HTML document's image should still be found under its content id");
+
   const finalRTD = await whfs.whfsType("platform:filetypes.richdocument").get(aboutAFish.id, { export: true });
-  test.eq((aboutAFishData as any).data[0].items[1].image.fileName, (finalRTD as any).data[0].items[1].image.fileName, "verify contentid was preserved");
+  test.eq("goudvis.png", (aboutAFishData as any).data[0].items[1].image.fileName);
+  test.eq("snowbeagle.jpg", (finalRTD as any).data[0].items[1].image.fileName, "the new image's file name should be stored");
+  test.eq(originalContentIds, await getContentIds(), "verify contentid was preserved");
   test.eqPartial({ width: 428, height: 284, mediaType: "image/jpeg", hash: test.wellKnownHashes.snowbeagleJPG }, (finalRTD as any).data[0].items[1].image);
 }
 

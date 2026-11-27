@@ -79,8 +79,10 @@ PUBLIC STATIC OBJECTTYPE Mailer EXTEND TolliumScreenBase
       IF(NOT RecordExists(exp))
         exp := [ htmltext := DEFAULT BLOB, embedded := DEFAULT RECORD ARRAY ];
 
+      //Name the attachment after the image's file name. An image without one has its content id as filename, which may already end in the extension
       RECORD ARRAY embed := SELECT data
-                                 , filename := contentid || extension
+                                 , filename := CellExists(embedded, "filename") AND embedded.filename NOT IN [ "", contentid ] ? embedded.filename
+                                               : extension != "" AND contentid LIKE "*" || extension ? contentid : contentid || extension
                                  , contenttype := mimetype
                                  , contentid := "<" || contentid || ">"
                                  , contentdisposition := "inline"

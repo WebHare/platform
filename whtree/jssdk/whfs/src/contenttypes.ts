@@ -5,7 +5,7 @@ import type { } from "@mod-platform/generated/ts/whfstypes.ts";
 import { __openWHFSObj } from "./objects";
 import { getWHFSDescendantIds, isHistoricWHFSSpace } from "./support";
 import { getData, setData, type CodecExportMemberType, type CodecGetMemberType, type CodecImportMemberType, type EncodedFSSetting, type MemberType } from "./codecs";
-import { addMissingScanData, decodeScanData, getUnifiedCC, ResourceDescriptor, type ExportOptions, type ImportOptions, type WebHareDBLocation } from "@webhare/services/src/descriptor";
+import { addMissingScanData, decodeEmbeddedScanData, decodeScanData, getUnifiedCC, ResourceDescriptor, type ExportOptions, type ImportOptions, type WebHareDBLocation } from "@webhare/services/src/descriptor";
 import { appendToArray, compareProperties, convertWaitPeriodToDate, nameToCamelCase, omit, throwError, type WaitPeriod } from "@webhare/std";
 import { SettingsStorer } from "@webhare/wrd/src/entitysettings";
 import { describeWHFSType, type FSSettingsRow } from "./describe";
@@ -462,10 +462,12 @@ export async function visitResources(callback: VisitCallback, scope: {
       if (batchSize-- <= 0 || (deadline && new Date() > deadline))
         return `instance:${queryPos}:${resultPos}`; //there will be something to do, but we reached the batch size, it will be up to the next run
 
+      //Images embedded in a rich text document, compound document or form definition also have a content id
+      const isEmbedded = result.type !== CSPMemberType.File;
+      const { contentId, metadata } = isEmbedded ? decodeEmbeddedScanData(result.setting) : { contentId: null, metadata: decodeScanData(result.setting) };
+
       //As we're not calculating the original 'cc' we can't add a dbLoc. Wouldn't be too difficult to add if really needed
-      const reconstructedDescriptor = new ResourceDescriptor(
-        result.blobdata,
-        decodeScanData(result.setting));
+      const reconstructedDescriptor = new ResourceDescriptor(result.blobdata, metadata);
 
       const typeInfo = await describeWHFSType(result.fs_type, { allowMissing: true });
       if (!typeInfo)
@@ -477,7 +479,7 @@ export async function visitResources(callback: VisitCallback, scope: {
           fsType: typeInfo?.scopedType ?? typeInfo?.namespace,
           fieldType: result.type === CSPMemberType.File ? "file"
             : result.type === CSPMemberType.RichTextDocument ? "richTextDocument"
-              : result.type === CSPMemberType.CompoundDocument ? "compoundDocument"
+              : result.type === CSPMemberType.CompoundDocument || result.type === CSPMemberType.CompoundHTMLDocument ? "compoundDocument"
                 : result.type === CSPMemberType.FormDefinition ? "formDefinition"
                   : throwError(`Unexpected type ${result.type}`), //TODO don't hardcode constant, add RTD and 'image' type
           fieldName: nameToCamelCase(result.name) //FIXME take full path and member name from type info
@@ -486,10 +488,9 @@ export async function visitResources(callback: VisitCallback, scope: {
       if (update) {
         //TODO check against parallel modification, if so retry or skip
         await runInWork(async () => {
-          // When updating embedded content the filename holds the cid so we shouldn't change it
-          const fileName = (result.type === 15 || result.type === 20 ? reconstructedDescriptor.fileName : update.fileName) ?? undefined;
+          // When updating embedded content we shouldn't change its content id
           await db<PlatformDB>().updateTable("system.fs_settings").
-            set({ blobdata: await uploadBlob(update.resource), setting: await addMissingScanData(update, { fileName }) }).
+            set({ blobdata: await uploadBlob(update.resource), setting: await addMissingScanData(update, { fileName: update.fileName ?? undefined, contentId: contentId ?? undefined }) }).
             where("id", "=", result.id).
             executeTakeFirstOrThrow();
           if (scope?.isVisibleEdit ?? true)

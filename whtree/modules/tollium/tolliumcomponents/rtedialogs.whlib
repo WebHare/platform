@@ -2,12 +2,24 @@
 
 LOADLIB "wh::files.whlib";
 
+LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::publisher/lib/components/internallinks.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/service.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/previewcontext.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
+
+/// Other extensions in use for the type that has this extension
+STRING ARRAY FUNCTION GetAlternativeExtensions(STRING extension) {
+  SWITCH(ToLowercase(extension)) {
+    CASE ".jpg" { RETURN [ ".jpeg", ".jpe" ]; }
+    CASE ".tif" { RETURN [ ".tiff" ]; }
+    CASE ".tiff" { RETURN [ ".tif" ]; }
+  }
+  RETURN STRING[];
+}
 
 RECORD FUNCTION GetHyperlinkResult(OBJECT rte, OBJECT selectbox, BOOLEAN newwindow)
 {
@@ -27,6 +39,10 @@ PUBLIC STATIC OBJECTTYPE ImageProperties EXTEND TolliumScreenBase
   BOOLEAN suspendonchange;
   RECORD original;
   FLOAT origaspect;
+  /// Extension that belongs to the image's type, eg. '.jpg'. The user edits the file name without it
+  STRING extension;
+  /// The file name as we showed it, to see whether the user changed it
+  STRING shownfilename;
 
   MACRO Init(RECORD data)
   {
@@ -35,6 +51,17 @@ PUBLIC STATIC OBJECTTYPE ImageProperties EXTEND TolliumScreenBase
 
     this->rte := data.rte;
     this->original := data.originalimg;
+
+    this->extension := this->original.extension = "" OR this->original.extension LIKE ".*" ? this->original.extension : "." || this->original.extension;
+    this->shownfilename := this->GetFileName();
+
+    //Show the name without its extension. A name may have another extension for the same type, eg. '.jpeg'
+    STRING currentextension := ToLowercase(GetExtensionFromPath(this->shownfilename));
+    IF(this->extension != "" AND currentextension IN [ STRING(ToLowercase(this->extension)), ...GetAlternativeExtensions(this->extension) ])
+      this->shownfilename := Left(this->shownfilename, Length(this->shownfilename) - Length(currentextension));
+    ^filename->value := this->shownfilename;
+    ^filename->enabled := data.canrename;
+    ^extension->value := this->extension;
 
     IF(data.data.height > 0 AND data.data.width > 0) //if a height is set, we're overriding
     {
@@ -54,15 +81,27 @@ PUBLIC STATIC OBJECTTYPE ImageProperties EXTEND TolliumScreenBase
 
   RECORD FUNCTION Submit()
   {
-    IF(NOT this->BeginFeedback()->Finish())
+    OBJECT work := this->BeginFeedback();
+
+    //Only look at a file name the user changed: an existing name may break our rules or have a different extension, and must not block other changes
+    BOOLEAN filenamechanged := ^filename->value != this->shownfilename;
+    STRING filename := TrimWhitespace(^filename->value);
+    IF(filenamechanged AND filename != "" AND NOT IsValidEmbeddedImageFileName(filename || this->extension))
+      work->AddErrorFor(^filename, GetTid("tollium:tolliumcomponents.rtedialogs.imageproperties.invalidfilename"));
+
+    IF(NOT work->Finish())
       RETURN DEFAULT RECORD;
-    ELSE
-      RETURN CELL[ height := ^overridedimensions->value ? ^height->value : 0
-                 , width := ^overridedimensions->value ? ^width->value : 0
-                 , link := GetHyperlinkResult(this->rte, ^link, ^openinnewwindow->value)
-                 , alttext := ^alttext->value
-                 , align := ^align->value
-                 ];
+
+    RECORD result := CELL[ height := ^overridedimensions->value ? ^height->value : 0
+                         , width := ^overridedimensions->value ? ^width->value : 0
+                         , link := GetHyperlinkResult(this->rte, ^link, ^openinnewwindow->value)
+                         , alttext := ^alttext->value
+                         , align := ^align->value
+                         ];
+
+    IF(filenamechanged)
+      INSERT CELL filename := filename = "" ? "" : filename || this->extension INTO result;
+    RETURN result;
   }
 
   MACRO OnWidthChange()
@@ -84,6 +123,12 @@ PUBLIC STATIC OBJECTTYPE ImageProperties EXTEND TolliumScreenBase
     this->suspendonchange := FALSE;
   }
 
+  /// The image's file name, empty if it has none
+  STRING FUNCTION GetFileName()
+  {
+    RETURN CellExists(this->original, "orgfilename") ? this->original.orgfilename : "";
+  }
+
   MACRO DoimgInline(RECORD clickinfo)
   {
     ^align->value := "";
@@ -100,6 +145,8 @@ PUBLIC STATIC OBJECTTYPE ImageProperties EXTEND TolliumScreenBase
   MACRO DoDownload(OBJECT imgreceiver)
   {
     RECORD tosend := this->original;
+    //Use the image's file name. Without one we have the name of a temporary file or the content id
+    tosend.filename := this->GetFileName() ?? tosend.filename;
     //Restore the extension if needed so downloaders have a usable file
     IF(tosend.extension != "" AND ToUppercase(tosend.filename) NOT LIKE ToUppercase("*" || tosend.extension))
       tosend.filename := tosend.filename || tosend.extension;

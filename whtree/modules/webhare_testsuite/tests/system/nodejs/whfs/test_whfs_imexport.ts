@@ -144,7 +144,6 @@ const exportMappedSubInstanceData = (storedOnDisk: boolean): test.RecursiveTesta
               sourceFile: 'x-custom::xmap',
               ...(storedOnDisk ? {
                 hash: 'J7v6wPn8pNgVSv03-2PdJN3jq4SzH1XuDcLu8VXwdDk',
-                fileName: (fileName: unknown) => Boolean(typeof fileName === "string" && fileName !== ""),
               } : {}),
             },
           }, {

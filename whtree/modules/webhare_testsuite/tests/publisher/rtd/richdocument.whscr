@@ -150,6 +150,9 @@ MACRO ParserApiTest()
   TestEQ(FALSE, storeddata.embedded[0].mirrored);
   TestEQ(DEFAULT RECORD, storeddata.embedded[0].refpoint);
   TestEQ("#EBEDF0", storeddata.embedded[0].dominantcolor);
+  TestEQ("imagecid-81400", storeddata.embedded[0].contentid);
+  TestEQ("bob.jpg", storeddata.embedded[0].filename, "The file name of an embedded image should be kept");
+  TestEqLike('*<img*src="*/bob.*"*', BlobToString(GetRichDocumentAsHtmlFragment(storeddata)), "The image URL should use the file name");
 
   OBJECT structure := NEW RichDocumentStructure;
   structure->LoadFromRTDType(GetRTDSettingsForFile(parserapitestfile->id));

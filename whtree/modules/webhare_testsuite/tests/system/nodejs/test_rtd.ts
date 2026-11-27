@@ -1,12 +1,14 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { buildRTD, buildWidget, IntExtLink, ResourceDescriptor, RichTextDocument, WebHareBlob } from "@webhare/services";
 import { buildRTDFromHareScriptRTD, exportAsHareScriptRTD, exportRTDToRawHTML, type HareScriptRTD } from "@webhare/hscompat";
-import { beginWork, commitWork, rollbackWork, runInWork } from "@webhare/whdb";
+import { beginWork, commitWork, db, rollbackWork, runInWork } from "@webhare/whdb";
 import { openFile, whfsType } from "@webhare/whfs";
 import { loadlib } from "@webhare/harescript";
 import { createWRDTestSchema, getLegacyWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { buildInstance, type RTDBlock, type RTDInlineItem, type RTDSource, type RTDExport, type Instance } from "@webhare/services/src/richdocument";
-import { isResourceDescriptor, type ExportedResource } from "@webhare/services/src/descriptor";
+import { addMissingScanData, decodeEmbeddedScanData, decodeScanData, isResourceDescriptor, type ExportedResource } from "@webhare/services/src/descriptor";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
+import { fetchUCLink } from "./data/image-fetch";
 import { fetchPreviewAsDoc } from "@mod-webhare_testsuite/js/whfs";
 import { xmlToJS, type XMLToJSElement } from "@mod-system/js/internal/generation/xmlhelpers";
 import { getSignedWHDebugOptions } from "@webhare/router/src/debug";
@@ -17,23 +19,23 @@ import { pick } from "@webhare/std";
 // An exportable RTD should always be a valid input source
 ({} as RTDExport) satisfies RTDSource;
 
-///A resourcedescriptor compare that ignores filenames (because )
-function compareRDIgnoreFilename(expect: unknown, actual: unknown, path: string) {
+///A resourcedescriptor compare that compares the metadata, including the file name
+function compareRDMetadata(expect: unknown, actual: unknown, path: string) {
   if (!isResourceDescriptor(expect) || !isResourceDescriptor(actual))
     return;
 
-  test.eqPartial({ ...expect.getMetadata(), fileName: actual.fileName }, actual.getMetadata(), { path });
+  test.eqPartial(expect.getMetadata(), actual.getMetadata(), { path });
   return true;
 }
 
 async function verifySimpleRoundTrip(doc: RichTextDocument) {
   const exported = await doc.export();
   const docFromExported = await buildRTD(exported);
-  test.eq(doc.blocks, docFromExported.blocks, { onCompare: compareRDIgnoreFilename });
+  test.eq(doc.blocks, docFromExported.blocks, { onCompare: compareRDMetadata });
 
   const hs = await exportAsHareScriptRTD(doc);
   const doc2 = await buildRTDFromHareScriptRTD(hs);
-  test.eq(doc.blocks, doc2.blocks, { onCompare: compareRDIgnoreFilename });
+  test.eq(doc.blocks, doc2.blocks, { onCompare: compareRDMetadata });
   return hs;
 }
 
@@ -61,14 +63,14 @@ async function verifyRoundTrip(doc: RichTextDocument) {
   const tempfile = await (await test.getTestSiteJSTemp()).ensureFile("roundtrip", { type: "platform:filetypes.richdocument" });
   await whfsType("platform:filetypes.richdocument").set(tempfile.id, { data: doc });
   const doc3 = (await whfsType("platform:filetypes.richdocument").get(tempfile.id)).data as RichTextDocument;
-  test.eq(doc.blocks, doc3.blocks, { onCompare: compareRDIgnoreFilename });
+  test.eq(doc.blocks, doc3.blocks, { onCompare: compareRDMetadata });
 
   //Test roundtrip through HareScript WHFS SetInstanceData
   //FIXME this should also set whfsSettingId and whfsFileId again on instances?
   const hsWHFSType = await loadlib("mod::system/lib/whfs.whlib").openWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
   await hsWHFSType.setInstanceData(tempfile.id, { data: hs });
   const doc4 = (await whfsType("platform:filetypes.richdocument").get(tempfile.id)).data as RichTextDocument;
-  test.eq(doc.blocks, doc4.blocks, { onCompare: compareRDIgnoreFilename });
+  test.eq(doc.blocks, doc4.blocks, { onCompare: compareRDMetadata });
 
   //Test roundtrip through HareScript WHFS GetInstanceData
   const hsInstance = await hsWHFSType.getInstanceData(tempfile.id);
@@ -78,7 +80,7 @@ async function verifyRoundTrip(doc: RichTextDocument) {
   }
 
   const doc5 = await buildRTDFromHareScriptRTD(hsInstance.data);
-  test.eq(doc.blocks, doc5.blocks, { onCompare: compareRDIgnoreFilename });
+  test.eq(doc.blocks, doc5.blocks, { onCompare: compareRDMetadata });
 
   await rollbackWork();
 }
@@ -156,7 +158,7 @@ async function testReader() {
             height: 284,
             hash: test.wellKnownHashes.snowbeagleJPG,
             dominantColor: /^#[0-9A-F]{6}$/,
-            fileName: /^.+$/ //This stores a cid:<id> currently and we have no control over the cid in the TS RTD APIs - so we can't import it to a fixed value
+            fileName: 'imagecid-81400' //The test site was exported when a content id was still stored as an image's file name
           },
           alt: 'I&G',
           width: 160,
@@ -219,7 +221,7 @@ async function testHSReader() {
             height: 284,
             dominantColor: /^#[0-9A-F]{6}$/,
             hash: test.wellKnownHashes.snowbeagleJPG,
-            fileName: 'imagecid-81400'
+            fileName: 'bob.jpg'
           }
         }
       ]
@@ -286,7 +288,7 @@ async function testHSReaderTables() {
             height: 284,
             dominantColor: /^#[0-9A-F]{6}$/,
             hash: test.wellKnownHashes.snowbeagleJPG,
-            fileName: 'imagecid-81400'
+            fileName: 'bob.jpg'
           }
         }
       ]
@@ -959,6 +961,154 @@ async function testBuildingRTDsWithInstances() {
   }
 }
 
+async function testImageFileNames() {
+  const rtdType = whfsType("platform:filetypes.richdocument");
+  const hsWHFSType = await loadlib("mod::system/lib/whfs.whlib").openWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  const getImages = (doc: RichTextDocument) => ((doc.blocks[0] as { items: RTDInlineItem[] }).items).filter(item => "image" in item).map(item => item.image as ResourceDescriptor);
+
+  const imgOptions = { getHash: true, getImageMetadata: true, getDominantColor: true };
+  const kikker = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { ...imgOptions, fileName: "kikker.png" });
+  const vis = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { ...imgOptions, fileName: "vis.png" }); //same image, different name
+  const unnamed = await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg", { ...imgOptions, fileName: undefined });
+  test.eq(null, unnamed.fileName);
+
+  const doc = await buildRTD([{ p: [{ image: kikker }, " ", { image: unnamed }, " ", { image: vis }, " ", { image: kikker }] }]);
+
+  // Content ids are derived from the image's contents, so they don't differ between exports or servers
+  const hs = await exportAsHareScriptRTD(doc);
+  const idBase = `img-${kikker.hash!.substring(0, 16)}`;
+  const beagleId = `img-${unnamed.hash!.substring(0, 16)}.jpg`;
+  test.eq([
+    { contentid: `${idBase}-2.png`, filename: "vis.png" },
+    { contentid: `${idBase}.png`, filename: "kikker.png" },
+    { contentid: beagleId, filename: beagleId }, //HareScript sees the content id as the file name of an image without one
+  ].sort((lhs, rhs) => lhs.contentid.localeCompare(rhs.contentid)), hs.embedded.map(embed => pick(embed, ["contentid", "filename"])).sort((lhs, rhs) => lhs.contentid.localeCompare(rhs.contentid)));
+  test.eq(hs.embedded.map(_ => _.contentid).sort(), (await exportAsHareScriptRTD(await buildRTD(await doc.export()))).embedded.map(_ => _.contentid).sort(), "A rebuilt document should get the same content ids");
+  test.eq(["kikker.png", null, "vis.png", "kikker.png"], getImages(await buildRTDFromHareScriptRTD(hs)).map(_ => _.fileName));
+
+  // Store in WHFS. The content id is stored where other files have their file name ('f'), the file name is stored in 'n'
+  await beginWork();
+  const tempfile = await (await test.getTestSiteJSTemp()).ensureFile("imagefilenames", { type: "platform:filetypes.richdocument" });
+  await rtdType.set(tempfile.id, { data: doc });
+  await commitWork();
+
+  const getImageSettings = async () => (await db<PlatformDB>()
+    .selectFrom("system.fs_settings")
+    .innerJoin("system.fs_instances", "system.fs_instances.id", "system.fs_settings.fs_instance")
+    .select(["system.fs_settings.id", "system.fs_settings.setting"])
+    .where("system.fs_instances.fs_object", "=", tempfile.id)
+    .where("system.fs_settings.ordering", "=", 1)
+    .where("system.fs_settings.blobdata", "is not", null)
+    .execute()).sort((lhs, rhs) => lhs.setting.localeCompare(rhs.setting));
+
+  const expectSettings = [
+    new RegExp(`"f":"${idBase}-2\\.png".*"n":"vis\\.png"`),
+    new RegExp(`"f":"${idBase}\\.png".*"n":"kikker\\.png"`),
+    new RegExp(`"f":"${beagleId.replace(".", "\\.")}"`),
+  ];
+  const verifySettings = async () => {
+    const settings = (await getImageSettings()).map(_ => _.setting).sort((lhs, rhs) => (lhs.includes('"n":"vis') ? 0 : lhs.includes('"n":"kikker') ? 1 : 2) - (rhs.includes('"n":"vis') ? 0 : rhs.includes('"n":"kikker') ? 1 : 2));
+    test.eq(expectSettings, settings);
+    test.assert(!settings[2].includes('"n":'), "An image without a file name shouldn't store one");
+  };
+  await verifySettings();
+
+  const fromWHFS = (await rtdType.get(tempfile.id)).data as RichTextDocument;
+  test.eq(["kikker.png", null, "vis.png", "kikker.png"], getImages(fromWHFS).map(_ => _.fileName));
+
+  // HareScript reads the same names, and keeps them (and the content ids) when it stores the document
+  const hsInstance = await hsWHFSType.getInstanceData(tempfile.id);
+  const expectHSEmbedded = [...hs.embedded].sort((lhs, rhs) => lhs.contentid.localeCompare(rhs.contentid)).map(embed => pick(embed, ["contentid", "filename"]));
+  test.eq(expectHSEmbedded, hsInstance.data.embedded.map((embed: { contentid: string; filename: string }) => pick(embed, ["contentid", "filename"])));
+
+  await beginWork();
+  await hsWHFSType.setInstanceData(tempfile.id, { data: hsInstance.data });
+  await commitWork();
+  await verifySettings();
+  test.eq(["kikker.png", null, "vis.png", "kikker.png"], getImages((await rtdType.get(tempfile.id)).data as RichTextDocument).map(_ => _.fileName));
+
+  // Storing a document we read back keeps the content ids too
+  await beginWork();
+  await rtdType.set(tempfile.id, { data: fromWHFS });
+  await commitWork();
+  await verifySettings();
+
+  // The file name is used in the image's URL, but isn't needed to find the image
+  const stored = getImages((await rtdType.get(tempfile.id)).data as RichTextDocument);
+  const kikkerLink = stored[0].toResized({ method: "none", format: "keep" }).link;
+  test.eq(/\/kikker\.png$/, kikkerLink);
+  test.eq(/\/image\.jpg$/, stored[1].toResized({ method: "none", format: "keep" }).link);
+  test.eq(/\/vis\.png$/, stored[2].toResized({ method: "none", format: "keep" }).link);
+  test.eq(kikker.hash, (await fetchUCLink(kikkerLink, "image/png")).resource.hash);
+  test.eq(kikker.hash, (await fetchUCLink(kikkerLink.replace(/\/kikker\.png$/, "/anothername.png"), "image/png")).resource.hash, "The name in the URL shouldn't matter");
+
+  const renderedBefore = await loadlib("mod::publisher/lib/publisher.whlib").GetRichDocumentAsHtmlFragment((await hsWHFSType.getInstanceData(tempfile.id)).data) as WebHareBlob;
+  test.eq(/<img[^>]+src="[^"]+\/kikker\.[a-z]+"/, await renderedBefore.text(), "HareScript should render the file name too");
+
+  // Rename an image. Its content id stays and the URL that's already published keeps working
+  const toRename = (await rtdType.get(tempfile.id)).data as RichTextDocument;
+  const frog = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { ...imgOptions, fileName: "frog.png" });
+  const renamedDoc = await buildRTD([{ p: [{ image: frog }, " ", { image: getImages(toRename)[1] }, " ", { image: getImages(toRename)[2] }, " ", { image: frog }] }]);
+
+  await beginWork();
+  await rtdType.set(tempfile.id, { data: renamedDoc });
+  await commitWork();
+
+  const renamed = getImages((await rtdType.get(tempfile.id)).data as RichTextDocument);
+  test.eq(["frog.png", null, "vis.png", "frog.png"], renamed.map(_ => _.fileName));
+  const frogLink = renamed[0].toResized({ method: "none", format: "keep" }).link;
+  test.eq(/\/frog\.png$/, frogLink);
+  test.eq(kikker.hash, (await fetchUCLink(frogLink, "image/png")).resource.hash);
+  test.eq(kikker.hash, (await fetchUCLink(kikkerLink, "image/png")).resource.hash, "The URL from before the rename should still work");
+
+  // Images stored before file names were kept have no 'n': they have no file name, and their content id as HareScript filename
+  await beginWork();
+  for (const setting of await getImageSettings())
+    await db<PlatformDB>().updateTable("system.fs_settings").set({ setting: setting.setting.replace(/,?"n":"[^"]*"/, "") }).where("id", "=", setting.id).execute();
+  await commitWork();
+
+  test.eq([null, null, null, null], getImages((await rtdType.get(tempfile.id)).data as RichTextDocument).map(_ => _.fileName));
+  for (const embed of (await hsWHFSType.getInstanceData(tempfile.id)).data.embedded)
+    test.eq(embed.contentid, embed.filename);
+
+  // HareScript makes up 'noname.<ext>' for a file without a name. That isn't a file name: we don't store it, and ignore it where it was stored
+  const nonameData = (await hsWHFSType.getInstanceData(tempfile.id)).data;
+  await beginWork();
+  await hsWHFSType.setInstanceData(tempfile.id, { data: { ...nonameData, embedded: nonameData.embedded.map((embed: { filename: string }) => ({ ...embed, filename: "noname.png" })) } });
+  await commitWork();
+  for (const setting of await getImageSettings())
+    test.assert(!setting.setting.includes('"n":'), `Shouldn't have stored a file name in ${setting.setting}`);
+
+  await beginWork();
+  for (const setting of await getImageSettings())
+    await db<PlatformDB>().updateTable("system.fs_settings").set({ setting: setting.setting.replace(/^hson:\{/, 'hson:{"n":"noname.png",') }).where("id", "=", setting.id).execute();
+  await commitWork();
+  for (const setting of await getImageSettings())
+    test.assert(setting.setting.includes('"n":"noname.png"'), `Should have added the file name to ${setting.setting}`);
+
+  test.eq([null, null, null, null], getImages((await rtdType.get(tempfile.id)).data as RichTextDocument).map(_ => _.fileName));
+  for (const embed of (await hsWHFSType.getInstanceData(tempfile.id)).data.embedded)
+    test.eq(embed.contentid, embed.filename);
+
+  // TypeScript doesn't take it from a HareScript document either, and doesn't store it if it's given one
+  const nonameHS: HareScriptRTD = { ...nonameData, embedded: nonameData.embedded.map((embed: { filename: string }) => ({ ...embed, filename: "noname.png" })) };
+  test.eq([null, null, null, null], getImages(await buildRTDFromHareScriptRTD(nonameHS)).map(_ => _.fileName));
+
+  const nonameImage = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { ...imgOptions, fileName: "noname.png" });
+  await beginWork();
+  await rtdType.set(tempfile.id, { data: await buildRTD([{ p: [{ image: nonameImage }] }]) });
+  await commitWork();
+  test.eq(1, (await getImageSettings()).length);
+  for (const setting of await getImageSettings())
+    test.assert(!setting.setting.includes('"n":'), `TypeScript shouldn't have stored a file name in ${setting.setting}`);
+  test.eq([null], getImages((await rtdType.get(tempfile.id)).data as RichTextDocument).map(_ => _.fileName));
+
+  // An embedded image's file name doesn't decide its type, like its content id didn't
+  const unknownData = new ResourceDescriptor(WebHareBlob.from("Not an image"), { mediaType: "application/octet-stream", fileName: "manual.pdf", hash: "x" });
+  test.eq("application/pdf", decodeScanData(await addMissingScanData(unknownData)).mediaType);
+  test.eqPartial({ contentId: "cid-1", metadata: { mediaType: "application/octet-stream", fileName: "manual.pdf" } }, decodeEmbeddedScanData(await addMissingScanData(unknownData, { contentId: "cid-1" })));
+}
+
 async function testWRDRoundTrips() {
   console.log("now testing wrd roundtrips.."); //we delayed it so other tests can fail faster as createWRDTestSchema is (still?) slow
   await createWRDTestSchema();
@@ -976,14 +1126,14 @@ async function testWRDRoundTrips() {
     await runInWork(async () => {
       await wrdschema.update("wrdPerson", testuser, { richie: doc });
       const { richie } = await wrdschema.getFields("wrdPerson", testuser, ["richie"]);
-      test.eq(doc.blocks, richie.blocks, { onCompare: compareRDIgnoreFilename });
+      test.eq(doc.blocks, richie.blocks, { onCompare: compareRDMetadata });
     });
 
     await runInWork(async () => {
       //Test roundtrip through HareScript WRD UpdateEntity
       await hsWRDPersonType.UpdateEntity(testuser, { richie: hs });
       const { richie } = await wrdschema.getFields("wrdPerson", testuser, ["richie"]);
-      test.eq(doc.blocks, richie.blocks, { onCompare: compareRDIgnoreFilename });
+      test.eq(doc.blocks, richie.blocks, { onCompare: compareRDMetadata });
     });
 
     await runInWork(async () => {
@@ -996,7 +1146,7 @@ async function testWRDRoundTrips() {
       fixTSHSIncompatibilities(richie);
 
       const richieDoc = await buildRTDFromHareScriptRTD(richie);
-      test.eq(doc.blocks, richieDoc.blocks, { onCompare: compareRDIgnoreFilename });
+      test.eq(doc.blocks, richieDoc.blocks, { onCompare: compareRDMetadata });
     });
   }
 }
@@ -1563,6 +1713,7 @@ test.runTests(
     testBuilder,
     testBuildWHFSInstance,
     testBuildingRTDsWithInstances,
+    testImageFileNames,
     testWRDRoundTrips,
     testRegressions,
     testRTDOutput,

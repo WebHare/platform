@@ -355,6 +355,7 @@ MACRO TestLocalBlobUsage()
   // Test if the data is equal
   RECORD syncedfields := synctarget->^wrd_person->GetEntityFields(synctarget->^wrd_person->Search("WRD_TAG", "PERSON1"), [ "test_file", "test_image", "richie" ]);
   TestEQ(DEFAULT RECORD, entity->FilterFieldUpdates(syncedfields));
+  TestEQ("bob.jpg", syncedfields.richie.embedded[0].filename, "The file name of an embedded image should survive a sync");
 }
 
 RunTestframework(

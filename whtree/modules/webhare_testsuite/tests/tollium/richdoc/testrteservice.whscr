@@ -5,6 +5,7 @@ LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
+LOADLIB "mod::system/lib/cache.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -91,6 +92,7 @@ MACRO RTECreation()
   RECORD exportrec := editable->ExportAsRecord();
   TestEq(FALSE, BlobToString(exportrec.htmltext) LIKE "*noise*", "The word noise didn't get stripped from embeddedobject contents");
   TestEq(2, Length(exportrec.instances));
+  TestEq([[ contentid := "imagecid-81400", filename := "bob.jpg" ]], (SELECT contentid, filename FROM exportrec.embedded), "The editor should keep an image's file name");
 
   //Get the rendered value from this RTECreation
   doc := MakeXMLDocumentFromHTML(StringToBlob(editable->GetHTMLForClientRTE()));
@@ -280,6 +282,18 @@ MACRO NewImage()
   editable->ImportFromRecord(imageonlydoc);
   exportrec := editable->ExportAsRecord();
   TestEq(0, Length(exportrec.embedded));
+
+  //An image that's taken from an image field (eg. copied from a page that shows it) keeps the file name of that field
+  testfw->BeginWork();
+  testfile2->SetInstanceData("http://www.webhare.net/xmlns/beta/test", [ arraytest := [[ blobcell := WrapBlob(smallbobjpg, "fieldbob.jpg") ]]]);
+  testfw->CommitWork();
+
+  RECORD fieldimage := testfile2->GetInstanceData("http://www.webhare.net/xmlns/beta/test").arraytest[0].blobcell;
+  STRING fieldimagelink := WrapCachedImage(fieldimage, [ method := "none", format := "keep", baseurl := GetPrimaryWebHareInterfaceURL() ]).link;
+  editable->SetHTMLFromClientRTE(`<html><body><p class="normal"><img src="${EncodeValue(fieldimagelink)}" /></p></body></html>`);
+  exportrec := editable->ExportAsRecord();
+  TestEq(1, Length(exportrec.embedded));
+  TestEq("fieldbob.jpg", exportrec.embedded[0].filename);
 }
 
 MACRO FixDataURLImage()

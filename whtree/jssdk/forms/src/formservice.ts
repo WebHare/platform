@@ -32,8 +32,11 @@ export interface PublisherFormService {
 
   formValidateEmail(target: RPCFormTarget & { field: string }, emailaddress: string): Promise<EmailValidationResult>;
 
-  /** Get the final image URL to use */
-  getUploadedFileFinalURL(uploadurl: string): Promise<string>;
+  /** Get the final image URL to use
+   * @param uploadurl - The file as a data: URL
+   * @param fileName - The file's name
+   */
+  getUploadedFileFinalURL(uploadurl: string, fileName?: string): Promise<string>;
 
   validateEmbeddedObjects(objrefs: string[]): Promise<{ tokill: string[] }>;
 

@@ -797,7 +797,17 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase <
           RETURN DEFAULT RECORD;
         }
 
-        RETURN this->owner->RunScreen("mod::tollium/tolliumcomponents/rtedialogs.xml#imageproperties", CELL[ rte := this, data, originalimg ]);
+        //The file name can't be changed in an editor that isn't editable (it may still open this dialog, eg. for its editable widgets)
+        BOOLEAN canrename := this->enabled AND NOT this->readonly;
+        RECORD imageprops := this->owner->RunScreen("mod::tollium/tolliumcomponents/rtedialogs.xml#imageproperties", CELL[ rte := this, data, originalimg, canrename ]);
+        IF(RecordExists(imageprops) AND CellExists(imageprops, "filename") AND canrename) {
+          //The file name is kept with the image on the server, it isn't part of the HTML the client edits
+          this->editable->SetImageFileName(data.src, imageprops.filename);
+          this->SetDirty();
+        }
+        IF(RecordExists(imageprops) AND CellExists(imageprops, "filename"))
+          DELETE CELL filename FROM imageprops;
+        RETURN imageprops;
       }
       DEFAULT
       {

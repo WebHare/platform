@@ -69,6 +69,11 @@
           <line layout="left">
             <textarea name="alttext" height="3x" errorlabeltid=".alttext" title="" />
           </line>
+          <heading tid=".filename" />
+          <line layout="left">
+            <textedit name="filename" width="1pr" errorlabeltid=".filename" title="" />
+            <text name="extension" title="" />
+          </line>
         </tab>
         <tab tid=".hyperlink">
           <heading tid=".destination" />

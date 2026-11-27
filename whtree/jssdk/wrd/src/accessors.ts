@@ -7,7 +7,7 @@ import { recordLowerBound, recordUpperBound } from "@webhare/hscompat/src/algori
 import { isLike } from "@webhare/hscompat/src/strings";
 import type { AddressValue } from "@webhare/address";
 import { Money, omit, isValidEmail, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped, isValidUUID, throwError, isTruthy, stdTypeOf, mapMaybePromise, maybePromiseAll } from "@webhare/std";
-import { addMissingScanData, decodeScanData, exportIntExtLink, importIntExtLink, mapExternalWHFSRef, ResourceDescriptor, unmapExternalWHFSRef, type ExportedResource, type ExportOptions, type ImportOptions } from "@webhare/services/src/descriptor";
+import { addMissingScanData, decodeEmbeddedScanData, decodeScanData, exportIntExtLink, importIntExtLink, mapExternalWHFSRef, ResourceDescriptor, unmapExternalWHFSRef, type ExportedResource, type ExportOptions, type ImportOptions } from "@webhare/services/src/descriptor";
 import { encodeHSON, decodeHSON } from "@webhare/hscompat";
 import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscompat/src/hson";
 import { decodeWRDGuid, encodeWRDGuid, isValidWRDTag } from "./wrdsupport";
@@ -74,22 +74,32 @@ export async function getIdToGuidMap(ids: Array<number | null>): Promise<Map<num
 }
 
 function decodeResourceDescriptor(val: EntitySettingsRec, links: EntitySettingsWHFSLinkRec[], cc: number): ResourceDescriptor {
+  return decodeStoredResourceDescriptor(val, links, cc, false).descriptor;
+}
+
+/** Decode a resource descriptor
+ * @param embedded - The setting is an image embedded in a rich text document, which also has a content id
+ * @returns The descriptor, and the content id if this is an embedded image
+ */
+function decodeStoredResourceDescriptor(val: EntitySettingsRec, links: EntitySettingsWHFSLinkRec[], cc: number, embedded: boolean): { contentId: string | null; descriptor: ResourceDescriptor } {
   const lpos = recordLowerBound(links, val, ["id"]);
   const sourceFile = lpos.found ? links[lpos.position].fsobject : null;
   //See also GetWrappedObjectFromWRDSetting: rawdata is prefixed with WHFS: if we need to pick up a link
   const hasSourceFile = val.rawdata.startsWith("WHFS:");
+  const scanData = val.rawdata.substring(hasSourceFile ? 5 : 0);
+  const { contentId, metadata } = embedded ? decodeEmbeddedScanData(scanData) : { contentId: null, metadata: decodeScanData(scanData) };
   const meta = {
-    ...decodeScanData(val.rawdata.substring(hasSourceFile ? 5 : 0)),
+    ...metadata,
     sourceFile,
     dbLoc: { source: 3, id: val.id, cc }
   };
 
   const blob = val.blobdata;
-  return new ResourceDescriptor(blob, meta);
+  return { contentId, descriptor: new ResourceDescriptor(blob, meta) };
 }
 
-async function encodeResourceDescriptor(attribute: number, value: ResourceDescriptor, fileName?: string): Promise<EncodedSetting> {
-  const rawdata = (value.sourceFile ? "WHFS:" : "") + await addMissingScanData(value, { fileName });
+async function encodeResourceDescriptor(attribute: number, value: ResourceDescriptor, contentId?: string): Promise<EncodedSetting> {
+  const rawdata = (value.sourceFile ? "WHFS:" : "") + await addMissingScanData(value, { contentId });
   if (value.resource.size)
     await uploadBlob(value.resource);
 
@@ -1940,9 +1950,9 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
     const embedded = new Map<string, ResourceDescriptor>();
     for (const item of entity_settings.slice(settings_start + 1, settings_limit)) {
       if (item.ordering >= 1) { //it's an embedded image
-        const descr = decodeResourceDescriptor(item, links, cc);
-        if (descr.fileName)
-          embedded.set(descr.fileName, descr);
+        const { contentId, descriptor } = decodeStoredResourceDescriptor(item, links, cc, true);
+        if (contentId)
+          embedded.set(contentId, descriptor);
       }
     }
 

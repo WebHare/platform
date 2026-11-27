@@ -80,7 +80,7 @@ MACRO VerifyAutoCreateTestFile(OBJECT testfile, BOOLEAN after)
                 , width := 0
                 , height := 0
                 , hash := "mC2ePrmW9VnmM_TRlN7zdh2Qn1o7ZH0ahR_q1nwyydE"
-                , filename := "cid:1"
+                , filename := "text.txt"
                 , extension := ""
                 , rotation := 0
                 , mirrored := FALSE
