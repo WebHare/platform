@@ -148,7 +148,7 @@ PUBLIC OBJECTTYPE RTDField EXTEND FormFieldBase
 
     TRY
     {
-      RECORD instancedata := MakeVideoEmbedInstance(guess.network, guess.videoid);
+      RECORD instancedata := MakeVideoEmbedInstance(guess.network, guess.videoid, CellExists(guess, "starttime") ? CELL[ guess.starttime ] : DEFAULT RECORD);
       STRING instanceref := StoreTemporaryEmbeddedObject(instancedata);
 
       RECORD result := this->rtdeditor->GetRTDSingleObjectPreview(instanceref);

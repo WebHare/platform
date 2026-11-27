@@ -1,0 +1,28 @@
+# Unlisted Vimeo video (privacy hash in the videoid) with a start time
+type: platform:filetypes.richdocument
+created: 2026-11-24T12:00:00.000Z
+modified: 2026-11-24T12:00:00.000Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: ""
+      description: ""
+      order: 0
+      keywords: ""
+      publish: true
+  - whfsType: platform:filetypes.richdocument
+    data:
+      data:
+        - tag: p
+          items:
+            - text: vimeovideotest.rtd - OneOfTheSimpleFiles
+        - widget:
+            whfsType: platform:widgets.video
+            data:
+              creationdate: 2024-01-24T14:00:54Z
+              duration: 1103
+              network: vimeo
+              playratio: 1.7777777777777777
+              starttime: 45000
+              title: How to add a Practice Exercise to a track
+              videoid: 906101866/2954ad331e

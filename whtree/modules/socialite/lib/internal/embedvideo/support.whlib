@@ -11,36 +11,81 @@ GuessFromCode() is a replacement for:
 */
 
 
+/** @short Parse a start time as used by YouTube and Vimeo URLs
+    @param timestr Time, eg "90", "90s", "2m", "1m30s" or "1h2m3s". A number without a unit is in seconds
+    @return The time in seconds, 0 if it couldn't be parsed */
+INTEGER FUNCTION ParseTimeOffset(STRING timestr) {
+  timestr := ToLowercase(TrimWhitespace(timestr));
+  INTEGER total;
+  STRING digits;
+  FOR(INTEGER i := 0; i < Length(timestr); i := i + 1) {
+    STRING ch := Substring(timestr, i, 1);
+    IF(ch >= "0" AND ch <= "9") {
+      digits := digits || ch;
+      IF(Length(digits) > 5) //more than 99999 hours, minutes or seconds isn't a sensible start time (and could overflow)
+        RETURN 0;
+      CONTINUE;
+    }
+
+    INTEGER multiplier := ch = "h" ? 3600 : (ch = "m" ? 60 : (ch = "s" ? 1 : 0));
+    IF(multiplier = 0 OR digits = "") //unknown unit or a unit without a number
+      RETURN 0;
+
+    total := total + ToInteger(digits, 0) * multiplier;
+    digits := "";
+  }
+  RETURN total + ToInteger(digits, 0); //a trailing number without unit is in seconds
+}
+
 // NOTE: we ignore the fact not all YouTube url types support both start or t, or which takes precedence
 INTEGER FUNCTION ParseYoutubeStarttime(STRING text)
 {
-  STRING start1 := GetVariableFromURL(text, "start");
-  STRING start2 := GetVariableFromURL(text, "t");
-  STRING timestr := start1 ?? start2;
-
-  INTEGER seconds;
-
-  STRING unit := Right(timestr, 1);
-  BOOLEAN no_unit := unit IN ["0","1","2","3","4","5","6","7","8","9"];
-
-  IF (NOT no_unit)
-  {
-    IF (unit NOT IN ["s","m"])
-      RETURN 0;
-
-    // remove unit from timestring
-    timestr := Left(timestr, Length(timestr)-1);
-  }
-
-  seconds := ToInteger(timestr, 0);
-
-  IF (unit = "m")
-    seconds := seconds * 60;
-
-  RETURN seconds;
+  RETURN ParseTimeOffset(GetVariableFromURL(text, "start") ?? GetVariableFromURL(text, "t"));
 }
 
+/** @short Parse the start time from a Vimeo URL (#t=1m30s) */
+INTEGER FUNCTION ParseVimeoStarttime(STRING text) {
+  INTEGER hashpos := SearchSubstring(text, "#");
+  IF(hashpos = -1)
+    RETURN 0;
 
+  STRING fragment := Substring(text, hashpos + 1, Length(text));
+  RETURN fragment LIKE "t=*" ? ParseTimeOffset(Substring(fragment, 2, Length(fragment))) : 0;
+}
+
+BOOLEAN FUNCTION IsVimeoVideoId(STRING part) {
+  RETURN part != "" AND ToInteger64(part, -1) > 0; //Vimeo ids will soon no longer fit in 32 bits
+}
+
+/** @short Is this the privacy hash of an unlisted Vimeo video? (10 lowercase hex characters) */
+BOOLEAN FUNCTION IsVimeoUnlistedHash(STRING part) {
+  IF(Length(part) != 10)
+    RETURN FALSE;
+  FOR(INTEGER i := 0; i < 10; i := i + 1) {
+    STRING ch := Substring(part, i, 1);
+    IF(NOT ((ch >= "0" AND ch <= "9") OR (ch >= "a" AND ch <= "f")))
+      RETURN FALSE;
+  }
+  RETURN TRUE;
+}
+
+/** @short Split a Vimeo video id as stored in a video embed ("<id>", or "<id>/<hash>" for unlisted videos)
+    @param videoid Video id
+    @return The parsed id, DEFAULT RECORD if it's not a valid Vimeo video id
+    @cell(string) return.id Numeric video id
+    @cell(string) return.hash Privacy hash of an unlisted video, empty for other videos */
+PUBLIC RECORD FUNCTION ParseVimeoVideoId(STRING videoid) {
+  STRING ARRAY parts := Tokenize(videoid, "/");
+  IF(Length(parts) NOT IN [1, 2] OR NOT IsVimeoVideoId(parts[0]) OR (Length(parts) = 2 AND NOT IsVimeoUnlistedHash(parts[1])))
+    RETURN DEFAULT RECORD;
+
+  RETURN CELL[ id := parts[0], hash := Length(parts) = 2 ? parts[1] : "" ];
+}
+
+/** @short Get the vimeo.com URL for a video parsed by ParseVimeoVideoId */
+PUBLIC STRING FUNCTION GetVimeoVideoURL(RECORD parsed) {
+  RETURN "https://vimeo.com/" || parsed.id || (parsed.hash != "" ? "/" || parsed.hash : "");
+}
 
 /** @short remove arguments and hash from the urlpath
            (just as in Javascript/DOM window.location.pathname)
@@ -109,21 +154,44 @@ PUBLIC RECORD FUNCTION GuessFromCode(STRING text)
 
   IF(host_lc LIKE '*.vimeo.com' OR host_lc = 'vimeo.com')
   {
-    STRING ARRAY parts := Tokenize(pathname, '/');
+    STRING ARRAY parts;
+    FOREVERY(STRING part FROM Tokenize(pathname, '/'))
+      IF(part != '')
+        INSERT part INTO parts AT END;
 
-    //last part contains the video identifier (if no end slash)
-    //just loop backwards through parts incase there is a trailing slash
-    FOR(INTEGER i := Length(parts) - 1; i >= 0 ; i := i - 1)
-    {
+    /* Unlisted videos need their privacy hash, which can be in the path (vimeo.com/<id>/<hash>,
+       player.vimeo.com/video/<id>/<hash>, vimeo.com/<user>/review/<id>/<hash>) or in the 'h' parameter
+       (player.vimeo.com/video/<id>?h=<hash>). So if the path ends in an id and a hash, take both. Hashes can be
+       all digits (eg vimeo.com/581039021/9603038895), so we can't tell a hash from a video id. Except in
+       vimeo.com/channels/<channel>/<id>, where a numeric channel would look like an id */
+    STRING videoid, hash;
+    INTEGER numparts := Length(parts);
+    IF(numparts >= 2
+       AND IsVimeoVideoId(parts[numparts - 2])
+       AND IsVimeoUnlistedHash(parts[numparts - 1])
+       AND NOT (numparts >= 3 AND parts[numparts - 3] = "channels")) {
+      videoid := parts[numparts - 2];
+      hash := parts[numparts - 1];
+    } ELSE {
+      //otherwise the last numeric part contains the video identifier (eg vimeo.com/channels/staffpicks/<id>)
+      FOR(INTEGER i := Length(parts) - 1; i >= 0 ; i := i - 1) {
+        IF(IsVimeoVideoId(parts[i])) {
+          videoid := parts[i];
+          BREAK;
+        }
+      }
+      IF(videoid = "")
+        RETURN DEFAULT RECORD; // failed to find the video id
 
-      IF(parts[i] != '' AND ToInteger(parts[i],-1) > 0)
-        RETURN [ network := "vimeo"
-               , videoid      := parts[i]
-               , starttime := 0 // ADDME: parse starttime from the hash -> #t=2m10s
-               ];
+      STRING hashparam := GetVariableFromURL(text, "h");
+      IF(IsVimeoUnlistedHash(hashparam))
+        hash := hashparam;
     }
 
-    RETURN DEFAULT RECORD; // failed to find the video id
+    RETURN [ network := "vimeo"
+           , videoid := hash != "" ? videoid || "/" || hash : videoid
+           , starttime := ParseVimeoStarttime(text)
+           ];
   }
   ELSE IF (host_lc = 'youtu.be')
   {

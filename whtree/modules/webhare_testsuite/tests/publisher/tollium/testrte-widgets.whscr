@@ -68,7 +68,7 @@ ASYNC MACRO TestVideoWidget()
 
   AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("buttonclick", [ button := "object-video" ]));
   TestEq([ "YouTube" ], SELECT AS STRING ARRAY title FROM TT("network")->options);
-  TT("movietext")->value := "BAf7lcYEXag";
+  TT("movietext")->value := "https://youtu.be/BAf7lcYEXag?t=1m5s"; //the start time should be taken over
   AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("searchbutton")); //dismiss T&C
   TestEq(TRUE, ObjectExists(TT("searchresults")->selection)); //first hit should be selected
 
@@ -77,7 +77,7 @@ ASYNC MACRO TestVideoWidget()
   RECORD insertdata := SimulateClientSideInsertWidget();
 
   AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("properties2", [ action := "action-properties", subaction := "edit", affectednodeinfo := [ type := "embeddedobject", instanceref := insertdata.widget.instanceref ], actionid:= "XX" ]));
-  TestEq(0, TT("starttime")->value);
+  TestEq(65000, TT("starttime")->value);
   TT("starttime")->value := 5000;
   TT("endtime")->value :=   10000;
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
