@@ -1,6 +1,7 @@
 import * as test from "@mod-tollium/js/testframework";
 import * as rtetestapi from '@mod-tollium/js/testframework-rte';
 import { prepareUpload } from '@webhare/test-frontend';
+import type StructuredEditor from '@mod-tollium/web/ui/components/richeditor/internal/structurededitor';
 
 const videobuttonselector = '[name="rtd"] [data-button="object-video"]';
 const tablebuttonselector = '[name="rtd"] [data-button="table"]';
@@ -110,6 +111,36 @@ test.runTests(
       test: async function () {
         await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&video=1');
         await verifyBeagleVideo();
+      }
+    },
+    {
+      name: 'Paste beagle, the form should render it',
+      test: async function () {
+        const rtenode = test.qR('[name="rtd"]');
+        const rte = (rtenode as unknown as { rte: StructuredEditor }).rte;
+        const rtebody = test.qR(rtenode, '.wh-rtd__body');
+        const embobj = test.qR<HTMLElement>(rtebody, 'div.wh-rtd-embeddedobject');
+
+        //The preview on the clipboard can't be trusted and should never end up in the RTE
+        const pasted = embobj.cloneNode(true) as HTMLElement;
+        test.qR(pasted, '.wh-rtd-embeddedobject__preview').innerHTML = `<span class="evil">evil</span>`;
+
+        rte.focus();
+        rtetestapi.setRTESelection(test.getWin(), rte, {
+          startContainer: rtebody.querySelector('p')!.firstChild!,
+          startOffset: 0,
+          endContainer: rtebody.querySelector('p')!.firstChild!,
+          endOffset: 0
+        });
+        await rtetestapi.paste(rte, { typesdata: { "text/html": pasted.outerHTML } });
+        test.eq(1, rtebody.querySelectorAll('.wh-rtd-embeddedobject--placeholder').length);
+        await test.waitForUI();
+
+        test.eq(0, rtebody.querySelectorAll('.evil, .wh-rtd-embeddedobject--placeholder').length);
+        const embobjs = rtebody.querySelectorAll('div.wh-rtd-embeddedobject');
+        test.eq(2, embobjs.length);
+        for (const obj of embobjs)
+          test.assert(obj.textContent?.toUpperCase().includes("8 WEEKS OLD"));
       }
     },
 

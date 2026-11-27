@@ -202,7 +202,8 @@ test.runTests(
         const bodynode = rte.getEditor().getBody();
         bodynode.append(invalidembed3);
 
-        // Execute a paste to trigger revalidation
+        // Execute a paste. That removes embedded objects without an instanceref anywhere in the document, and has the server render
+        // the pasted ones (existing embedded objects with an instanceref aren't validated again)
         rte.focus();
         rtetest.setRTESelection(test.getWin(), rte.getEditor(),
           {
@@ -271,6 +272,58 @@ test.runTests(
 
         //Verify no box-in-box
         test.eq(1, rte.qSA("div.wh-rtd-embeddedobject__box").length);
+      }
+    },
+
+    {
+      name: 'pasted embedded objects are rendered by the server',
+      test: async function () {
+        const rte = rtetest.getRTE(test.getWin(), 'structured');
+        const original = rte.qS("div.wh-rtd-embeddedobject");
+        const originalpreview = original.querySelector(".wh-rtd-embeddedobject__preview");
+        test.assert(originalpreview.textContent);
+        const height = Math.round(originalpreview.getBoundingClientRect().height);
+
+        //Copying an embedded object records the size of its preview
+        rte.focus();
+        rte.getEditor().selectNodeOuter(original);
+        const transfer = rtetest.copy(rte.getEditor());
+        const copied = new DOMParser().parseFromString(transfer.getData("text/html"), "text/html");
+        const copiedobj = copied.querySelector(".wh-rtd-embeddedobject");
+        test.assert(copiedobj.dataset.instanceref);
+        test.eq(String(height), copiedobj.dataset.whPreviewHeight);
+
+        //The preview and type on the clipboard can't be trusted and should never end up in the RTE
+        const evil = `<span class="evil">evil</span>`;
+        copiedobj.dataset.innerhtmlContents = evil;
+        copiedobj.dataset.widgetTypetext = evil;
+        copiedobj.querySelector(".wh-rtd-embeddedobject__preview").innerHTML = evil;
+        copiedobj.querySelector(".wh-rtd-embeddedobject__typebox")?.replaceChildren(copied.createRange().createContextualFragment(evil));
+
+        rtetest.setRTESelection(test.getWin(), rte.getEditor(),
+          {
+            startContainer: rte.qS("p").firstChild,
+            startOffset: 0,
+            endContainer: rte.qS("p").firstChild,
+            endOffset: 0
+          });
+        await rtetest.paste(rte.getEditor(), { typesdata: { "text/html": copied.body.innerHTML } });
+
+        //Until the server has rendered it, the pasted object shows a placeholder the size of the copied preview
+        const placeholder = rte.qS("div.wh-rtd-embeddedobject--placeholder");
+        test.assert(placeholder, "Pasted embedded object should show a placeholder until the server has rendered it");
+        test.eq(`${height}px`, placeholder.querySelector(".wh-rtd-embeddedobject__preview").style.height);
+        test.eq(0, rte.qSA(".evil").length);
+
+        await test.wait("ui");
+        test.eq(0, rte.qSA(".wh-rtd-embeddedobject--placeholder").length);
+        test.eq(0, rte.qSA(".evil").length);
+
+        //(ignore the embedded objects nested inside the copied object)
+        const embobjs = rte.qSA("div.wh-rtd-embeddedobject").filter(embobj => !embobj.parentElement.closest(".wh-rtd-embeddedobject"));
+        test.eq(2, embobjs.length);
+        for (const embobj of embobjs)
+          test.eq(originalpreview.textContent, embobj.querySelector(".wh-rtd-embeddedobject__preview").textContent);
       }
     }
 

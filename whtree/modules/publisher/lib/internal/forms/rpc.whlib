@@ -86,17 +86,6 @@ PUBLIC RECORD FUNCTION RPC_GetCaptchaConfiguration(RECORD submitinfo) {
   RETURN RecordExists(provider) ? PickCells(provider, ["apikey","name"]) : DEFAULT RECORD;
 }
 
-//TODO should probably be in a RTE service and not formservice lib...
-PUBLIC RECORD FUNCTION RPC_ValidateEmbeddedObjects(STRING ARRAY objrefs)
-{
-  STRING ARRAY tokill;
-  OpenPrimary();
-  FOREVERY(STRING objref FROM objrefs)
-    IF(NOT ValidateObjectDataRef(objref))
-      INSERT objref INTO tokill AT END;
-  RETURN [ tokill := tokill ];
-}
-
 PUBLIC RECORD FUNCTION RunEmailChecks(STRING langcode, STRING email, RECORD restrictions)
 {
   RECORD correction := GetEmailAutocorrection(email);

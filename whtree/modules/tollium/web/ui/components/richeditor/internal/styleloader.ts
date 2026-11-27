@@ -63,8 +63,8 @@ export function register(rte: CSSRefRequester) {
           type: "text/css",
           dataset: { whRtdTempstyle: "" }
         }) as HTMLStyleElement;
+        node.textContent = rte.addcss[i].src; //it's CSS, not HTML
         document.body.appendChild(node);
-        node.innerHTML = rte.addcss[i].src;
       }
 
       const rule = {

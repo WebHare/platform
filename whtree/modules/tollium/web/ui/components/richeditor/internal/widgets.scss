@@ -108,6 +108,27 @@ div.wh-rtd--margins-wide
   padding: 2px ($body-standardmargin - $widget-hinset);
 }
 
+/* A pasted embedded object waiting for the server to render its preview. Its size is the size of the copied preview,
+   which includes the padding */
+.wh-rtd-embeddedobject--placeholder .wh-rtd-embeddedobject__preview
+{
+  box-sizing: border-box;
+  min-height: 2em;
+  background: repeating-linear-gradient(-45deg, #f4f4f4 0 10px, #eaeaea 10px 20px);
+}
+/* The server couldn't render the pasted embedded object (eg. the request failed) */
+.wh-rtd-embeddedobject--renderfailed .wh-rtd-embeddedobject__preview
+{
+  background: repeating-linear-gradient(-45deg, #fbe4e4 0 10px, #f4cccc 10px 20px);
+}
+.wh-rtd-embeddedobject--inline.wh-rtd-embeddedobject--placeholder .wh-rtd-embeddedobject__preview
+{
+  display: inline-block;
+  min-width: 2em;
+  min-height: 1em;
+  vertical-align: middle;
+}
+
 .wh-rtd-embeddedobject:hover .wh-rtd-embeddedobject__preview
 {
   filter: grayscale(0%);

@@ -24,9 +24,9 @@ import * as support from "./support";
 import * as icons from '@mod-tollium/js/icons';
 import Range from './dom/range';
 import type { BlockStyle, ExternalStructureDef } from "./parsedstructure";
-import { encodeString } from "@webhare/std";
+import { encodeString, generateRandomId } from "@webhare/std";
 import { getFileAsDataURL, requestFile } from '@webhare/upload';
-import type { ActionState, GetPlainTextMethod, GetPlainTextOptions, RTEComponent } from './types';
+import type { ActionState, GetPlainTextMethod, GetPlainTextOptions, RenderEmbeddedObjectsCallback, RTEComponent } from './types';
 import { RTECompBase } from './rtecompbase';
 import { handleCopyEvent } from "./clipboard";
 import { copyPastedImageStyleDimensions, downloadPastedImage, validatePastedImage } from "./utils";
@@ -333,6 +333,8 @@ export interface EditorBaseOptions {
   contentareawidth: string | null;
   imgloadplaceholder: string | null;
   language: string;
+  /** Renders pasted embedded objects on the server. If not set, pasted embedded objects are removed as they can't be rendered */
+  onRenderEmbeddedObjects?: RenderEmbeddedObjectsCallback;
 }
 
 export default class EditorBase extends RTECompBase implements RTEComponent {
@@ -348,6 +350,8 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   knownimages: string[] = [];
   /** Pasted image files by the object URL we created for them, revoked once imported */
   private pastedfiles = new Map<string, File>();
+  /** Data type set on drags that start inside this editor. Browsers lowercase data types, so the id is in hex */
+  private readonly dragtype = `application/x-webhare-rte-${generateRandomId("hex")}`;
   language: string;
   bodydiv;
   undopos: number;
@@ -1879,6 +1883,33 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
       this.bodydiv.addEventListener('cut', this._gotCut.bind(this));
       this.bodydiv.addEventListener('dblclick', this._gotDoubleClick.bind(this));
 
+      /* Ignore drops of content dragged from outside this editor, like the Tollium shell does for its whole window. Such
+         content would be inserted by the browser without going through our paste handling, so its HTML (including the
+         previews of embedded objects) wouldn't be cleaned up. Content dragged within this editor is already clean, so
+         moving it is left to the browser (and kept from the shell's window handlers), and the result is checked like
+         after a cut. Drags are recognized by their data type instead of tracking dragstart/dragend, as dragend doesn't
+         reach us if the dragged content is moved out of the editor.
+         TODO accept dropped images, and process them like pasted images */
+      this.bodydiv.addEventListener('dragstart', evt => evt.dataTransfer?.setData(this.dragtype, ""));
+      this.bodydiv.addEventListener('dragover', evt => {
+        if (evt.dataTransfer?.types.includes(this.dragtype)) {
+          evt.stopPropagation();
+          return;
+        }
+        dompack.stop(evt);
+        if (evt.dataTransfer)
+          evt.dataTransfer.dropEffect = "none";
+      });
+      this.bodydiv.addEventListener('drop', evt => {
+        if (evt.dataTransfer?.types.includes(this.dragtype)) {
+          evt.stopPropagation();
+          //the browser moves the content after this event, so check the DOM and update the state afterwards
+          this.scheduleCallbackOnInputOrDelay(() => this._gotInternalDrop(), 'internaldrop');
+          return;
+        }
+        dompack.stop(evt);
+      });
+
       if (dompack.getBrowser().name === "firefox")
         this.bodydiv.addEventListener('DOMNodeRemoved', this._gotDOMNodeRemoved.bind(this));
     }
@@ -2425,6 +2456,12 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   async _gotCut(event) {
     // Check the dom after a cut
     this.scheduleCallbackOnInputOrDelay(this.checkDomStructure.bind(this), 'checkdom');
+  }
+
+  _gotInternalDrop() {
+    this.checkDomStructure();
+    this.stateHasChanged();
+    this._checkDirty();
   }
 
   _gotSelectionChange(event) {

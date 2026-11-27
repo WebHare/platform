@@ -5,7 +5,6 @@ require('./editorbase');
 import { debugFlags } from "@webhare/env";
 import * as rtesupport from "./support";
 import * as richdebug from "./richdebug";
-import { getFormService } from "@webhare/forms/src/formservice";
 import * as dompack from "@webhare/dompack";
 import * as lists from './structured/lists';
 import ParsedStructure from "./parsedstructure";
@@ -299,33 +298,52 @@ export default class StructuredEditor extends EditorBase {
     return this._pasteContentAt(pastecontent, locator).finally(() => undolock.close());
   }
 
-  //validate all our embedded objects on the server, make sure none are broken (eg by bad pastes)
-  async _validateEmbeddedObjects() {
+  /** Have the server render the previews of pasted embedded objects (which are still showing a placeholder), removing those
+      it can't render, and remove embedded objects without an instanceref. Only the pasted embedded objects are sent to the
+      server: embedded objects that were already in the document were rendered by the server when the document was loaded or
+      when they were inserted, so we don't validate their instanceref again. */
+  async _renderPastedEmbeddedObjects() {
     //FIXME also handle duplicates? but not sure yet how to reproduce/test those
-    let embobjs = domlevel.queryEmbeddedObjects(this.getBody());
-    if (embobjs.length === 0)
+    const embobjs = domlevel.queryEmbeddedObjects(this.getBody());
+
+    //Embedded objects without an instanceref are broken, wherever they came from. Ignore nested ones, the server renders those as part of their parent
+    embobjs.filter(node => !node.dataset.instanceref && !node.parentElement?.closest(".wh-rtd-embeddedobject")).forEach(node => this.removeEmbeddedObject(node));
+
+    const placeholders = embobjs.filter(node => node.isConnected && node.dataset.instanceref && node.classList.contains("wh-rtd-embeddedobject--placeholder"));
+    if (!placeholders.length)
       return;
 
-    // Remove all nested embedded objects (keep those that aren't a child of the previously kept object)
-    embobjs = embobjs.reduce((acc, value) => {
-      if (!acc.length || !acc[acc.length - 1].contains(value))
-        acc.push(value);
-      return acc;
-    }, []);
+    const instancerefs = [...new Set(placeholders.map(node => node.dataset.instanceref!))];
+    using lock = dompack.flagUIBusy();
+    void lock;
 
-    const lock = dompack.flagUIBusy();
     try {
-      const ids = embobjs.map(node => node.dataset.instanceref || "");
-      const res = await getFormService().validateEmbeddedObjects(ids);
-      if (res.tokill.length) //there are broken embedded objects!
-      {
-        console.warn(`removing embedded objects`, res.tokill);
-        embobjs.filter(node => !node.dataset.instanceref || res.tokill.includes(node.dataset.instanceref)).forEach(el => el.remove());
+      //The server renders at most 8 embedded objects per call, so send them in batches
+      for (let start = 0; start < instancerefs.length; start += 8) {
+        const batch = instancerefs.slice(start, start + 8);
+        //Without a server to render them we can't tell whether they're valid, so we'll remove them too
+        const widgets = this.options.onRenderEmbeddedObjects ? await this.options.onRenderEmbeddedObjects(batch) : [];
+
+        for (const node of placeholders) {
+          if (!node.isConnected || !batch.includes(node.dataset.instanceref!)) //removed while we were waiting for the server, or not in this batch
+            continue;
+
+          const widget = widgets.find(w => w.instanceref === node.dataset.instanceref);
+          if (widget)
+            this.updateEmbeddedObject(node, widget);
+          else {
+            console.warn(`removing broken embedded object`, node.dataset.instanceref);
+            this.removeEmbeddedObject(node);
+          }
+        }
       }
     } catch (e) {
-      console.log(`Error validating embedded objects`, e);
+      console.log(`Error rendering pasted embedded objects`, e);
+      //Mark the placeholders we didn't get a preview for, so the user can tell them apart from placeholders that are still loading
+      for (const node of placeholders)
+        if (node.isConnected && node.classList.contains("wh-rtd-embeddedobject--placeholder"))
+          node.classList.add("wh-rtd-embeddedobject--renderfailed");
     }
-    lock.release();
   }
 
   _gotSelectionChange(event) {
@@ -888,6 +906,9 @@ export default class StructuredEditor extends EditorBase {
     if (debugFlags.rte)
       console.log('[rte] paste at block start: ', atblockstart ? 'yes' : 'no', downres, richdebug.getStructuredOuterHTML(this.getBody(), { down: down, insertlocator: insertlocator }));
 
+    // Never trust the previews of pasted embedded objects, have the server render them again
+    rtesupport.replaceEmbeddedObjectsWithPlaceholders(pastecontent);
+
     const cleanupper = new PasteCleanup;
     const res = cleanupper.applyCleanup(pastecontent);
 
@@ -904,7 +925,7 @@ export default class StructuredEditor extends EditorBase {
     this.stateHasChanged();
 
     this.handlePasteDone(preexistingstylenodes);
-    await this._validateEmbeddedObjects();
+    await this._renderPastedEmbeddedObjects();
 
     if (undolock)
       undolock.close();
