@@ -22,10 +22,14 @@
 
     <body>
       <line layout="left">
-        <text name="abouttoken" title="" valuetid=".abouttoken" wordwrap="true" />
+        <text name="abouttoken" title="" wordwrap="true" />
       </line>
-      <textedit composition="entity" cellname="url" required="true" />
-      <textedit composition="entity" cellname="token" required="true" />
+      <textedit name="url" composition="entity" cellname="url" required="true" onchange="onurlchange" />
+      <textedit name="token" composition="entity" cellname="token" required="true" />
+      <textedit name="resourceowner" placeholdertid=".resourceownerplaceholder" />
+      <line layout="left">
+        <text name="aboutresourceowner" title="" valuetid=".aboutresourceowner" wordwrap="true" />
+      </line>
       <line layout="right">
         <text name="requestnewttoken" action="opennewtoken" title="" valuetid=".requestnewtoken" />
       </line>

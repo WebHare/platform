@@ -9,6 +9,7 @@ import { simpleGit } from 'simple-git';
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { getAutomergeConfig } from '@mod-devkit/lib/internal/deploy/devsupport';
+import { automergeGitHub, isGitHubForge } from '@mod-devkit/lib/internal/deploy/github';
 
 function shortLogMessage(text: string) {
   text = text.split('\n')[0];
@@ -158,6 +159,17 @@ runCli({
       }
     }
 
+    let title = '';
+    if (newcommits.length > 1)
+      title = `${newcommits.length} commits: `;
+    title += newcommits.map(c => shortLogMessage(c.message)).join(', ');
+    title = title.substring(0, 80);
+
+    if (isGitHubForge(config.apiRoot)) {
+      await automergeGitHub({ ...config, pushBranch: pushbranch, targetBranch: repoinfo.branch, headOid: repoinfo.head_oid, title, verbose });
+      process.exit(0);
+    }
+
     const gitlabclient = new Gitlab({ host: config.apiRoot, token: config.token });
     if (verbose)
       console.log(`Looking up pending merge request`);
@@ -181,12 +193,6 @@ runCli({
 
     if (!mergerequest) {
       console.log("Need to create a new merge request");
-
-      let title = '';
-      if (newcommits.length > 1)
-        title = `${newcommits.length} commits: `;
-      title += newcommits.map(c => shortLogMessage(c.message)).join(', ');
-      title = title.substring(0, 80);
 
       mergerequest = await gitlabclient.MergeRequests.create(config.project, pushbranch, repoinfo.branch, title, {
         removeSourceBranch: true,

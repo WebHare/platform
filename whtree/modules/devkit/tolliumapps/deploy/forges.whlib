@@ -1,4 +1,7 @@
 <?wh
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::javascript.whlib";
+
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::wrd/lib/screenbase.whlib";
@@ -11,7 +14,28 @@ PUBLIC STATIC OBJECTTYPE Forges EXTEND TolliumScreenBase
 
 PUBLIC STATIC OBJECTTYPE EditForge EXTEND WRDEntityEditScreenBase
 <
+  UPDATE MACRO Init(RECORD data) {
+    WRDEntityEditScreenBase::Init(data);
+    this->OnUrlChange();
+  }
+
+  BOOLEAN FUNCTION IsGitHub() {
+    RETURN ToLowercase(UnpackURL(^url->value).host) = "github.com";
+  }
+
+  MACRO OnUrlChange() {
+    BOOLEAN isgithub := this->IsGitHub();
+    ^abouttoken->value := this->GetTid(isgithub ? ".abouttoken-github" : ".abouttoken");
+    ^token->required := NOT isgithub; //without a token, devkit:automerge uses the GitHub CLI's login
+    ^resourceowner->visible := isgithub;
+    ^aboutresourceowner->visible := isgithub;
+  }
+
   MACRO OnOpenNewToken(OBJECT browser) {
-    browser->SendURL(^entity->^url->value || "/-/user_settings/personal_access_tokens/");
+    IF (this->IsGitHub()) {
+      browser->SendURL(CallJS("mod::devkit/lib/internal/deploy/github.ts#getNewTokenURL", TrimWhitespace(^resourceowner->value)));
+      RETURN;
+    }
+    browser->SendURL(^url->value || "/-/user_settings/personal_access_tokens/");
   }
 >;
