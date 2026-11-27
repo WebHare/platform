@@ -992,7 +992,8 @@ PUBLIC STATIC OBJECTTYPE PublishableRichDocument EXTEND RichDocument <
 
 PUBLIC OBJECT FUNCTION __OpenWHFSRichDocument(OBJECT file, OBJECT webdesign)
 {
-  // Prefer the webdesign's target applytester: 'file' may be a draft or version in /webhare-private/ that the site's apply rules don't match
+  /* Prefer the webdesign's target applytester. For a content link, 'file' is the linked rich document but the RTD
+     type, structure and widgets that apply at the content link's location should be used. */
   OBJECT applytester := ObjectExists(webdesign) ? webdesign->targetapplytester : GetApplyTesterForObject(file->id);
   RECORD settings := GetRTDSettingsForApplyTester(applytester);
   OBJECT richdoc := NEW PublishableRichDocument;

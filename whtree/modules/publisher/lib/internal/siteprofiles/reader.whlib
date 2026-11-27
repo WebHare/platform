@@ -24,6 +24,7 @@ LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
@@ -239,9 +240,17 @@ RECORD FUNCTION GetFakeObject(BOOLEAN isfolder, INTEGER type, STRING basefullpat
 
 RECORD FUNCTION GetBaseInfoForApplyCheck(INTEGER fsobjectid, INTEGER known_type)
 {
-  RECORD fsobjinfo := SELECT id, parent, parentsite, type, filelink, fullpath, whfspath, indexdoc, isfolder, url FROM system.fs_objects WHERE id = fsobjectid;
+  RECORD fsobjinfo := SELECT id, parent, parentsite, type, filelink, fullpath, whfspath, indexdoc, isfolder, url, snapshotfor FROM system.fs_objects WHERE id = fsobjectid;
   IF(NOT RecordExists(fsobjinfo))
     RETURN DEFAULT RECORD;
+
+  IF(IsReadonlyWHFSSpace(fsobjinfo.whfspath)) {
+    //Drafts and versions live in /webhare-private/ where the site's apply rules don't match, so evaluate the object they're a snapshot of (like getBaseInfoForApplyCheck in TypeScript)
+    STRING sourcepath := fsobjinfo.snapshotfor != 0 ? SELECT AS STRING whfspath FROM system.fs_objects WHERE id = fsobjinfo.snapshotfor : "";
+    IF(sourcepath != "" AND NOT IsReadonlyWHFSSpace(sourcepath)) //also prevents loops. TODO deal with a snapshot source in the recycle bin
+      RETURN GetBaseInfoForApplyCheck(fsobjinfo.snapshotfor, known_type);
+  }
+  DELETE CELL snapshotfor FROM fsobjinfo; //keep the 'obj' record we return unchanged
 
   IF(known_type >= 0) //our caller already knows the final type
     fsobjinfo.type := known_type;
