@@ -9,5 +9,6 @@
   <test script="test_whfs_archiving.ts" />
   <test script="test_whfs_analyze.ts" />
   <test script="test_whfs_cli.ts" />
+  <test script="test_whfs_sites.ts" />
   <test script="test_site_cli.ts" />
 </group>

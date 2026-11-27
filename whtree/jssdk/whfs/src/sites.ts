@@ -1,9 +1,10 @@
-import { db, sql, type Selectable, type Updateable } from "@webhare/whdb";
+import { broadcastOnCommit, db, isWorkOpen, sql, type Selectable, type Updateable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { type WHFSFile, type WHFSFolder, __openWHFSObj, type OpenWHFSObjectOptions } from "./objects";
+import { type WHFSFile, type WHFSFolder, __openWHFSObj, openFolder, type OpenWHFSObjectOptions } from "./objects";
 import { excludeKeys, formatPathOrId } from "./support";
+import { whfsFinishHandler } from "./finishhandler";
 import { whfsType, type TypedInstanceData } from "./contenttypes";
-import { selectSitesWebRoot } from "@webhare/whdb/src/functions";
+import { selectFSWHFSPath, selectSitesWebRoot } from "@webhare/whdb/src/functions";
 import { ListingContext, listRecursive, type ListableFsObjectRow, type ListFSOptions, type ListFSRecursiveOptions, type WHFSRecursiveListResult, type WHFSListResult } from "./list";
 
 // Adds the custom generated columns
@@ -38,6 +39,25 @@ interface ListableSiteRow {
 
 type UpdateableSiteSettings = Pick<ListableSiteRow, "cdnBaseURL" | "webDesign" | "webFeatures">;
 
+export type CreateSiteOptions = {
+  /** Name for the site. The site's root folder is renamed to match. Defaults to the name of the folder */
+  name?: string;
+  /** A short description of the contents of the site. Defaults to the description of the folder */
+  description?: string;
+  /** Webdesign to apply to the site */
+  webDesign?: string;
+  /** Webfeatures to activate */
+  webFeatures?: string[];
+  /** Whether the site is locked */
+  locked?: boolean;
+  /** The reason the site is locked */
+  lockReason?: string;
+};
+
+async function getSiteName(id: number): Promise<string> {
+  return (await db<PlatformDB>().selectFrom("system.sites").select("name").where("id", "=", id).executeTakeFirst())?.name ?? `#${id}`;
+}
+
 const sites_js_to_db: Record<keyof Omit<ListableSiteRow, "webDesign" | "webFeatures">, keyof SiteRow> = {
   "cdnBaseURL": "cdnbaseurl",
   "description": "description",
@@ -61,6 +81,21 @@ export class Site {
   /** Site name */
   get name(): string {
     return this.dbrow.name;
+  }
+
+  /** A short description of the contents of the site */
+  get description(): string {
+    return this.dbrow.description;
+  }
+
+  /** Whether the site is locked */
+  get locked(): boolean {
+    return this.dbrow.locked;
+  }
+
+  /** The reason the site is locked */
+  get lockReason(): string {
+    return this.dbrow.lockreason;
   }
 
   /** Absolute URL where the site is published, or null if the site is not published */
@@ -178,6 +213,58 @@ export async function openSite(site: number | string, options?: { allowMissing: 
       throw new Error(`No such site ${formatPathOrId(site)}`);
 
   return new Site(match);
+}
+
+/** Turn a folder into a site
+ * @param rootId - Id of the folder that becomes the site's root. It may not be part of a site yet
+ * @param options - Initial settings for the site
+ * @returns The new site. It isn't published until you set its output with `setOutput` */
+export async function createSite(rootId: number, options?: CreateSiteOptions): Promise<Site> {
+  if (!isWorkOpen())
+    throw new Error(`createSite requires open work`);
+  if (!rootId)
+    throw new Error(`The WHFS root folder cannot be turned into a site`);
+
+  const root = await openFolder(rootId); //we take an id and open the folder ourselves, so we never work with stale data
+  if (root.parentSite)
+    throw new Error(`Folder '${root.whfsPath}' is already part of site '${await getSiteName(root.parentSite)}'`);
+
+  const sitePaths = await db<PlatformDB>()
+    .selectFrom("system.fs_objects")
+    .select(selectFSWHFSPath().as("whfspath"))
+    .where("id", "in", db<PlatformDB>().selectFrom("system.sites").select("id"))
+    .execute();
+  const containedSite = sitePaths.find(site => site.whfspath.toUpperCase().startsWith(root.whfsPath.toUpperCase()));
+  if (containedSite)
+    throw new Error(`Folder '${root.whfsPath}' cannot be turned into a site, it already contains the site at '${containedSite.whfspath}'`);
+
+  if (options?.name !== undefined && options.name !== root.name)
+    await root.update({ name: options.name });
+
+  await db<PlatformDB>().insertInto("system.sites").values({
+    id: root.id,
+    name: root.name,
+    description: options?.description ?? root.description ?? "",
+    locked: options?.locked ?? false,
+    lockreason: options?.lockReason ?? "",
+    outputweb: null,
+    outputfolder: "",
+    cdnbaseurl: ""
+  }).execute();
+
+  const finishHandler = whfsFinishHandler();
+  finishHandler.checkSiteSettings();
+  finishHandler.objectUpdate(root.id, root.parent, root.id, true);
+  finishHandler.siteUpdated(root.id, { analyzeOutput: true, siteProfileRefs: true });
+  broadcastOnCommit("system:sites", { siteid: root.id });
+
+  const site = await openSite(root.id);
+  if (options?.webDesign !== undefined || options?.webFeatures !== undefined)
+    await site.update({
+      ...options.webDesign !== undefined ? { webDesign: options.webDesign } : {},
+      ...options.webFeatures !== undefined ? { webFeatures: options.webFeatures } : {}
+    });
+  return site;
 }
 
 /** List all WebHare sites */
