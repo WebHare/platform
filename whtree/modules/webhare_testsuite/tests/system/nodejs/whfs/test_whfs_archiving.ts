@@ -2,7 +2,7 @@ import { YAML } from "@webhare/deps";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { buildRTD, ResourceDescriptor, toFSPath } from "@webhare/services";
 import { beginWork, commitWork, rollbackWork } from "@webhare/whdb";
-import { importIntoWHFS, openFolder, storeWHFSExport, whfsType, type ImportWHFSAction, type ImportWHFSProgress, type WHFSFolder } from "@webhare/whfs";
+import { importIntoWHFS, openFolder, pruneWHFSImport, storeWHFSExport, whfsType, type ImportWHFSAction, type ImportWHFSOptions, type ImportWHFSProgress, type PruneWHFSImportOptions, type WHFSFolder } from "@webhare/whfs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -14,6 +14,13 @@ const importTreeSource = toFSPath("mod::webhare_testsuite/tests/system/nodejs/da
 /** Sort actions by path so tests don't depend on processing order */
 function sortActions(actions: ImportWHFSAction[]) {
   return actions.toSorted((a, b) => a.subPath.localeCompare(b.subPath));
+}
+
+/** Import and then prune what isn't in the source, like a caller that doesn't expect errors would. Returns the actions of both */
+async function importAndPrune(source: string, targetFolder: WHFSFolder, options: ImportWHFSOptions & Pick<PruneWHFSImportOptions, "keep">) {
+  const result = await importIntoWHFS(source, targetFolder, options);
+  const pruned = await pruneWHFSImport(targetFolder, result.pruneScope, { dryRun: options.dryRun, keep: options.keep });
+  return { messages: result.messages, actions: [...result.actions, ...pruned.actions] };
 }
 
 /** Read all files in an export as a path => content map */
@@ -248,8 +255,8 @@ async function testWHFSImportFolderCase() {
   test.eq(["Case-Source/Mixed-Case", "Case-Source/Mixed-Case/index", "Case-Source"].sort(), (await caseTarget.listRecursive()).map(entry => entry.path).sort());
 }
 
-// Verifies dry runs, the reported actions, the 'modified' option, importing onto a folder, the 'subPath' option and instance filters of importIntoWHFS
-async function testWHFSImportActions() {
+// Verifies dry runs, the reported actions, the 'modified' option, pruning, importing onto a folder, the 'subPath' option and instance filters of importIntoWHFS
+async function testWHFSImportActionsAndPrune() {
   const target = await test.getTestSiteJSTemp();
   const expectCreated: ImportWHFSAction[] = [
     "import-tree",
@@ -290,7 +297,7 @@ async function testWHFSImportActions() {
   }
 
   ////////////////////////////////////////////////////////////////
-  // STORY: Overwriting reports updates, and leaves objects that aren't in the source alone
+  // STORY: Overwriting reports updates, and leaves objects that aren't in the source alone: that takes a prune
   await beginWork();
   const tree = await importTree.openFolder("import-tree");
   await tree.createFile("extra-file", { type: "platform:filetypes.richdocument" });
@@ -302,6 +309,84 @@ async function testWHFSImportActions() {
   const overwriteDryRun = await importIntoWHFS(importTreeSource, importTree, { dryRun: true, ifExists: "overwrite", allowResourceImports: true });
   //Folders without metadata (no-meta-dir) aren't touched once they exist, so they don't appear as updated
   test.eq(expectCreated.filter(action => !action.subPath.endsWith("-dir") && !action.subPath.endsWith("-subdir")).map(action => ({ ...action, action: "update" as const })), sortActions(overwriteDryRun.actions));
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: A dry run of a prune reports what would be removed. 'keep' protects a folder and its contents
+  const keep = (subPath: string) => subPath === "import-tree/keep-folder";
+  const pruneDryRun = await importAndPrune(importTreeSource, importTree, { dryRun: true, ifExists: "overwrite", keep, allowResourceImports: true });
+  test.eq([
+    { subPath: "import-tree/extra-file", action: "delete" },
+    { subPath: "import-tree/extra-folder", action: "delete" }, //not its contents: they go with the folder
+  ], sortActions(pruneDryRun.actions.filter(action => action.action === "delete")));
+  test.assert(await tree.openFile("extra-file", { allowMissing: true }), "A dry run must not remove anything");
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Pruning recycles what isn't in the source, except what 'keep' protects
+  await beginWork();
+  const pruneResult = await importAndPrune(importTreeSource, importTree, { ifExists: "overwrite", keep, allowResourceImports: true });
+  test.eq([], pruneResult.messages);
+  test.eq(pruneDryRun.actions, pruneResult.actions);
+  await commitWork();
+
+  test.eq(null, await tree.openFile("extra-file", { allowMissing: true }));
+  test.eq(null, await tree.openFolder("extra-folder", { allowMissing: true }));
+  test.assert(await tree.openFile("keep-folder/inside-keep-folder", { allowMissing: true }));
+  await verifyImportTree(tree, { isOverwrite: true });
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Without 'keep' the prune also removes the folder it protected before
+  await beginWork();
+  const pruneAllResult = await importAndPrune(importTreeSource, importTree, { ifExists: "overwrite", allowResourceImports: true });
+  test.eq([{ subPath: "import-tree/keep-folder", action: "delete" }], pruneAllResult.actions.filter(action => action.action === "delete"));
+  await commitWork();
+  test.eq(null, await tree.openFolder("keep-folder", { allowMissing: true }));
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: 'keep' also protects objects inside a folder that isn't in the source. The folder stays, the rest of its contents goes
+  await beginWork();
+  const nestedFolder = await tree.createFolder("nested-folder");
+  await nestedFolder.createFile("kept-file", { type: "platform:filetypes.richdocument" });
+  await nestedFolder.createFile("other-file", { type: "platform:filetypes.richdocument" });
+  const nestedSub = await nestedFolder.createFolder("nested-sub");
+  await nestedSub.createFile("deep-kept", { type: "platform:filetypes.richdocument" });
+  await nestedSub.createFile("deep-other", { type: "platform:filetypes.richdocument" });
+  await (await nestedFolder.createFolder("unkept-sub")).createFile("inside-unkept-sub", { type: "platform:filetypes.richdocument" });
+
+  const keepNested = (subPath: string) => ["import-tree/nested-folder/kept-file", "import-tree/nested-folder/nested-sub/deep-kept"].includes(subPath);
+  const pruneNestedResult = await importAndPrune(importTreeSource, importTree, { ifExists: "overwrite", keep: keepNested, allowResourceImports: true });
+  test.eq([
+    { subPath: "import-tree/nested-folder/nested-sub/deep-other", action: "delete" },
+    { subPath: "import-tree/nested-folder/other-file", action: "delete" },
+    { subPath: "import-tree/nested-folder/unkept-sub", action: "delete" },
+  ], sortActions(pruneNestedResult.actions.filter(action => action.action === "delete")));
+  await commitWork();
+  test.eq(["kept-file", "nested-sub", "nested-sub/deep-kept"], (await nestedFolder.listRecursive()).map(entry => entry.path).sort());
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: A failed import doesn't prune, but still says what to prune: it's up to the caller whether to do that
+  await beginWork();
+  const failedResult = await importIntoWHFS(importTreeSource, importTree, { allowResourceImports: true }); //fails: we don't allow overwriting
+  test.assert(failedResult.messages.some(message => message.type === "error"));
+  test.eq([], failedResult.actions);
+  test.assert(await nestedFolder.openFile("kept-file", { allowMissing: true }));
+
+  //The scope doesn't depend on whether the import succeeded: objects that failed to import are in the source and stay
+  const succeededDryRun = await importIntoWHFS(importTreeSource, importTree, { dryRun: true, ifExists: "overwrite", allowResourceImports: true });
+  test.eq([], succeededDryRun.messages);
+  test.eq(succeededDryRun.pruneScope, failedResult.pruneScope);
+  test.eq([{ subPath: "import-tree/nested-folder", action: "delete" }], (await pruneWHFSImport(importTree, failedResult.pruneScope, { dryRun: true })).actions);
+  await rollbackWork();
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Pruning leaves whatever is next to the imported folder alone: the target is its parent, which the source doesn't describe
+  await beginWork();
+  await importTree.createFile("sibling-file", { type: "platform:filetypes.richdocument" });
+  await (await importTree.createFolder("sibling-folder")).createFile("inside-sibling-folder", { type: "platform:filetypes.richdocument" });
+  const pruneSiblingResult = await importAndPrune(importTreeSource, importTree, { ifExists: "overwrite", allowResourceImports: true });
+  test.eq([], pruneSiblingResult.messages);
+  test.eq([{ subPath: "import-tree/nested-folder", action: "delete" }], pruneSiblingResult.actions.filter(action => action.action === "delete"));
+  await commitWork();
+  test.eq(["import-tree", "sibling-file", "sibling-folder"], (await importTree.list()).map(entry => entry.name).sort());
 
   ////////////////////////////////////////////////////////////////
   // STORY: A source that is an exported folder itself is imported onto the target folder, which keeps its name
@@ -333,20 +418,24 @@ async function testWHFSImportActions() {
   await test.throws(/can't be imported onto the WHFS root folder/, importIntoWHFS(folderSource, await openFolder(null, { allowRoot: true }), { dryRun: true }));
 
   ////////////////////////////////////////////////////////////////
-  // STORY: 'subPath' imports only that part of the source, and still resolves links to the rest of the target
+  // STORY: 'subPath' imports and prunes only that part of the source, and still resolves links to the rest of the target
   await beginWork();
-  const subPathResult = await importIntoWHFS(folderSource, ontoFolder, { subPath: "subdir", ifExists: "overwrite", allowResourceImports: true });
+  await ontoFolder.createFile("extra-file", { type: "platform:filetypes.richdocument" });
+  await (await ontoFolder.openFolder("subdir")).createFile("extra-in-subdir", { type: "platform:filetypes.richdocument" });
+  const subPathResult = await importAndPrune(folderSource, ontoFolder, { subPath: "subdir", ifExists: "overwrite", allowResourceImports: true });
   test.eq([], subPathResult.messages); //subdir/index links to no-meta-dir, which isn't in this import
   test.eq([
     { subPath: "subdir", action: "update" },
+    { subPath: "subdir/extra-in-subdir", action: "delete" },
     { subPath: "subdir/goudvis-contentlink", action: "update" },
     { subPath: "subdir/goudvis.png", action: "update" },
     { subPath: "subdir/index", action: "update" },
   ], sortActions(subPathResult.actions));
   await commitWork();
+  test.assert(await ontoFolder.openFile("extra-file", { allowMissing: true }));
 
   //It works for a single file, and for a source that contains the exported folder
-  const subPathFileResult = await importIntoWHFS(importTreeSource, importTree, { subPath: "/import-tree/subdir/goudvis.png", dryRun: true, ifExists: "overwrite" });
+  const subPathFileResult = await importAndPrune(importTreeSource, importTree, { subPath: "/import-tree/subdir/goudvis.png", dryRun: true, ifExists: "overwrite" });
   test.eq([{ subPath: "import-tree/subdir/goudvis.png", action: "update" }], subPathFileResult.actions);
 
   //Folders above the subPath that don't exist yet are created as plain folders. Importing them later completes them
@@ -367,6 +456,19 @@ async function testWHFSImportActions() {
 
   await test.throws(/was not found in/, importIntoWHFS(folderSource, ontoFolder, { subPath: "nosuchdir", dryRun: true }));
   await test.throws(/Invalid subPath/, importIntoWHFS(folderSource, ontoFolder, { subPath: "../subdir", dryRun: true }));
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Pruning with an exported folder as source covers the whole target folder
+  await beginWork();
+  const pruneOntoResult = await importAndPrune(folderSource, ontoFolder, { ifExists: "overwrite", allowResourceImports: true });
+  test.eq([], pruneOntoResult.messages);
+  test.eq([{ subPath: "extra-file", action: "delete" }], pruneOntoResult.actions.filter(action => action.action === "delete"));
+  await commitWork();
+  await verifyImportTree(await target.openFolder("dest-onto"), { isOverwrite: true });
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Pruning the WHFS root is refused
+  await test.throws(/Pruning the WHFS root folder is not supported/, pruneWHFSImport(await openFolder(null, { allowRoot: true }), succeededDryRun.pruneScope, { dryRun: true }));
 
   ////////////////////////////////////////////////////////////////
   // STORY: filterInstance can drop instances on import
@@ -430,6 +532,15 @@ async function testWHFSExportOptions() {
   await storeWHFSExport(join(workdir, "subfile"), [source], { subPath: "subdir/goudvis-contentlink" });
   test.eq({ "import-tree/subdir/goudvis-contentlink.whfs.yml": det1["import-tree/subdir/goudvis-contentlink.whfs.yml"] }, await readExport(join(workdir, "subfile")));
 
+  //Importing it with 'prune' only prunes inside that subpath: the export doesn't describe the folders above it
+  await beginWork();
+  await source.createFile("extra-file", { type: "platform:filetypes.richdocument" });
+  await (await source.openFolder("subdir")).createFile("extra-in-subdir", { type: "platform:filetypes.richdocument" });
+  const subImport = await importAndPrune(join(workdir, "sub"), await target.openFolder("dest1"), { dryRun: true, ifExists: "overwrite" });
+  test.eq([], subImport.messages);
+  test.eq([{ subPath: "import-tree/subdir/extra-in-subdir", action: "delete" }], subImport.actions.filter(action => action.action === "delete"));
+  await rollbackWork();
+
   await test.throws(/single folder/, storeWHFSExport(join(workdir, "subfail"), [source, source], { subPath: "subdir" }));
   await test.throws(/must refer to an object inside/, storeWHFSExport(join(workdir, "subfail"), [source], { subPath: "../" }), "A subPath can't leave the source folder");
   await test.throws(/must refer to an object inside/, storeWHFSExport(join(workdir, "subfail"), [source], { subPath: "." }), "A subPath can't be the source folder itself");
@@ -475,6 +586,6 @@ test.runTests([
   testWHFSExportWithResourceLinks,
   testRTDImageRoundTrip,
   testWHFSImportFolderCase,
-  testWHFSImportActions,
+  testWHFSImportActionsAndPrune,
   testWHFSExportOptions,
 ]);

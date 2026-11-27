@@ -1,6 +1,6 @@
 // @webhare/cli: Manage WebHare file system (WHFS)
 
-import { createWHFSExportZip, describeWHFSType, importIntoWHFS, lookupURL, openFileOrFolder, openSite, storeWHFSExport, type ExportWHFSOptions, type WHFSFile } from '@webhare/whfs';
+import { createWHFSExportZip, describeWHFSType, importIntoWHFS, lookupURL, openFileOrFolder, openSite, pruneWHFSImport, storeWHFSExport, type ExportWHFSOptions, type WHFSFile } from '@webhare/whfs';
 import { CLIRuntimeError, CLISyntaxError, enumOption, floatOption, intOption, runCli, type CLIArgumentType } from "@webhare/cli";
 import { countWHFSTypeUsage, describeContentType, findContentType, getAllContentTypes, getTypeName, listContentTypes, metaTypeCategories, type DescribedWHFSType, type ListedWHFSType } from '@mod-platform/js/cli/whfs-types';
 import type { CSPContentType } from '@webhare/whfs/src/siteprofiles';
@@ -270,12 +270,13 @@ runCli({
       description: "Import files and folders from a folder on disk (in the format written by 'wh whfs export') into a WHFS folder. If the source is an exported folder itself (eg. 'out/myfolder' after exporting 'myfolder' to 'out/') its contents are imported into the target folder and its type, properties and instances replace those of the target folder (also without --overwrite), otherwise the source's files and folders are added to the target folder. Nothing is imported if there are errors",
       flags: {
         "v,verbose": "Show each object while importing",
-        "dry-run": "Show what would be created and updated, but don't change anything. Links and instance data aren't validated",
+        "dry-run": "Show what would be created, updated and removed, but don't change anything. Links and instance data aren't validated",
         "overwrite": "Overwrite existing files and folders (otherwise they're reported as errors). Instances they have that aren't in the source are kept",
+        "prune": "Remove (recycle) what isn't in the source: everything in the target folder if the source is an exported folder itself, otherwise only inside the exported folders the source contains. Not supported for the WHFS root folder",
         "allow-resource-imports": "Allow the import to refer to resources (eg. mod::) on this server",
       },
       options: {
-        "sub-path": { description: "Only import this path inside the source. Missing folders above it are created as plain folders" },
+        "sub-path": { description: "Only import (and prune) this path inside the source. Missing folders above it are created as plain folders" },
       },
       arguments: [
         { name: "<source>", description: "Folder on disk to import" },
@@ -285,6 +286,9 @@ runCli({
         const target = await resolveWHFSPathArgument(args.target, { allowRoot: true });
         if (!target.isFolder)
           throw new CLIRuntimeError(`Target '${args.target}' is not a folder`);
+        if (opts.prune && !target.id)
+          throw new CLISyntaxError("--prune is not supported when importing into the WHFS root folder");
+
         await using work = opts.dryRun ? null : await beginWork();
         const result = await importIntoWHFS(args.source, target, {
           dryRun: opts.dryRun,
@@ -295,6 +299,10 @@ runCli({
         });
 
         const hasErrors = result.messages.some(msg => msg.type === "error");
+        const actions = [...result.actions];
+        if (opts.prune && !hasErrors) //with errors we'll roll back (or would, for a dry run), so there's nothing to prune
+          actions.push(...(await pruneWHFSImport(target, result.pruneScope, { dryRun: opts.dryRun })).actions);
+
         if (work) {
           if (hasErrors)
             await work.rollback();
@@ -303,9 +311,9 @@ runCli({
         }
 
         if (opts.json) {
-          console.log(JSON.stringify({ messages: result.messages, actions: result.actions, imported: Boolean(work) && !hasErrors }, null, 2));
+          console.log(JSON.stringify({ messages: result.messages, actions, imported: Boolean(work) && !hasErrors }, null, 2));
         } else {
-          for (const action of result.actions)
+          for (const action of actions)
             console.log(`${action.action.padEnd(7)} ${action.subPath || "."}`);
           for (const msg of result.messages)
             console.error(`${msg.type}: ${msg.subPath || "."}: ${msg.message}`);

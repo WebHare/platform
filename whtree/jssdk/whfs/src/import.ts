@@ -30,10 +30,11 @@ export type ImportWHFSOptions = {
   /** Report the actions the import would take, but don't change anything. Instance data and links aren't validated in a dry run */
   dryRun?: boolean;
   /** Only import this path inside the source, eg. "subdir" or "subdir/myfile". Objects outside it aren't imported or
-   * updated, but links to them are still resolved against the target folder. Folders above the path that don't exist
-   * yet in the target folder are created as plain folders, without the type, properties and instances the source has
-   * for them, and are reported as "create" actions. Importing those folders later with `ifExists: "overwrite"`
-   * completes them. Use it to import a part of a full export, or an export made with the `subPath` export option */
+   * updated and are left out of the returned `pruneScope`, but links to them are still resolved against the target
+   * folder. Folders above the path that don't exist yet in the target folder are created as plain folders, without
+   * the type, properties and instances the source has for them, and are reported as "create" actions. Importing those
+   * folders later with `ifExists: "overwrite"` completes them. Use it to import a part of a full export, or an export
+   * made with the `subPath` export option */
   subPath?: string;
   /** Modification date (and creation date for new objects) to set on every object the import creates or updates.
    * Defaults to the time the import started */
@@ -47,7 +48,7 @@ export type ImportWHFSOptions = {
 export type ImportWHFSAction = {
   /** Path of the object relative to the target folder. Empty for the target folder itself */
   subPath: string;
-  action: "create" | "update";
+  action: "create" | "update" | "delete";
 };
 
 export interface ImportWHFSResult {
@@ -57,6 +58,32 @@ export interface ImportWHFSResult {
     message: string;
   }>;
   /** Objects created or updated by the import (or that would be, for a dry run), in the order they were processed */
+  actions: ImportWHFSAction[];
+  /** What the source describes. Pass it to pruneWHFSImport to remove what isn't in the source. It's also set if the
+   * import reported errors: whether to prune then (or to roll back) is up to the caller */
+  pruneScope: WHFSImportPruneScope;
+}
+
+/** What an import's source describes, and so what a prune after that import may remove. All subpaths are lowercased
+ * and relative to the import's target folder */
+export type WHFSImportPruneScope = {
+  /** All objects in the source and their parent folders. These are never pruned */
+  sourcePaths: string[];
+  /** The folders the source fully describes: only objects inside them are pruned. Null if the source describes the
+   * whole target folder */
+  folders: string[] | null;
+};
+
+export type PruneWHFSImportOptions = {
+  /** Report what would be removed, but don't change anything */
+  dryRun?: boolean;
+  /** Protect objects (and everything inside them) by returning true for their subpath. A folder that isn't in the
+   * source but contains a kept object stays too */
+  keep?: (subPath: string) => boolean;
+};
+
+export interface PruneWHFSImportResult {
+  /** Objects removed by the prune (or that would be, for a dry run). Removing a folder removes its contents too, which aren't listed */
   actions: ImportWHFSAction[];
 }
 
@@ -71,6 +98,8 @@ type CombinedImportItem = {
   subPath: string;
   blob?: () => Promise<Blob>;
   metadata?: () => Promise<Blob>;
+  /** Set if this is a folder with its own metadata (a `^folder.whfs.yml`), ie. a folder the source fully describes */
+  isDescribedFolder?: boolean;
   id?: number;
 };
 
@@ -141,7 +170,8 @@ export async function resolveVirtualMetadata(target: WHFSObject | null, inData: 
 class ImportSession {
   result: ImportWHFSResult = {
     messages: [],
-    actions: []
+    actions: [],
+    pruneScope: { sourcePaths: [], folders: [] }
   };
   items;
   outputMap;
@@ -378,13 +408,14 @@ function collapseMetadata(items: ImportItem[]): CombinedImportItem[] {
   //first add all items that have metadata
   for (const [subpath, item] of itemMap) {
     if (subpath === "^folder.whfs.yml") { //the source is an exported folder itself. this is the metadata for the target folder
-      outItems.push({ name: "", subPath: "", metadata: item.blob });
+      outItems.push({ name: "", subPath: "", metadata: item.blob, isDescribedFolder: true });
       itemMap.delete(subpath); //mark metadata as processed
     } else if (subpath.endsWith("/^folder.whfs.yml")) {
       outItems.push({
         name: dirname(item.subPath).split('/').pop()!, //get the folder name from the path (not from the lowercased key)
         subPath: dirname(item.subPath),
-        metadata: item.blob
+        metadata: item.blob,
+        isDescribedFolder: true
       });
       itemMap.delete(subpath); //mark metadata as processed
     } else if (subpath.endsWith(".whfs.yml")) {
@@ -467,6 +498,27 @@ export async function importIntoWHFS(source: UnpackArchiveResult | string, targe
   if (options?.subPath && !selectedItems.length)
     throw new Error(`The subPath '${options.subPath}' was not found in '${source}'`);
 
+  //Gather the paths of all objects in the source and their parent folders, so a prune leaves them alone
+  const sourcePaths = new Set<string>();
+  for (const item of selectedItems) {
+    const parts = toCLocaleLowercase(item.subPath).split('/');
+    for (let i = 1; i <= parts.length; ++i)
+      sourcePaths.add(parts.slice(0, i).join('/'));
+  }
+
+  /* Decide where a prune may remove objects: only in folders the source fully describes, ie. those it has metadata for (and everything
+     inside them). For any other folder we can't tell 'removed' from 'not part of this export': the target of an
+     exported folder is that folder's parent, and an export of a subPath only holds a part of its parent folders */
+  const describedFolders = [...importer.items.values()].filter(item => item.isDescribedFolder).map(item => toCLocaleLowercase(item.subPath));
+  let pruneFolders: string[] | null;
+  if (importer.subPath) {
+    const isDescribed = describedFolders.some(folder => !folder || importer.subPath === folder || importer.subPath.startsWith(folder + "/"));
+    pruneFolders = isDescribed ? [importer.subPath] : describedFolders.filter(folder => folder.startsWith(importer.subPath + "/"));
+  } else {
+    pruneFolders = isFolderSource ? null : describedFolders;
+  }
+  importer.result.pruneScope = { sourcePaths: [...sourcePaths], folders: pruneFolders };
+
   //TODO when replacing we should figure out all existing IDs
   for (const item of selectedItems) {
     importer.options?.onProgress?.({ subPath: item.subPath });
@@ -474,6 +526,68 @@ export async function importIntoWHFS(source: UnpackArchiveResult | string, targe
   }
 
   return importer.result;
+}
+
+/** Is one of the given (lowercased) paths a parent folder of this path? */
+function hasParentIn(paths: ReadonlySet<string>, path: string): boolean {
+  for (let pos = path.lastIndexOf('/'); pos > 0; pos = path.lastIndexOf('/', pos - 1))
+    if (paths.has(path.slice(0, pos)))
+      return true;
+  return false;
+}
+
+/** Remove (recycle) the objects in the target folder of an import that aren't in its source
+ *
+ * Only folders the source fully describes are pruned: those it has a `^folder.whfs.yml` for, and everything inside
+ * them. So after importing an exported folder itself the whole target folder is pruned, after importing a directory
+ * that contains exported folders only those folders are pruned and anything next to them is left alone, and after
+ * importing an export of a `subPath` (or with the `subPath` option) only that path is pruned.
+ *
+ * What to remove only depends on the source, not on whether the import succeeded: an object that failed to import is
+ * still in the source and isn't removed. If the import reported errors the target is incomplete, so decide first
+ * whether you still want to prune it (or roll back instead)
+ * @param targetFolder - The folder that was imported into. The WHFS root folder can't be pruned
+ * @param scope - The `pruneScope` returned by importIntoWHFS (also by a dry run) for this target folder
+ */
+export async function pruneWHFSImport(targetFolder: WHFSFolder, scope: WHFSImportPruneScope, options?: PruneWHFSImportOptions): Promise<PruneWHFSImportResult> {
+  if (!targetFolder.id)
+    throw new Error(`Pruning the WHFS root folder is not supported`);
+
+  const result: PruneWHFSImportResult = { actions: [] };
+  const sourcePaths = new Set(scope.sourcePaths);
+  const pruneFolders = scope.folders && new Set(scope.folders);
+
+  //Everything that isn't in the source. An object inside a folder that is in the source is still a candidate
+  const candidates = (await targetFolder.listRecursive()).sort(compareProperties(["path"])).
+    map(entry => ({ ...entry, lcPath: toCLocaleLowercase(entry.path) })).
+    filter(entry => !sourcePaths.has(entry.lcPath) && (!pruneFolders || hasParentIn(pruneFolders, entry.lcPath)));
+
+  //Find out what to keep first: we can't remove a folder if something inside it must be kept
+  const kept = new Set<string>(); //kept objects. everything inside them is kept too
+  const keepParents = new Set<string>(); //folders we can't remove because they contain a kept object
+  if (options?.keep) {
+    for (const entry of candidates) {
+      if (hasParentIn(kept, entry.lcPath) || !options.keep(entry.path))
+        continue;
+
+      kept.add(entry.lcPath);
+      const parts = entry.lcPath.split('/');
+      for (let i = 1; i < parts.length; ++i)
+        keepParents.add(parts.slice(0, i).join('/'));
+    }
+  }
+
+  const removed = new Set<string>(); //folders and files we've already removed. their contents went with them
+  for (const entry of candidates) {
+    if (keepParents.has(entry.lcPath) || kept.has(entry.lcPath) || hasParentIn(kept, entry.lcPath) || hasParentIn(removed, entry.lcPath))
+      continue;
+
+    removed.add(entry.lcPath);
+    result.actions.push({ subPath: entry.path, action: "delete" });
+    if (!options?.dryRun)
+      await (await openFileOrFolder(entry.id)).recycle();
+  }
+  return result;
 }
 
 export async function importIntoWHFS_HS(target: number, options: {

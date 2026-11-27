@@ -28,7 +28,7 @@ export { lookupURL, type LookupURLOptions, type LookupURLResult } from "./lookup
 export { listWHFSObjects, type WHFSListResult, type WHFSRecursiveListResult } from "./list.ts";
 
 export { createWHFSExportZip, storeWHFSExport, type ExportWHFSOptions, type WHFSInstanceFilter } from "./export";
-export { importIntoWHFS, type ImportWHFSOptions, type ImportWHFSResult, type ImportWHFSProgress, type ImportWHFSAction } from "./import";
+export { importIntoWHFS, pruneWHFSImport, type ImportWHFSOptions, type ImportWHFSResult, type ImportWHFSProgress, type ImportWHFSAction, type WHFSImportPruneScope, type PruneWHFSImportOptions, type PruneWHFSImportResult } from "./import";
 export { parseYamlPluginConfig } from "./applytester";
 
 export { lookupInWHFSRegister, setWHFSRegisterSlot } from "./register";
