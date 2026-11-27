@@ -21,9 +21,8 @@ or do. They are not a changelog: the git history already records every change.
 ## Add a fragment, not an edit to `<version>.md`
 
 Don't edit `doc/release-notes/<version>.md` in a feature branch. Add a new fragment file instead:
-`doc/release-notes/<major>.<minor>/<name>.md`, eg. `doc/release-notes/6.2/openid-issuer.md`. GitHub ignores the
-`union` merge driver in `.gitattributes`, so two PRs that both append to `<version>.md` show up as conflicting, while
-two new files never conflict.
+`doc/release-notes/<major>.<minor>/<name>.md`, eg. `doc/release-notes/6.2/openid-issuer.md`. Two PRs that both append
+to `<version>.md` conflict, while two new files never do.
 
 - Pick a short, descriptive lowercase kebab-case `<name>` for the change, with the `.md` extension (other files in the
   directory are refused).
@@ -61,11 +60,6 @@ Fragments are merged in order of their file names, compared by code point (so `B
 should be lowercase). The result doesn't depend on the order in which the fragments were added. The merge logic lives
 in `mod::platform/js/devsupport/release-notes.ts` (`mergeReleaseNotes`, `readReleaseNotes`), which the webhare_dev
 module also uses to show unreleased notes on the website. Change the format there, not in the script.
-
-`<version>.md` is still merged with the `union` driver (see `.gitattributes`), so concurrent edits to it don't
-conflict locally. The flip side is that two branches editing the same entry are merged without a conflict too, keeping
-both versions. After merging or rebasing a branch that touches `<version>.md`, check the file for duplicated or
-interleaved text.
 
 ## What to add
 
