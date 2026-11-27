@@ -147,7 +147,7 @@ PUBLIC OBJECTTYPE FilterPanel EXTEND WHFSFilterScreenBase
           FROM system.fs_objects
          WHERE id IN (SELECT AS INTEGER ARRAY whfsid FROM res.results)
                AND NOT isactive
-               AND IsReadonlyWHFSSpace(whfspath);
+               AND IsRecycleOrHistoryWHFSPath(whfspath);
 
     // Keep only active results
     RECORD ARRAY finalresults :=
