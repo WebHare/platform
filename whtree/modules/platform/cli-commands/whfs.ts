@@ -229,10 +229,12 @@ runCli({
     "export": {
       description: "Export files or folders from WHFS",
       flags: {
-        "v,verbose": "Verbose output during export"
+        "v,verbose": "Verbose output during export",
+        "with-info": "Add a header with the WebHare version, server and export date, and each object's creation and modification date (without it, exporting unchanged objects again gives identical files)",
       },
       options: {
         "link-resources-from": { description: "Additional paths to search for resources (for export)", multiple: true },
+        "sub-path": { description: "Only export this path inside the source folder, at the same location as in a full export" },
       },
       arguments: [
         { name: "<source...>", description: "Path or ID to export" },
@@ -241,8 +243,12 @@ runCli({
       main: async ({ opts, args }) => {
         let lastpath = '';
         const bases = await resolveWHFSPathArrayArgument(args.source);
+        if (opts.subPath && bases.length > 1)
+          throw new CLISyntaxError("--sub-path can only be used with a single source");
         const options: ExportWHFSOptions = {
           linkResourcesFrom: opts.linkResourcesFrom,
+          includeInfo: opts.withInfo,
+          subPath: opts.subPath,
           onProgress: (progress: { subPath: string }) => {
             if (opts.verbose) {
               if (lastpath !== progress.subPath)

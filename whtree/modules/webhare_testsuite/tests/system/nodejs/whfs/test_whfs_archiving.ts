@@ -7,6 +7,13 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { existsSync, readFileSync } from 'node:fs';
+import { listDirectory } from "@webhare/system-tools";
+
+/** Read all files in an export as a path => content map */
+async function readExport(dir: string) {
+  const files = (await listDirectory(dir, { recursive: true })).filter(entry => entry.type === "file");
+  return Object.fromEntries(files.map(entry => [entry.subPath, readFileSync(entry.fullPath, "utf-8")]));
+}
 
 function onImportProgress(progress: ImportWHFSProgress) {
   console.log(`- import: ${progress.subPath}`);
@@ -233,6 +240,63 @@ async function testWHFSImportFolderCase() {
   test.eq(["Case-Source/Mixed-Case", "Case-Source/Mixed-Case/index", "Case-Source"].sort(), (await caseTarget.listRecursive()).map(entry => entry.path).sort());
 }
 
+// Verifies that exports are deterministic by default, includeInfo, exporting a subpath and filtering instances on export
+async function testWHFSExportOptions() {
+  const workdir = await mkdtemp(join(tmpdir(), "whfs-export-options."));
+  console.log(`Export work dir: ${workdir}`);
+
+  const target = await test.getTestSiteJSTemp();
+  const source = await target.openFolder("dest1/import-tree");
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: An export has no header or dates by default, and is identical when repeated
+  await storeWHFSExport(join(workdir, "det1"), [source]);
+  await storeWHFSExport(join(workdir, "det2"), [source]);
+  const det1 = await readExport(join(workdir, "det1"));
+  test.eq(det1, await readExport(join(workdir, "det2")));
+
+  const rootMetaText = det1["import-tree/^folder.whfs.yml"];
+  test.assert(!rootMetaText.startsWith("#"), "No header comment by default");
+  const rootMeta = YAML.parse(rootMetaText);
+  test.eq(undefined, rootMeta.created);
+  test.eq(undefined, rootMeta.modified);
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: includeInfo adds the header and the dates
+  await storeWHFSExport(join(workdir, "info"), [source], { includeInfo: true });
+  const infoRootMetaText = readFileSync(join(workdir, "info", "import-tree/^folder.whfs.yml"), "utf-8");
+  test.eq(/^# Export of folder/, infoRootMetaText);
+  test.assert(YAML.parse(infoRootMetaText).modified);
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: Exporting a subpath only writes that part, at the same location and with the same content as a full export
+  await storeWHFSExport(join(workdir, "sub"), [source], { subPath: "subdir" });
+  const subExport = await readExport(join(workdir, "sub"));
+  test.eq(Object.keys(det1).filter(path => path.startsWith("import-tree/subdir/")).sort(), Object.keys(subExport).sort());
+  for (const [path, content] of Object.entries(subExport))
+    test.eq(det1[path], content, `Content of '${path}' should match the full export`);
+
+  //A single file works too
+  await storeWHFSExport(join(workdir, "subfile"), [source], { subPath: "subdir/goudvis-contentlink" });
+  test.eq({ "import-tree/subdir/goudvis-contentlink.whfs.yml": det1["import-tree/subdir/goudvis-contentlink.whfs.yml"] }, await readExport(join(workdir, "subfile")));
+
+  await test.throws(/single folder/, storeWHFSExport(join(workdir, "subfail"), [source, source], { subPath: "subdir" }));
+  await test.throws(/must refer to an object inside/, storeWHFSExport(join(workdir, "subfail"), [source], { subPath: "../" }), "A subPath can't leave the source folder");
+  await test.throws(/must refer to an object inside/, storeWHFSExport(join(workdir, "subfail"), [source], { subPath: "." }), "A subPath can't be the source folder itself");
+  test.assert(!existsSync(join(workdir, "subfail")));
+
+  ////////////////////////////////////////////////////////////////
+  // STORY: filterInstance can change or drop instances on export
+  await storeWHFSExport(join(workdir, "filtered"), [source], {
+    filterInstance: ({ subPath, whfsType: type, data }) => subPath === "import-tree" && type === "http://www.webhare.net/xmlns/beta/test" ? null : data
+  });
+  const filteredRootMeta = YAML.parse(readFileSync(join(workdir, "filtered", "import-tree/^folder.whfs.yml"), "utf-8"));
+  const filteredTypes = filteredRootMeta.instances.map((instance: { whfsType: string }) => instance.whfsType);
+  test.assert(filteredTypes.includes("platform:virtual.objectdata"));
+  test.assert(!filteredTypes.includes("http://www.webhare.net/xmlns/beta/test"));
+  test.assert(existsSync(join(workdir, "filtered", "import-tree/subdir/index.whfs.yml")));
+}
+
 test.runTests([
   test.resetWTS,
   testWHFSImportArchive,
@@ -240,4 +304,5 @@ test.runTests([
   testWHFSExportWithResourceLinks,
   testRTDImageRoundTrip,
   testWHFSImportFolderCase,
+  testWHFSExportOptions,
 ]);

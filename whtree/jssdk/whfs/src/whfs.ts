@@ -27,7 +27,7 @@ export { openSite, listSites, type Site } from "./sites";
 export { lookupURL, type LookupURLOptions, type LookupURLResult } from "./lookupurl";
 export { listWHFSObjects, type WHFSListResult, type WHFSRecursiveListResult } from "./list.ts";
 
-export { createWHFSExportZip, storeWHFSExport, type ExportWHFSOptions } from "./export";
+export { createWHFSExportZip, storeWHFSExport, type ExportWHFSOptions, type WHFSInstanceFilter } from "./export";
 export { importIntoWHFS, type ImportWHFSOptions, type ImportWHFSResult, type ImportWHFSProgress } from "./import";
 export { parseYamlPluginConfig } from "./applytester";
 
