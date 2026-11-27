@@ -1,8 +1,8 @@
 // @webhare/cli: Merge release note fragments into the release notes
 
 /* Release notes are added as separate fragment files (doc/release-notes/<major>.<minor>/*.md) so concurrent PRs don't
-   conflict on GitHub, which ignores the union merge driver in .gitattributes. This script merges the fragments into
-   doc/release-notes/<major>.<minor>.md. See .agents/skills/release-notes/SKILL.md for the format.
+   conflict. This script merges the fragments into doc/release-notes/<major>.<minor>.md. See
+   .agents/skills/release-notes/SKILL.md for the format.
 */
 
 import { CLIRuntimeError, runCli } from "@webhare/cli";
