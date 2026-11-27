@@ -5,7 +5,9 @@ LOADLIB "wh::internet/mime.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/emailcontext.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/publishable.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/rtd.whlib";
 
 LOADLIB "mod::system/lib/cache.whlib";
@@ -693,6 +695,35 @@ MACRO TestPluginPrepareMailFeature()
   TestEq("hooked-custom", BlobToString(resultmessage.data.subparts[0].data,-1));
 }
 
+//Widgets rendering a nested RTD into a mail can set its RTD type, which is passed on to the widgets inside it
+MACRO TestNestedRTDType() {
+  STRING level1 := "http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1";
+  STRING level2 := "http://www.webhare.net/xmlns/webhare_testsuite/rtd/level2";
+  RECORD nestedrtd := [ htmltext := StringToBlob('<div class="wh-rtd-embeddedobject" data-instanceid="lvl2"></div>')
+                      , instances := [[ instanceid := "lvl2"
+                                      , data := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2" ]
+                                      ]]
+                      ];
+
+  OBJECT composer := PrepareMailWitty("inline::<html><body></body></html>");
+  OBJECT widgetcontext := NEW EmailWidgetContext(composer, DEFAULT OBJECT, GetApplyTesterForObject(OpenTestsuiteSite()->id), GetRTDType(level1), FALSE);
+
+  OBJECT rendered := MakeXMLDocumentFromHTML(GetPrintedAsBlob(widgetcontext->GetRTDBody(nestedrtd, [ rtdtype := level2 ])));
+  TestEq(level2, rendered->GetElement(".level2widget")->GetAttribute("data-rtdtype"));
+
+  //Without an explicit RTD type the widgets get the RTD type of the containing document
+  rendered := MakeXMLDocumentFromHTML(GetPrintedAsBlob(widgetcontext->GetRTDBody(nestedrtd)));
+  TestEq(level1, rendered->GetElement(".level2widget")->GetAttribute("data-rtdtype"));
+
+  //An unknown RTD type throws, just like when previewing
+  MACRO PTR render := widgetcontext->GetRTDBody(nestedrtd, [ rtdtype := "http://www.webhare.net/xmlns/webhare_testsuite/rtd/nosuchtype" ]);
+  TestThrowsLike("No such RTDType registered*", PTR GetPrintedAsBlob(render));
+
+  //... also when the RTD contains no widgets
+  render := widgetcontext->GetRTDBody([ htmltext := StringToBlob("<p>No widgets</p>") ], [ rtdtype := "http://www.webhare.net/xmlns/webhare_testsuite/rtd/nosuchtype" ]);
+  TestThrowsLike("No such RTDType registered*", PTR GetPrintedAsBlob(render));
+}
+
 RunTestframework([ PTR EmbedTest
                  , PTR EmbedTest_PrepareMail
                  , PTR EmbedTest_TestCache
@@ -709,4 +740,5 @@ RunTestframework([ PTR EmbedTest
                  , PTR TestMailWitty_Component
                  , PTR TestRejectHugeMail
                  , PTR TestPluginPrepareMailFeature
+                 , PTR TestNestedRTDType
                  ]);

@@ -21,6 +21,7 @@ LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/rtd.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/emailcontext.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
 
 LOADLIB "mod::system/lib/cache.whlib";
@@ -1374,15 +1375,23 @@ STATIC OBJECTTYPE WittyMailComposer
       @cell(boolean) options.rawwittytags Interpret and merge any witty tags found anywhere in HTML, inside embedhtml and content, accepting potential crashes
       @cell(boolean) options.wittyhyperlinks Support witty tags in hyperlinks if they're prefixed with x-witty:
       @cell(macro ptr) options.htmlpostprocessor Callback which will receive a DOM to rewrite after the rest of the RTD has been prepared but before rendered widgets are merged back into the content
+      @cell(string) options.rtdtype RTD type of the document. Passed to the widgets inside it (as their rtdtype) when rendering inside a widget context, where it throws if the RTD type doesn't exist. If not set, the RTD type of the containing document is used. The document itself is not restricted to what this type allows
       */
   PUBLIC MACRO RenderRTD(RECORD rtdtext, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([ rawwittytags := FALSE
                                , wittyhyperlinks := FALSE
                                , htmlpostprocessor := DEFAULT MACRO PTR
-                               , rtdtype := "" //FIXME actually honor this and render the RTD restricted by type (ie no taking innerhtml)
+                               , rtdtype := "" //FIXME also render the RTD restricted by this type (ie no taking innerhtml)
                                , __mergecontext := this->mergecontext
                                ], options);
+    IF(options.rtdtype != "" AND RecordExists(options.__mergecontext))
+    {
+      RECORD typeinfo := GetRTDType(options.rtdtype);
+      IF(NOT RecordExists(typeinfo))
+        THROW NEW Exception("No such RTDType registered: " || options.rtdtype);
+      options.__mergecontext.rtdtype := typeinfo;
+    }
     IF(NOT RecordExists(rtdtext))
       RETURN; //easy!
 
