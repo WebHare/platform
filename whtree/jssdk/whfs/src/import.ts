@@ -165,7 +165,9 @@ class ImportSession {
 
     //Construct an absolute path
     const finalPath = join(basePath, mappedPath);
-    // console.log(basePath, subPath, mappedPath, finalPath);
+    if (finalPath + "/" === this.targetFolder.whfsPath)
+      return this.targetFolder.id; //a link to the target folder itself
+
     if (!finalPath.startsWith(this.targetFolder.whfsPath)) {
       this.result.messages.push({ subPath, type: "error", message: `Mapped path '${mappedPath}' resolves to '${finalPath}' which is outside of the target folder '${this.targetFolder.whfsPath}'` });
       return null;
@@ -300,8 +302,8 @@ function collapseMetadata(items: ImportItem[]): CombinedImportItem[] {
   for (const [subpath, item] of itemMap) {
     if (subpath.endsWith("/^folder.whfs.yml")) {
       outItems.push({
-        name: dirname(subpath).split('/').pop()!, //get the folder name from the path
-        subPath: dirname(subpath),
+        name: dirname(item.subPath).split('/').pop()!, //get the folder name from the path (not from the lowercased key)
+        subPath: dirname(item.subPath),
         metadata: item.blob
       });
       itemMap.delete(subpath); //mark metadata as processed

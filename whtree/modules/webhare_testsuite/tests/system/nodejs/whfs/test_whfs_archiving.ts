@@ -6,7 +6,7 @@ import { importIntoWHFS, storeWHFSExport, whfsType, type ImportWHFSProgress, typ
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 function onImportProgress(progress: ImportWHFSProgress) {
   console.log(`- import: ${progress.subPath}`);
@@ -212,10 +212,32 @@ async function testRTDImageRoundTrip() {
     test.assert(readFileSync(join(workdir, "export1", "rtd-images", item.image.file.asset)).equals(readFileSync(join(workdir, "export2", "rtd-images", item.image.file.asset))), `Exported image '${item.image.file.asset}' should be identical`);
 }
 
+// Verifies that folder names keep their case in an export/import round trip
+async function testWHFSImportFolderCase() {
+  const workdir = await mkdtemp(join(tmpdir(), "whfs-import-case."));
+  const target = await test.getTestSiteJSTemp();
+
+  await beginWork();
+  const caseSource = await target.createFolder("Case-Source");
+  await (await caseSource.createFolder("Mixed-Case")).createFile("index", { type: "platform:filetypes.richdocument" });
+  await commitWork();
+
+  await storeWHFSExport(join(workdir, "case"), [caseSource]);
+  test.assert(existsSync(join(workdir, "case", "Case-Source/Mixed-Case/^folder.whfs.yml")));
+
+  await beginWork();
+  const caseTarget = await target.createFolder("case-target");
+  const caseResult = await importIntoWHFS(join(workdir, "case"), caseTarget);
+  test.eq([], caseResult.messages);
+  await commitWork();
+  test.eq(["Case-Source/Mixed-Case", "Case-Source/Mixed-Case/index", "Case-Source"].sort(), (await caseTarget.listRecursive()).map(entry => entry.path).sort());
+}
+
 test.runTests([
   test.resetWTS,
   testWHFSImportArchive,
   testWHFSExportArchive,
   testWHFSExportWithResourceLinks,
   testRTDImageRoundTrip,
+  testWHFSImportFolderCase,
 ]);
