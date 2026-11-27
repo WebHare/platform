@@ -12,6 +12,7 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
@@ -118,9 +119,6 @@ PUBLIC OBJECTTYPE FilterPanel EXTEND WHFSFilterScreenBase
     IF (NOT this->tolliumuser->GetRegistryKey("publisher.prefs.showforeignfolders", FALSE))
       queries := [ ...queries, CQNot(CQMatch("whfstype", "=", 1)) ];
 
-    // Never return items from webhare-private
-    queries := [ ...queries, CQNot(CQMatch("whfstree", "CONTAINS", 10)) ];
-
     // Run the query
     RECORD res;
     TRY
@@ -143,12 +141,13 @@ PUBLIC OBJECTTYPE FilterPanel EXTEND WHFSFilterScreenBase
       RETURN DEFAULT RECORD;
     }
 
-    // Test for deleted objects
+    // Test for deleted objects. Everything in webhare-private is inactive, but only the recycle bins and history hold deleted objects
     INTEGER ARRAY deleted_results :=
         SELECT AS INTEGER ARRAY id
           FROM system.fs_objects
          WHERE id IN (SELECT AS INTEGER ARRAY whfsid FROM res.results)
-               AND NOT isactive;
+               AND NOT isactive
+               AND IsRecycleOrHistoryWHFSPath(whfspath);
 
     // Keep only active results
     RECORD ARRAY finalresults :=
