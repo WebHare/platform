@@ -5,7 +5,7 @@ import { getType, describeWHFSType, unknownfiletype, normalfoldertype } from "./
 import { defaultDateTime } from "@webhare/hscompat/src/datetime";
 import type { CSPContentType } from "./siteprofiles";
 import { extname, parse } from 'node:path';
-import { convertToWillPublish, formatPathOrId, getFSObjectData, isHistoricWHFSSpace, isPublish, isValidName, PublishedFlag_StripExtension, PubPrio_DirectEdit, PubPrio_Scheduled, setFlagInPublished } from "./support";
+import { convertToWillPublish, formatPathOrId, getFSObjectData, isHistoricWHFSSpace, isPublish, isValidName, PublishedFlag_StripExtension, PubPrio_DirectEdit, setFlagInPublished } from "./support";
 import * as std from "@webhare/std";
 import { backendConfig, encryptForThisServer, IntExtLink, readRegistryKey, type WebHareBlob } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
@@ -20,6 +20,7 @@ import type { AuthorizationInterface } from "@webhare/auth";
 import { __getAuthorizationInterfaceForUser, ensureAuthObject } from "@webhare/auth/src/userrights";
 import { lookupWHFSObject } from "./database";
 import { WHFSError } from "./error";
+import { republishFiles, republishWHFSObjects, type RepublishOptions } from "./publication";
 
 export type WHFSObject = WHFSFile | WHFSFolder;
 
@@ -614,24 +615,9 @@ export class WHFSFile extends WHFSBaseObject {
     //FIXME sandboxing gets us only so far, ideally we would have a separate hostname just for hosting content, ideally on a different TLD. We need a 'primary output URL'? see also https://github.com/whatwg/html/issues/3958#issuecomment-920347821
     return new URL(`/.publisher/preview/${viewdata}/`, base).toString();
   }
-  async republish() {
-    const rec = await db<PlatformDB>()
-      .selectFrom("system.fs_objects")
-      .select(["published"])
-      .where("id", "=", this.id)
-      .where("isfolder", "=", false)
-      .executeTakeFirst();
-    if (rec) {
-      const newPublish = convertToWillPublish(rec.published, false, false, PubPrio_Scheduled); //if you actually bother to republish a single file, expedite it
-      if (newPublish !== rec.published) {
-        await db<PlatformDB>()
-          .updateTable("system.fs_objects")
-          .set({ published: newPublish })
-          .where("id", "=", this.id)
-          .execute();
-        whfsFinishHandler().fileRepublish(this.parentSite, this.parent, this.id);
-      }
-    }
+  /** Republish this file. Takes effect when the current work is committed */
+  async republish(): Promise<void> {
+    await republishFiles([this.id]);
   }
 
   getEventMasks(types: ("default" | "history" | "publication")[] = ["default"]): string[] {
@@ -658,6 +644,13 @@ export class WHFSFolder extends WHFSBaseObject {
 
   listRecursive<K extends keyof ListableFsObjectRow = never>(keys?: K[], options?: ListFSRecursiveOptions): Promise<Array<WHFSRecursiveListResult<K>>> {
     return listRecursive(this.id, keys, options);
+  }
+
+  /** Republish the files in this folder. Takes effect when the current work is committed
+      @param options - Which files to republish, and whether to include subfolders
+  */
+  async republish(options?: RepublishOptions): Promise<void> {
+    await republishWHFSObjects([this.id], options);
   }
 
   async describeType(): Promise<FolderTypeInfo> {
